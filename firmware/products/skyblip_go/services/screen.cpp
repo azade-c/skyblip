@@ -5,7 +5,6 @@
 #include "core/flight/atmosphere.h"
 #include "core/power/cutoff.h"
 #include "core/protocol/nmea_out.h"
-#include "core/util/format.h"
 #include "core/util/units.h"
 #include "ui/screens/installing.h"
 #include "ui/widgets/wordmark.h"
@@ -16,23 +15,6 @@ namespace {
 bool settled_for_a_double_press(uint32_t now_ms, uint32_t since_ms) {
     return now_ms - since_ms >= ui::ConfirmGesture::kDoublePressMs;
 }
-
-#if SKYBLIP_PANEL_TICKER
-// TODO: fc 13sep26 diagnostic, remove once the grey at the first partial is settled
-void draw_ticker(ui::Framebuffer& fb, uint32_t seconds) {
-    constexpr int kScale = 2;
-    constexpr int kCellW = 6;
-    constexpr int kGlyphH = 7;
-    constexpr int kMargin = 4;
-    char buf[8];
-    const int digits = fmt_uint(buf, seconds % 1000);
-    buf[digits] = 0;
-    const int w = digits * kCellW * kScale - kScale;
-    const int x = ui::Framebuffer::kW - kMargin - w;
-    fb.rect(x - 2, kMargin - 2, w + 4, kGlyphH * kScale + 4, false, true);
-    fb.draw_text(x, kMargin, buf, true, kScale);
-}
-#endif
 }  // namespace
 
 // INFO: cf 02aug26 a standing prompt takes the pad and the button both, so nothing pages or opens
@@ -494,10 +476,6 @@ void ScreenService::render() {
             break;
         }
     }
-
-#if SKYBLIP_PANEL_TICKER
-    draw_ticker(fb_, last_tick_ms_ / 1000);
-#endif
 }
 
 }  // namespace skyblip::go
