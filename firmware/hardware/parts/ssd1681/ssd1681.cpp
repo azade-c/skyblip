@@ -1,7 +1,7 @@
 // GDEH0154D67 panel on the SSD1681 controller, over io::Spi / io::Gpio only.
 #include "hardware/parts/ssd1681/ssd1681.h"
 
-#include <cstring>
+#include "hardware/parts/ssd1681/waveform.h"
 
 namespace skyblip::parts {
 
@@ -22,16 +22,17 @@ constexpr uint8_t kSetRamYCounter = 0x4F;
 constexpr uint8_t kDeepSleep = 0x10;
 constexpr uint8_t kDeepSleepRetainRam = 0x01;
 
+constexpr uint8_t kWriteLut = 0x32;
 constexpr uint8_t kEndOption = 0x3F;
+constexpr uint8_t kGateVoltage = 0x03;
+constexpr uint8_t kSourceVoltage = 0x04;
+constexpr uint8_t kWriteVcom = 0x2C;
+constexpr uint8_t kDisplayOption = 0x37;
 
 constexpr uint8_t kSequenceFull = 0xF7;
-// INFO: fc 13sep26 0xFF is these two fused, and fused there is no window to set EOPT between them
-constexpr uint8_t kSequenceLoadPartialWaveform = 0xB9;
-// INFO: fc 12sep26 0xCF ends a partial with the rails down, as Waveshare's own partial does
+constexpr uint8_t kSequencePowerOn = 0xC0;
+// INFO: fc 13sep26 0xCF displays mode 2 and drops the rails, loading nothing over the waveform
 constexpr uint8_t kSequencePartial = 0xCF;
-
-// INFO: fc 13sep26 SSD1681 3F: the source outputs hold their last level into the power-off ramp
-constexpr uint8_t kEndOptionHoldSourceThroughPowerOff = 0x07;
 
 // INFO: fc 09mar26 VBD follows LUT1 at 0x05 and greys over a run of partials; 0x80 holds it at VCOM
 constexpr uint8_t kBorderFollowLut1 = 0x05;
@@ -51,11 +52,6 @@ void Ssd1681::begin() {
     asleep_ = false;
 }
 
-// INFO: fc 09mar26 GxEPD2 writes the new frame into both banks before a full refresh
-const uint8_t* Ssd1681::previous_bank(const ui::Framebuffer& fb, bool full) const {
-    return full ? fb.data() : shadow_;
-}
-
 void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now_ms) {
     if (refreshing_) abort_refresh();
     if (asleep_) {
@@ -64,19 +60,23 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     }
 
     const bool full = mode == hal::Refresh::Full || !glass_known_;
+    if (!full && !partial_mode_) enter_partial_mode();
 
     set_window(0, 0, kW - 1, kH - 1);
-    if (!full) load_partial_waveform();
-    cmd(kBorderWaveform);
-    data(full ? kBorderFollowLut1 : kBorderVcom);
-    write_bank(kWriteRamPrevious, previous_bank(fb, full));
+    // INFO: fc 09mar26 GxEPD2 writes the new frame into both banks before a full refresh
+    if (full) {
+        cmd(kBorderWaveform);
+        data(kBorderFollowLut1);
+        write_bank(kWriteRamPrevious, fb.data());
+    }
     write_bank(kWriteRam, fb.data());
-    std::memcpy(shadow_, fb.data(), ui::Framebuffer::kBytes);
 
     cmd(kDisplayUpdateCtrl2);
     data(full ? kSequenceFull : kSequencePartial);
     cmd(kMasterActivation);
 
+    // INFO: fc 13sep26 0xF7 loads the OTP mode-1 set over the waveform written here
+    if (full) partial_mode_ = false;
     glass_known_ = true;
     refreshing_ = true;
     partial_refresh_ = !full;
@@ -84,14 +84,30 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     timeout_at_ms_ = now_ms + kBusyTimeoutMs;
 }
 
-// INFO: fc 13sep26 SSD1681 6.7: one OTP set is LUT, gate/source voltage, VCOM and EOPT together
-void Ssd1681::load_partial_waveform() {
-    cmd(kDisplayUpdateCtrl2);
-    data(kSequenceLoadPartialWaveform);
-    cmd(kMasterActivation);
-    wait_busy();
+// INFO: fc 13sep26 Waveshare epd1in54_V2 init(1): the waveform, its rails, ping-pong, power on
+void Ssd1681::enter_partial_mode() {
+    cmd(kWriteLut);
+    burst(epd::kPartialWaveform, epd::kLutBytes);
     cmd(kEndOption);
-    data(kEndOptionHoldSourceThroughPowerOff);
+    data(epd::kPartialWaveform[epd::kEndOptionByte]);
+    cmd(kGateVoltage);
+    data(epd::kPartialWaveform[epd::kGateVoltageByte]);
+    cmd(kSourceVoltage);
+    burst(&epd::kPartialWaveform[epd::kSourceVoltageByte], epd::kSourceVoltageBytes);
+    cmd(kWriteVcom);
+    data(epd::kPartialWaveform[epd::kVcomByte]);
+
+    cmd(kDisplayOption);
+    burst(epd::kDisplayOptionPingPong, sizeof(epd::kDisplayOptionPingPong));
+
+    cmd(kBorderWaveform);
+    data(kBorderVcom);
+
+    cmd(kDisplayUpdateCtrl2);
+    data(kSequencePowerOn);
+    cmd(kMasterActivation);
+    wait_busy(epd::kPowerOnSpins);
+    partial_mode_ = true;
 }
 
 bool Ssd1681::ready(uint32_t now_ms) {
@@ -135,6 +151,7 @@ void Ssd1681::hold_reset() {
 }
 
 void Ssd1681::init_panel() {
+    partial_mode_ = false;
     gpio_.set(rst_, true);
     gpio_.set(rst_, false);
     hold_reset();
@@ -181,10 +198,12 @@ void Ssd1681::cmd(uint8_t c) {
     spi_.select(false);
 }
 
-void Ssd1681::data(uint8_t d) {
+void Ssd1681::data(uint8_t d) { burst(&d, 1); }
+
+void Ssd1681::burst(const uint8_t* bytes, size_t n) {
     gpio_.set(dc_, true);
     spi_.select(true);
-    spi_.transfer(&d, nullptr, 1);
+    spi_.transfer(bytes, nullptr, n);
     spi_.select(false);
 }
 

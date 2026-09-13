@@ -8,6 +8,7 @@
 #include "doctest/doctest.h"
 #include "hardware/parts/ssd1681/model.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
+#include "hardware/parts/ssd1681/waveform.h"
 #include "ui/framebuffer.h"
 
 using namespace skyblip;
@@ -197,7 +198,9 @@ TEST_CASE("epd: the panel says which refresh is in flight, and for how long") {
     CHECK_FALSE(d.refreshing());
 }
 
-TEST_CASE("epd: present() rewrites the previous-image bank so the panel diffs the truth") {
+// Ping-pong moves the frame into the previous bank, so writing 0x26 is guessing at which is
+// current.
+TEST_CASE("epd: a partial writes the new frame alone, the panel keeps the previous itself") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
@@ -207,22 +210,83 @@ TEST_CASE("epd: present() rewrites the previous-image bank so the panel diffs th
     first.set_pixel(10, 10, true);
     d.present(first, hal::Refresh::Full, 0);
     settle(d, 0);
+    const int banked = f.previous_bank_writes;
 
     ui::Framebuffer second;
     second.clear(true);
     second.set_pixel(20, 20, true);
     d.present(second, hal::Refresh::Partial, 5000);
 
-    // Bank 0x26 must hold what the glass shows (the first frame) and bank
-    // 0x24 the new one, both in panel polarity. A stale or empty 0x26 is the
-    // classic partial-update ghosting bug.
-    REQUIRE(f.ram_previous.size() == ui::Framebuffer::kBytes);
+    CHECK(f.ping_pong);
+    CHECK(f.previous_bank_writes == banked);
     REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
-    ui::Framebuffer glass;
+    ui::Framebuffer written;
     for (size_t i = 0; i < ui::Framebuffer::kBytes; i++)
-        glass.data()[i] = static_cast<uint8_t>(~f.ram_previous[i]);
-    CHECK(glass.get_pixel(10, 10));
-    CHECK_FALSE(glass.get_pixel(20, 20));
+        written.data()[i] = static_cast<uint8_t>(~f.ram[i]);
+    CHECK(written.get_pixel(20, 20));
+    CHECK_FALSE(written.get_pixel(10, 10));
+}
+
+// The OTP waveform for mode 2 is the one that greyed every black on the panel, changed or not.
+TEST_CASE("epd: a partial runs the waveform the driver wrote, never the one in OTP") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+    ui::Framebuffer fb;
+    fb.clear(true);
+
+    d.present(fb, hal::Refresh::Full, 0);
+    settle(d, 0);
+    CHECK(f.lut_at_display == 0);  // the wash runs the OTP set, and loads it over any other
+
+    fb.set_pixel(5, 5, true);
+    d.present(fb, hal::Refresh::Partial, 5000);
+    CHECK(f.lut_at_display == parts::epd::kLutBytes);
+}
+
+TEST_CASE("epd: partial mode is entered once, and every frame after it costs only the frame") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+    ui::Framebuffer fb;
+    fb.clear(true);
+
+    d.present(fb, hal::Refresh::Full, 0);
+    settle(d, 0);
+    CHECK(f.lut_writes == 0);
+
+    uint32_t t = 5000;
+    for (int i = 0; i < 5; i++) {
+        fb.set_pixel(5, 5 + i, true);
+        d.present(fb, hal::Refresh::Partial, t);
+        CHECK(d.ready(t + parts::Ssd1681::kReadyAfterPartialMs));
+        t += 1000;
+    }
+    CHECK(f.lut_writes == 1);
+    CHECK(f.power_ons == 1);
+    CHECK(f.present_count == 6);
+}
+
+// A wash loads the OTP set over the written waveform, which is what makes re-entry the rule.
+TEST_CASE("epd: a wash leaves partial mode, and the partial after it enters again") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+    ui::Framebuffer fb;
+    fb.clear(true);
+
+    uint32_t t = 0;
+    for (int pass = 0; pass < 2; pass++) {
+        d.present(fb, hal::Refresh::Full, t);
+        settle(d, t);
+        t += 5000;
+        fb.set_pixel(5, 5 + pass, true);
+        d.present(fb, hal::Refresh::Partial, t);
+        CHECK(d.ready(t + parts::Ssd1681::kReadyAfterPartialMs));
+        t += 5000;
+    }
+    CHECK(f.lut_writes == 2);
+    CHECK(f.power_ons == 2);
 }
 
 // GxEPD2 writeImageForFullRefresh: the wash reads both banks, and old against new adds inversions.
@@ -260,40 +324,6 @@ TEST_CASE("epd: the border follows the waveform on a wash and is held at VCOM on
     fb.set_pixel(5, 5, true);
     d.present(fb, hal::Refresh::Partial, 5000);
     CHECK(f.border == 0x80);
-}
-
-// The first partial after a full came out grey, later ones recovered: the power-down cut it off.
-TEST_CASE("epd: a partial holds the source level into the power-off it ends with") {
-    models::Ssd1681 f;
-    parts::Ssd1681 d = make(f);
-    d.begin();
-    ui::Framebuffer fb;
-    fb.clear(true);
-
-    d.present(fb, hal::Refresh::Full, 0);
-    settle(d, 0);
-
-    fb.set_pixel(5, 5, true);
-    d.present(fb, hal::Refresh::Partial, 5000);
-    CHECK(f.end_option_at_display == 0x07);
-}
-
-// EOPT is part of the waveform set, so a write before the load is a write the load throws away.
-TEST_CASE("epd: the partial waveform is loaded before the frame, not in the same activation") {
-    models::Ssd1681 f;
-    parts::Ssd1681 d = make(f);
-    d.begin();
-    ui::Framebuffer fb;
-    fb.clear(true);
-
-    d.present(fb, hal::Refresh::Full, 0);
-    settle(d, 0);
-    CHECK(f.activations == 1);  // the wash loads and displays in one
-
-    fb.set_pixel(5, 5, true);
-    d.present(fb, hal::Refresh::Partial, 5000);
-    CHECK(f.waveform_loads == 2);
-    CHECK(f.activations == 3);  // the partial loads, then displays
 }
 
 // Ink migrates under the bias a powered panel holds, and in the sun it migrates fast.

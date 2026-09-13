@@ -53,14 +53,14 @@ class Ssd1681 : public hal::Display {
 
    private:
     void init_panel();
-    void load_partial_waveform();
+    void enter_partial_mode();
     void hold_reset();
     void abort_refresh();
     void finish_refresh();
     void enter_sleep();
-    const uint8_t* previous_bank(const ui::Framebuffer& fb, bool full) const;
     void cmd(uint8_t c);
     void data(uint8_t d);
+    void burst(const uint8_t* bytes, size_t n);
     void write_bank(uint8_t command, const uint8_t* fb_bytes);
     uint8_t ram_byte(const uint8_t* fb_bytes, int gate, int column) const;
     void set_window(int x0, int y0, int x1, int y1);
@@ -71,9 +71,9 @@ class Ssd1681 : public hal::Display {
     io::Gpio& gpio_;
     int dc_, rst_, busy_, backlight_;
     GlassRotation rotation_;
-    // INFO: fc 01aug25 the glass image, into bank 0x26 each present, so a partial diffs on truth
-    uint8_t shadow_[ui::Framebuffer::kBytes]{};
     bool glass_known_{false};
+    // INFO: fc 13sep26 the written partial waveform is in force, until a full or a reset loads OTP
+    bool partial_mode_{false};
     bool asleep_{false};
     bool refreshing_{false};
     bool partial_refresh_{false};
@@ -87,6 +87,8 @@ namespace epd {
 constexpr uint32_t kResetHoldUs = 10000;
 constexpr uint32_t kResetSpinNsFloor = 125;
 constexpr uint32_t kResetHoldSpins = kResetHoldUs * 1000u / kResetSpinNsFloor;
+// INFO: fc 13sep26 GxEPD2 D67 power_on_time is 100 ms, and a frame sent into that ramp is lost
+constexpr uint32_t kPowerOnSpins = 10 * kResetHoldSpins;
 }  // namespace epd
 
 }
