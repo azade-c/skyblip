@@ -21,3 +21,7 @@ file(GLOB SKYBLIP_GO_SOURCES
   ${CMAKE_CURRENT_LIST_DIR}/services/*.cpp
 )
 target_sources(app PRIVATE ${SKYBLIP_GO_SOURCES})
+
+# TODO: fc 13sep26 diagnostic: a seconds ticker top right, so partials run without a fix.
+# Remove with draw_ticker() in services/screen.cpp once the grey at the first partial is settled.
+target_compile_definitions(app PRIVATE SKYBLIP_PANEL_TICKER=1)
