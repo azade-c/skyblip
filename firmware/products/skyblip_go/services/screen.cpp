@@ -24,8 +24,7 @@ void ScreenService::handle_input(uint32_t now_ms) {
     if (pending != prompt_) {
         prompt_ = pending;
         prompt_since_ms_ = now_ms;
-        dirty_ = true;
-        flash_pending_ = true;
+        repaint_after_swap();
         gesture_.disarm();
         prompt_on_glass_ = false;
     }
@@ -97,16 +96,25 @@ void ScreenService::repaint_through_black() {
     flash_pending_ = true;
 }
 
+// INFO: fc 13sep26 boot keeps its black whatever the toggle says: begin() took the glass for white
+void ScreenService::repaint_after_swap() {
+    if (kSwapThroughBlack) {
+        repaint_through_black();
+        return;
+    }
+    dirty_ = true;
+}
+
 void ScreenService::dismiss_self_test(uint32_t now_ms) {
     showing_self_test_ = false;
     editor_.enter(now_ms);
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::enter_settings(uint32_t now_ms) {
     mode_ = Mode::Settings;
     sync_editor(now_ms);
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::page_forward(uint32_t now_ms) {
@@ -123,7 +131,7 @@ void ScreenService::page_forward(uint32_t now_ms) {
 void ScreenService::show_radar() {
     if (mode_ == Mode::Settings) leave_settings();
     page_ = Page::Radar;
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::leave_settings() {
@@ -131,7 +139,7 @@ void ScreenService::leave_settings() {
     showing_self_test_ = false;
     editor_.leave();
     page_ = traffic_page();
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::step_editor(uint32_t now_ms) {
@@ -178,7 +186,7 @@ void ScreenService::resolve(ui::Gesture gesture) {
     prompt_ = comms::Pending::None;
     gesture_.disarm();
     prompt_on_glass_ = false;
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::tick(uint32_t now_ms) {
@@ -266,7 +274,7 @@ void ScreenService::next_page() {
             break;
         }
     }
-    repaint_through_black();
+    repaint_after_swap();
 }
 
 void ScreenService::set_backlight(bool on) {

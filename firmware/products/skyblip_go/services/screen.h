@@ -26,6 +26,9 @@ class ScreenService : public runtime::Service {
     static constexpr uint32_t kRenderPeriodMs = 1000;
     static constexpr uint32_t kPresentFloorMs = 1000;
 
+    // TODO: fc 13sep26 bench toggle: build it false, judge the ghost a swap leaves, delete the loser
+    static constexpr bool kSwapThroughBlack = true;
+
     // INFO: fc 06sep26 Good Display rates the glass 0..50 C, read on a die above ambient
     static constexpr int16_t kHoldAboveDeciCelsius = 500;
 
@@ -75,6 +78,7 @@ class ScreenService : public runtime::Service {
    private:
     void render(uint32_t now_ms);
     void repaint_through_black();
+    void repaint_after_swap();
     void draw_prompt();
     void draw_settings_page();
     void dismiss_self_test(uint32_t now_ms);
