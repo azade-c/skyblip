@@ -58,14 +58,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                 if (refreshing()) commands_while_busy++;
                 cmds.push_back(b);
                 if (b == kWriteRam) ram.clear();
-                if (b == kWriteRamPrevious) {
-                    ram_previous.clear();
-                    previous_bank_writes++;
-                }
-                if (b == kWriteLut) {
-                    lut.clear();
-                    lut_writes++;
-                }
+                if (b == kWriteRamPrevious) ram_previous.clear();
                 if (b == kDeepSleep) {
                     powered = false;
                     rails_on = false;
@@ -74,11 +67,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                 if (b == kMasterActivation) {
                     rails_on =
                         powered && (sequence_ & kEnableAnalog) && !(sequence_ & kDisableAnalog);
-                    // INFO: fc 13sep26 SSD1681 6.7: a loaded OTP set replaces the written waveform
-                    if (sequence_ & kLoadLut) lut.clear();
-                    if (rails_on && !(sequence_ & kDisplay)) power_ons++;
                     if (sequence_ & kDisplay) {
-                        lut_at_display = lut.size();
                         present_count++;
                         if (clock_ != nullptr) {
                             refresh_since_ms_ = clock_->millis();
@@ -90,7 +79,6 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                     }
                 }
                 pending_ = b;
-                data_index_ = 0;
             } else {
                 if (pending_ == kWriteRam) ram.push_back(b);
                 if (pending_ == kWriteRamPrevious) ram_previous.push_back(b);
@@ -99,10 +87,6 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                     if (b & kDisplay) last_full = !(b & kLoadLutMode2);
                 }
                 if (pending_ == kBorderWaveform) border = b;
-                if (pending_ == kWriteLut) lut.push_back(b);
-                if (pending_ == kDisplayOption && data_index_ == kPingPongByte)
-                    ping_pong = (b & kPingPongBit) != 0;
-                data_index_++;
             }
         }
     }
@@ -142,12 +126,6 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     std::vector<uint8_t> cmds;
     std::vector<uint8_t> ram;
     std::vector<uint8_t> ram_previous;
-    std::vector<uint8_t> lut;
-    size_t lut_at_display{0};
-    int lut_writes{0};
-    int previous_bank_writes{0};
-    int power_ons{0};
-    bool ping_pong{false};
     int reset_pulses{0};
     uint32_t reads_while_in_reset{0};
     int present_count{0};
@@ -166,11 +144,6 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     static constexpr uint8_t kMasterActivation = 0x20;
     static constexpr uint8_t kUpdateCtrl2 = 0x22;
     static constexpr uint8_t kBorderWaveform = 0x3C;
-    static constexpr uint8_t kWriteLut = 0x32;
-    static constexpr uint8_t kDisplayOption = 0x37;
-    static constexpr size_t kPingPongByte = 5;
-    static constexpr uint8_t kPingPongBit = 0x40;
-    static constexpr uint8_t kLoadLut = 0x10;
     static constexpr uint8_t kDeepSleep = 0x10;
     static constexpr uint8_t kEnableAnalog = 0x40;
     static constexpr uint8_t kLoadLutMode2 = 0x08;
@@ -188,7 +161,6 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     uint32_t refresh_span_ms_{0};
     ui::Framebuffer panel_{};
     uint8_t sequence_{0};
-    size_t data_index_{0};
     bool dc_high_{false};
     bool rst_level_{true};
     uint8_t pending_{0};
