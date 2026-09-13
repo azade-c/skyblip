@@ -69,6 +69,8 @@ struct OwnState {
     // Horizontal dilution of precision in hundredths. Zero means the receiver
     // did not report it, which is not the same as a good one.
     uint16_t hdop_e2;
+    // INFO: fc 13sep26 vertical DOP in hundredths, GSA field 17, zero on a 2D solution
+    uint16_t vdop_e2;
     // False when the geoid separation behind alt_m came from a regional constant
     // rather than from the receiver.
     bool geoid_separation_measured;

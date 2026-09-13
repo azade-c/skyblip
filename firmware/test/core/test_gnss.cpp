@@ -158,6 +158,40 @@ TEST_CASE("gnss: GGA carries HDOP in hundredths") {
     CHECK(p.fix().hdop_e2 == 480);
 }
 
+// GSA is asked for to carry VDOP: G.1.12's vertical claim has no other source on this part.
+TEST_CASE("gnss: GSA carries VDOP in hundredths") {
+    NmeaParser p;
+    const char* gsa = "$GPGSA,A,3,04,05,,09,12,,,24,,,,,2.50,1.25,2.10*0D";
+    REQUIRE(p.parse_line(gsa, static_cast<int>(strlen(gsa))));
+    CHECK(p.last_sentence() == Sentence::Gsa);
+    CHECK(p.fix().vdop_e2 == 210);
+
+    // A 2D solution computes no vertical figure and leaves the field empty.
+    const char* flat = "$GPGSA,A,2,04,05,,09,12,,,24,,,,,2.50,1.25,*11";
+    REQUIRE(p.parse_line(flat, static_cast<int>(strlen(flat))));
+    CHECK(p.fix().vdop_e2 == 0);
+}
+
+// A $PCAS sentence is never acknowledged: what the receiver stops saying is the only evidence.
+TEST_CASE("gnss: sentences we switched off are counted, not silently dropped") {
+    NmeaParser p;
+    const char* gll = "$GPGLL,4736.2417,N,00834.9028,E,101530,A,A*4B";
+    const char* vtg = "$GPVTG,084.4,T,,M,022.4,N,041.5,K,A*01";
+    const char* gga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
+
+    CHECK_FALSE(p.parse_line(gll, static_cast<int>(strlen(gll))));
+    CHECK_FALSE(p.parse_line(vtg, static_cast<int>(strlen(vtg))));
+    CHECK(p.unrequested() == 2);
+
+    REQUIRE(p.parse_line(gga, static_cast<int>(strlen(gga))));
+    CHECK(p.unrequested() == 2);
+
+    // A sentence nobody asked about either way is not evidence of anything.
+    const char* other = "$GPZDA,101530.00,13,09,2026,00,00*6D";
+    CHECK_FALSE(p.parse_line(other, static_cast<int>(strlen(other))));
+    CHECK(p.unrequested() == 2);
+}
+
 // No fix: no altitude of either kind, and no DOP worth believing.
 TEST_CASE("gnss: a GGA without a solution reports no altitude") {
     NmeaParser p;
@@ -195,6 +229,18 @@ TEST_CASE("gnss: a fix is timestamped before its sentence arrived") {
     // Boot: the correction reaches back past zero, and the ages computed from it
     // stay right because the arithmetic wraps the same way on both sides.
     CHECK(static_cast<uint32_t>(500 - fix_instant_ms(f, 100)) == 535);
+}
+
+// A latched PPS edge dates the solution exactly, which no per-chip constant can as the burst grows.
+TEST_CASE("gnss: a locked PPS edge dates the fix, not the stamped latency") {
+    GnssFix f{};
+    f.pps_latency_ms = 333;
+
+    CHECK(fix_instant_ms(f, 10'333, 10'000, true) == 10'000);
+
+    // No lock, or an edge too old to be this burst's own second: the estimate stands.
+    CHECK(fix_instant_ms(f, 10'333, 10'000, false) == 10'000);
+    CHECK(fix_instant_ms(f, 11'400, 10'000, true) == 11'067);
 }
 
 // I, row "Date and jump sanity", second half. A sentence that stopped early

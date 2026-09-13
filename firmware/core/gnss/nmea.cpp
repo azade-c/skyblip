@@ -134,8 +134,23 @@ bool NmeaParser::parse_line(const char* line, int len) {
     if (strlen(tag) < 6) return false;
     if (memcmp(tag + 3, "RMC", 3) == 0) return apply_rmc(fields, nf);
     if (memcmp(tag + 3, "GGA", 3) == 0) return apply_gga(fields, nf, len);
+    if (memcmp(tag + 3, "GSA", 3) == 0) return apply_gsa(fields, nf);
     if (memcmp(tag + 3, "TXT", 3) == 0) return apply_txt(line, len);
+    if (memcmp(tag + 3, "GLL", 3) == 0 || memcmp(tag + 3, "GSV", 3) == 0 ||
+        memcmp(tag + 3, "VTG", 3) == 0)
+        unrequested_++;
     return false;
+}
+
+// INFO: fc 13sep26 GSA is asked for to carry VDOP, which GGA has no field for
+bool NmeaParser::apply_gsa(const char* f[], int nf) {
+    if (nf <= kGsaVdopField) return false;
+    last_ = Sentence::Gsa;
+    long vdop_e2 = 0;
+    fix_.vdop_e2 = parse_scaled(f[kGsaVdopField], 100, vdop_e2) && vdop_e2 > 0 && vdop_e2 <= 0xFFFF
+                       ? static_cast<uint16_t>(vdop_e2)
+                       : 0;
+    return true;
 }
 
 // $GPTXT,01,01,02,SW=URANUS5,V5.1.0.0 - the CASIC firmware banner, and the only

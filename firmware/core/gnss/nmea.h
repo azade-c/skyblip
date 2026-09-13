@@ -30,7 +30,10 @@ constexpr int kMaxTwoDigitYear = 70;
 
 // Which sentence a parse consumed. The caller ages GGA and RMC separately, so it
 // has to be told which one just arrived; a fix is not a fix on one of them.
-enum class Sentence : uint8_t { None, Rmc, Gga, Txt };
+enum class Sentence : uint8_t { None, Rmc, Gga, Gsa, Txt };
+
+// INFO: fc 13sep26 GSA holds twelve satellite slots before its DOPs, so VDOP is field 17
+constexpr int kGsaVdopField = 17;
 
 struct GnssFix {
     bool valid{false};
@@ -49,6 +52,8 @@ struct GnssFix {
     uint32_t utc{0};
     // Horizontal dilution of precision in hundredths, GGA field 8.
     uint16_t hdop_e2{0};
+    // INFO: fc 13sep26 vertical DOP in hundredths, GSA field 17, zero on a 2D solution
+    uint16_t vdop_e2{0};
     // How late this solution reached us relative to the PPS edge it describes.
     // Zero until a driver that knows its part stamps it.
     uint16_t pps_latency_ms{0};
@@ -79,6 +84,9 @@ class NmeaParser {
     const char* firmware_version() const { return version_; }
     bool identified() const { return version_[0] != 0; }
 
+    // INFO: fc 13sep26 GLL, GSV or VTG still arriving means the sentence set was never taken
+    uint32_t unrequested() const { return unrequested_; }
+
    private:
     static constexpr int kVersionCap = 24;
 
@@ -86,10 +94,12 @@ class NmeaParser {
     int pos_{0};
     GnssFix fix_;
     char version_[kVersionCap]{};
+    uint32_t unrequested_{0};
     Sentence last_{Sentence::None};
 
     bool apply_rmc(const char* fields[], int nf);
     bool apply_gga(const char* fields[], int nf, int len);
+    bool apply_gsa(const char* fields[], int nf);
     bool apply_txt(const char* line, int len);
 };
 
@@ -101,6 +111,13 @@ int32_t nmea_parse_coord(const char* dm, char hemi);
 // a property of the receiver, so the part stamps it and this applies it.
 inline uint32_t fix_instant_ms(const GnssFix& fix, uint32_t arrival_ms) {
     return arrival_ms - fix.pps_latency_ms;
+}
+
+// INFO: fc 13sep26 a locked PPS edge IS the top of the second the burst describes
+inline uint32_t fix_instant_ms(const GnssFix& fix, uint32_t arrival_ms, uint32_t pps_edge_ms,
+                               bool pps_locked) {
+    if (!pps_locked || arrival_ms - pps_edge_ms >= 1000) return fix_instant_ms(fix, arrival_ms);
+    return pps_edge_ms;
 }
 
 }

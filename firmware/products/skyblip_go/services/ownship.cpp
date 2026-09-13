@@ -45,8 +45,9 @@ void OwnshipService::apply_fix(const gnss::GnssFix& f, uint32_t now_ms) {
     own.speed_q = f.speed_q;
     own.track_c9 = f.track_c9;
     own.hdop_e2 = f.hdop_e2;
+    own.vdop_e2 = f.vdop_e2;
     own.utc = f.utc;
-    own.fix_ms = gnss::fix_instant_ms(f, now_ms);
+    own.fix_ms = fix_instant(f, now_ms);
     own.sats = f.sats;
     own.aircraft_cat = context_.state.settings.aircraft_type;
 
@@ -89,6 +90,13 @@ void OwnshipService::update_residual(const messages::OwnState& previous) {
     const uint32_t resid = flight::prediction_residual_m(p, own.lat_1e7, own.lon_1e7, own.alt_m);
     own.pred_resid_m = resid > 0xFFFF ? 0xFFFF : static_cast<uint16_t>(resid);
     own.pred_resid_valid = true;
+}
+
+// INFO: fc 13sep26 the latched edge dates the solution exactly, the estimate only when it is lost
+uint32_t OwnshipService::fix_instant(const gnss::GnssFix& f, uint32_t now_ms) const {
+    const timing::ClockState& clock = context_.state.clock;
+    return gnss::fix_instant_ms(f, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000),
+                                clock.pps_locked);
 }
 
 void OwnshipService::apply_baro(const messages::BaroSample& sample) {

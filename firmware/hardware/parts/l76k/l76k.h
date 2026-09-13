@@ -37,11 +37,7 @@ class L76k {
     // escape for u-blox only (.../src/driver/GNSS.cpp, ENABLE_UBLOX_RFS).
     enum class Restart : uint8_t { Hot = 0, Warm = 1, Cold = 2, Factory = 3 };
 
-    // INFO: gn 09Jun25 The devicetree pins this UART, and the receiver's factory
-    // rate is 1 Hz. t_echo_plus.dts:278 `current-speed = <9600>` must equal
-    // kBaudRate: nothing in the build checks it, so the two are named here to be
-    // greppable. One GGA + one RMC is ~150 bytes, 156 ms of line time at 9600
-    // baud, which is what caps kFixRateHz at 5 Hz on this wiring.
+    // INFO: gn 09jun25 t_echo_plus.dts:278 `current-speed` must equal this, nothing checks it
     static constexpr uint32_t kBaudRate = 9600;
 
     // INFO: fc 03aug26 A receiver that comes up at another rate (a returned unit
@@ -55,21 +51,17 @@ class L76k {
         9600, 115200, 38400, 57600, 19200, 4800,
     };
 
-    // ADS-L 4 SRD860 issue 2 G.1.16 refuses a navigation solution older than
-    // 500 ms (timing::Transmitter::kFixAgeMaxMs), and the direct slot runs to
-    // 1000 ms after the second. At the factory 1 Hz roughly half of all
-    // transmissions are suppressed, which on the bench reads as an intermittent
-    // transmitter rather than a configuration bug.
-    static constexpr uint32_t kFixRateHz = 5;
+    // INFO: fc 13sep26 one solution per second, transmitted extrapolated to the burst's own instant
+    static constexpr uint32_t kFixRateHz = 1;
     static constexpr uint32_t kFixPeriodMs = 1000 / kFixRateHz;
 
-    // INFO: gn 09Jun25 The NMEA burst is late relative to the PPS edge whose
-    // second it describes. SoftRF carries this per chip and subtracts it from the
-    // sentence's arrival time (oss/SoftRF-lyusupov .../src/driver/GNSS.cpp:1072-1078
-    // at65_ops = {70 GGA, 135 RMC}, applied at .../src/driver/RF.cpp:236-260); OGN
-    // has the same thing as PPSdelay, default 100 ms. The burst is only complete
-    // once both sentences are in, so the later of the two governs.
-    static constexpr uint16_t kPpsLatencyMs = 135;
+    // INFO: fc 13sep26 GGA + three GSA (one per constellation) + RMC, the widest burst we ask for
+    static constexpr uint32_t kBurstBytes = 320;
+    static constexpr uint32_t kBurstMs = kBurstBytes * 10 * 1000 / kBaudRate;
+    static_assert(kBurstMs < kFixPeriodMs, "the burst must fit inside one solution period");
+
+    // INFO: gn 09jun25 SoftRF subtracts a per-chip latency the same way (.../driver/RF.cpp:236-260)
+    static constexpr uint16_t kPpsLatencyMs = static_cast<uint16_t>(kBurstMs);
 
     // INFO: fc 03aug26 The L76K wakes on UART activity, so a receiver that is
     // asleep when we start talking eats the first thing we say. SoftRF sends one
@@ -85,26 +77,18 @@ class L76k {
     static constexpr const char* kIdentifyCommand = "$PCAS06,0*1B\r\n";
     static constexpr uint32_t kIdentifyWindowMs = 1000;
 
-    // INFO: gn 09Jun25 SoftRF sends exactly these three to this part, 250 ms
-    // apart (oss/SoftRF-lyusupov .../src/driver/GNSS.cpp:1029-1057): GPS +
-    // GLONASS + BeiDou, GGA + RMC only, and the aviation dynamic model. Without
-    // the last one the receiver applies pedestrian smoothing and lags in turns.
-    // $PCAS02 is ours: SoftRF leaves the rate at the factory 1 Hz.
+    // INFO: gn 09jun25 SoftRF sends the first three 250 ms apart (.../driver/GNSS.cpp:1029-1057)
     static constexpr uint32_t kCommandGapMs = 250;
     static constexpr int kCommandCount = 4;
     static constexpr const char* kCommands[kCommandCount] = {
         "$PCAS04,7*1E\r\n",
-        "$PCAS03,1,0,0,0,1,0,0,0,0,0,,,0,0*02\r\n",
+        "$PCAS03,1,0,1,0,1,0,0,0,0,0,,,0,0*03\r\n",
         "$PCAS11,6*1B\r\n",
-        "$PCAS02,200*1D\r\n",
+        "$PCAS02,1000*2E\r\n",
     };
 
-    // $PCAS03 field 3 is GSA and it stays off. No GSA is no VDOP, which is why
-    // core/protocol/adsl.cpp set_integrity_from_hdop_e2 substitutes HDOP for it:
-    // the vertical figure is the larger per unit of DOP, so the substitution
-    // costs accuracy claim rather than inventing one. Turning GSA on would cost a
-    // third of the line budget kFixRateHz already spends.
-    static constexpr bool kGsaEnabled = false;
+    // INFO: fc 13sep26 GSA is the only sentence carrying VDOP, which G.1.12 asks us to claim
+    static constexpr bool kGsaEnabled = true;
 
     // $PCAS10 reboots the receiver. It answers nothing for about a second after
     // it, so the sequence behind a factory reset waits before it starts talking.
@@ -116,11 +100,9 @@ class L76k {
         "$PCAS10,3*1F\r\n",
     };
 
-    // Nothing acknowledges a $PCAS sentence, so the acknowledgement we accept is
-    // the receiver's cadence: one accepted sentence per solution we asked for,
-    // over a window long enough that a 1 Hz receiver cannot fake it.
+    // INFO: fc 13sep26 the rate we ask for is the factory rate, so obedience is the sentence set
     static constexpr uint32_t kVerifyWindowMs = 3000;
-    static constexpr uint32_t kMinVerifyUpdates = kVerifyWindowMs / kFixPeriodMs;
+    static constexpr uint32_t kMinVerifyUpdates = 2;
     static constexpr uint8_t kMaxConfigAttempts = 3;
 
     // Drive the configuration sequence. Until it has run the receiver is on its
@@ -179,14 +161,18 @@ class L76k {
     void begin_wake(uint32_t now_ms);
     void send(const char* sentence, uint32_t now_ms);
     void verify_failed(uint32_t now_ms);
+    bool obeying() const;
     bool next_baud();
+
+    // INFO: fc 13sep26 RMC is last in the cycle, so it is the sentence that completes a solution
+    static constexpr gnss::Sentence kBurstClosingSentence = gnss::Sentence::Rmc;
 
     io::Uart& uart_;
     io::UartRate& rate_;
     gnss::NmeaParser parser_{};
     gnss::FixValidity validity_{};
     gnss::GnssFix fix_{};
-    uint32_t applied_{0};
+    uint32_t verify_unrequested_{0};
 
     Config state_{Config::Idle};
     uint32_t serviced_ms_{0};

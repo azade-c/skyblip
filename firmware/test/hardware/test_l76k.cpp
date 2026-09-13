@@ -15,6 +15,35 @@
 using namespace skyblip;
 
 namespace {
+// The wire rather than the receiver: a burst arrives one sentence at a time.
+class SentenceWire : public io::Uart {
+   public:
+    explicit SentenceWire(models::L76k& chip) : chip_(chip) {}
+
+    size_t write(const uint8_t* data, size_t len) override { return chip_.write(data, len); }
+
+    size_t read(uint8_t* out, size_t cap) override {
+        if (buffered_.empty()) {
+            uint8_t buf[1024];
+            const size_t n = chip_.read(buf, sizeof(buf));
+            buffered_.assign(reinterpret_cast<const char*>(buf), n);
+        }
+        if (buffered_.empty()) return 0;
+        const size_t line = buffered_.find('\n');
+        size_t take = line == std::string::npos ? buffered_.size() : line + 1;
+        if (take > cap) take = cap;
+        for (size_t i = 0; i < take; i++) out[i] = static_cast<uint8_t>(buffered_[i]);
+        buffered_.erase(0, take);
+        return take;
+    }
+
+    size_t available() override { return buffered_.size(); }
+
+   private:
+    models::L76k& chip_;
+    std::string buffered_;
+};
+
 // One service call and one drain per 10 ms runtime tick, which is how the board
 // polls this part.
 void run(parts::L76k& driver, models::L76k& chip, uint32_t from_ms, uint32_t to_ms) {
@@ -159,38 +188,42 @@ TEST_CASE("l76k: an unidentified receiver is still configured, and still says so
     CHECK(gnss.configured());
 }
 
-// I, row "VDOP for vertical accuracy": DOES NOT APPLY, and this is where the
-// decision is written. $PCAS03 field 3 is GSA and it stays off, so no VDOP ever
-// reaches us and core/protocol/adsl.cpp substitutes HDOP. The substitution is
-// conservative by construction: the vertical error claimed per unit of DOP is
-// larger than the horizontal one, so a VDOP that is worse than HDOP (the usual
-// case, by roughly the same ratio) is already covered.
-TEST_CASE("l76k: no GSA is asked for, so VDOP does not exist and HDOP stands in") {
+// G.1.12 wants a vertical accuracy claim, and GSA alone carries the VDOP it is made of.
+TEST_CASE("l76k: GSA is asked for, and the VDOP in it is the one the fix carries") {
     models::L76k chip;
     parts::L76k gnss(chip, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 1000);
 
     CHECK(chip.gga_enabled);
     CHECK(chip.rmc_enabled);
-    CHECK_FALSE(chip.gsa_enabled);
+    CHECK(chip.gsa_enabled);
     CHECK(parts::L76k::kGsaEnabled == chip.gsa_enabled);
 
-    // The receiver's HDOP is what the fix carries, and it is the only DOP in it.
     CHECK(gnss.fix().hdop_e2 == chip.hdop_e2);
+    CHECK(gnss.fix().vdop_e2 == chip.vdop_e2);
 
-    // The substitution's safety margin, asserted against the constants that make
-    // it: 3 m of vertical error per unit of DOP against 2 m of horizontal.
+    // Three sentences that say what we read, and not one byte of line time more.
+    CHECK_FALSE(chip.gll_enabled);
+    CHECK_FALSE(chip.gsv_enabled);
+    CHECK_FALSE(chip.vtg_enabled);
+}
+
+// A 2D solution reports no VDOP, and adsl.cpp falls back to HDOP under the larger coefficient.
+TEST_CASE("l76k: a receiver reporting no VDOP leaves the fix without one") {
+    models::L76k chip;
+    chip.vdop_e2 = 0;
+    parts::L76k gnss(chip, chip);
+    run(gnss, chip, 0, kBringUpLeadMs + 1000);
+
+    CHECK(gnss.fix().vdop_e2 == 0);
     CHECK(protocol::AdslPacket::kVerticalErrorPerDopCm >
           protocol::AdslPacket::kHorizontalErrorPerDopCm);
 }
 
-// G.1.16 will not transmit a solution older than 500 ms, and the direct slot runs
-// to a full second after it. A receiver left at 1 Hz therefore has roughly half
-// its solutions refused, which on the bench looks like an intermittent
-// transmitter. The configured period has to leave margin under that limit.
-TEST_CASE("l76k: the configured fix rate clears the staleness rule") {
-    CHECK(parts::L76k::kFixPeriodMs * 2 <= timing::Transmitter::kFixAgeMaxMs);
-    CHECK(models::L76k::kFactoryPeriodMs > timing::Transmitter::kFixAgeMaxMs);
+// The rate rule refuses a MISSED solution, not the wait between the top of the second and the slot.
+TEST_CASE("l76k: one solution per second clears the transmit rate rule") {
+    CHECK(parts::L76k::kFixPeriodMs == 1000);
+    CHECK(static_cast<int32_t>(parts::L76k::kFixPeriodMs) > timing::Transmitter::kFixLagMaxMs);
 
     models::L76k chip;
     chip.solution_period_ms = models::L76k::kFactoryPeriodMs;
@@ -198,12 +231,33 @@ TEST_CASE("l76k: the configured fix rate clears the staleness rule") {
     run(gnss, chip, 0, kBringUpLeadMs + 1000);
 
     uint32_t fixes = 0;
-    for (uint32_t t = kBringUpLeadMs + 1010; t <= kBringUpLeadMs + 3010; t += 10) {
+    for (uint32_t t = kBringUpLeadMs + 1010; t <= kBringUpLeadMs + 5010; t += 10) {
         chip.tick(t);
         gnss.service(t);
         if (gnss.poll()) fixes++;
     }
-    CHECK(fixes >= 2000 / parts::L76k::kFixPeriodMs);
+    CHECK(fixes >= 4000 / parts::L76k::kFixPeriodMs);
+}
+
+// The pinned bug: a fix published per SENTENCE reached the bus twice, the first one half updated.
+TEST_CASE("l76k: a burst reaches the bus once, on the sentence that closes it") {
+    models::L76k chip;
+    SentenceWire wire(chip);
+    parts::L76k gnss(wire, chip);
+    run(gnss, chip, 0, kBringUpLeadMs + 5000);
+    REQUIRE(gnss.configured());
+    REQUIRE(gnss.fix().valid);
+
+    const uint32_t at = kBringUpLeadMs + 6000;
+    chip.alt_m = 1500;
+    chip.tick(at);
+
+    int published = 0;
+    for (int drain = 0; drain < 8; drain++)
+        if (gnss.poll(at)) published++;
+
+    CHECK(published == 1);
+    CHECK(gnss.fix().alt_m == 1500);
 }
 
 // Nothing acknowledges a $PCAS sentence, so the driver treats the receiver's own
@@ -241,11 +295,7 @@ TEST_CASE("l76k: a receiver that obeys is reported configured") {
     CHECK_FALSE(gnss.degraded());
 }
 
-// The burst is late relative to the PPS edge whose second it describes: SoftRF
-// carries 135 ms for RMC on this chip (oss/SoftRF-lyusupov
-// .../src/driver/GNSS.cpp:1072-1078) and subtracts it from the arrival time
-// (.../src/driver/RF.cpp:236-260). The part stamps the number onto the fix so
-// whoever timestamps it can take it off again.
+// The estimate own-ship falls back to with no PPS edge latched, stamped by the part that knows it.
 TEST_CASE("l76k: the fix carries the part's burst-to-PPS latency") {
     models::L76k chip;
     parts::L76k gnss(chip);
@@ -257,15 +307,12 @@ TEST_CASE("l76k: the fix carries the part's burst-to-PPS latency") {
     CHECK(gnss::fix_instant_ms(gnss.fix(), 1000) == 1000 - parts::L76k::kPpsLatencyMs);
 }
 
-// The devicetree pins the UART and nothing in the build compares the two numbers,
-// so the driver states the baud it expects. One GGA plus one RMC is about 150
-// bytes; at 10 bits a byte that is 156 ms of line time, which has to fit inside
-// one solution period with room to spare.
+// Nothing in the build compares the driver's baud with the devicetree's, so the driver states it.
 TEST_CASE("l76k: the configured rate fits the baud the devicetree pins") {
-    constexpr uint32_t kBurstBytes = 150;
-    constexpr uint32_t kBurstMs = kBurstBytes * 10 * 1000 / parts::L76k::kBaudRate;
     CHECK(parts::L76k::kBaudRate == 9600);
-    CHECK(kBurstMs < parts::L76k::kFixPeriodMs);
+    CHECK(parts::L76k::kBurstMs < parts::L76k::kFixPeriodMs);
+    // GGA, three GSA and RMC at 9600 baud: a third of the second on the wire.
+    CHECK(parts::L76k::kBurstMs == doctest::Approx(333).epsilon(0.02));
 }
 
 // The geometry the circling scenarios rest on, checked against the model that

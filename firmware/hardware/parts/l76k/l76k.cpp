@@ -21,6 +21,7 @@ void L76k::send_next(uint32_t now_ms) {
     state_ = Config::Verifying;
     verify_start_ms_ = now_ms;
     verify_updates_ = parser_.fix().updates;
+    verify_unrequested_ = parser_.unrequested();
 }
 
 // One byte of nothing, then silence long enough for the receiver to have come
@@ -108,7 +109,7 @@ void L76k::service(uint32_t now_ms) {
             break;
         case Config::Verifying:
             if (now_ms - verify_start_ms_ < kVerifyWindowMs) break;
-            if (parser_.fix().updates - verify_updates_ >= kMinVerifyUpdates)
+            if (parser_.fix().updates - verify_updates_ >= kMinVerifyUpdates && obeying())
                 state_ = Config::Ready;
             else
                 verify_failed(now_ms);
@@ -118,25 +119,29 @@ void L76k::service(uint32_t now_ms) {
     }
 }
 
+// INFO: fc 13sep26 a $PCAS sentence is acknowledged only by what the receiver stops saying
+bool L76k::obeying() const { return parser_.unrequested() == verify_unrequested_; }
+
 bool L76k::poll(uint32_t now_ms) {
     uint8_t buf[kChunk];
+    bool closed = false;
     for (;;) {
         size_t n = uart_.read(buf, sizeof(buf));
         if (n == 0) break;
-        for (size_t i = 0; i < n; i++)
-            if (parser_.feed(static_cast<char>(buf[i])))
-                validity_.observe(parser_.fix(), parser_.last_sentence(), now_ms);
+        for (size_t i = 0; i < n; i++) {
+            if (!parser_.feed(static_cast<char>(buf[i]))) continue;
+            validity_.observe(parser_.fix(), parser_.last_sentence(), now_ms);
+            closed = closed || parser_.last_sentence() == kBurstClosingSentence;
+        }
         if (n < sizeof(buf)) break;  // drained
     }
 
     const bool valid = validity_.check(now_ms) == gnss::FixReject::None;
-    const bool fresh = parser_.fix().updates != applied_;
     // A receiver that stops talking publishes nothing, so nothing would ever
     // withdraw the last fix it managed to send. The validity edge is an update in
     // its own right, and it is the one that matters most.
-    if (!fresh && valid == fix_.valid) return false;
+    if (!closed && valid == fix_.valid) return false;
 
-    applied_ = parser_.fix().updates;
     fix_ = parser_.fix();
     fix_.valid = valid;
     fix_.pps_latency_ms = kPpsLatencyMs;

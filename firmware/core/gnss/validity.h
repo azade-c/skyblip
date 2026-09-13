@@ -17,10 +17,7 @@
 
 namespace skyblip::gnss {
 
-// SoftRF's NMEA_EXP_TIME. Our receiver is configured for 5 Hz, so this is
-// seventeen missed solutions: it is a liveness bound, not a freshness one.
-// Freshness for transmission is timing::Transmitter::kFixAgeMaxMs, 500 ms, and
-// it is a separate and stricter gate applied at the point of transmission.
+// INFO: fc 13sep26 SoftRF's NMEA_EXP_TIME: liveness, three missed bursts, not a freshness rule
 constexpr uint32_t kSentenceMaxAgeMs = 3500;
 
 // moshe-braner's jump gate, in our units: 0.15 deg of latitude and 0.25 deg of

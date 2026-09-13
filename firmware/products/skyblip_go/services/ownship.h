@@ -29,6 +29,7 @@ class OwnshipService : public runtime::Service {
 
    private:
     void apply_fix(const gnss::GnssFix& fix, uint32_t now_ms);
+    uint32_t fix_instant(const gnss::GnssFix& fix, uint32_t now_ms) const;
     void apply_baro(const messages::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const messages::OwnState& previous);

@@ -17,14 +17,7 @@ inline int text_bytes(const char* s) {
     return n;
 }
 
-// INFO: fc 06aug26 A device counter, as a value a report can carry. json::Writer
-// takes long, which is 64-bit on this host and 32-bit on the nRF52, so a naked
-// cast of a uint32_t past 2^31 prints a NEGATIVE count on the device and a
-// correct one in the test suite - the worst kind of divergence, since the suite is
-// where we look. Saturating instead makes both platforms print the same
-// characters, and the ceiling is unreachable: at the 5 Hz fix rate this device
-// runs, 2147483647 of anything is thirteen years of continuous events. Both
-// reports use this one, for the same reason they share the sizing below.
+// INFO: fc 06aug26 json::Writer takes long, 32-bit on the nRF52: past 2^31 a cast prints negative
 inline long counter(uint32_t v) {
     constexpr uint32_t kCeiling = 0x7FFFFFFFu;
     return static_cast<long>(v > kCeiling ? kCeiling : v);

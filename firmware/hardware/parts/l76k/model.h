@@ -35,6 +35,8 @@ class L76k : public io::Uart, public io::UartRate {
     int32_t geoid_separation_m{47};
     bool emit_geoid_separation{true};
     uint16_t hdop_e2{90};
+    uint16_t vdop_e2{150};
+    uint16_t pdop_e2{180};
     int32_t speed_kt{45};
     int32_t track_deg{90};
     // INFO: fc 03aug26 Degrees per second, positive to the right. The track this
@@ -86,9 +88,13 @@ class L76k : public io::Uart, public io::UartRate {
     uint8_t constellations{0};
     uint8_t dynamic_model{0};
     bool sentence_set_applied{false};
-    bool gga_enabled{false};
-    bool gsa_enabled{false};
-    bool rmc_enabled{false};
+    // INFO: fc 13sep26 the factory set, which is why a receiver that obeys nothing is still heard
+    bool gga_enabled{true};
+    bool gll_enabled{true};
+    bool gsa_enabled{true};
+    bool gsv_enabled{true};
+    bool rmc_enabled{true};
+    bool vtg_enabled{true};
     uint32_t commands_seen{0};
     uint32_t commands_rejected{0};
     uint32_t wake_bytes{0};
@@ -216,8 +222,7 @@ class L76k : public io::Uart, public io::UartRate {
         utc_sod = (utc_sod + sod_ms_ / 1000u) % 86400u;
         sod_ms_ %= 1000u;
 
-        emit_rmc();
-        emit_gga();
+        emit_burst();
     }
 
    private:
@@ -285,22 +290,33 @@ class L76k : public io::Uart, public io::UartRate {
             apply_restart(static_cast<int>(argument(command_, command_len_, 8)));
     }
 
-    // $PCAS03,GGA,GLL,GSA,GSV,RMC,VTG,... each 0 or 1. Which sentences we asked
-    // for is not a bool: GSA is the one that carries VDOP, and its absence is a
-    // decision core/protocol/adsl.cpp has to live with.
+    // INFO: fc 13sep26 $PCAS03,GGA,GLL,GSA,GSV,RMC,VTG,... each 0 or 1, obeyed silently
     void apply_sentence_set() {
         int field = 0;
         int at = 8;
-        while (at < command_len_ && field < 5) {
+        while (at < command_len_ && field < 6) {
             const bool on = command_[at] == '1';
             if (field == 0) gga_enabled = on;
+            if (field == 1) gll_enabled = on;
             if (field == 2) gsa_enabled = on;
+            if (field == 3) gsv_enabled = on;
             if (field == 4) rmc_enabled = on;
+            if (field == 5) vtg_enabled = on;
             while (at < command_len_ && command_[at] != ',') at++;
             at++;
             field++;
         }
         sentence_set_applied = true;
+    }
+
+    // INFO: fc 13sep26 the part emits the cycle in $PCAS03's own field order, so RMC closes a burst
+    void emit_burst() {
+        if (gga_enabled) emit_gga();
+        if (gll_enabled) emit_gll();
+        if (gsa_enabled) emit_gsa();
+        if (gsv_enabled) emit_gsv();
+        if (rmc_enabled) emit_rmc();
+        if (vtg_enabled) emit_vtg();
     }
 
     // $PCAS10,n: 0 hot, 1 warm, 2 cold, 3 factory. The module reboots either
@@ -321,7 +337,8 @@ class L76k : public io::Uart, public io::UartRate {
         constellations = 0;
         dynamic_model = 0;
         sentence_set_applied = false;
-        gga_enabled = gsa_enabled = rmc_enabled = false;
+        gga_enabled = gll_enabled = gsa_enabled = true;
+        gsv_enabled = rmc_enabled = vtg_enabled = true;
         solution_period_ms = kFactoryPeriodMs;
     }
 
@@ -368,6 +385,58 @@ class L76k : public io::Uart, public io::UartRate {
         s[n++] = ',';
         n += fmt_string(s + n, date);
         n += fmt_string(s + n, ",,,A");
+        n = protocol::nmea_finish(s, n);
+        pending_.append(s, static_cast<size_t>(n));
+    }
+
+    void emit_gsa() {
+        char s[128];
+        int n = fmt_string(s, "$GPGSA,A,");
+        n += fmt_uint(s + n, solving() ? 3u : 1u, 1);
+        n += fmt_string(s + n, ",01,02,03,04,,,,,,,,,");
+        if (solving()) {
+            n += fmt_uint(s + n, pdop_e2, 3, 2);
+            s[n++] = ',';
+            n += fmt_uint(s + n, hdop_e2, 3, 2);
+            s[n++] = ',';
+            n += fmt_uint(s + n, vdop_e2, 3, 2);
+        } else {
+            n += fmt_string(s + n, ",,");
+        }
+        n = protocol::nmea_finish(s, n);
+        pending_.append(s, static_cast<size_t>(n));
+    }
+
+    void emit_gll() {
+        char s[128];
+        int n = fmt_string(s, "$GPGLL,");
+        n += fmt_nmea_lat(s + n, lat_1e7);
+        s[n++] = ',';
+        n += fmt_nmea_lon(s + n, lon_1e7);
+        s[n++] = ',';
+        n += put_time(s + n);
+        n += fmt_string(s + n, solving() ? ",A,A" : ",V,N");
+        n = protocol::nmea_finish(s, n);
+        pending_.append(s, static_cast<size_t>(n));
+    }
+
+    void emit_gsv() {
+        char s[128];
+        int n = fmt_string(s, "$GPGSV,1,1,04,01,40,083,42,02,30,120,38,03,60,200,40,04,20,300,35");
+        n = protocol::nmea_finish(s, n);
+        pending_.append(s, static_cast<size_t>(n));
+    }
+
+    void emit_vtg() {
+        char s[128];
+        int n = fmt_string(s, "$GPVTG,");
+        n += fmt_uint(s + n, static_cast<uint32_t>((track_deg % 360 + 360) % 360), 1);
+        n += fmt_string(s + n, ".0,T,,M,");
+        const uint32_t kt = static_cast<uint32_t>(speed_kt < 0 ? 0 : speed_kt);
+        n += fmt_uint(s + n, kt, 1);
+        n += fmt_string(s + n, ".0,N,");
+        n += fmt_uint(s + n, kt * 1852 / 1000, 1);
+        n += fmt_string(s + n, ".0,K,A");
         n = protocol::nmea_finish(s, n);
         pending_.append(s, static_cast<size_t>(n));
     }

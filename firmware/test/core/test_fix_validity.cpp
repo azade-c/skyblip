@@ -44,10 +44,7 @@ TEST_CASE("fix validity: one sentence is never a fix, both of them are") {
     CHECK(b.validity.valid(1000));
 }
 
-// The staleness window, from both sides. 3500 ms is SoftRF's NMEA_EXP_TIME: at
-// our configured 5 Hz it is seventeen missed solutions, so it is a liveness
-// bound, not the freshness rule. Freshness for transmission is 500 ms and lives
-// at the transmitter.
+// 3500 ms is SoftRF's NMEA_EXP_TIME: three missed solutions, liveness, not the freshness rule.
 TEST_CASE("fix validity: a receiver that stops talking stops having a fix") {
     Burst b;
     b.feed(kRmc, 1000);
@@ -124,10 +121,7 @@ TEST_CASE("fix validity: a position no aircraft could have flown to is refused o
 }
 
 TEST_CASE("fix validity: the jump gate is drawn where moshe-braner draws it") {
-    // A step just inside the gate is flight, a step just outside it is not. The
-    // check is per solution, so at 5 Hz even the inside case is 83 km of ground
-    // speed in a fifth of a second: the gate catches receiver faults, it is not
-    // a plausibility model of an aircraft.
+    // A step just inside the gate is 16.7 km in a second: receiver faults, not implausible flight.
     Burst b;
     b.feed(kRmc, 1000);
     b.feed(kGga, 1000);
