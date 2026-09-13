@@ -1081,7 +1081,7 @@ SSD1681 e-paper driver tests against models/ssd1681.h. Verifies the init sequenc
 - a hung BUSY line times out, re-initialises, and forces the next full
 - a panel that never released BUSY loses its shadow, so the next refresh is full
 - a partial holds the source level into the power-off it ends with
-  > The first partial after a full came out grey, and later ones recovered: the power-down cut it off.
+  > The first partial after a full came out grey, later ones recovered: the power-down cut it off.
 - a present after deep sleep wakes the panel with a reset pulse
 - a run of partials costs one reset, not one per refresh
   > Rails down is not deep sleep: the panel keeps its registers, so the next partial needs no reset.

@@ -262,7 +262,7 @@ TEST_CASE("epd: the border follows the waveform on a wash and is held at VCOM on
     CHECK(f.border == 0x80);
 }
 
-// The first partial after a full came out grey, and later ones recovered: the power-down cut it off.
+// The first partial after a full came out grey, later ones recovered: the power-down cut it off.
 TEST_CASE("epd: a partial holds the source level into the power-off it ends with") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
