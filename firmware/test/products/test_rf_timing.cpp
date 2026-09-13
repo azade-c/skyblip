@@ -228,7 +228,8 @@ TEST_CASE("rf: own-ship transmits once a second, inside its window, alternating 
         if (last_freq != 0) CHECK(r.freq_hz != last_freq);
         last_freq = r.freq_hz;
     }
-    CHECK(transmissions >= 4);
+    // Six seconds of flight, one burst a second, less the one the cleared tape cut in half.
+    CHECK(transmissions >= 5);
     CHECK(h.product().state().tx_ok == static_cast<uint32_t>(transmissions));
 
     // E1 and E2, read off the service that spent them: the floor the carrier

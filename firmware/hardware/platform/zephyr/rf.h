@@ -95,6 +95,10 @@ class Rf : public hal::Rf {
             }
             abort_ = false;
             const hal::RfPlan plan = plan_;
+            if (clock_.micros() >= plan.end_us) {
+                emit(messages::RfEventType::Missed);
+                continue;
+            }
             sleep_until(plan.start_us);
             if (abort_) continue;
             start(plan);

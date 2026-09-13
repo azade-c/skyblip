@@ -78,6 +78,25 @@ TEST_CASE("timing: uplink window and direct slot predicates") {
     CHECK(Scheduler::slot_of(300) == -1);
 }
 
+// The executor cannot be handed a burst mid-dwell: a plan queues behind the one it is flying.
+TEST_CASE("timing: the dwell owns its burst from the instant it opens") {
+    Scheduler s;
+    // Slot 0 opens at 400 and places its burst from 450, so 400 is where the plan must carry it.
+    CHECK_FALSE(Scheduler::in_direct_slot(kSlot0Start));
+    CHECK(Scheduler::in_own_tx_dwell(kSlot0Start));
+    CHECK(s.plan(kSlot0Start, anchored()).tx_allowed);
+    CHECK(Scheduler::in_own_tx_dwell(kSlot1Start));
+    CHECK(s.plan(kSlot1Start, anchored()).tx_allowed);
+    // Slot 1's tail is the previous second's dwell: it transmitted there or it did not.
+    CHECK_FALSE(Scheduler::in_own_tx_dwell(0));
+    CHECK_FALSE(Scheduler::in_own_tx_dwell(kSlot1Wrap - 1));
+    CHECK_FALSE(s.plan(100, anchored()).tx_allowed);
+    // The uplink dwell and both band edges own no direct-slot time at all.
+    CHECK_FALSE(Scheduler::in_own_tx_dwell(202));
+    CHECK_FALSE(Scheduler::in_own_tx_dwell(300));
+    CHECK_FALSE(Scheduler::in_own_tx_dwell(397));
+}
+
 TEST_CASE("timing: a dwell stops early enough to retune before the next one") {
     Scheduler s;
     // The O->M edge is the safety-critical one: 5 ms of guard, then M-band at 400.
@@ -296,8 +315,10 @@ TEST_CASE("transmit: nothing goes out unless the slot allows it") {
     ClockState no_pps{true, false, 0};
     CHECK_FALSE(t.attempt(s.plan(500, no_pps), 10, 10000, true, 0).go);
     CHECK_FALSE(t.attempt(s.plan(300, anchored()), 10, 10000, true, 0).go);
-    // Listening on M-band is not licence to transmit there yet.
-    CHECK_FALSE(t.attempt(s.plan(420, anchored()), 10, 10000, true, 0).go);
+    // Claimed from 400, but the instant is what waits for the direct slot to open at 450.
+    const Transmitter::Attempt early = t.attempt(s.plan(420, anchored()), 10, 10000, true, 0);
+    CHECK(early.go);
+    CHECK(early.at_ms >= kDirectStart);
 }
 
 // E1. A carrier-sense threshold that is a constant is a device that goes quiet

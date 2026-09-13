@@ -76,6 +76,10 @@ uint64_t RadioService::dwell_epoch_us() const {
     return (in_slot1_tail && epoch_us >= 1000000) ? epoch_us - 1000000 : epoch_us;
 }
 
+int RadioService::ms_until(int dwell_phase_ms, int phase_ms) {
+    return dwell_phase_ms - phase_ms - (phase_ms < timing::kSlot1Wrap ? 1000 : 0);
+}
+
 // Two clocks meet here. The TimeStamp field counts quarter seconds from the top
 // of the UTC second the slot belongs to, which the latched PPS edge anchors;
 // the position has to be carried over the interval since the fix, which is a
@@ -130,7 +134,8 @@ void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
 // carry: re-arming would only restart the receiver mid-slot.
 bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const {
     if (tx_armed_) return false;
-    return attempt(plan, now_ms).go;
+    const timing::Transmitter::Attempt a = attempt(plan, now_ms);
+    return a.go && ms_until(a.at_ms, phase_ms()) >= 0;
 }
 
 timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
@@ -151,7 +156,7 @@ int32_t RadioService::fix_lag_ms() const {
 }
 
 void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
-    const uint64_t epoch_us = dwell_epoch_us();
+    const int phase = phase_ms();
     const uint64_t now_us = context_.roles.clock.micros();
 
     hal::RfPlan plan{};
@@ -162,12 +167,14 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     // bands, receiving as well as transmitting (core/settings/settings.h).
     plan.freq_corr_e1_ppm = context_.state.settings.freq_trim_e1_ppm;
     listen_for(slot.band, plan);
-    plan.start_us = epoch_us + static_cast<uint64_t>(slot.start_ms) * 1000;
-    plan.end_us = epoch_us + static_cast<uint64_t>(slot.end_ms) * 1000;
+    const int opens_in_ms = ms_until(slot.start_ms, phase);
+    const int closes_in_ms = ms_until(slot.end_ms, phase);
     // Arming inside the window means the dwell has already started: begin now and
     // keep the same hard stop, rather than waiting a whole second for the next one.
-    if (plan.start_us < now_us) plan.start_us = now_us;
-    if (plan.end_us <= plan.start_us) plan.end_us = plan.start_us + 1000;
+    plan.start_us = opens_in_ms > 0 ? now_us + static_cast<uint64_t>(opens_in_ms) * 1000 : now_us;
+    const uint64_t closes_us =
+        closes_in_ms > 0 ? now_us + static_cast<uint64_t>(closes_in_ms) * 1000 : plan.start_us;
+    plan.end_us = closes_us > plan.start_us ? closes_us : plan.start_us + 1000;
 
     const timing::Transmitter::Attempt a = attempt(slot, now_ms);
     over_budget_ = a.over_budget;
@@ -175,8 +182,11 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     // air-time budget already refused to arm, counted apart from a dwell that
     // was armed and then missed its outcome.
     if (a.over_budget) context_.state.timing_stats.record_refused();
-    const uint64_t tx_at_us = epoch_us + static_cast<uint64_t>(a.at_ms) * 1000;
-    const bool carries_tx = a.go && tx_at_us >= plan.start_us && tx_at_us < plan.end_us;
+    const int burst_in_ms = ms_until(a.at_ms, phase);
+    const uint64_t tx_at_us =
+        now_us + static_cast<uint64_t>(burst_in_ms > 0 ? burst_in_ms : 0) * 1000;
+    const bool carries_tx =
+        a.go && burst_in_ms >= 0 && tx_at_us >= plan.start_us && tx_at_us < plan.end_us;
     if (carries_tx) {
         protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
                            context_.state.settings.addr_table, context_.state.own.aircraft_cat,

@@ -28,12 +28,12 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
-        plan_ = plan;
-        armed_ = true;
-        started_ = false;
-        transmitted_ = false;
-        completed_ = false;
-        next_carrier_sample_us_ = plan.tx_at_us;
+        if (armed_) {
+            pending_ = plan;
+            has_pending_ = true;
+            return Status::Ok;
+        }
+        adopt(plan);
         return Status::Ok;
     }
 
@@ -61,19 +61,40 @@ class Rf : public hal::Rf {
         // The receiver keeps reporting between dwells: a frame that arrived
         // while the next plan was being armed is in the chip, not lost.
         if (started_ || radio_.mode() == parts::RadioMode::Rx) drain(now_us);
-        if (armed_ && now_us >= plan_.end_us) {
-            sample_carrier();
-            if (plan_.tx != nullptr && !completed_)
-                emit(transmitted_ ? messages::RfEventType::Missed : messages::RfEventType::TxBusy,
-                     0, 0, now_us);
-            armed_ = false;
-            started_ = false;
-        }
+        if (armed_ && now_us >= plan_.end_us) finish(now_us);
+        if (!armed_ && has_pending_) take_pending(now_us);
     }
 
     uint32_t armed_count() const { return armed_count_; }
 
    private:
+    void finish(uint64_t now_us) {
+        sample_carrier();
+        if (plan_.tx != nullptr && !completed_)
+            emit(transmitted_ ? messages::RfEventType::Missed : messages::RfEventType::TxBusy, 0, 0,
+                 now_us);
+        armed_ = false;
+        started_ = false;
+    }
+
+    void take_pending(uint64_t now_us) {
+        has_pending_ = false;
+        if (now_us >= pending_.end_us) {
+            emit(messages::RfEventType::Missed, 0, 0, now_us);
+            return;
+        }
+        adopt(pending_);
+    }
+
+    void adopt(const hal::RfPlan& plan) {
+        plan_ = plan;
+        armed_ = true;
+        started_ = false;
+        transmitted_ = false;
+        completed_ = false;
+        next_carrier_sample_us_ = plan.tx_at_us;
+    }
+
     void start() {
         started_ = true;
         armed_count_++;
@@ -181,6 +202,7 @@ class Rf : public hal::Rf {
     hal::Clock& clock_;
     bus::Queue<messages::RfEvent, 8>& out_;
     hal::RfPlan plan_{};
+    hal::RfPlan pending_{};
     hal::RfCarrier carrier_{};
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
@@ -190,6 +212,7 @@ class Rf : public hal::Rf {
     uint32_t armed_count_{0};
     int sleeps_{0};
     bool armed_{false};
+    bool has_pending_{false};
     bool started_{false};
     bool transmitted_{false};
     bool completed_{false};

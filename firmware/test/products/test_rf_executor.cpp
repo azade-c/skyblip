@@ -85,6 +85,9 @@ struct Pass {
     uint64_t first_tx_us{0};
 };
 
+// The PLL word the driver writes back-converts a hertz or two short of the channel it asked for.
+uint32_t tuned_khz(const models::Sx1262& chip) { return (chip.freq_hz + 500) / 1000; }
+
 }  // namespace
 
 // §D.3: the executor samples the carrier and holds the burst while the channel
@@ -350,4 +353,53 @@ TEST_CASE("rf: a receiver that hears nothing is reinitialised by the executor th
         rf.service(t);
     }
     CHECK(radio.reinit_count() == 1);
+}
+
+// Slot 0's burst was added by a second arm at 450, read at 799, expired, and called the band busy.
+TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed, not busy") {
+    models::Sx1262 chip;
+    parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
+    platform::host::Clock clock;
+    bus::Queue<messages::RfEvent, 8> events;
+    platform::host::Rf rf(radio, clock, events);
+    REQUIRE(rf.begin() == Status::Ok);
+
+    hal::RfPlan flying{};
+    flying.mode = hal::RfMode::RxMband;
+    flying.freq_hz = timing::kMband0Hz;
+    flying.start_us = 400000;
+    flying.end_us = 799000;
+    REQUIRE(rf.arm(flying) == Status::Ok);
+    for (uint32_t t = 400; t <= 450; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+    }
+    REQUIRE(tuned_khz(chip) == timing::kMband0Hz / 1000);
+
+    const uint8_t frame[protocol::AdslPacket::kTxBytes] = {0x72, 0x4B};
+    hal::RfPlan queued = flying;
+    queued.freq_hz = timing::kMband1Hz;
+    queued.start_us = 455000;
+    queued.tx = frame;
+    queued.tx_len = sizeof(frame);
+    queued.tx_at_us = 600000;
+    chip.rssi_dbm = simulator::Air::kNoiseFloorDbm;  // clear, so only the queueing can hold it
+    REQUIRE(rf.arm(queued) == Status::Ok);
+
+    for (uint32_t t = 460; t <= 800; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+    }
+    // The dwell in flight kept the channel it was armed for, and the burst never went on air.
+    CHECK(tuned_khz(chip) == timing::kMband0Hz / 1000);
+    CHECK_FALSE(chip.tx_pending);
+
+    int missed = 0, busy = 0;
+    messages::RfEvent e{};
+    while (events.pop(e)) {
+        if (e.type == messages::RfEventType::Missed) missed++;
+        if (e.type == messages::RfEventType::TxBusy) busy++;
+    }
+    CHECK(missed == 1);
+    CHECK(busy == 0);
 }

@@ -48,6 +48,8 @@ class RadioService : public runtime::Service {
     // carries and the second they are accounted to all belong to the second the
     // slot started in.
     uint64_t dwell_epoch_us() const;
+    // INFO: fc 13sep26 negative once the instant is past, and the tail's dwell opened a second ago
+    static int ms_until(int dwell_phase_ms, int phase_ms);
     uint32_t slot_utc() const;
     int32_t fix_lag_ms() const;
     protocol::BurstInstant burst_instant(const timing::Transmitter::Attempt& attempt,

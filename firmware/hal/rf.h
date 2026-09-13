@@ -71,6 +71,7 @@ class Rf {
     virtual ~Rf() = default;
 
     virtual Status begin() = 0;
+    // INFO: fc 13sep26 a plan armed while a dwell is flying queues behind it, abort() cuts it short
     virtual Status arm(const RfPlan& plan) = 0;
     virtual void abort() = 0;
 

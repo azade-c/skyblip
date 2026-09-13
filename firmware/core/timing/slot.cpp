@@ -29,6 +29,12 @@ uint32_t Scheduler::freq_at(int phase_ms) {
     }
 }
 
+bool Scheduler::in_own_tx_dwell(int phase_ms) {
+    const SlotState s = state_at(phase_ms);
+    if (s == SlotState::Slot0 || s == SlotState::Hop) return true;
+    return s == SlotState::Slot1 && phase_ms >= kSlot1Start;
+}
+
 int Scheduler::slot_of(int phase_ms) {
     if (phase_ms < kSlot1Wrap) return 1;
     if (phase_ms >= kSlot0Start && phase_ms < kSlot0End) return 0;
@@ -44,7 +50,7 @@ SlotPlan Scheduler::plan(int phase_ms, const ClockState& clock) const {
     p.state = state_at(phase_ms);
     p.band = band_at(phase_ms);
     p.freq_hz = freq_at(phase_ms);
-    p.own_tx_slot = in_direct_slot(phase_ms);
+    p.own_tx_dwell = in_own_tx_dwell(phase_ms);
 
     switch (p.state) {
         case SlotState::Slot0:
@@ -70,7 +76,7 @@ SlotPlan Scheduler::plan(int phase_ms, const ClockState& clock) const {
 
     if (anchored) {
         p.listen_only = false;
-        p.tx_allowed = (p.band == Band::M) && p.own_tx_slot;
+        p.tx_allowed = (p.band == Band::M) && p.own_tx_dwell;
     } else if (within_holdover) {
         p.listen_only = false;
         p.tx_allowed = false;

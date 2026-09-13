@@ -91,7 +91,7 @@ struct SlotPlan {
     int start_ms{0};
     int end_ms{0};
     bool tx_allowed{false};
-    bool own_tx_slot{false};
+    bool own_tx_dwell{false};
     bool listen_only{true};
 };
 
@@ -111,6 +111,8 @@ class Scheduler {
     static bool in_direct_slot(int phase_ms) {
         return phase_ms >= kDirectStart && phase_ms < kDirectEnd;
     }
+    // INFO: fc 13sep26 not in_direct_slot: the dwell opens at 400 and carries the burst it places
+    static bool in_own_tx_dwell(int phase_ms);
     // Which M-band dwell, and so which channel, a phase belongs to. -1 outside
     // the M-band half of the second.
     static int slot_of(int phase_ms);
