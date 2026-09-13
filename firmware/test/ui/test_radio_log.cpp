@@ -55,7 +55,7 @@ RadioLogSnapshot with(const radio::Log& log) {
     snap.gnss.fix_valid = true;
     snap.gnss.sats = 9;
     snap.gnss.hdop_e2 = 120;
-    snap.gnss.pps_locked = true;
+    snap.gnss.vdop_e2 = 200;
     snap.gnss.solutions = 1234;
     snap.n_rows = log.count();
     snap.log = &log;
@@ -148,18 +148,29 @@ TEST_CASE("radio log page: without UTC the stamp counts from boot") {
     CHECK(shows(fb, 4, kFirstRowY, "T+412"));
 }
 
-TEST_CASE("radio log page: the GNSS line states the fix, the satellites and the lock") {
+TEST_CASE("radio log page: the GNSS line states the fix, the satellites and both DOPs") {
     radio::Log log;
     Framebuffer fb;
     draw_radio_log(fb, with(log));
-    CHECK(shows(fb, 4, 13, "GNSS 3D 9SV H1.2 PPS"));
+    CHECK(shows(fb, 4, 13, "GNSS 3D 9SV H1.2 V2.0"));
+}
+
+// A 2D solution has no height to dilute, and GSA leaves VDOP empty for it.
+TEST_CASE("radio log page: a DOP the receiver did not report is left off the line") {
+    radio::Log log;
+    RadioLogSnapshot snap = with(log);
+    snap.gnss.sats = 3;
+    snap.gnss.vdop_e2 = 0;
+
+    Framebuffer fb;
+    draw_radio_log(fb, snap);
+    CHECK(shows(fb, 4, 13, "GNSS 2D 3SV H1.2 "));
 }
 
 TEST_CASE("radio log page: no fix is stated rather than left blank") {
     radio::Log log;
     RadioLogSnapshot snap = with(log);
     snap.gnss.fix_valid = false;
-    snap.gnss.pps_locked = false;
     snap.gnss.sats = 0;
 
     Framebuffer fb;

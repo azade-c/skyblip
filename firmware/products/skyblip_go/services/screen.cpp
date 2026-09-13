@@ -424,9 +424,9 @@ void ScreenService::render() {
             ui::RadioLogSnapshot snap;
             snap.gnss.fix_valid = own.fix_valid;
             snap.gnss.utc_valid = own.utc_valid;
-            snap.gnss.pps_locked = context_.state.clock.pps_locked;
             snap.gnss.sats = own.sats;
             snap.gnss.hdop_e2 = own.hdop_e2;
+            snap.gnss.vdop_e2 = own.vdop_e2;
             snap.gnss.solutions = context_.state.gnss_solutions;
             snap.rx_ok = context_.state.rx_ok;
             snap.tx_ok = context_.state.tx_ok;

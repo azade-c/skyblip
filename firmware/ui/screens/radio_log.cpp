@@ -66,6 +66,12 @@ void draw_title(Framebuffer& fb, const RadioLogSnapshot& snap) {
     right_aligned(fb, kRightEnd, kTitleY, buf, n);
 }
 
+int fmt_dop(char* out, const char* label, uint16_t dop_e2) {
+    if (dop_e2 == 0) return 0;
+    const int n = fmt_string(out, label);
+    return n + fmt_uint(out + n, dop_e2 / 10u, 2, 1);
+}
+
 void draw_gnss(Framebuffer& fb, const GnssReception& gnss) {
     char buf[34];
     int n = fmt_string(buf, "GNSS ");
@@ -75,12 +81,9 @@ void draw_gnss(Framebuffer& fb, const GnssReception& gnss) {
         n += fmt_string(buf + n, gnss.sats >= kFewestSatsForAltitude ? "3D " : "2D ");
         n += fmt_uint(buf + n, gnss.sats);
         n += fmt_string(buf + n, "SV");
-        if (gnss.hdop_e2 != 0) {
-            n += fmt_string(buf + n, " H");
-            n += fmt_uint(buf + n, gnss.hdop_e2 / 10u, 2, 1);
-        }
+        n += fmt_dop(buf + n, " H", gnss.hdop_e2);
+        n += fmt_dop(buf + n, " V", gnss.vdop_e2);
     }
-    if (gnss.pps_locked) n += fmt_string(buf + n, " PPS");
     buf[n] = 0;
     fb.draw_text(kLeft, kGnssY, buf, true, 1);
 

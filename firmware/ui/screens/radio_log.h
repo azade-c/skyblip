@@ -13,9 +13,9 @@ constexpr int kRadioLogRows = radio::Log::kCapacity;
 struct GnssReception {
     bool fix_valid{false};
     bool utc_valid{false};
-    bool pps_locked{false};
     uint8_t sats{0};
     uint16_t hdop_e2{0};
+    uint16_t vdop_e2{0};
     uint32_t solutions{0};
 };
 
