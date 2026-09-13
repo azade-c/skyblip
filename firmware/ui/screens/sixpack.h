@@ -1,6 +1,3 @@
-// ui/screens/sixpack.h: the classic six-pack instrument panel, drawn from the
-// GNSS-derived own-ship state: airspeed, attitude, altimeter over turn
-// coordinator, heading, vertical speed.
 #ifndef SKYBLIP_UI_SCREENS_SIXPACK_H
 #define SKYBLIP_UI_SCREENS_SIXPACK_H
 
@@ -19,6 +16,8 @@ struct SixPackSnapshot {
     int32_t vs_fpm{0};
     uint16_t track_deg{0};
     int16_t turn_dps{0};  // degrees per second, positive = right
+    uint32_t qnh_pa{0};   // the barometer read against GNSS, 0 until both have spoken
+    uint32_t set_qnh_pa{0};
 };
 
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& snap);

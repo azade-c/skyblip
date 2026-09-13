@@ -41,8 +41,13 @@ constexpr int32_t kAltThousandsPerTurn = 10000;
 constexpr int32_t kVsiFullScaleFpm = 2000;
 constexpr int32_t kVsiSpanDeg = 80;
 constexpr int32_t kVsiZeroDeg = -90;
-constexpr int32_t kPitchFullScaleDeg = 20;
 constexpr int32_t kBankLimitDeg = 60;
+constexpr int32_t kQnhLowHpa = 980;
+constexpr int32_t kQnhHighHpa = 1040;
+constexpr int32_t kQnhSpanDeg = 300;
+constexpr int32_t kQnhTickHpa = 5;
+constexpr int kQnhBugIn = 2;
+constexpr int kQnhBugOut = 2;
 // A standard-rate turn (3 deg/s) at typical light-aircraft speeds is ~30 deg of
 // bank, where the coordinator's index marks sit.
 constexpr int32_t kStandardRateMarkDeg = 30;
@@ -123,27 +128,30 @@ void needle(Framebuffer& fb, int cx, int cy, int32_t deg, int len, bool thick = 
     fb.circle(cx, cy, kHubR, true, true);
 }
 
-// The ground is a 50% checkerboard below a horizon that pitches with the
-// flight-path angle and rolls opposite to the bank, clipped to the dial. On a
-// 1-bit panel that alternation is the only grey there is, and it keeps the
-// attitude dial from being the one black hole on the instrument face.
-void attitude(Framebuffer& fb, int cx, int cy, int32_t pitch_deg, int32_t bank_deg) {
-    const int32_t off =
-        (clampi(pitch_deg, -kPitchFullScaleDeg, kPitchFullScaleDeg) * kR) / kPitchFullScaleDeg;
-    const int16_t a = c16(clampi(bank_deg, -kBankLimitDeg, kBankLimitDeg));
+int32_t hpa_of(uint32_t pa) { return static_cast<int32_t>((pa + 50) / 100); }
+
+int32_t qnh_deg(int32_t hpa) {
+    const int32_t on_scale = clampi(hpa, kQnhLowHpa, kQnhHighHpa);
+    return ((on_scale - kQnhLowHpa) * kQnhSpanDeg) / (kQnhHighHpa - kQnhLowHpa) - kQnhSpanDeg / 2;
+}
+
+void subscale_bug(Framebuffer& fb, int cx, int cy, int32_t deg) {
+    const int16_t a = c16(deg);
     const int32_t s = isin(a), c = icos(a);
-    for (int dx = -kR + 1; dx < kR; dx++) {
-        const int h = static_cast<int>(isqrt<uint32_t>(static_cast<uint32_t>(kR * kR - dx * dx)));
-        const int32_t hy = clampi(off - (dx * s) / c, -h, h);
-        const int x = cx + dx;
-        for (int y = cy + static_cast<int>(hy); y <= cy + h; y++) {
-            if (((x + y) & 1) == 0) fb.set_pixel(x, y, true);
-        }
+    const int wx = radial(1, c), wy = radial(1, s);
+    for (int half = 2 * (kR - kQnhBugIn); half <= 2 * (kR + kQnhBugOut); half++) {
+        const int x = cx + radial_half(half, s);
+        const int y = cy - radial_half(half, c);
+        for (int side = -1; side <= 1; side++) fb.set_pixel(x + side * wx, y + side * wy, true);
     }
-    for (int i = 0; i < 6; i++) {  // aircraft reference, solid over sky or ground
-        fb.set_pixel(cx - 11 + i, cy, true);
-        fb.set_pixel(cx + 6 + i, cy, true);
-    }
+}
+
+void subscale_dial(Framebuffer& fb, int cx, int row) {
+    const int cy = kCy[row];
+    fb.circle(cx, cy, kR, true);
+    for (int32_t hpa = kQnhLowHpa; hpa <= kQnhHighHpa; hpa += kQnhTickHpa)
+        tick(fb, cx, cy, c16(qnh_deg(hpa)));
+    text_center(fb, cx, title_y(row), "QNH HPA");
 }
 
 void turn_coordinator(Framebuffer& fb, int cx, int cy, int32_t bank_deg) {
@@ -175,12 +183,6 @@ void heading_card(Framebuffer& fb, int cx, int cy, int32_t track_deg) {
     draw_skyship(fb, cx, cy);
 }
 
-// 1 kt = 101.3 ft/min, so tan(flight-path angle) = vs_fpm / (101.3 * kt).
-int32_t flight_path_deg(int32_t vs_fpm, int32_t speed_kt) {
-    if (speed_kt <= 0) return 0;
-    return (static_cast<int32_t>(iatan2(vs_fpm * 10, speed_kt * 1013)) * 360) / kTurn;
-}
-
 // Coordinated turn: tan(bank) = omega * V / g, which in deg/s and knots is
 // turn_dps * kt / 1093.
 int32_t bank_deg(int32_t turn_dps, int32_t speed_kt) {
@@ -194,7 +196,6 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     fb.clear(true);
 
     const int32_t kt = clampi(s.speed_kt, 0, 999);
-    const int32_t pitch = flight_path_deg(s.vs_fpm, kt);
     const int32_t bank = bank_deg(s.turn_dps, kt);
 
     const bool metric = s.units == settings::Units::Metric;
@@ -207,9 +208,10 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
                kNeedle);
     value_center(fb, kCx[0], 0, s.have_data, speed, true);
 
-    dial(fb, kCx[1], 0, "ATT");
-    if (s.have_data) attitude(fb, kCx[1], kCy[0], pitch, bank);
-    value_center(fb, kCx[1], 0, s.have_data, pitch, false);
+    subscale_dial(fb, kCx[1], 0);
+    if (s.set_qnh_pa != 0) subscale_bug(fb, kCx[1], kCy[0], qnh_deg(hpa_of(s.set_qnh_pa)));
+    if (s.qnh_pa != 0) needle(fb, kCx[1], kCy[0], qnh_deg(hpa_of(s.qnh_pa)), kNeedle);
+    value_center(fb, kCx[1], 0, s.qnh_pa != 0, hpa_of(s.qnh_pa), true);
 
     dial(fb, kCx[2], 0, "ALT FT", kAltTicks);
     if (s.have_data) {
@@ -222,7 +224,7 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     }
     value_center(fb, kCx[2], 0, s.have_data, s.alt_ft, true);
 
-    dial(fb, kCx[0], 1, "TURN");
+    dial(fb, kCx[0], 1, "TURN D/S");
     if (s.have_data) turn_coordinator(fb, kCx[0], kCy[1], bank);
     value_center(fb, kCx[0], 1, s.have_data, s.turn_dps, false);
 

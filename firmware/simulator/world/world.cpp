@@ -29,8 +29,9 @@ void World::step(uint32_t now_ms, const bus::State& state) {
     // moving the aircraft.
     if (now_ms - last_baro_ms_ >= kBaroPeriodMs) {
         last_baro_ms_ = now_ms;
+        const int32_t alt_msl_m = gnss().alt_m - gnss().geoid_separation_m;
         baro().set_pressure_pa(flight::alt_cm_to_pressure(
-            gnss().alt_m * 100 + flight::pressure_to_alt_cm(airmass_qnh_pa_)));
+            alt_msl_m * 100 + flight::pressure_to_alt_cm(airmass_qnh_pa_)));
     }
 
     service_button(now_ms);

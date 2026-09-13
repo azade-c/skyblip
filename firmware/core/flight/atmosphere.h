@@ -37,6 +37,11 @@ uint32_t alt_cm_to_pressure(int32_t alt_cm);
 // field's QFE gives height above that field.
 int32_t alt_cm_on_setting(uint32_t pa, uint32_t setting_pa);
 
+constexpr uint32_t kQnhMinPa = 94000;
+constexpr uint32_t kQnhMaxPa = 105000;
+
+bool qnh_from_alt(uint32_t pa, int32_t alt_msl_cm, uint32_t& out_pa);
+
 // Shortest window that still averages out sensor noise, and the longest one
 // whose answer is still "now" rather than a history lesson.
 constexpr uint32_t kMinWindowMs = 500;

@@ -107,6 +107,29 @@ void OwnshipService::apply_baro(const messages::BaroSample& sample) {
         context_.state.own.climb_e8 = e8;
         context_.state.own.climb_valid = true;
     }
+    update_derived_qnh(sample);
+}
+
+void OwnshipService::update_derived_qnh(const messages::BaroSample& sample) {
+    const messages::OwnState& own = context_.state.own;
+    if (!own.fix_valid) {
+        qnh_filter_acc_ = 0;
+        context_.state.derived_qnh_pa = 0;
+        return;
+    }
+    const bool manoeuvring =
+        own.climb_valid && (own.climb_e8 > kQnhSteadyClimbE8 || own.climb_e8 < -kQnhSteadyClimbE8);
+    if (manoeuvring) return;
+
+    uint32_t qnh_pa = 0;
+    if (!flight::qnh_from_alt(sample.pressure_pa, own.alt_msl_m * 100, qnh_pa)) return;
+
+    const int32_t sampled = static_cast<int32_t>(qnh_pa) * kQnhHalfMinuteWeight;
+    qnh_filter_acc_ = qnh_filter_acc_ == 0
+                          ? sampled
+                          : qnh_filter_acc_ + (sampled - qnh_filter_acc_) / kQnhHalfMinuteWeight;
+    context_.state.derived_qnh_pa =
+        static_cast<uint32_t>((qnh_filter_acc_ + kQnhHalfMinuteWeight / 2) / kQnhHalfMinuteWeight);
 }
 
 void OwnshipService::update_turn_rate(uint32_t now_ms) {

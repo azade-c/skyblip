@@ -31,6 +31,7 @@ class OwnshipService : public runtime::Service {
     void apply_fix(const gnss::GnssFix& fix, uint32_t now_ms);
     uint32_t fix_instant(const gnss::GnssFix& fix, uint32_t now_ms) const;
     void apply_baro(const messages::BaroSample& sample);
+    void update_derived_qnh(const messages::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const messages::OwnState& previous);
     bool vs_from_alt_cm(int32_t alt_cm, uint32_t now_ms, uint32_t window_ms, int32_t& ref_alt_cm,
@@ -44,12 +45,15 @@ class OwnshipService : public runtime::Service {
     uint32_t baro_ref_ms_{0};
     uint32_t turn_ref_ms_{0};
     uint16_t turn_ref_track_c9_{0};
+    int32_t qnh_filter_acc_{0};
 
     static constexpr uint32_t kVsWindowMs = 2000;
     // Pressure is far quieter than differentiated GNSS altitude, so the same
     // confidence needs a shorter window - which is the point of having a baro.
     static constexpr uint32_t kBaroVsWindowMs = 1000;
     static constexpr uint32_t kTurnWindowMs = 1000;
+    static constexpr int32_t kQnhHalfMinuteWeight = 128;
+    static constexpr int16_t kQnhSteadyClimbE8 = 32;
 };
 
 }  // namespace skyblip::go

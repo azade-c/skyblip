@@ -67,6 +67,13 @@ int32_t alt_cm_on_setting(uint32_t pa, uint32_t setting_pa) {
     return pressure_to_alt_cm(pa) - pressure_to_alt_cm(setting_pa);
 }
 
+bool qnh_from_alt(uint32_t pa, int32_t alt_msl_cm, uint32_t& out_pa) {
+    const uint32_t qnh = alt_cm_to_pressure(pressure_to_alt_cm(pa) - alt_msl_cm);
+    if (qnh < kQnhMinPa || qnh > kQnhMaxPa) return false;
+    out_pa = qnh;
+    return true;
+}
+
 bool climb_e8_from_alt(int32_t alt_cm_now, int32_t alt_cm_then, uint32_t dt_ms, int16_t& out_e8) {
     if (dt_ms < kMinWindowMs || dt_ms > kMaxWindowMs) return false;
 

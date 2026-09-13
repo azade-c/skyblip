@@ -1,8 +1,4 @@
-// The panel a pilot already knows how to read, so these check it against that
-// habit rather than against pixels: the altimeter as a three-pointer, the card as
-// a compass, the attitude dial banking with the turn and pitching with climb. Each
-// needle has to follow its own datum. Two dials driven by the same value is a
-// panel that looks right and lies.
+// Read against a pilot's habit, not pixels: two dials on one value looks right and lies.
 #include "doctest/doctest.h"
 #include "ui/framebuffer.h"
 #include "ui/screens/sixpack.h"
@@ -27,9 +23,29 @@ int black_in(const Framebuffer& fb, Tile t, int r) {
             if (fb.get_pixel(x, y)) n++;
     return n;
 }
-}  // namespace
 
-TEST_CASE("sixpack: six dials are drawn, each with its own needle") {
+// The number under a dial, matched as the ink the page would draw for it.
+bool value_matches(const Framebuffer& fb, Tile t, const char* text) {
+    const int y0 = value_y(t);
+    Framebuffer expected;
+    expected.clear(true);
+    int n = 0;
+    while (text[n]) n++;
+    expected.draw_text(t.cx - (n * 6 * kValueScale) / 2, y0, text, true, kValueScale);
+    for (int y = y0; y < y0 + 7 * kValueScale; y++)
+        for (int x = t.cx - 32; x <= t.cx + 32; x++)
+            if (fb.get_pixel(x, y) != expected.get_pixel(x, y)) return false;
+    return true;
+}
+
+bool ink_differs(const Framebuffer& a, const Framebuffer& b, Tile t) {
+    for (int y = t.cy - 30; y <= t.cy + 30; y++)
+        for (int x = t.cx - 30; x <= t.cx + 30; x++)
+            if (a.get_pixel(x, y) != b.get_pixel(x, y)) return true;
+    return false;
+}
+
+SixPackSnapshot flying() {
     SixPackSnapshot s;
     s.have_data = true;
     s.units = skyblip::settings::Units::Imperial;
@@ -38,6 +54,14 @@ TEST_CASE("sixpack: six dials are drawn, each with its own needle") {
     s.vs_fpm = 500;
     s.track_deg = 270;
     s.turn_dps = 3;
+    s.qnh_pa = 101900;
+    s.set_qnh_pa = 101300;
+    return s;
+}
+}  // namespace
+
+TEST_CASE("sixpack: six dials are drawn, each with its own needle") {
+    const SixPackSnapshot s = flying();
 
     Framebuffer fb;
     draw_sixpack(fb, s);
@@ -128,18 +152,6 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
 
     // The number under a dial is the converted one, drawn where the page draws
     // it: 90 kt reads 166, and it is not the same ink as 90.
-    auto value_matches = [](const Framebuffer& fb, Tile t, const char* text) {
-        const int y0 = value_y(t);
-        Framebuffer expected;
-        expected.clear(true);
-        int n = 0;
-        while (text[n]) n++;
-        expected.draw_text(t.cx - (n * 6 * kValueScale) / 2, y0, text, true, kValueScale);
-        for (int y = y0; y < y0 + 7 * kValueScale; y++)
-            for (int x = t.cx - 32; x <= t.cx + 32; x++)
-                if (fb.get_pixel(x, y) != expected.get_pixel(x, y)) return false;
-        return true;
-    };
     CHECK(value_matches(fi, kTiles[0], "90"));
     CHECK(value_matches(fm, kTiles[0], "166"));
 
@@ -152,23 +164,50 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     for (int i = 1; i < 6; i++) CHECK(black_in(fm, kTiles[i], 30) == black_in(fi, kTiles[i], 30));
 }
 
-TEST_CASE("sixpack: the attitude dial banks with the turn and pitches with climb") {
-    SixPackSnapshot level;
-    level.have_data = true;
-    level.units = skyblip::settings::Units::Imperial;
-    level.speed_kt = 100;
-    SixPackSnapshot turning = level;
-    turning.turn_dps = 3;  // standard rate at 100 kt is ~15 deg of bank
-    SixPackSnapshot climbing = level;
-    climbing.vs_fpm = 1000;
+TEST_CASE("sixpack: the subscale reads the pressure the two sensors agree on") {
+    SixPackSnapshot s = flying();
+    s.qnh_pa = 101900;
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(value_matches(fb, kTiles[1], "1019"));
 
-    Framebuffer f0, f1, f2;
-    draw_sixpack(f0, level);
-    draw_sixpack(f1, turning);
-    draw_sixpack(f2, climbing);
+    // 1010 hPa is the top of the scale, so its needle is the one pointing up.
+    SixPackSnapshot top = s;
+    top.qnh_pa = 101000;
+    Framebuffer up;
+    draw_sixpack(up, top);
+    CHECK(value_matches(up, kTiles[1], "1010"));
+    CHECK(up.get_pixel(kTiles[1].cx, kTiles[1].cy - 20));
+    CHECK_FALSE(fb.get_pixel(kTiles[1].cx, kTiles[1].cy - 20));
 
-    const Tile att = kTiles[1];
-    CHECK(black_in(f1, att, 28) != black_in(f0, att, 28));
-    // Climbing shows more sky: the ground area shrinks.
-    CHECK(black_in(f2, att, 28) < black_in(f0, att, 28));
+    // A barometer and a fix that have not met yet: the scale stays, the answer does not.
+    SixPackSnapshot unknown = s;
+    unknown.qnh_pa = 0;
+    Framebuffer none;
+    draw_sixpack(none, unknown);
+    CHECK(value_matches(none, kTiles[1], "---"));
+    CHECK(black_in(none, kTiles[1], 30) < black_in(fb, kTiles[1], 30));
+}
+
+// The dial exists to show the disagreement, so the pilot's own setting is on it.
+TEST_CASE("sixpack: the subscale carries the setting the pilot dialled in") {
+    SixPackSnapshot low = flying();
+    low.set_qnh_pa = 99000;
+    SixPackSnapshot high = low;
+    high.set_qnh_pa = 103000;
+
+    Framebuffer fl, fh;
+    draw_sixpack(fl, low);
+    draw_sixpack(fh, high);
+    CHECK(ink_differs(fl, fh, kTiles[1]));
+
+    // It is the pilot's setting, not the derived one: the number does not move.
+    CHECK(value_matches(fl, kTiles[1], "1019"));
+    CHECK(value_matches(fh, kTiles[1], "1019"));
+
+    SixPackSnapshot unset = low;
+    unset.set_qnh_pa = 0;
+    Framebuffer fu;
+    draw_sixpack(fu, unset);
+    CHECK(black_in(fu, kTiles[1], 30) < black_in(fl, kTiles[1], 30));
 }

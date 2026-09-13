@@ -67,6 +67,7 @@ struct State {
     uint32_t pressure_pa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.
     uint32_t qnh_pa{flight::kIsaSeaLevelPa};
+    uint32_t derived_qnh_pa{0};
     bool baro_active{false};
     bool started{false};
 

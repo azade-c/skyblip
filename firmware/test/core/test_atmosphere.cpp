@@ -51,6 +51,27 @@ TEST_CASE("atmosphere: the inverse round-trips through the forward curve") {
     }
 }
 
+TEST_CASE("atmosphere: the setting is recovered from a pressure and a height above the sea") {
+    // The pressure an aircraft would read, back through the derivation, is the QNH it flew in.
+    for (uint32_t qnh = 96000; qnh <= 104000; qnh += 500) {
+        for (int32_t alt_msl_cm = 0; alt_msl_cm <= 400000; alt_msl_cm += 50000) {
+            const uint32_t outside =
+                flight::alt_cm_to_pressure(alt_msl_cm + flight::pressure_to_alt_cm(qnh));
+            uint32_t derived = 0;
+            REQUIRE(flight::qnh_from_alt(outside, alt_msl_cm, derived));
+            CHECK(std::abs(static_cast<int32_t>(derived) - static_cast<int32_t>(qnh)) <= 2);
+        }
+    }
+}
+
+TEST_CASE("atmosphere: a pressure and a height that no weather explains is refused") {
+    uint32_t derived = 7;
+    // Sea-level pressure at 3000 m: the barometer and the fix cannot both be right.
+    CHECK_FALSE(flight::qnh_from_alt(flight::kIsaSeaLevelPa, 300000, derived));
+    CHECK_FALSE(flight::qnh_from_alt(70000, 0, derived));
+    CHECK(derived == 7);
+}
+
 TEST_CASE("atmosphere: climb rate in eighth-m/s, both signs") {
     int16_t e8 = 0;
     // +10 m over 2 s = +5 m/s = 40 eighths.

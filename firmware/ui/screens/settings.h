@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "core/flight/atmosphere.h"
 #include "core/settings/settings.h"
 #include "ui/framebuffer.h"
 
@@ -41,8 +42,8 @@ struct SettingsSnapshot {
 // window turns through. Stepping stops at the ends rather than wrapping: 111
 // values behind a wrap is not a thing a thumb should be able to fall off.
 constexpr uint32_t kQnhStepPa = 100;
-constexpr uint32_t kQnhMinPa = 94000;
-constexpr uint32_t kQnhMaxPa = 105000;
+using flight::kQnhMaxPa;
+using flight::kQnhMinPa;
 
 constexpr uint8_t kMaxAlarmVolume = 5;
 
