@@ -204,26 +204,19 @@ TEST_CASE("comms: status has room for every worst-case field, and the last key s
     CHECK(body.find("\"battery_valid\":true") != std::string::npos);
 }
 
-TEST_CASE("comms: timing carries the carrier-sense threshold in force and its interval") {
+TEST_CASE("comms: timing carries the dwell evidence, and no clear-channel figure") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(0xAA55);
     timing::SlotTimingStats stats;
+    stats.record_refused();
     ConfigService cs(link, s, nullptr, &stats);
 
-    // Before the radio service has said anything, the cold-start threshold.
     cs.on_rx(frame("{\"cmd\":\"timing\"}"));
     REQUIRE(!link.sent.empty());
-    CHECK(joined(link).find("\"carrier_sense_dbm\":-95") != std::string::npos);
-
-    link.clear();
-    cs.set_carrier_sense(timing::NoiseFloor::kThresholdCeilingDbm);
-    cs.on_rx(frame("{\"cmd\":\"timing\"}"));
     const std::string body = joined(link);
-    CHECK(body.find("\"carrier_sense_dbm\":-82") != std::string::npos);
-    // EN 300 220-2 V3.3.1 4.6.2.3 and 4.6.3.2, on the wire and not in a build
-    // note: the ceiling nothing may escalate past, and the assessment interval.
-    CHECK(body.find("\"carrier_sense_ceiling_dbm\":-82") != std::string::npos);
-    CHECK(body.find("\"carrier_sense_us\":160") != std::string::npos);
+    CHECK(body.find("\"refused\":1") != std::string::npos);
+    // Nothing listens before talking, so there is no threshold to report.
+    CHECK(body.find("carrier_sense") == std::string::npos);
     // Every frame is a complete object of its own, and no frame is longer than
     // the link said it would carry.
     for (const platform::host::Link::Frame& f : link.sent) {
@@ -231,7 +224,6 @@ TEST_CASE("comms: timing carries the carrier-sense threshold in force and its in
         CHECK(f.bytes.back() == '}');
         CHECK(f.bytes.size() <= link.payload_bytes());
     }
-    CHECK(body.find("\"refused\":0") != std::string::npos);
 }
 
 // L. The whole dump, over the link the phone already has open: the same five
@@ -257,7 +249,6 @@ TEST_CASE("comms: one question answers every subsystem, in frames the link can c
     dump.battery_implausible = 2;
     dump.uptime_s = 3725;
     dump.noise_dbm = -101;
-    dump.lbt_dbm = -91;
     dump.rx_ok = 1204;
     dump.tracked = 4;
     dump.gnss_fixes = 5210;
@@ -276,7 +267,6 @@ TEST_CASE("comms: one question answers every subsystem, in frames the link can c
     CHECK(body.find("\"up_s\":3725") != std::string::npos);
     CHECK(body.find("\"reset\":\"WATCHDOG\"") != std::string::npos);
     CHECK(body.find("\"noise_dbm\":-101") != std::string::npos);
-    CHECK(body.find("\"lbt_dbm\":-91") != std::string::npos);
     CHECK(body.find("\"rx_ok\":1204") != std::string::npos);
     CHECK(body.find("\"range_refused\":5") != std::string::npos);
     CHECK(body.find("\"tracked\":4") != std::string::npos);
@@ -369,5 +359,4 @@ TEST_CASE("comms: the timing report's counts are unsigned on every platform") {
     CHECK(body.find("\"holdover\":-") == std::string::npos);
     // The signed figures stay signed: an error in microseconds has a direction.
     CHECK(body.find("\"pps_worst_us\":0") != std::string::npos);
-    CHECK(body.find("\"carrier_sense_us\":160") != std::string::npos);
 }

@@ -28,8 +28,6 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
-        if (plan.tx != nullptr && (plan.tx_by_us < plan.tx_at_us || plan.tx_by_us >= plan.end_us))
-            return Status::OutOfRange;
         if (armed_) {
             pending_ = plan;
             has_pending_ = true;
@@ -59,7 +57,7 @@ class Rf : public hal::Rf {
 
         if (armed_ && !started_ && now_us >= plan_.start_us) start();
         if (armed_ && started_ && plan_.tx != nullptr && !transmitted_ && now_us >= plan_.tx_at_us)
-            try_transmit(now_us);
+            transmit();
         // The receiver keeps reporting between dwells: a frame that arrived
         // while the next plan was being armed is in the chip, not lost.
         if (started_ || radio_.mode() == parts::RadioMode::Rx) drain(now_us);
@@ -72,9 +70,7 @@ class Rf : public hal::Rf {
    private:
     void finish(uint64_t now_us) {
         sample_carrier();
-        if (plan_.tx != nullptr && !completed_)
-            emit(transmitted_ ? messages::RfEventType::Missed : messages::RfEventType::TxBusy, 0, 0,
-                 now_us);
+        if (plan_.tx != nullptr && !completed_) emit(messages::RfEventType::Missed, 0, 0, now_us);
         armed_ = false;
         started_ = false;
     }
@@ -94,8 +90,6 @@ class Rf : public hal::Rf {
         started_ = false;
         transmitted_ = false;
         completed_ = false;
-        next_carrier_sample_us_ = plan.tx_at_us;
-        threshold_dbm_ = plan.lbt_threshold_dbm;
     }
 
     void start() {
@@ -124,40 +118,19 @@ class Rf : public hal::Rf {
         return cfg;
     }
 
-    void try_transmit(uint64_t now_us) {
-        const bool last_chance = now_us >= plan_.tx_by_us;
-        if (plan_.lbt && !last_chance && !carrier_clear(now_us)) return;
+    void transmit() {
         transmitted_ = true;
         radio_.transmit(plan_.tx, plan_.tx_len);
     }
 
-    // The same clear-channel assessment the silicon executor makes, on a clock
-    // the caller advances: virtual time does not move inside a service pass, so
-    // the EN 300 220-2 V3.3.1 §4.6.3.2 interval is expressed as the run of reads
-    // itself and models::Sx1262 answers each one from its level sequence, which
-    // is what a 160 us window sees on air.
+    // INFO: fc 15sep26 virtual time stands still in a pass, so the run of reads is the window
     int8_t sample_carrier() {
         if (radio_.mode() != parts::RadioMode::Rx) return carrier_.dbm;
-        int8_t window[timing::CarrierSense::kSamples];
-        for (uint8_t i = 0; i < timing::CarrierSense::kSamples; i++) window[i] = radio_.rssi_inst();
-        carrier_.dbm = timing::CarrierSense::mean_dbm(window, timing::CarrierSense::kSamples);
+        int8_t window[timing::ChannelLevel::kSamples];
+        for (uint8_t i = 0; i < timing::ChannelLevel::kSamples; i++) window[i] = radio_.rssi_inst();
+        carrier_.dbm = timing::ChannelLevel::mean_dbm(window, timing::ChannelLevel::kSamples);
         carrier_.samples++;
         return carrier_.dbm;
-    }
-
-    // ADS-L 4 SRD-860 issue 2 §D.3 / §C.2: sample the carrier, and on a busy
-    // channel wait a backoff interval before sampling again. Backing off never
-    // stops the receiver, and the dwell's end is the only thing that gives up,
-    // so a burst is never truncated on air.
-    bool carrier_clear(uint64_t now_us) {
-        if (now_us < next_carrier_sample_us_) return false;
-        if (sample_carrier() < threshold_dbm_) return true;
-        const uint32_t span = plan_.backoff_max_ms - plan_.backoff_min_ms + 1;
-        backoff_seed_ = backoff_seed_ * 1664525u + 1013904223u;
-        const uint32_t wait_ms = plan_.backoff_min_ms + (backoff_seed_ >> 16) % span;
-        next_carrier_sample_us_ = now_us + static_cast<uint64_t>(wait_ms) * 1000;
-        threshold_dbm_ = timing::NoiseFloor::backed_off(threshold_dbm_);
-        return false;
     }
 
     void drain(uint64_t now_us) {
@@ -211,9 +184,6 @@ class Rf : public hal::Rf {
     hal::RfCarrier carrier_{};
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
-    uint64_t next_carrier_sample_us_{0};
-    int8_t threshold_dbm_{0};
-    uint32_t backoff_seed_{0x5eed1262u};
     uint32_t last_ms_{0};
     uint32_t armed_count_{0};
     int sleeps_{0};

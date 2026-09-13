@@ -63,8 +63,7 @@ class Sx1262 {
     void sleep();
     Status wake();
 
-    // Instantaneous RSSI on the tuned channel, for listen-before-talk. Valid
-    // only while the receiver is running (DS 13.5.2).
+    // INFO: fc 15sep26 DS 13.5.2: an instant, and valid only while the receiver is running
     int8_t rssi_inst();
 
     RadioEvent poll(uint8_t* rx_buf, uint8_t cap);

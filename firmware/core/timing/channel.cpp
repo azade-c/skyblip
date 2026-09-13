@@ -30,7 +30,7 @@ constexpr uint32_t kPowerRatioQ20[] = {1048576, 832914, 661607, 525533, 417446, 
 constexpr int kPowerRatioSpanDb = static_cast<int>(sizeof(kPowerRatioQ20) / sizeof(uint32_t));
 }  // namespace
 
-int8_t CarrierSense::mean_dbm(const int8_t* samples, uint8_t n) {
+int8_t ChannelLevel::mean_dbm(const int8_t* samples, uint8_t n) {
     if (samples == nullptr || n == 0) return 0;
     if (n > kMaxSamples) n = kMaxSamples;
     int8_t peak = samples[0];
@@ -45,18 +45,6 @@ int8_t CarrierSense::mean_dbm(const int8_t* samples, uint8_t n) {
     int down = 0;
     while (down + 1 < kPowerRatioSpanDb && kPowerRatioQ20[down + 1] >= mean) down++;
     return static_cast<int8_t>(static_cast<int>(peak) - down);
-}
-
-int8_t NoiseFloor::threshold_dbm() const {
-    int32_t level = static_cast<int32_t>(dbm()) + kClearMarginDb;
-    if (level > kThresholdCeilingDbm) level = kThresholdCeilingDbm;
-    if (level < -128) level = -128;
-    return static_cast<int8_t>(level);
-}
-
-int8_t NoiseFloor::backed_off(int8_t threshold_dbm) {
-    const int32_t level = static_cast<int32_t>(threshold_dbm) + kRetryStepDb;
-    return static_cast<int8_t>(level > kThresholdCeilingDbm ? kThresholdCeilingDbm : level);
 }
 
 void AirTime::spend(uint32_t now_ms, uint32_t air_ms) {

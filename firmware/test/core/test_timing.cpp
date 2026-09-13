@@ -181,7 +181,6 @@ TEST_CASE("transmit: the instant is inside the direct slot, with room for the bu
                   Transmitter::kCompletionSlackMs <=
               kSlot0End);
         CHECK(a.freq_hz == kMband0Hz);
-        CHECK_FALSE(a.force);
         if (a.at_ms < earliest) earliest = a.at_ms;
         if (a.at_ms > latest) latest = a.at_ms;
     }
@@ -196,7 +195,7 @@ TEST_CASE("transmit: the instant is inside the direct slot, with room for the bu
 // is what paid for the retune - so 800 is its first legal instant.
 TEST_CASE("transmit: the first instant of a dwell is the moment it opens") {
     Transmitter t = airborne_transmitter();
-    t.sent(0, 0, false);
+    t.sent(0, 0);
     int earliest = 2000, latest = 0;
     for (uint32_t utc = 1; utc < 5000; utc++) {
         const Transmitter::Attempt a = t.attempt(slot_plan(900), utc, utc * 1000, true, 0);
@@ -247,7 +246,7 @@ TEST_CASE("transmit: a shared instant in one second is a fresh draw in the next"
 // our own burst never does.
 TEST_CASE("transmit: the burst completes inside the direct slot, tail or no tail") {
     Transmitter t = airborne_transmitter();
-    t.sent(0, 0, false);  // one transmission done, so the next one is the upper channel's
+    t.sent(0, 0);  // one transmission done, so the next one is the upper channel's
     for (uint32_t utc = 1; utc < 400; utc++) {
         const Transmitter::Attempt a = t.attempt(slot_plan(900), utc, utc * 1000, true, 0);
         REQUIRE(a.go);
@@ -265,7 +264,7 @@ TEST_CASE("transmit: consecutive transmissions alternate channel and slot") {
     Transmitter t = airborne_transmitter();
     CHECK(t.attempt(slot_plan(500), 10, 10000, true, 0).freq_hz == kMband0Hz);
     CHECK_FALSE(t.attempt(slot_plan(900), 10, 10000, true, 0).go);
-    t.sent(10, 10500, false);
+    t.sent(10, 10500);
     CHECK_FALSE(t.attempt(slot_plan(500), 11, 11000, true, 0).go);
     CHECK(t.attempt(slot_plan(900), 11, 11000, true, 0).freq_hz == kMband1Hz);
 }
@@ -273,12 +272,12 @@ TEST_CASE("transmit: consecutive transmissions alternate channel and slot") {
 // §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground.
 TEST_CASE("transmit: one burst per second airborne, one per ten on the ground") {
     Transmitter t = airborne_transmitter();
-    t.sent(10, 10500, false);
+    t.sent(10, 10500);
     CHECK_FALSE(t.attempt(slot_plan(900), 10, 10800, true, 0).go);
     CHECK(t.attempt(slot_plan(900), 11, 11000, true, 0).go);
 
     Transmitter g = airborne_transmitter();
-    g.sent(10, 10500, false);
+    g.sent(10, 10500);
     CHECK_FALSE(g.attempt(slot_plan(900), 15, 15000, false, 0).go);
     CHECK(g.attempt(slot_plan(900), 21, 20600, false, 0).go);
 }
@@ -296,19 +295,6 @@ TEST_CASE("transmit: a missed solution is not transmitted, a late slot is") {
     CHECK(t.attempt(slot_plan(500), 10, 10000, true, -20).go);
 }
 
-// §D.3: force after 3000 ms of failed attempts, then 2000 ms off air.
-TEST_CASE("transmit: a busy band forces a transmission, then goes quiet") {
-    Transmitter t = airborne_transmitter();
-    t.busy(10000);
-    CHECK_FALSE(t.attempt(slot_plan(500), 12, 12999, true, 0).force);
-    CHECK(t.attempt(slot_plan(500), 13, 13000, true, 0).force);
-
-    t.sent(13, 13100, /*forced=*/true);
-    CHECK_FALSE(t.attempt(slot_plan(900), 14, 14000, true, 0).go);
-    CHECK_FALSE(t.attempt(slot_plan(900), 15, 15099, true, 0).go);
-    CHECK(t.attempt(slot_plan(900), 15, 15100, true, 0).go);
-}
-
 TEST_CASE("transmit: nothing goes out unless the slot allows it") {
     Transmitter t = airborne_transmitter();
     Scheduler s;
@@ -321,11 +307,7 @@ TEST_CASE("transmit: nothing goes out unless the slot allows it") {
     CHECK(early.at_ms >= kDirectStart);
 }
 
-// E1. A carrier-sense threshold that is a constant is a device that goes quiet
-// wherever the constant happens to be wrong, and says nothing about it. OGN's
-// answer is to measure: an average of the live level, seeded so a cold start is
-// not paralysed, and a margin above it (oss/nrf52-ogn-tracker
-// src/ogn-radio.cpp:77-78, 845-851).
+// E1. Nothing gates a burst on the channel, but a pilot still reads how loud the site is.
 
 TEST_CASE("channel: the floor starts at the seed and walks to what the receiver hears") {
     NoiseFloor floor;
@@ -341,8 +323,7 @@ TEST_CASE("channel: the floor starts at the seed and walks to what the receiver 
     CHECK(floor.dbm() == -96);
 }
 
-// A single burst passing through does not become the floor. Sixty seconds of a
-// jammer does, which is the point: the device keeps transmitting at a noisy site.
+// A burst passing through does not become the floor. A minute of a jammer does.
 TEST_CASE("channel: one loud sample barely moves the average, a site full of them moves it all") {
     NoiseFloor floor;
     floor.sample(-40);
@@ -351,117 +332,62 @@ TEST_CASE("channel: one loud sample barely moves the average, a site full of the
     NoiseFloor site;
     for (int i = 0; i < 200; i++) site.sample(-85);
     CHECK(site.dbm() == -85);
-    // The fixed threshold this replaces was -90 dBm: at this site it would have
-    // held every burst until the forced transmission of D.3, once every 5 s.
-    // The measured floor plus the margin asks for -75; EN 300 220-2 V3.3.1
-    // §4.6.2.3 does not allow it, so the site gets the ceiling and no more.
-    CHECK(site.threshold_dbm() == NoiseFloor::kThresholdCeilingDbm);
-    CHECK(site.threshold_dbm() > -90);
 }
 
-// The finding that produced this: the ceiling used to be 0 dBm, 79 dB above what
-// the standard allows before any antenna correction, and a magic number besides.
-TEST_CASE("channel: the carrier-sense ceiling is derived from the clause, not chosen") {
-    // The three figures the derivation stands on, each one traceable on its own.
-    CHECK(NoiseFloor::kChannelBandwidthKhz == 200);
-    CHECK(NoiseFloor::kPoliteSensitivityDbm == -94);
-    CHECK(NoiseFloor::kPoliteThresholdMarginDb == 15);
-
-    // §4.5.1.3 plus §4.6.2.3 with a zero-gain antenna: the figure the compliance
-    // register calculates, and the highest ceiling any antenna choice can reach.
-    const int zero_gain_dbm =
-        NoiseFloor::kPoliteSensitivityDbm + NoiseFloor::kPoliteThresholdMarginDb;
-    CHECK(zero_gain_dbm == -79);
-    CHECK(NoiseFloor::kThresholdCeilingDbm <= zero_gain_dbm);
-
-    // And the ceiling in force is that figure minus the gain we have assumed
-    // until G8 chooses the antenna, so raising it means editing the derivation.
-    CHECK(NoiseFloor::kAssumedAntennaGainDbd > 0);
-    CHECK(NoiseFloor::kThresholdCeilingDbm == zero_gain_dbm - NoiseFloor::kAssumedAntennaGainDbd);
-    CHECK(NoiseFloor::kThresholdCeilingDbm == -82);
-}
-
-TEST_CASE("channel: the threshold is the measured floor plus a margin, 3 dB more per failure") {
-    NoiseFloor floor;
-    for (int i = 0; i < 400; i++) floor.sample(-110);
-    REQUIRE(floor.dbm() == -110);
-    CHECK(floor.threshold_dbm() == -100);
-    CHECK(NoiseFloor::backed_off(floor.threshold_dbm()) == -97);
-    CHECK(NoiseFloor::backed_off(NoiseFloor::backed_off(floor.threshold_dbm())) == -94);
-    // Escalation is not a licence to transmit on top of anything at all, and
-    // where it stops is not ours to pick: §4.6.2.3 stops it, six retries in.
-    int8_t threshold = floor.threshold_dbm();
-    for (int i = 0; i < 6; i++) threshold = NoiseFloor::backed_off(threshold);
-    CHECK(threshold == NoiseFloor::kThresholdCeilingDbm);
-    CHECK(NoiseFloor::backed_off(threshold) == NoiseFloor::kThresholdCeilingDbm);
-}
-
-// EN 300 220-2 V3.3.1 §4.6.3.2: the assessment is an interval, not an instant.
-// The SX1262 has no averaging block and no non-LoRa channel-activity mode, so
-// the interval is a run of instantaneous reads combined here.
-TEST_CASE("channel: the clear-channel assessment spans the interval the clause sets") {
-    CHECK(CarrierSense::kAssessmentUs == 160);
-    CHECK(CarrierSense::kSamples >= 2);
-    CHECK(CarrierSense::kSampleSpacingUs * (CarrierSense::kSamples - 1) >=
-          CarrierSense::kAssessmentUs);
-    CHECK(CarrierSense::kSamples <= CarrierSense::kMaxSamples);
+// The chip has no averaging block and no non-LoRa activity mode, so a level is a run of reads.
+TEST_CASE("channel: one level is a window of readings, not the instant one landed on") {
+    CHECK(ChannelLevel::kWindowUs == 160);
+    CHECK(ChannelLevel::kSamples >= 2);
+    CHECK(ChannelLevel::kSampleSpacingUs * (ChannelLevel::kSamples - 1) >= ChannelLevel::kWindowUs);
+    CHECK(ChannelLevel::kSamples <= ChannelLevel::kMaxSamples);
 }
 
 TEST_CASE("channel: a window is averaged as power, not as decibels") {
-    const int8_t flat[CarrierSense::kSamples] = {-100, -100, -100, -100, -100,
+    const int8_t flat[ChannelLevel::kSamples] = {-100, -100, -100, -100, -100,
                                                  -100, -100, -100, -100};
-    CHECK(CarrierSense::mean_dbm(flat, CarrierSense::kSamples) == -100);
+    CHECK(ChannelLevel::mean_dbm(flat, ChannelLevel::kSamples) == -100);
 
     // One eighth of a window at -60 and the rest 40 dB down: the mean POWER is
     // 1/9 of the loud sample, which is 9.5 dB below it. The mean of the READINGS
     // would be -95.6 dBm, which is a channel nobody is using.
-    const int8_t burst[CarrierSense::kSamples] = {-100, -100, -100, -100, -60,
+    const int8_t burst[ChannelLevel::kSamples] = {-100, -100, -100, -100, -60,
                                                   -100, -100, -100, -100};
-    CHECK(CarrierSense::mean_dbm(burst, CarrierSense::kSamples) == -69);
+    CHECK(ChannelLevel::mean_dbm(burst, ChannelLevel::kSamples) == -69);
 
-    // Rounding is toward the louder decibel, so the assessment can only ever
-    // defer more often than the exact figure would.
+    // Rounding is toward the louder decibel, so a loud site never reads quiet.
     const int8_t pair[2] = {-70, -70};
-    CHECK(CarrierSense::mean_dbm(pair, 2) == -70);
+    CHECK(ChannelLevel::mean_dbm(pair, 2) == -70);
     const int8_t half[2] = {-70, -127};
-    CHECK(CarrierSense::mean_dbm(half, 2) == -73);
+    CHECK(ChannelLevel::mean_dbm(half, 2) == -73);
 
-    // No reading at all is not a clear channel.
-    CHECK(CarrierSense::mean_dbm(flat, 0) == 0);
-    CHECK(CarrierSense::mean_dbm(nullptr, CarrierSense::kSamples) == 0);
+    // No reading at all is not a quiet channel.
+    CHECK(ChannelLevel::mean_dbm(flat, 0) == 0);
+    CHECK(ChannelLevel::mean_dbm(nullptr, ChannelLevel::kSamples) == 0);
 }
 
-// The whole point of the interval: the instant a single read lands on decides
-// nothing on its own.
-TEST_CASE("channel: averaging changes the decision a single reading would have made") {
-    NoiseFloor floor;
-    for (int i = 0; i < 400; i++) floor.sample(-110);
-    const int8_t threshold = floor.threshold_dbm();
-    REQUIRE(threshold == -100);
-
-    // A neighbour's burst covers one ninth of the window. Sampled at the first
-    // instant the channel reads -110 and the burst goes out on top of it.
-    const int8_t window[CarrierSense::kSamples] = {-110, -110, -110, -110, -55,
+// A floor fed single reads reports the gaps between bursts as the site's level.
+TEST_CASE("channel: the floor hears the window, not the instant one read landed on") {
+    const int8_t window[ChannelLevel::kSamples] = {-110, -110, -110, -110, -55,
                                                    -110, -110, -110, -110};
-    CHECK(window[0] < threshold);
-    CHECK(CarrierSense::mean_dbm(window, CarrierSense::kSamples) > threshold);
+    NoiseFloor windowed, instant;
+    for (int i = 0; i < 400; i++) {
+        windowed.sample(ChannelLevel::mean_dbm(window, ChannelLevel::kSamples));
+        instant.sample(window[0]);
+    }
+    CHECK(instant.dbm() == window[0]);
+    CHECK(windowed.dbm() > instant.dbm() + 40);
 }
 
-// E2. The 1% duty cycle EN 300 220-2 V3.3.1 Table 4 sets on 868.0-868.6 MHz is
-// the channel-access route this product declares, not a fallback behind listen
-// before talk. A declaration needs evidence: this is the number that is.
+// E2. The 1% duty cycle of EN 300 220-2 V3.3.1 Table 4 is the declared route, and the only refusal.
 
-TEST_CASE("channel: the declared route is the duty cycle, and carrier sense does not move it") {
-    // The budget is 1% of the hour whatever the carrier-sense policy decides,
-    // because the two are independent: §D.3's listen before talk is a protocol
-    // behaviour and EN 300 220-2 V3.3.1 Table 4 band M is the regulatory one.
+TEST_CASE("channel: the declared route is the duty cycle, and nothing else refuses a burst") {
     CHECK(AirTime::kLimitPermille == 10);
     CHECK(AirTime::kBudgetMs == AirTime::kWindowMs / 100);
 
     AirTime air;
     air.spend(0, AirTime::kBudgetMs);
     CHECK_FALSE(air.may_spend(0, Transmitter::kAirTimeMs));
-    // Not even the forced transmission of §D.3 buys air time here.
+    // A second later the hour still holds every millisecond of it.
     CHECK_FALSE(air.may_spend(1000, Transmitter::kAirTimeMs));
 }
 
@@ -498,28 +424,20 @@ TEST_CASE("channel: the hour's allowance is 1% of it, and the counter stops at t
     CHECK_FALSE(air.may_spend(AirTime::kWindowMs - 100, Transmitter::kAirTimeMs));
 }
 
-// The decision, written down: an empty budget BLOCKS the burst. At the design
-// rate we sit at half the allowance, so an empty budget can only be a fault, and
-// a faulted transmitter that will not stop is worse for the band than a quiet
-// one. D.3's forced transmission is a way past a busy channel, not past this.
-TEST_CASE("transmit: an exhausted hour blocks the burst, forced or not, and says so") {
+// A transmitter at twice the design rate is faulted, and a faulted one that will not stop is worse.
+TEST_CASE("transmit: an exhausted hour blocks the burst and says so") {
     Transmitter t = airborne_transmitter();
-    for (uint32_t i = 0; i < 7200; i++) t.sent(i, i * 500, false);
+    for (uint32_t i = 0; i < 7200; i++) t.sent(i, i * 500);
     REQUIRE(t.air_time().window_ms(3599500) == AirTime::kBudgetMs);
 
-    Transmitter::Attempt a = t.attempt(slot_plan(500), 7200, 3599500, true, 0);
-    CHECK_FALSE(a.go);
-    CHECK(a.over_budget);
-
-    t.busy(3596000);
-    a = t.attempt(slot_plan(500), 7200, 3599500, true, 0);
+    const Transmitter::Attempt a = t.attempt(slot_plan(500), 7200, 3599500, true, 0);
     CHECK_FALSE(a.go);
     CHECK(a.over_budget);
 }
 
 TEST_CASE("transmit: the design rate never reaches the limit, so nothing is ever blocked") {
     Transmitter t = airborne_transmitter();
-    for (uint32_t i = 0; i < 3600; i++) t.sent(i, i * 1000, false);
+    for (uint32_t i = 0; i < 3600; i++) t.sent(i, i * 1000);
     CHECK(t.air_time().permille(3599000) == 5);
     const Transmitter::Attempt a = t.attempt(slot_plan(500), 3600, 3600000, true, 0);
     CHECK(a.go);
@@ -529,53 +447,13 @@ TEST_CASE("transmit: the design rate never reaches the limit, so nothing is ever
 // M. hal::Clock::millis() wraps every 49.7 days and this device flies through
 // that instant. The wrap is a value, not a wait: every case below sets the clock
 // a few hundred milliseconds short of 0xFFFFFFFF and steps past it.
-//
-// This one was a real bug, and the worst of the section: the quiet window after a
-// forced transmission was held as the instant it ENDS, so a forced burst inside
-// the last two seconds before the wrap left `now_ms < quiet_until_ms_` true for
-// the whole of the next count - the transmitter went silent for 49.7 days and
-// reported nothing at all, because a refusal for being inside the quiet window is
-// not counted anywhere. It is held as the instant it began plus a flag now.
 namespace {
 constexpr uint32_t kBeforeWrap = 0xFFFFFC00u;  // 1024 ms short of the wrap
 }
 
-TEST_CASE("transmit: the quiet window after a forced burst ends across the 49.7-day wrap") {
-    Transmitter t = airborne_transmitter();
-    // Forced, 1024 ms before the counter wraps. The 2000 ms of quiet the standard
-    // asks for therefore ends 976 ms AFTER the wrap.
-    t.sent(10, kBeforeWrap, /*forced=*/true);
-
-    CHECK_FALSE(t.attempt(slot_plan(900), 11, kBeforeWrap + 500, true, 0).go);
-    // Past the wrap and still inside the window: the old arithmetic answered
-    // "clear" here, because a small now_ms is not less than a huge deadline.
-    CHECK_FALSE(t.attempt(slot_plan(900), 12, 500u, true, 0).go);
-    CHECK_FALSE(t.attempt(slot_plan(900), 12, 975u, true, 0).go);
-    // 2000 ms after the burst, to the millisecond, whichever side of zero it fell.
-    CHECK(t.attempt(slot_plan(900), 12, 976u, true, 0).go);
-    // And it is a window, not a state: a minute later it has not come back.
-    CHECK(t.attempt(slot_plan(900), 13, 60000u, true, 0).go);
-}
-
-// §D.3's 3000 ms bound on failed attempts, measured across the same instant. The
-// second half is the zero-instant: busy() at exactly 0 used to record nothing,
-// because 0 meant "no attempt in progress", so the first run of failures after
-// every wrap could never force a burst.
-TEST_CASE("transmit: the forced-transmission bound survives the 49.7-day wrap") {
-    Transmitter t = airborne_transmitter();
-    t.busy(kBeforeWrap);
-    CHECK_FALSE(t.attempt(slot_plan(500), 11, kBeforeWrap + 2999u, true, 0).force);
-    CHECK(t.attempt(slot_plan(500), 12, kBeforeWrap + 3000u, true, 0).force);
-
-    Transmitter zero = airborne_transmitter();
-    zero.busy(0);  // the wrap instant itself
-    CHECK_FALSE(zero.attempt(slot_plan(500), 11, 2999u, true, 0).force);
-    CHECK(zero.attempt(slot_plan(500), 12, 3000u, true, 0).force);
-}
-
 TEST_CASE("transmit: the ground rate holds across the 49.7-day wrap") {
     Transmitter g = airborne_transmitter();
-    g.sent(10, kBeforeWrap, false);
+    g.sent(10, kBeforeWrap);
     CHECK_FALSE(g.attempt(slot_plan(900), 11, 8000u, false, 0).go);  // 9024 ms elapsed
     CHECK(g.attempt(slot_plan(900), 12, 9000u, false, 0).go);        // 10024 ms elapsed
 }

@@ -35,7 +35,7 @@ void TimingReport::add(const char* key, const char* text, long value) {
 // side of the centre bucket (core/timing/timing_stats.h). holdover, missed and
 // refused are counted apart from both, on purpose: a fault a histogram cannot
 // bound must not be folded into one that can.
-TimingReport::TimingReport(const timing::SlotTimingStats& stats, int8_t carrier_sense_dbm) {
+TimingReport::TimingReport(const timing::SlotTimingStats& stats) {
     format_buckets(stats, true, pps_, kBucketsTextCap);
     format_buckets(stats, false, dwell_, kBucketsTextCap);
 
@@ -52,9 +52,6 @@ TimingReport::TimingReport(const timing::SlotTimingStats& stats, int8_t carrier_
     add("holdover", nullptr, frame::counter(stats.holdover_events()));
     add("missed", nullptr, frame::counter(stats.missed()));
     add("refused", nullptr, frame::counter(stats.refused()));
-    add("carrier_sense_dbm", nullptr, carrier_sense_dbm);
-    add("carrier_sense_ceiling_dbm", nullptr, timing::NoiseFloor::kThresholdCeilingDbm);
-    add("carrier_sense_us", nullptr, frame::counter(timing::CarrierSense::kAssessmentUs));
 }
 
 bool TimingReport::fits(int payload) const {

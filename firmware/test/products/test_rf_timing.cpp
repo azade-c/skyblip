@@ -18,8 +18,7 @@ using namespace skyblip;
 
 namespace {
 
-// A receiver-only world: PPS unlocked keeps own-ship off air (ADS-L D.3 fails
-// closed without an anchored clock), so the only bursts are the neighbour's.
+// A receiver-only world: PPS unlocked keeps own-ship off air, so the only bursts are a neighbour's.
 void listen_at(simulator::Simulator& h, int phase_ms, int slot) {
     REQUIRE(h.setup() == Status::Ok);
     h.world().set_fix(true);
@@ -282,19 +281,14 @@ TEST_CASE("rf: a completed burst lands in the bench's dwell-phase histogram") {
     REQUIRE(h.setup() == Status::Ok);
     h.world().set_fix(true);
     h.world().set_speed_kt(50);
-    // 1 ms passes: a 5 ms one spends the burst's completion slack before the carrier is sampled.
+    // 1 ms passes: a 5 ms one spends the burst's completion slack before the radio is serviced.
     run_on(h, past_settling(h), 6000, 1);
 
     const timing::SlotTimingStats& stats = h.product().state().timing_stats;
     CHECK(stats.dwell_samples() > 0);
     CHECK(stats.missed() == 0);
     CHECK(stats.refused() == 0);
-    // The executor cannot transmit before the deadline it was armed for
-    // (§D.3's listen-before-talk only ever pushes the instant later), and it
-    // cannot still be waiting once the dwell it was armed inside of has ended,
-    // which bounds this well inside one slot's width without pinning a figure
-    // on the LBT backoff draw (core/timing/transmit.h kBackoffMinMs..MaxMs)
-    // that host virtual time is exercising honestly here.
+    // Never before the instant it was armed for, and never past the dwell that carried it.
     CHECK(stats.dwell_worst_us() >= 0);
     CHECK(stats.dwell_worst_us() < timing::kSlot0End * 1000);
 
@@ -547,11 +541,7 @@ TEST_CASE("rf: a burst from a range the link budget allows is traffic as before"
 
 // M. The whole transmit chain stepped through the instant hal::Clock::millis()
 // turns over: the first-fix settling window, the fix-age gate, the once-a-second
-// rate rule, the channel alternation and the rolling duty-cycle hour. This is the
-// section's integration case, and it is the one that would have caught the two
-// bugs the unit cases above now pin: a transmitter that stops for seven weeks
-// after a forced burst, and an air-time window that forgets the hour at the wrap
-// and lets the next one spend the band's allowance twice.
+// rate rule, the channel alternation and the rolling duty-cycle hour.
 //
 // The wrap is a value, not a wait: the clock starts 25 seconds short of it.
 TEST_CASE("rf: own-ship keeps transmitting across the 49.7-day wrap") {

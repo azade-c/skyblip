@@ -128,9 +128,6 @@ KEEPALIVE int simulator_vibro_ms() { return g_simulator.vibro_ms(); }
 KEEPALIVE int simulator_rx_ok() { return static_cast<int>(g_simulator.product().state().rx_ok); }
 KEEPALIVE int simulator_rx_bad() { return static_cast<int>(g_simulator.product().state().rx_bad); }
 KEEPALIVE int simulator_tx_ok() { return static_cast<int>(g_simulator.product().state().tx_ok); }
-KEEPALIVE int simulator_tx_busy() {
-    return static_cast<int>(g_simulator.product().state().tx_busy);
-}
 KEEPALIVE int simulator_slot_state() {
     return static_cast<int>(g_simulator.product().state().plan.state);
 }

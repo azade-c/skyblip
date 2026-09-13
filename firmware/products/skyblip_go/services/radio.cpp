@@ -14,10 +14,6 @@ void RadioService::tick(uint32_t now_ms) {
     context_.state.plan = plan;
     take_carrier_samples();
     collect_outcome(now_ms);
-    // The threshold the next dwell will carry, on the bus for the companion
-    // link: EN 300 220-2 V3.3.1 §4.6.2.3 evidence, published after the outcome
-    // that moved the retry rather than before it.
-    context_.state.carrier_sense_dbm = lbt_threshold_dbm();
 
     const hal::RfMode want = mode_for(plan);
     const bool same_dwell = want == armed_ && plan.freq_hz == armed_freq_;
@@ -54,9 +50,6 @@ int RadioService::phase_ms() const {
     return static_cast<int>(now_us / 1000 % 1000);
 }
 
-// The executor assesses, the policy averages what the assessments report. One
-// assessment per pass is all the executor can have made between two of them at
-// a 15 ms minimum backoff.
 void RadioService::take_carrier_samples() {
     const hal::RfCarrier carrier = context_.roles.rf.carrier();
     if (carrier.samples == seen_carrier_samples_) return;
@@ -198,14 +191,6 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
             protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&outgoing_.Version),
             protocol::kAdslFrameBytes, outgoing_chips_));
         plan.tx_at_us = tx_at_us;
-        const int by_in_ms = ms_until(a.by_ms, phase);
-        const uint64_t tx_by_us =
-            now_us + static_cast<uint64_t>(by_in_ms > 0 ? by_in_ms : 0) * 1000;
-        plan.tx_by_us = tx_by_us > tx_at_us ? tx_by_us : tx_at_us;
-        plan.lbt = !a.force;
-        plan.lbt_threshold_dbm = noise_.threshold_dbm();
-        plan.backoff_min_ms = timing::Transmitter::kBackoffMinMs;
-        plan.backoff_max_ms = timing::Transmitter::kBackoffMaxMs;
     }
 
     if (context_.roles.rf.arm(plan) != Status::Ok) {
@@ -221,18 +206,15 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     tx_armed_ = carries_tx;
     if (carries_tx) {
         tx_utc_ = slot_utc();
-        tx_forced_ = a.force;
         tx_end_us_ = plan.end_us;
         tx_deadline_us_ = tx_at_us;
     }
 }
 
-// The executor reports on the bus, which the traffic service drains into the
-// counters: a transmission that made it, and one the carrier never cleared for.
 void RadioService::collect_outcome(uint32_t now_ms) {
     if (context_.state.tx_ok != seen_tx_ok_) {
         seen_tx_ok_ = context_.state.tx_ok;
-        transmitter_.sent(tx_utc_, now_ms, tx_forced_);
+        transmitter_.sent(tx_utc_, now_ms);
         // The executor's own report against the deadline this dwell was armed
         // for: both absolute instants on the same clock, so slot 1's wrap
         // costs this nothing.
@@ -241,16 +223,7 @@ void RadioService::collect_outcome(uint32_t now_ms) {
             static_cast<int64_t>(tx_deadline_us_));
         tx_armed_ = false;
     }
-    if (context_.state.tx_busy != seen_tx_busy_) {
-        seen_tx_busy_ = context_.state.tx_busy;
-        transmitter_.busy(now_ms);
-        tx_armed_ = false;
-    }
-    // A dwell that ended without either report above took the radio with it:
-    // the policy must not stay armed on a burst that will never be reported,
-    // and on the bench this is the one outcome no other counter watches for.
-    // Checked last, so a report that arrived this same pass is not also
-    // counted as missed.
+    // INFO: fc 15sep26 a dwell that ended unreported took the radio with it, and is counted here
     if (tx_armed_ && context_.roles.clock.micros() >= tx_end_us_) {
         context_.state.timing_stats.record_missed();
         tx_armed_ = false;

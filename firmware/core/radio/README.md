@@ -4,15 +4,16 @@ The station log: every burst this radio sent or heard, in the order it happened,
 
 `rx_ok` and `tx_ok` are totals, and a total cannot tell an empty sky from a receiver that frames nothing. The traffic table only ever holds what already decoded, so a burst that arrived and did not become a frame leaves no trace in it. That burst is the one worth seeing: it is the difference between "nobody is transmitting" and "everybody is transmitting and I am deaf to them", and the two have the same reading on every other page. Two skyBlips that both transmit and neither hears is the fault this exists for, and it happened: `git log core/protocol/air.cpp`.
 
-`Event` names the five things that can happen to a burst.
+`Event` names the four things that can happen to a burst.
 
 | | |
 |---|---|
 | `Transmitted` | own-ship's burst left the antenna |
-| `Withheld` | the dwell ended with its burst unkeyed, which listen-before-talk no longer causes: see `core/timing/README.md` |
 | `Lost` | own-ship's burst was armed and never completed: the dwell ran out, or the radio's transmit timeout did |
 | `Received` | a burst arrived, framed, and named an aircraft |
 | `Unframed` | a burst arrived and did not become a frame: wrong chips behind the sync window, a CRC no forward correction could rescue, or two transmitters at once |
+
+There is no verdict for a burst the radio declined to send, because nothing declines: the instant is drawn inside the slot and the PA keys there whatever the receiver is hearing (`core/timing/README.md`). A dwell that carried a burst and reported nothing is `Lost`.
 
 `Lost` and `Unframed` are both `rx_bad` on the counters, which is wrong of the counters: `messages::RfEventType::Missed` is only ever emitted for a dwell or a transmission of ours that did not complete, never for a reception. The log is split because a transmit failure reported as a bad reception sends a reader hunting the wrong fault, which is the exact thing this page exists to stop. The counter keeps its old meaning until it is given one of its own: [#61](https://github.com/fcatuhe/skyblip/issues/61).
 

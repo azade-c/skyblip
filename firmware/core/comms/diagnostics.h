@@ -1,16 +1,6 @@
 // core/comms/diagnostics.h: the one status dump, and the only place its fields
 // are named.
 //
-// Everything in it was already measured somewhere on the device and reachable
-// from nowhere: the noise floor and the duty cycle in the radio service, rx_ok /
-// rx_bad / tx_ok / tx_busy in bus::State, the range gate's refusals in the
-// traffic table, POFCON firings and the gauge's discarded readings in the cutoff
-// monitor, and the receiver's own answers in the L76K driver. A support case
-// opens with these numbers, so they leave the device two ways - one line per
-// subsystem on the USB console, and the same fields as JSON over the companion
-// link - and both surfaces are rendered from ONE table below. A laptop and a
-// phone that disagree about a counter are worse than neither having it.
-//
 // Not a shell and not OGN's thirty-five keys: five subsystems, thirty numbers,
 // every one of them already computed. Nothing here is reset by being read.
 #ifndef SKYBLIP_CORE_COMMS_DIAGNOSTICS_H
@@ -41,13 +31,10 @@ struct Diagnostics {
     uint32_t uptime_s{0};
 
     int8_t noise_dbm{timing::NoiseFloor::kSeedDbm};
-    int8_t lbt_dbm{timing::NoiseFloor::kSeedDbm + timing::NoiseFloor::kClearMarginDb};
     uint32_t duty_permille{0};
-    uint32_t gave_up{0};
     uint32_t rx_ok{0};
     uint32_t rx_bad{0};
     uint32_t tx_ok{0};
-    uint32_t tx_busy{0};
 
     uint32_t tracked{0};
     uint8_t alarm{0};

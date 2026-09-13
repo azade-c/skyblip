@@ -78,7 +78,6 @@ export async function load() {
     rxOk: call('simulator_rx_ok', 'number', n),
     rxBad: call('simulator_rx_bad', 'number', n),
     txOk: call('simulator_tx_ok', 'number', n),
-    txBusy: call('simulator_tx_busy', 'number', n),
     slotState: call('simulator_slot_state', 'number', n),
     dwellFreq: call('simulator_dwell_freq', 'number', n),
     airCount: call('simulator_air_count', 'number', n),

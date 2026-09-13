@@ -1,5 +1,4 @@
-// Own-ship transmit policy: ADS-L 4 SRD-860 issue 2 §D.3 (CSMA, listen before
-// talk, forced transmission) and §G.1.16 (transmit rate, navigation age).
+// INFO: fc 15sep26 own-ship transmit policy, ADS-L 4 SRD-860 issue 2 §C.5 and §G.1.16, never LBT
 #ifndef SKYBLIP_CORE_TIMING_TRANSMIT_H
 #define SKYBLIP_CORE_TIMING_TRANSMIT_H
 
@@ -13,11 +12,6 @@ class Transmitter {
     // §C.2 at 100 kchip/s: 16-chip preamble, 64-chip Manchester sync word, then
     // 25 Manchester-encoded bytes = 4.8 ms, rounded up.
     static constexpr uint32_t kAirTimeMs = 5;
-    // TODO: fc 13sep26 §D.3's escape cannot fire now every dwell keys by by_ms, remove it
-    // §D.3: when no packet could be transmitted 3000 ms after the first
-    // attempt, transmit irrespective of carrier detect, then stay off air.
-    static constexpr uint32_t kForceAfterMs = 3000;
-    static constexpr uint32_t kQuietAfterForcedMs = 2000;
     // §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground.
     static constexpr uint32_t kGroundPeriodMs = 10000;
     // INFO: fc 13sep26 G.1.16 nav age, to the top of the transmit second: the burst is extrapolated
@@ -28,17 +22,11 @@ class Transmitter {
     // and the SPI write. Nothing is owed at the front: a dwell that has opened
     // is tuned, the retune was paid for by the guard before it.
     static constexpr int kCompletionSlackMs = 5;
-    // §C.2 backoff interval, applied by the executor between carrier samples.
-    static constexpr uint32_t kBackoffMinMs = 15;
-    static constexpr uint32_t kBackoffMaxMs = 250;
 
     struct Attempt {
         bool go{false};
         int at_ms{0};
-        // INFO: fc 13sep26 the last instant the burst still completes inside the direct slot
-        int by_ms{0};
         uint32_t freq_hz{0};
-        bool force{false};
         // The one refusal that is not a rate rule: the hour's air time is spent.
         bool over_budget{false};
     };
@@ -50,22 +38,17 @@ class Transmitter {
     Attempt attempt(const SlotPlan& plan, uint32_t utc, uint32_t now_ms, bool airborne,
                     int32_t fix_lag_ms) const;
 
-    void sent(uint32_t utc, uint32_t now_ms, bool forced);
-    void busy(uint32_t now_ms);
+    void sent(uint32_t utc, uint32_t now_ms);
 
     uint32_t sent_count() const { return sent_; }
-    // A dwell that sampled the carrier until it ran out of dwell. Not silent:
-    // this is the counter a noisy site shows up in.
-    uint32_t busy_count() const { return busy_; }
     const AirTime& air_time() const { return air_; }
     // §C.2.5: traffic alternates between the two M-band channels, so the slot
     // to transmit in follows the transmission count, not the clock.
     int next_slot() const { return static_cast<int>(sent_ & 1u); }
 
+   private:
     static int first_instant_in(int slot);
     static int last_instant_in(int slot);
-
-   private:
     // Uniform over the slot's usable width and decorrelated between devices:
     // two aircraft with different addresses do not collide every second, and
     // one aircraft's instant is reproducible in a test.
@@ -74,17 +57,9 @@ class Transmitter {
     AirTime air_{};
     uint32_t addr_{0};
     uint32_t sent_{0};
-    uint32_t busy_{0};
     uint32_t last_sent_ms_{0};
     uint32_t last_sent_utc_{0};
-    // The two deadlines this policy holds, each kept as the instant it STARTED
-    // plus a flag, never as the instant it ends and never as a zero stamp: both
-    // halves of hal/clock.h, and both were wrong here before 2026-08-06.
-    uint32_t attempt_since_ms_{0};
-    uint32_t quiet_since_ms_{0};
     bool ever_sent_{false};
-    bool attempting_{false};
-    bool quiet_{false};
 };
 
 }  // namespace skyblip::timing

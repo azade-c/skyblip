@@ -46,23 +46,11 @@ struct RfPlan {
     int16_t freq_corr_e1_ppm{0};
     const uint8_t* tx{nullptr};
     uint8_t tx_len{0};
+    // INFO: fc 15sep26 the burst keys here, full stop: nothing the receiver hears moves it
     uint64_t tx_at_us{0};
-    // INFO: fc 13sep26 the burst keys here whatever the carrier says, or it never keys at all
-    uint64_t tx_by_us{0};
-    // §D.3: the MAC is CSMA with listen-before-talk. Sampling the carrier and
-    // backing off are hardware timing, so they belong to the executor. Whether
-    // the rule applies to this burst is policy (§D.3 allows a forced
-    // transmission after 3000 ms of failed attempts).
-    bool lbt{false};
-    int8_t lbt_threshold_dbm{-90};
-    uint32_t backoff_min_ms{15};
-    uint32_t backoff_max_ms{250};
 };
 
-// What the executor measured on the tuned channel, and how many clear-channel
-// assessments it has completed. One assessment is a window of readings, not one
-// reading: the interval, the combination and the threshold in front of them are
-// policy (core/timing/channel.h), and the executor only reports the result.
+// INFO: fc 15sep26 a diagnostic the pilot reads, never a gate: core/timing/README.md
 struct RfCarrier {
     int8_t dbm{0};
     uint32_t samples{0};

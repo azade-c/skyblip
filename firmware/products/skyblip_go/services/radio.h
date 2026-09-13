@@ -10,10 +10,7 @@
 
 namespace skyblip::go {
 
-// Slot POLICY only: which band to listen on, from when to when, and at which
-// instant of the direct slot own-ship goes on air. The dwell is executed
-// against absolute deadlines by hal::Rf, whose implementation owns the hardware
-// timing and the carrier sense.
+// INFO: fc 15sep26 slot policy only, hal::Rf flies it against absolute deadlines and owns the chip
 class RadioService : public runtime::Service {
    public:
     using runtime::Service::Service;
@@ -25,12 +22,7 @@ class RadioService : public runtime::Service {
     uint32_t arm_count() const { return arm_count_; }
     const timing::Transmitter& transmitter() const { return transmitter_; }
 
-    // What the air discipline looks like from outside: the measured floor, the
-    // threshold the next dwell will carry, how many dwells gave up without
-    // getting a word in, and how much of the hour's allowance is spent.
     const timing::NoiseFloor& noise_floor() const { return noise_; }
-    int8_t lbt_threshold_dbm() const { return noise_.threshold_dbm(); }
-    uint32_t gave_up_count() const { return transmitter_.busy_count(); }
     uint32_t duty_permille(uint32_t now_ms) const {
         return transmitter_.air_time().permille(now_ms);
     }
@@ -89,10 +81,8 @@ class RadioService : public runtime::Service {
     uint64_t tx_deadline_us_{0};
     uint32_t tx_utc_{0};
     uint32_t seen_tx_ok_{0};
-    uint32_t seen_tx_busy_{0};
     uint32_t seen_carrier_samples_{0};
     bool tx_armed_{false};
-    bool tx_forced_{false};
     bool over_budget_{false};
 };
 

@@ -222,7 +222,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
     CHECK(occurrences(all, "\"pps_us\":") == 1);
     CHECK(occurrences(all, "\"dwell_us\":") == 1);
     CHECK(occurrences(all, "\"holdover\":") == 1);
-    CHECK(occurrences(all, "\"carrier_sense_us\":") == 1);
+    CHECK(occurrences(all, "\"refused\":") == 1);
     CHECK(all.find("\"pps_samples\":1199999") != std::string::npos);
     CHECK(all.find("\"missed\":1") != std::string::npos);
     CHECK(all.find("\"refused\":1") != std::string::npos);

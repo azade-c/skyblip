@@ -27,13 +27,10 @@ Diagnostics busy_device() {
     d.link_drops = 2;
 
     d.noise_dbm = -101;
-    d.lbt_dbm = -91;
     d.duty_permille = 7;
-    d.gave_up = 3;
     d.rx_ok = 1204;
     d.rx_bad = 37;
     d.tx_ok = 880;
-    d.tx_busy = 9;
     d.range_refused = 5;
 
     d.tracked = 4;
@@ -71,13 +68,10 @@ Diagnostics widest_device() {
     d.reset = power::ResetReason::Lockup;  // "CPU LOCKUP"
     d.link_drops = 0xFFFFFFFFu;
     d.noise_dbm = -128;
-    d.lbt_dbm = -128;
     d.duty_permille = 1000;
-    d.gave_up = 0xFFFFFFFFu;
     d.rx_ok = 0xFFFFFFFFu;
     d.rx_bad = 0xFFFFFFFFu;
     d.tx_ok = 0xFFFFFFFFu;
-    d.tx_busy = 0xFFFFFFFFu;
     d.range_refused = 0xFFFFFFFFu;
     d.tracked = 0xFFFFFFFFu;
     d.alarm = 255;
@@ -154,8 +148,8 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
     // up, then the radio, then what it heard, then what it knows about itself.
     CHECK(has(text, "sys up_s=3725 reset=\"WATCHDOG\" link_drops=2\n"));
     CHECK(has(text,
-              "radio noise_dbm=-101 lbt_dbm=-91 duty_permille=7 gave_up=3 rx_ok=1204 rx_bad=37 "
-              "tx_ok=880 tx_busy=9 range_refused=5\n"));
+              "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 tx_ok=880 "
+              "range_refused=5\n"));
     CHECK(has(text, "traffic tracked=4 alarm=2\n"));
     CHECK(has(text,
               "gnss fixes=5210 valid=true baud=38400 identified=true "
@@ -394,7 +388,6 @@ TEST_CASE("diagnostics: reading the dump neither clears nor changes anything") {
     CHECK(first == second);
     CHECK(first_json == second_json);
     CHECK(d.rx_ok == 1204);
-    CHECK(d.gave_up == 3);
     CHECK(d.supply_warnings == 1);
 }
 

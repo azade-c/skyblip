@@ -190,10 +190,7 @@ class Sx1262 : public io::Spi, public io::Gpio {
     // the level the last delivered frame arrived with.
     int8_t rssi_dbm{-110};
     int8_t rx_rssi_dbm{-80};
-    // A clear-channel assessment is a run of GetRssiInst reads over an interval,
-    // so the chip has to be able to answer them differently: a level sequence,
-    // walked one entry per read and repeating, standing in for a channel that
-    // changes inside the window. Empty, every read gets rssi_dbm.
+    // INFO: fc 15sep26 a repeating sequence, one entry per read, is a channel changing mid-window
     static constexpr uint8_t kRssiSequenceCap = 16;
     int8_t rssi_sequence[kRssiSequenceCap]{};
     uint8_t rssi_sequence_len{0};

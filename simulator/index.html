@@ -255,7 +255,7 @@
           <div>Battery</div><div id="t_bat">-</div>
           <div>Traffic</div><div id="t_tfc">-</div>
           <div>RX ok / bad</div><div id="t_rx">-</div>
-          <div>TX ok / busy</div><div id="t_tx">-</div>
+          <div>TX ok</div><div id="t_tx">-</div>
           <div>Dwell</div><div id="t_dwell">-</div>
           <div>Alarm</div><div><span id="t_alarm" class="alarm a0">none</span></div>
         </div>
@@ -435,7 +435,7 @@ function draw() {
                             + (f.batteryCharging() ? ' charging' : '');
   $('t_tfc').textContent  = f.traffic() + ' target(s)';
   $('t_rx').textContent   = f.rxOk() + ' / ' + f.rxBad();
-  $('t_tx').textContent   = f.txOk() + ' / ' + f.txBusy();
+  $('t_tx').textContent   = f.txOk();
   $('t_dwell').textContent = DWELL[f.slotState()] || '-';
   drawBand();
   drawTape();

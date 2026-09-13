@@ -90,8 +90,8 @@ uint32_t tuned_khz(const models::Sx1262& chip) { return (chip.freq_hz + 500) / 1
 
 }  // namespace
 
-// §D.3 chooses when inside the window, never whether: core/timing/README.md holds the argument.
-TEST_CASE("rf: a busy channel moves the burst to the slot's last instant, it does not cancel it") {
+// The draw chooses the instant and nothing on air moves it: core/timing/README.md has the argument.
+TEST_CASE("rf: the burst keys at its drawn instant, on a held channel as on a quiet one") {
     models::Sx1262 chip;
     parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
     platform::host::Clock clock;
@@ -108,11 +108,8 @@ TEST_CASE("rf: a busy channel moves the burst to the slot's last instant, it doe
     plan.tx = frame;
     plan.tx_len = sizeof(frame);
     plan.tx_at_us = 600000;
-    // The last instant a 5 ms burst still completes inside the direct slot's own dwell.
-    plan.tx_by_us = 790000;
-    plan.lbt = true;
 
-    chip.rssi_dbm = -50;  // a neighbour holding the channel, louder than the ceiling allows for
+    chip.rssi_dbm = -50;  // a neighbour holding the channel, 55 dB over the floor
     REQUIRE(rf.arm(plan) == Status::Ok);
     uint32_t keyed_at_ms = 0;
     for (uint32_t t = 450; t <= 800; t += 5) {
@@ -120,19 +117,16 @@ TEST_CASE("rf: a busy channel moves the burst to the slot's last instant, it doe
         rf.service(t);
         if (chip.tx_pending && keyed_at_ms == 0) keyed_at_ms = t;
     }
-    CHECK(keyed_at_ms >= 790);
-    messages::RfEvent e{};
-    bool busy_reported = false;
-    while (events.pop(e))
-        if (e.type == messages::RfEventType::TxBusy) busy_reported = true;
-    CHECK_FALSE(busy_reported);
+    CHECK(keyed_at_ms == 600);
 
-    // The same dwell one second later, on a quiet channel: heard clear, so it goes at its instant.
+    // The same dwell one second later on a quiet channel keys at the same instant.
+    uint8_t sent[protocol::kTxPayloadChipBytes];
+    uint8_t sent_len = 0;
+    REQUIRE(chip.take_tx(sent, sent_len));
     chip.rssi_dbm = simulator::Air::kNoiseFloorDbm;
     plan.start_us += 1000000;
     plan.end_us += 1000000;
     plan.tx_at_us += 1000000;
-    plan.tx_by_us += 1000000;
     REQUIRE(rf.arm(plan) == Status::Ok);
     keyed_at_ms = 0;
     for (uint32_t t = 1450; t <= 1800; t += 5) {
@@ -140,7 +134,7 @@ TEST_CASE("rf: a busy channel moves the burst to the slot's last instant, it doe
         rf.service(t);
         if (chip.tx_pending && keyed_at_ms == 0) keyed_at_ms = t;
     }
-    CHECK(keyed_at_ms <= 1605);
+    CHECK(keyed_at_ms == 1600);
     CHECK(radio.mode() == parts::RadioMode::Tx);
     CHECK(chip.tx_pending);
     // Two hundred milliseconds in Tx with no TxDone, and no firmware timer
@@ -246,49 +240,39 @@ TEST_CASE("rf: the transmit instant is measured from the latched edge, not from 
     }
 }
 
-// E1. A site where the carrier is never under the threshold used to be a device that went silent.
-TEST_CASE("rf: a jammed site still transmits, and the threshold it asked for is published") {
+// E1. A site where the carrier never read clear used to be a device that went silent.
+TEST_CASE("rf: a jammed site transmits at its instant, and reports the floor it measured") {
     Pass pass;
     REQUIRE(pass.begin() == Status::Ok);
-    // The threshold before anything has been measured is OGN's seed plus its
-    // margin, so a cold start on a quiet channel is not paralysed either.
-    CHECK(pass.radio_service.lbt_threshold_dbm() ==
-          timing::NoiseFloor::kSeedDbm + timing::NoiseFloor::kClearMarginDb);
+    CHECK(pass.radio_service.noise_floor().dbm() == timing::NoiseFloor::kSeedDbm);
 
-    pass.chip.rssi_dbm = -50;  // a neighbour sitting on the channel, louder than the ceiling allows
-    for (uint64_t t = 0; t <= 2900000; t += 10000) pass.whole_pass(t);
+    pass.chip.rssi_dbm = -50;  // a neighbour sitting on the channel, 55 dB over the floor
+    int keyed_at_ms = 0;
+    for (uint64_t t = 0; t <= 2900000; t += 10000) {
+        pass.whole_pass(t);
+        if (pass.chip.tx_pending && keyed_at_ms == 0)
+            keyed_at_ms = static_cast<int>(t / 1000 % 1000);
+    }
 
-    // The PA keyed on a channel that never read clear. Nothing here completes the burst: the
+    // The PA keyed inside the direct slot. Nothing here completes the burst: the
     // world that takes it off the antenna is simulator::Air, and this harness has none.
     CHECK(pass.chip.saw_cmd(parts::sx::kSetTx));
-    CHECK(pass.radio_service.gave_up_count() == 0);
-    CHECK(pass.state.tx_busy == 0);
-    // The floor is a measurement now, and it has moved off the seed.
+    CHECK(timing::Scheduler::in_direct_slot(keyed_at_ms));
+    CHECK(pass.state.timing_stats.refused() == 0);
+    // The floor is a measurement, and a site this loud has walked it off the seed.
     CHECK(pass.radio_service.noise_floor().samples() > 3);
     CHECK(pass.radio_service.noise_floor().dbm() > timing::NoiseFloor::kSeedDbm);
-    // A neighbour at -50 dBm asks for more tolerance than §4.6.2.3 allows, so the ceiling is it.
-    CHECK(pass.radio_service.noise_floor().dbm() + timing::NoiseFloor::kClearMarginDb >
-          timing::NoiseFloor::kThresholdCeilingDbm);
-    CHECK(pass.radio_service.lbt_threshold_dbm() == timing::NoiseFloor::kThresholdCeilingDbm);
-    // And the threshold in force is on the bus for the companion link to read.
-    CHECK(pass.state.carrier_sense_dbm == pass.radio_service.lbt_threshold_dbm());
 }
 
-// EN 300 220-2 V3.3.1 §4.6.3.2: the assessment is averaged over at least 160 us.
-// One instantaneous read used to decide it, so a burst that happened to be off
-// air at that instant licensed a transmission on top of the rest of it.
-TEST_CASE("rf: a channel busy for part of the window is busy, whatever the first read said") {
+// A read at one instant used to license a burst on top of a neighbour it did not land on.
+TEST_CASE("rf: the floor the service publishes is a window of reads, and moves no instant") {
     Pass pass;
     REQUIRE(pass.begin() == Status::Ok);
-    const int last_instant_ms = timing::Transmitter::last_instant_in(0);
 
-    // A quiet channel with a neighbour occupying one ninth of every window. Read
-    // once at the first instant this is -115 dBm and clear by any threshold;
-    // averaged as power it is well above the cold-start threshold of -95 dBm.
-    const int8_t window[timing::CarrierSense::kSamples] = {-115, -115, -115, -115, -45,
+    // A quiet channel with a neighbour occupying one ninth of every window.
+    const int8_t window[timing::ChannelLevel::kSamples] = {-115, -115, -115, -115, -45,
                                                            -115, -115, -115, -115};
-    pass.chip.set_rssi_sequence(window, timing::CarrierSense::kSamples);
-    CHECK(window[0] < timing::NoiseFloor::kSeedDbm + timing::NoiseFloor::kClearMarginDb);
+    pass.chip.set_rssi_sequence(window, timing::ChannelLevel::kSamples);
 
     int keyed_at_ms = 0;
     for (uint64_t t = 0; t <= 2900000; t += 10000) {
@@ -296,12 +280,10 @@ TEST_CASE("rf: a channel busy for part of the window is busy, whatever the first
         if (pass.chip.tx_pending && keyed_at_ms == 0)
             keyed_at_ms = static_cast<int>(t / 1000 % 1000);
     }
-    // The floor the policy averages is the window's figure, not the quiet read.
-    CHECK(pass.radio_service.noise_floor().dbm() > window[0]);
-    // Heard busy at every assessment, so the burst waited for the slot's last instant.
-    CHECK(keyed_at_ms >= last_instant_ms);
+    // The floor the service averages is the window's figure, not the quiet read.
+    CHECK(pass.radio_service.noise_floor().dbm() > window[0] + 20);
 
-    // The same channel read only at the quiet instant keys the PA at the drawn instant instead.
+    // The same channel read only at its quiet instant keys the PA at the same instant.
     Pass single;
     REQUIRE(single.begin() == Status::Ok);
     single.chip.rssi_dbm = window[0];
@@ -311,8 +293,9 @@ TEST_CASE("rf: a channel busy for part of the window is busy, whatever the first
         if (single.chip.tx_pending && single_keyed_at_ms == 0)
             single_keyed_at_ms = static_cast<int>(t / 1000 % 1000);
     }
-    CHECK(single_keyed_at_ms < last_instant_ms);
-    CHECK(single.radio_service.gave_up_count() == 0);
+    CHECK(single.radio_service.noise_floor().dbm() < timing::NoiseFloor::kSeedDbm);
+    CHECK(pass.radio_service.noise_floor().dbm() > single.radio_service.noise_floor().dbm() + 10);
+    CHECK(single_keyed_at_ms == keyed_at_ms);
 }
 
 // The 30 s no-RX reinitialisation lived in parts::Sx1262::service(), which only
@@ -387,8 +370,6 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     queued.tx = frame;
     queued.tx_len = sizeof(frame);
     queued.tx_at_us = 600000;
-    queued.tx_by_us = 790000;
-    chip.rssi_dbm = simulator::Air::kNoiseFloorDbm;  // clear, so only the queueing can hold it
     REQUIRE(rf.arm(queued) == Status::Ok);
 
     for (uint32_t t = 460; t <= 800; t += 10) {
@@ -399,12 +380,9 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     CHECK(tuned_khz(chip) == timing::kMband0Hz / 1000);
     CHECK_FALSE(chip.tx_pending);
 
-    int missed = 0, busy = 0;
+    int missed = 0;
     messages::RfEvent e{};
-    while (events.pop(e)) {
+    while (events.pop(e))
         if (e.type == messages::RfEventType::Missed) missed++;
-        if (e.type == messages::RfEventType::TxBusy) busy++;
-    }
     CHECK(missed == 1);
-    CHECK(busy == 0);
 }

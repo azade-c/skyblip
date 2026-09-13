@@ -94,14 +94,12 @@ TEST_CASE("radio log page: a burst that never framed says so instead of naming a
 }
 
 // A transmission that failed, read as a bad reception, sends a reader after the wrong fault.
-TEST_CASE("radio log page: own-ship's three outcomes read apart, and all read as TX") {
+TEST_CASE("radio log page: own-ship's two outcomes read apart, and both read as TX") {
     struct Case {
         radio::Event event;
         const char* verdict;
     };
-    const Case cases[] = {{radio::Event::Transmitted, "SENT"},
-                          {radio::Event::Withheld, "HELD"},
-                          {radio::Event::Lost, "LOST"}};
+    const Case cases[] = {{radio::Event::Transmitted, "SENT"}, {radio::Event::Lost, "LOST"}};
     for (const Case& c : cases) {
         radio::Log log;
         log.record(entry_of(c.event));

@@ -31,7 +31,6 @@ Each row is one burst.
 12:34:56 RX M F 4C11A0 -93     an ALP-TAS frame, same dwell
 12:34:55 RX M BAD       -101   a burst that arrived and never framed
 12:34:55 TX M SENT             own-ship's burst left the antenna
-12:34:54 TX M HELD             listen-before-talk never found the band clear
 12:34:53 TX M LOST             armed, and the radio never reported it sent
 ```
 

@@ -109,14 +109,11 @@ TEST_CASE("diagnostics: the dump reads the device, subsystem by subsystem") {
     CHECK(has(gnss, "reject=\"NO RMC\""));
     CHECK_FALSE(has(gnss, "rejected=0"));
 
-    // The radio's discipline: the measured floor, the threshold in force, and the
-    // hour's allowance spent so far.
+    // The radio's discipline: the floor it measured, and the hour's allowance spent so far.
     const std::string radio = console.with("radio ");
     REQUIRE_FALSE(radio.empty());
     CHECK(has(radio, "noise_dbm=-"));
-    CHECK(has(radio, "lbt_dbm=-"));
     CHECK(has(radio, "duty_permille="));
-    CHECK(has(radio, "gave_up=0"));
     CHECK(has(radio, "range_refused=0"));
 
     // And the two the shell already knew and could not say out loud.

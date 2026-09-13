@@ -52,13 +52,10 @@ class DiagnosticsDump {
         d.uptime_s = now_ms / 1000;
 
         d.noise_dbm = product.radio().noise_floor().dbm();
-        d.lbt_dbm = product.radio().lbt_threshold_dbm();
         d.duty_permille = product.radio().duty_permille(now_ms);
-        d.gave_up = product.radio().gave_up_count();
         d.rx_ok = state.rx_ok;
         d.rx_bad = state.rx_bad;
         d.tx_ok = state.tx_ok;
-        d.tx_busy = state.tx_busy;
 
         d.tracked = static_cast<uint32_t>(state.traffic.count());
         d.alarm = state.alarm_level;

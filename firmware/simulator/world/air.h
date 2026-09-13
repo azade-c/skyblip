@@ -78,10 +78,6 @@ class Air {
     void emit(uint64_t at_us, uint32_t freq_hz, const uint8_t* chips, uint16_t len, int8_t rssi_dbm,
               uint32_t bitrate = protocol::kMbandChipRateBps);
 
-    // Drive the channel up to now_us: own-ship transmissions are picked up from
-    // the radio, bursts that started are judged heard or not, bursts that ended
-    // are handed to the receiver, and the carrier the radio would measure is
-    // set for the listen-before-talk sample that follows.
     void step(uint64_t now_us, models::Sx1262& radio);
 
     // What a receiver armed with the shared sync window would frame out of a

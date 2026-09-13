@@ -47,8 +47,6 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
-        if (plan.tx != nullptr && (plan.tx_by_us < plan.tx_at_us || plan.tx_by_us >= plan.end_us))
-            return Status::OutOfRange;
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
         if (clock_.micros() >= plan.end_us) {
@@ -154,29 +152,18 @@ class Rf : public hal::Rf {
         return cfg;
     }
 
-    // §C.2 backoff interval, drawn per failed carrier sample.
-    uint64_t backoff_us(const hal::RfPlan& plan) {
-        const uint32_t span = plan.backoff_max_ms - plan.backoff_min_ms + 1;
-        backoff_seed_ = backoff_seed_ * 1664525u + 1013904223u;
-        return static_cast<uint64_t>(plan.backoff_min_ms + (backoff_seed_ >> 16) % span) * 1000;
-    }
-
-    // One clear-channel assessment, reported and not judged. The chip has no
-    // averaging block, so the interval of EN 300 220-2 V3.3.1 §4.6.3.2 is a run
-    // of GetRssiInst reads spaced across it; the last read is at least
-    // kAssessmentUs after the first whatever a read costs on this SPI bus. The
-    // combination and the threshold in front of it are core/timing/channel.h's.
+    // INFO: fc 15sep26 the last read is kWindowUs after the first whatever a read costs on the bus
     int8_t sample_carrier() {
         if (radio_.mode() != parts::RadioMode::Rx) return carrier_.dbm;
-        int8_t window[timing::CarrierSense::kSamples];
+        int8_t window[timing::ChannelLevel::kSamples];
         const uint64_t opened_us = clock_.micros();
-        for (uint8_t i = 0; i < timing::CarrierSense::kSamples; i++) {
+        for (uint8_t i = 0; i < timing::ChannelLevel::kSamples; i++) {
             const uint64_t due_us =
-                opened_us + static_cast<uint64_t>(i) * timing::CarrierSense::kSampleSpacingUs;
+                opened_us + static_cast<uint64_t>(i) * timing::ChannelLevel::kSampleSpacingUs;
             while (clock_.micros() < due_us) k_busy_wait(1);
             window[i] = radio_.rssi_inst();
         }
-        carrier_.dbm = timing::CarrierSense::mean_dbm(window, timing::CarrierSense::kSamples);
+        carrier_.dbm = timing::ChannelLevel::mean_dbm(window, timing::ChannelLevel::kSamples);
         carrier_.samples++;
         return carrier_.dbm;
     }
@@ -184,24 +171,10 @@ class Rf : public hal::Rf {
     void dwell(const hal::RfPlan& plan) {
         bool completed = false;
         bool transmitted = false;
-        // §D.3: carrier sense, then a backoff interval before the next sample.
-        // Backing off never stops the receiver, and the dwell's end is what
-        // gives up, so a burst is never truncated on air.
-        uint64_t next_carrier_sample_us = plan.tx_at_us;
-        int8_t threshold_dbm = plan.lbt_threshold_dbm;
         while (!abort_ && clock_.micros() < plan.end_us) {
-            const uint64_t now_us = clock_.micros();
-            if (plan.tx != nullptr && !transmitted) {
-                const bool last_chance = now_us >= plan.tx_by_us;
-                if (last_chance || now_us >= next_carrier_sample_us) {
-                    if (!plan.lbt || last_chance || sample_carrier() < threshold_dbm) {
-                        transmitted = true;
-                        radio_.transmit(plan.tx, plan.tx_len);
-                    } else {
-                        next_carrier_sample_us = now_us + backoff_us(plan);
-                        threshold_dbm = timing::NoiseFloor::backed_off(threshold_dbm);
-                    }
-                }
+            if (plan.tx != nullptr && !transmitted && clock_.micros() >= plan.tx_at_us) {
+                transmitted = true;
+                radio_.transmit(plan.tx, plan.tx_len);
             }
             const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
             switch (ev.type) {
@@ -217,8 +190,7 @@ class Rf : public hal::Rf {
             }
         }
         sample_carrier();
-        if (plan.tx != nullptr && !completed)
-            emit(transmitted ? messages::RfEventType::Missed : messages::RfEventType::TxBusy);
+        if (plan.tx != nullptr && !completed) emit(messages::RfEventType::Missed);
     }
 
     // The frame is already in the event that will carry it. An O-band uplink
@@ -252,7 +224,6 @@ class Rf : public hal::Rf {
     hal::RfCarrier carrier_{};
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
-    uint32_t backoff_seed_{0x5eed1262u};
     uint64_t health_us_{0};
     struct k_sem armed_{};
     struct k_thread thread_{};

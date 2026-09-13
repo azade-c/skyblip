@@ -1,17 +1,7 @@
 // core/comms/timing_report.h: the bench's timing answer, cut to fit the link.
-//
-// Two histograms whose buckets reach seven figures plus the clear-channel figures
-// the RED technical file asks for cannot be promised to fit one BLE notification,
-// and they must not be trimmed: a laboratory copies them into a compliance
-// report, so a histogram missing its last bucket is not evidence. So this packs
-// the fields into as many frames as the negotiated payload needs, each frame a
-// complete flat object carrying "part" and "more". One frame on a phone that
-// negotiated a large MTU, two or three on an iPhone, and a counted refusal on a
-// link so narrow that not even one field fits.
 #ifndef SKYBLIP_CORE_COMMS_TIMING_REPORT_H
 #define SKYBLIP_CORE_COMMS_TIMING_REPORT_H
 
-#include "core/timing/channel.h"
 #include "core/timing/timing_stats.h"
 
 namespace skyblip::comms {
@@ -23,7 +13,7 @@ constexpr int kTimingFrameCap = 384;
 
 class TimingReport {
    public:
-    TimingReport(const timing::SlotTimingStats& stats, int8_t carrier_sense_dbm);
+    explicit TimingReport(const timing::SlotTimingStats& stats);
 
     bool exhausted() const { return at_ >= count_; }
 

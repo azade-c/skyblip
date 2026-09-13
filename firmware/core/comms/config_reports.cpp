@@ -45,7 +45,7 @@ void ConfigService::send_timing() {
         ack(false, "no_stats");
         return;
     }
-    TimingReport report(*timing_stats_, carrier_sense_dbm_);
+    TimingReport report(*timing_stats_);
     if (!report.fits(payload())) {
         diag_.link_drops++;
         return;

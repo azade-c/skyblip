@@ -141,7 +141,7 @@ struct DfuRequest {
 // was tuned to, and everything downstream would otherwise have to guess.
 enum class Band : uint8_t { M, O };
 
-enum class RfEventType : uint8_t { RxDone, CrcError, TxDone, Missed, TxBusy };
+enum class RfEventType : uint8_t { RxDone, CrcError, TxDone, Missed };
 
 // INFO: fc 05aug26 The longest burst any dwell reads is the O-band uplink frame,
 // an RS(255,223) codeword (§C.4, core/protocol/adsl_uplink.h), and this event is

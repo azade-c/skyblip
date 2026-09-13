@@ -539,12 +539,6 @@ TEST_CASE("comms: link down cancels a pending change") {
 
 // G1: the wire, not the gauge or the cutoff rule - core/power decided percent,
 // charging and the level, comms only carries them to the tablet.
-// The RED technical file asks for the clear-channel threshold in force and the
-// interval it is assessed over, and asks for them as a test mode. This is not a
-// mode: the same bench reply that carries the slot-timing histograms carries
-// both, so the evidence is text in a laboratory's report. It rides with
-// "timing" rather than with "status" because a pilot's tablet reads status on
-// every battery step and none of this is for a pilot.
 
 // E1. A dying cell must not corrupt the settings. NVS survives an interrupted
 // write by design, but the sector it garbage-collects is the internal flash the
@@ -751,7 +745,7 @@ TEST_CASE("comms: the range gate's refusals read out with the radio's own counte
     // carry: ten digits (test/core/test_diagnostics.cpp holds the ceiling and why).
     // Nine of those do not fit one notification an iPhone will accept, so the
     // answer is two whole frames rather than one short one.
-    dump.gave_up = dump.rx_ok = dump.rx_bad = dump.tx_ok = dump.tx_busy = 2147483647u;
+    dump.rx_ok = dump.rx_bad = dump.tx_ok = 2147483647u;
     cs.set_range_refused(2147483647u);
     link.sent.clear();
     cs.on_rx(frame("{\"cmd\":\"radio\"}"));

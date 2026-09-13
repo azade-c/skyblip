@@ -31,8 +31,7 @@ void right_aligned(Framebuffer& fb, int x_end, int y, const char* text, int len)
 }
 
 bool own_burst(radio::Event event) {
-    return event == radio::Event::Transmitted || event == radio::Event::Withheld ||
-           event == radio::Event::Lost;
+    return event == radio::Event::Transmitted || event == radio::Event::Lost;
 }
 
 bool names_one_emitter(messages::Source source) { return source != messages::Source::AdslUplink; }
@@ -40,7 +39,6 @@ bool names_one_emitter(messages::Source source) { return source != messages::Sou
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
         case radio::Event::Transmitted: return "SENT";
-        case radio::Event::Withheld: return "HELD";
         case radio::Event::Lost: return "LOST";
         case radio::Event::Unframed: return "BAD";
         case radio::Event::Received:

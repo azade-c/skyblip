@@ -8,7 +8,6 @@
 #include "core/power/cutoff.h"
 #include "core/radio/log.h"
 #include "core/settings/settings.h"
-#include "core/timing/channel.h"
 #include "core/timing/durable_write.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
@@ -42,16 +41,10 @@ struct State {
     bool die_temperature_valid{false};
 
     uint8_t alarm_level{0};
-    // INFO: fc 03aug26 The carrier-sense threshold the next dwell will carry,
-    // published because EN 300 220-2 V3.3.1 §4.6.2.3 evidence has to be readable
-    // on a bench. The radio service is the only writer; before it has run this
-    // is the cold-start threshold, which is what the dwell would carry too.
-    int8_t carrier_sense_dbm{timing::NoiseFloor::kSeedDbm + timing::NoiseFloor::kClearMarginDb};
 
     uint32_t rx_ok{0};
     uint32_t rx_bad{0};
     uint32_t tx_ok{0};
-    uint32_t tx_busy{0};
     // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
     // from the M band's: every frame that arrived in the uplink dwell, the ones
     // Reed-Solomon refused, and the aircraft the rest of them put in the table.
