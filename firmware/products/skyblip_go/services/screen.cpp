@@ -459,7 +459,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.turn_dps = own.turn_dps;
             snap.qnh_pa = context_.state.derived_qnh_pa;
-            snap.set_qnh_pa = context_.state.qnh_pa;
             ui::draw_sixpack(fb_, snap);
             break;
         }
@@ -483,6 +482,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.gnss.solutions = context_.state.gnss_solutions;
             snap.rx_ok = context_.state.rx_ok;
             snap.tx_ok = context_.state.tx_ok;
+            snap.tx_fault = context_.state.tx_fault;
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             ui::draw_radio_log(fb_, snap);

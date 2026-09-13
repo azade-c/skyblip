@@ -17,7 +17,6 @@ struct SixPackSnapshot {
     uint16_t track_deg{0};
     int16_t turn_dps{0};  // degrees per second, positive = right
     uint32_t qnh_pa{0};   // the barometer read against GNSS, 0 until both have spoken
-    uint32_t set_qnh_pa{0};
 };
 
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& snap);

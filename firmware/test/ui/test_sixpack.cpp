@@ -38,13 +38,6 @@ bool value_matches(const Framebuffer& fb, Tile t, const char* text) {
     return true;
 }
 
-bool ink_differs(const Framebuffer& a, const Framebuffer& b, Tile t) {
-    for (int y = t.cy - 30; y <= t.cy + 30; y++)
-        for (int x = t.cx - 30; x <= t.cx + 30; x++)
-            if (a.get_pixel(x, y) != b.get_pixel(x, y)) return true;
-    return false;
-}
-
 SixPackSnapshot flying() {
     SixPackSnapshot s;
     s.have_data = true;
@@ -55,7 +48,6 @@ SixPackSnapshot flying() {
     s.track_deg = 270;
     s.turn_dps = 3;
     s.qnh_pa = 101900;
-    s.set_qnh_pa = 101300;
     return s;
 }
 }  // namespace
@@ -164,50 +156,65 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     for (int i = 1; i < 6; i++) CHECK(black_in(fm, kTiles[i], 30) == black_in(fi, kTiles[i], 30));
 }
 
-TEST_CASE("sixpack: the subscale reads the pressure the two sensors agree on") {
+TEST_CASE("sixpack: the middle number is the pressure the two sensors agree on") {
     SixPackSnapshot s = flying();
-    s.qnh_pa = 101900;
     Framebuffer fb;
     draw_sixpack(fb, s);
     CHECK(value_matches(fb, kTiles[1], "1019"));
 
-    // 1010 hPa is the top of the scale, so its needle is the one pointing up.
-    SixPackSnapshot top = s;
-    top.qnh_pa = 101000;
-    Framebuffer up;
-    draw_sixpack(up, top);
-    CHECK(value_matches(up, kTiles[1], "1010"));
-    CHECK(up.get_pixel(kTiles[1].cx, kTiles[1].cy - 20));
-    CHECK_FALSE(fb.get_pixel(kTiles[1].cx, kTiles[1].cy - 20));
-
-    // A barometer and a fix that have not met yet: the scale stays, the answer does not.
+    // A barometer and a fix that have not met yet: the horizon stays, the answer does not.
     SixPackSnapshot unknown = s;
     unknown.qnh_pa = 0;
     Framebuffer none;
     draw_sixpack(none, unknown);
     CHECK(value_matches(none, kTiles[1], "---"));
-    CHECK(black_in(none, kTiles[1], 30) < black_in(fb, kTiles[1], 30));
+    CHECK(black_in(none, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
 }
 
-// The dial exists to show the disagreement, so the pilot's own setting is on it.
-TEST_CASE("sixpack: the subscale carries the setting the pilot dialled in") {
-    SixPackSnapshot low = flying();
-    low.set_qnh_pa = 99000;
-    SixPackSnapshot high = low;
-    high.set_qnh_pa = 103000;
+// The horizon is drawn off a track rate and a climb rate, so nothing else may move it.
+TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
+    SixPackSnapshot level = flying();
+    level.speed_kt = 100;
+    level.turn_dps = 0;
+    level.vs_fpm = 0;
+    SixPackSnapshot turning = level;
+    turning.turn_dps = 3;  // standard rate at 100 kt is ~15 deg of bank
+    SixPackSnapshot climbing = level;
+    climbing.vs_fpm = 1000;
 
-    Framebuffer fl, fh;
-    draw_sixpack(fl, low);
-    draw_sixpack(fh, high);
-    CHECK(ink_differs(fl, fh, kTiles[1]));
+    Framebuffer f0, f1, f2;
+    draw_sixpack(f0, level);
+    draw_sixpack(f1, turning);
+    draw_sixpack(f2, climbing);
 
-    // It is the pilot's setting, not the derived one: the number does not move.
-    CHECK(value_matches(fl, kTiles[1], "1019"));
-    CHECK(value_matches(fh, kTiles[1], "1019"));
+    const Tile att = kTiles[1];
+    CHECK(black_in(f1, att, 28) != black_in(f0, att, 28));
+    // Climbing shows more sky: the ground area shrinks.
+    CHECK(black_in(f2, att, 28) < black_in(f0, att, 28));
 
-    SixPackSnapshot unset = low;
-    unset.set_qnh_pa = 0;
-    Framebuffer fu;
-    draw_sixpack(fu, unset);
-    CHECK(black_in(fu, kTiles[1], 30) < black_in(fl, kTiles[1], 30));
+    // The pressure the pilot reads above it is none of the horizon's business.
+    SixPackSnapshot other_air = level;
+    other_air.qnh_pa = 99500;
+    Framebuffer f3;
+    draw_sixpack(f3, other_air);
+    CHECK(black_in(f3, att, 28) == black_in(f0, att, 28));
+    CHECK(value_matches(f3, att, "995"));
+}
+
+// A rate of zero is a rate, not a direction: +0 and -0 are both noise on a glance.
+TEST_CASE("sixpack: a zero rate carries no sign") {
+    SixPackSnapshot s = flying();
+    s.turn_dps = 0;
+    s.vs_fpm = 0;
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(value_matches(fb, kTiles[3], "0"));
+    CHECK(value_matches(fb, kTiles[5], "0"));
+
+    s.turn_dps = -2;
+    s.vs_fpm = -200;
+    Framebuffer signed_fb;
+    draw_sixpack(signed_fb, s);
+    CHECK(value_matches(signed_fb, kTiles[3], "-2"));
+    CHECK(value_matches(signed_fb, kTiles[5], "-200"));
 }
