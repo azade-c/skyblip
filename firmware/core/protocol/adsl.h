@@ -175,7 +175,7 @@ struct __attribute__((packed)) AdslPacket {
     static uint8_t navigation_integrity_code(uint32_t containment_cm);
 
     void set_integrity_unknown();
-    void set_integrity_from_hdop_e2(uint16_t hdop_e2);
+    void set_integrity_from_dop_e2(uint16_t hdop_e2, uint16_t vdop_e2);
 
     void write_climb_code(uint16_t w);
 
@@ -198,11 +198,7 @@ static constexpr uint32_t kTimeStampCycleS = 15;
 static constexpr uint32_t kTimeStampQuarterMs = 250;
 uint8_t timestamp_code(uint32_t utc, int32_t lead_ms);
 
-// When a burst leaves, in the two frames of reference the packet needs it in.
-// The UTC second and the offset into it are what TimeStamp names; the offset
-// from the fix is over what the position is carried forward. They are not the
-// same number: the receiver stamps whole seconds, so at 5 Hz four solutions out
-// of five are already part of a second old when they arrive.
+// INFO: fc 13sep26 TimeStamp names the UTC instant, since_fix_ms the interval carried over
 struct BurstInstant {
     uint32_t utc;
     int32_t into_utc_ms;

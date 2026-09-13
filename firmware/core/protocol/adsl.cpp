@@ -307,16 +307,14 @@ void AdslPacket::set_integrity_unknown() {
     VelAccuracy = 0;
 }
 
-void AdslPacket::set_integrity_from_hdop_e2(uint16_t hdop_e2) {
+// INFO: fc 13sep26 no VDOP is a 2D solution, whose height is not a figure to claim accuracy for
+void AdslPacket::set_integrity_from_dop_e2(uint16_t hdop_e2, uint16_t vdop_e2) {
     if (hdop_e2 == 0) {
         set_integrity_unknown();
         return;
     }
-    // We only ask the receiver for GGA and RMC, so there is no VDOP to read and
-    // HDOP stands in for it. The vertical figure is the larger of the two per
-    // unit of DOP, so the substitution does not flatter the claim.
     const uint32_t hfom_cm = hdop_e2 * kHorizontalErrorPerDopCm / 100;
-    const uint32_t vfom_cm = hdop_e2 * kVerticalErrorPerDopCm / 100;
+    const uint32_t vfom_cm = vdop_e2 * kVerticalErrorPerDopCm / 100;
 
     // No RAIM and no protection level from this receiver, so the containment
     // radius we claim is the accuracy itself, and SourceIntegrity says how much
@@ -327,7 +325,7 @@ void AdslPacket::set_integrity_from_hdop_e2(uint16_t hdop_e2) {
     DesignAssurance = kDesignAssuranceNone;
     NavigIntegrity = navigation_integrity_code(hfom_cm);
     HorizAccuracy = horizontal_accuracy_code(hfom_cm);
-    VertAccuracy = vertical_accuracy_code(vfom_cm);
+    VertAccuracy = vdop_e2 == 0 ? 0 : vertical_accuracy_code(vfom_cm);
     VelAccuracy = velocity_accuracy_code(HorizAccuracy);
 }
 
@@ -382,7 +380,7 @@ void from_own(AdslPacket& p, const messages::OwnState& own, uint32_t addr, uint8
     if (own.fix_valid) {
         p.set_alt_m(where.alt_m);
         p.set_speed_q(own.speed_q);
-        p.set_integrity_from_hdop_e2(own.hdop_e2);
+        p.set_integrity_from_dop_e2(own.hdop_e2, own.vdop_e2);
     } else {
         p.set_alt_invalid();
         p.set_speed_invalid();

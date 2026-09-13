@@ -342,6 +342,7 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     own.alt_m = 1500;
     own.speed_q = 200;
     own.hdop_e2 = 90;
+    own.vdop_e2 = 150;
 
     AdslPacket p{};
     from_own(p, own, 0xABCDEF, 6, 4, false);
@@ -360,6 +361,13 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     CHECK(int(p.HorizAccuracy) == 7);    // HFOM < 3 m
     CHECK(int(p.VertAccuracy) == 3);     // VFOM < 10 m
     CHECK(int(p.VelAccuracy) == 3);      // < 1 m/s
+
+    // A 2D solution reports no VDOP, and a height nothing measured the quality
+    // of gets no claim at all: the horizontal half of the block still stands.
+    own.vdop_e2 = 0;
+    from_own(p, own, 0xABCDEF, 6, 4, false);
+    CHECK(int(p.HorizAccuracy) == 7);
+    CHECK(int(p.VertAccuracy) == 0);
 
     // A receiver that reports no HDOP is not a receiver reporting a good one.
     own.hdop_e2 = 0;
@@ -413,20 +421,23 @@ TEST_CASE("adsl: a degrading HDOP walks the accuracy claim down") {
     own.fix_valid = true;
     AdslPacket p{};
 
-    own.hdop_e2 = 200;  // 4.0 m horizontal, 6.0 m vertical
+    own.hdop_e2 = 200;  // 4.0 m horizontal
+    own.vdop_e2 = 200;  // 6.0 m vertical
     from_own(p, own, 1, 6, 4, false);
     CHECK(int(p.HorizAccuracy) == 6);
     CHECK(int(p.VertAccuracy) == 3);
     CHECK(int(p.VelAccuracy) == 2);
 
-    own.hdop_e2 = 800;  // 16 m horizontal, 24 m vertical
+    own.hdop_e2 = 800;  // 16 m horizontal
+    own.vdop_e2 = 800;  // 24 m vertical
     from_own(p, own, 1, 6, 4, false);
     CHECK(int(p.HorizAccuracy) == 5);
     CHECK(int(p.VertAccuracy) == 2);
     CHECK(int(p.VelAccuracy) == 1);
     CHECK(int(p.NavigIntegrity) == 11);  // Rc 7.5 to 25 m
 
-    own.hdop_e2 = 9999;  // 200 m horizontal, 300 m vertical
+    own.hdop_e2 = 9999;  // 200 m horizontal
+    own.vdop_e2 = 9999;  // 300 m vertical
     from_own(p, own, 1, 6, 4, false);
     CHECK(int(p.HorizAccuracy) == 2);  // 0.1 to 0.3 NM
     CHECK(int(p.VertAccuracy) == 0);   // beyond 150 m: no claim at all
