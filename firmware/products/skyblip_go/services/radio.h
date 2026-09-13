@@ -29,7 +29,7 @@ class RadioService : public runtime::Service {
     // threshold the next dwell will carry, how many dwells gave up without
     // getting a word in, and how much of the hour's allowance is spent.
     const timing::NoiseFloor& noise_floor() const { return noise_; }
-    int8_t lbt_threshold_dbm() const { return noise_.threshold_dbm(lbt_retry_); }
+    int8_t lbt_threshold_dbm() const { return noise_.threshold_dbm(); }
     uint32_t gave_up_count() const { return transmitter_.busy_count(); }
     uint32_t duty_permille(uint32_t now_ms) const {
         return transmitter_.air_time().permille(now_ms);
@@ -91,7 +91,6 @@ class RadioService : public runtime::Service {
     uint32_t seen_tx_ok_{0};
     uint32_t seen_tx_busy_{0};
     uint32_t seen_carrier_samples_{0};
-    uint8_t lbt_retry_{0};
     bool tx_armed_{false};
     bool tx_forced_{false};
     bool over_budget_{false};

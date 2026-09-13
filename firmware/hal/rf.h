@@ -47,6 +47,8 @@ struct RfPlan {
     const uint8_t* tx{nullptr};
     uint8_t tx_len{0};
     uint64_t tx_at_us{0};
+    // INFO: fc 13sep26 the burst keys here whatever the carrier says, or it never keys at all
+    uint64_t tx_by_us{0};
     // §D.3: the MAC is CSMA with listen-before-talk. Sampling the carrier and
     // backing off are hardware timing, so they belong to the executor. Whether
     // the rule applies to this burst is policy (§D.3 allows a forced

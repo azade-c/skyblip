@@ -47,12 +47,16 @@ int8_t CarrierSense::mean_dbm(const int8_t* samples, uint8_t n) {
     return static_cast<int8_t>(static_cast<int>(peak) - down);
 }
 
-int8_t NoiseFloor::threshold_dbm(uint8_t retry) const {
-    int32_t level =
-        static_cast<int32_t>(dbm()) + kClearMarginDb + static_cast<int32_t>(retry) * kRetryStepDb;
+int8_t NoiseFloor::threshold_dbm() const {
+    int32_t level = static_cast<int32_t>(dbm()) + kClearMarginDb;
     if (level > kThresholdCeilingDbm) level = kThresholdCeilingDbm;
     if (level < -128) level = -128;
     return static_cast<int8_t>(level);
+}
+
+int8_t NoiseFloor::backed_off(int8_t threshold_dbm) {
+    const int32_t level = static_cast<int32_t>(threshold_dbm) + kRetryStepDb;
+    return static_cast<int8_t>(level > kThresholdCeilingDbm ? kThresholdCeilingDbm : level);
 }
 
 void AirTime::spend(uint32_t now_ms, uint32_t air_ms) {

@@ -13,6 +13,7 @@ class Transmitter {
     // §C.2 at 100 kchip/s: 16-chip preamble, 64-chip Manchester sync word, then
     // 25 Manchester-encoded bytes = 4.8 ms, rounded up.
     static constexpr uint32_t kAirTimeMs = 5;
+    // TODO: fc 13sep26 §D.3's escape cannot fire now every dwell keys by by_ms, remove it
     // §D.3: when no packet could be transmitted 3000 ms after the first
     // attempt, transmit irrespective of carrier detect, then stay off air.
     static constexpr uint32_t kForceAfterMs = 3000;
@@ -34,6 +35,8 @@ class Transmitter {
     struct Attempt {
         bool go{false};
         int at_ms{0};
+        // INFO: fc 13sep26 the last instant the burst still completes inside the direct slot
+        int by_ms{0};
         uint32_t freq_hz{0};
         bool force{false};
         // The one refusal that is not a rate rule: the hour's air time is spent.
@@ -58,6 +61,9 @@ class Transmitter {
     // §C.2.5: traffic alternates between the two M-band channels, so the slot
     // to transmit in follows the transmission count, not the clock.
     int next_slot() const { return static_cast<int>(sent_ & 1u); }
+
+    static int first_instant_in(int slot);
+    static int last_instant_in(int slot);
 
    private:
     // Uniform over the slot's usable width and decorrelated between devices:

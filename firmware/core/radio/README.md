@@ -9,7 +9,7 @@ The station log: every burst this radio sent or heard, in the order it happened,
 | | |
 |---|---|
 | `Transmitted` | own-ship's burst left the antenna |
-| `Withheld` | the band was busy at every carrier sample the dwell had room for |
+| `Withheld` | the dwell ended with its burst unkeyed, which listen-before-talk no longer causes: see `core/timing/README.md` |
 | `Lost` | own-ship's burst was armed and never completed: the dwell ran out, or the radio's transmit timeout did |
 | `Received` | a burst arrived, framed, and named an aircraft |
 | `Unframed` | a burst arrived and did not become a frame: wrong chips behind the sync window, a CRC no forward correction could rescue, or two transmitters at once |

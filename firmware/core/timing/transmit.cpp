@@ -19,12 +19,22 @@ uint32_t mix(uint32_t x) {
 // inside the direct slot, 450..1000 (§C.5), and completes inside both: the slot,
 // because the standard says so, and the dwell, because hopping channels mid-burst
 // would truncate it on air.
-int Transmitter::instant_in(int slot, uint32_t utc) const {
+int Transmitter::first_instant_in(int slot) {
     const int opens = Scheduler::slot_start(slot);
-    const int first = opens > kDirectStart ? opens : kDirectStart;
+    return opens > kDirectStart ? opens : kDirectStart;
+}
+
+int Transmitter::last_instant_in(int slot) {
     const int slot_end = Scheduler::slot_end(slot);
     const int closes = slot_end < kDirectEnd ? slot_end : kDirectEnd;
     const int last = closes - kCompletionSlackMs - static_cast<int>(kAirTimeMs);
+    const int first = first_instant_in(slot);
+    return last > first ? last : first;
+}
+
+int Transmitter::instant_in(int slot, uint32_t utc) const {
+    const int first = first_instant_in(slot);
+    const int last = last_instant_in(slot);
     if (last <= first) return first;
     // Inclusive of last: a burst starting there still ends inside the slack.
     return first +
@@ -57,6 +67,7 @@ Transmitter::Attempt Transmitter::attempt(const SlotPlan& plan, uint32_t utc, ui
 
     a.go = true;
     a.at_ms = instant_in(slot, utc);
+    a.by_ms = last_instant_in(slot);
     a.freq_hz = Scheduler::slot_freq(slot);
     a.force = attempting_ && now_ms - attempt_since_ms_ >= kForceAfterMs;
     return a;

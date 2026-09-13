@@ -198,8 +198,12 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
             protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&outgoing_.Version),
             protocol::kAdslFrameBytes, outgoing_chips_));
         plan.tx_at_us = tx_at_us;
+        const int by_in_ms = ms_until(a.by_ms, phase);
+        const uint64_t tx_by_us =
+            now_us + static_cast<uint64_t>(by_in_ms > 0 ? by_in_ms : 0) * 1000;
+        plan.tx_by_us = tx_by_us > tx_at_us ? tx_by_us : tx_at_us;
         plan.lbt = !a.force;
-        plan.lbt_threshold_dbm = noise_.threshold_dbm(lbt_retry_);
+        plan.lbt_threshold_dbm = noise_.threshold_dbm();
         plan.backoff_min_ms = timing::Transmitter::kBackoffMinMs;
         plan.backoff_max_ms = timing::Transmitter::kBackoffMaxMs;
     }
@@ -235,17 +239,11 @@ void RadioService::collect_outcome(uint32_t now_ms) {
         context_.state.timing_stats.record_dwell_phase(
             static_cast<int64_t>(context_.state.last_tx_done_at_us) -
             static_cast<int64_t>(tx_deadline_us_));
-        lbt_retry_ = 0;
         tx_armed_ = false;
     }
     if (context_.state.tx_busy != seen_tx_busy_) {
         seen_tx_busy_ = context_.state.tx_busy;
         transmitter_.busy(now_ms);
-        // A dwell that never got a word in buys the next one 3 dB of tolerance
-        // (oss/nrf52-ogn-tracker src/ogn-radio.cpp:851, which escalates inside
-        // one slot; our dwell is one carrier sample per backoff interval, so the
-        // escalation is per dwell and §D.3's forced transmission is what ends it).
-        if (lbt_retry_ < 0xFF) lbt_retry_++;
         tx_armed_ = false;
     }
     // A dwell that ended without either report above took the radio with it:

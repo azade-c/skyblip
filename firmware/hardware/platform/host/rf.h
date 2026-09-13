@@ -28,6 +28,8 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
+        if (plan.tx != nullptr && (plan.tx_by_us < plan.tx_at_us || plan.tx_by_us >= plan.end_us))
+            return Status::OutOfRange;
         if (armed_) {
             pending_ = plan;
             has_pending_ = true;
@@ -93,6 +95,7 @@ class Rf : public hal::Rf {
         transmitted_ = false;
         completed_ = false;
         next_carrier_sample_us_ = plan.tx_at_us;
+        threshold_dbm_ = plan.lbt_threshold_dbm;
     }
 
     void start() {
@@ -122,7 +125,8 @@ class Rf : public hal::Rf {
     }
 
     void try_transmit(uint64_t now_us) {
-        if (plan_.lbt && !carrier_clear(now_us)) return;
+        const bool last_chance = now_us >= plan_.tx_by_us;
+        if (plan_.lbt && !last_chance && !carrier_clear(now_us)) return;
         transmitted_ = true;
         radio_.transmit(plan_.tx, plan_.tx_len);
     }
@@ -147,11 +151,12 @@ class Rf : public hal::Rf {
     // so a burst is never truncated on air.
     bool carrier_clear(uint64_t now_us) {
         if (now_us < next_carrier_sample_us_) return false;
-        if (sample_carrier() < plan_.lbt_threshold_dbm) return true;
+        if (sample_carrier() < threshold_dbm_) return true;
         const uint32_t span = plan_.backoff_max_ms - plan_.backoff_min_ms + 1;
         backoff_seed_ = backoff_seed_ * 1664525u + 1013904223u;
         const uint32_t wait_ms = plan_.backoff_min_ms + (backoff_seed_ >> 16) % span;
         next_carrier_sample_us_ = now_us + static_cast<uint64_t>(wait_ms) * 1000;
+        threshold_dbm_ = timing::NoiseFloor::backed_off(threshold_dbm_);
         return false;
     }
 
@@ -207,6 +212,7 @@ class Rf : public hal::Rf {
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
     uint64_t next_carrier_sample_us_{0};
+    int8_t threshold_dbm_{0};
     uint32_t backoff_seed_{0x5eed1262u};
     uint32_t last_ms_{0};
     uint32_t armed_count_{0};

@@ -48,9 +48,11 @@ class NoiseFloor {
     static_assert(kAssumedAntennaGainDbd >= 0, "a negative gain assumption raises the ceiling");
 
     void sample(int8_t rssi_dbm);
+    // INFO: fc 13sep26 the executor's ladder inside one dwell, so devices give up at different ms
+    static int8_t backed_off(int8_t threshold_dbm);
 
     int8_t dbm() const;
-    int8_t threshold_dbm(uint8_t retry = 0) const;
+    int8_t threshold_dbm() const;
     uint32_t samples() const { return samples_; }
 
    private:

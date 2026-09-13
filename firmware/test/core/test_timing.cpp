@@ -385,14 +385,15 @@ TEST_CASE("channel: the threshold is the measured floor plus a margin, 3 dB more
     NoiseFloor floor;
     for (int i = 0; i < 400; i++) floor.sample(-110);
     REQUIRE(floor.dbm() == -110);
-    CHECK(floor.threshold_dbm(0) == -100);
-    CHECK(floor.threshold_dbm(1) == -97);
-    CHECK(floor.threshold_dbm(2) == -94);
+    CHECK(floor.threshold_dbm() == -100);
+    CHECK(NoiseFloor::backed_off(floor.threshold_dbm()) == -97);
+    CHECK(NoiseFloor::backed_off(NoiseFloor::backed_off(floor.threshold_dbm())) == -94);
     // Escalation is not a licence to transmit on top of anything at all, and
     // where it stops is not ours to pick: §4.6.2.3 stops it, six retries in.
-    CHECK(floor.threshold_dbm(6) == NoiseFloor::kThresholdCeilingDbm);
-    CHECK(floor.threshold_dbm(10) == NoiseFloor::kThresholdCeilingDbm);
-    CHECK(floor.threshold_dbm(255) == NoiseFloor::kThresholdCeilingDbm);
+    int8_t threshold = floor.threshold_dbm();
+    for (int i = 0; i < 6; i++) threshold = NoiseFloor::backed_off(threshold);
+    CHECK(threshold == NoiseFloor::kThresholdCeilingDbm);
+    CHECK(NoiseFloor::backed_off(threshold) == NoiseFloor::kThresholdCeilingDbm);
 }
 
 // EN 300 220-2 V3.3.1 §4.6.3.2: the assessment is an interval, not an instant.
@@ -435,7 +436,7 @@ TEST_CASE("channel: a window is averaged as power, not as decibels") {
 TEST_CASE("channel: averaging changes the decision a single reading would have made") {
     NoiseFloor floor;
     for (int i = 0; i < 400; i++) floor.sample(-110);
-    const int8_t threshold = floor.threshold_dbm(0);
+    const int8_t threshold = floor.threshold_dbm();
     REQUIRE(threshold == -100);
 
     // A neighbour's burst covers one ninth of the window. Sampled at the first

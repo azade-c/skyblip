@@ -47,6 +47,8 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
+        if (plan.tx != nullptr && (plan.tx_by_us < plan.tx_at_us || plan.tx_by_us >= plan.end_us))
+            return Status::OutOfRange;
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
         if (clock_.micros() >= plan.end_us) {
@@ -186,14 +188,19 @@ class Rf : public hal::Rf {
         // Backing off never stops the receiver, and the dwell's end is what
         // gives up, so a burst is never truncated on air.
         uint64_t next_carrier_sample_us = plan.tx_at_us;
+        int8_t threshold_dbm = plan.lbt_threshold_dbm;
         while (!abort_ && clock_.micros() < plan.end_us) {
             const uint64_t now_us = clock_.micros();
-            if (plan.tx != nullptr && !transmitted && now_us >= next_carrier_sample_us) {
-                if (!plan.lbt || sample_carrier() < plan.lbt_threshold_dbm) {
-                    transmitted = true;
-                    radio_.transmit(plan.tx, plan.tx_len);
-                } else {
-                    next_carrier_sample_us = now_us + backoff_us(plan);
+            if (plan.tx != nullptr && !transmitted) {
+                const bool last_chance = now_us >= plan.tx_by_us;
+                if (last_chance || now_us >= next_carrier_sample_us) {
+                    if (!plan.lbt || last_chance || sample_carrier() < threshold_dbm) {
+                        transmitted = true;
+                        radio_.transmit(plan.tx, plan.tx_len);
+                    } else {
+                        next_carrier_sample_us = now_us + backoff_us(plan);
+                        threshold_dbm = timing::NoiseFloor::backed_off(threshold_dbm);
+                    }
                 }
             }
             const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
