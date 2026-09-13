@@ -140,9 +140,14 @@ timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
     // from them decides our transmit rate. Nothing goes on air until own-ship
     // says the solution behind it has settled.
     if (!own.fix_valid || !own.utc_valid || !own.tx_settled) return timing::Transmitter::Attempt{};
-    const uint32_t fix_age_ms = now_ms - own.fix_ms;
     const bool airborne = own.flight_state == kFlightStateAirborne;
-    return transmitter_.attempt(plan, slot_utc(), now_ms, airborne, fix_age_ms);
+    return transmitter_.attempt(plan, slot_utc(), now_ms, airborne, fix_lag_ms());
+}
+
+// INFO: fc 13sep26 zero when this second's solution is in hand, a whole second when one was missed
+int32_t RadioService::fix_lag_ms() const {
+    const uint32_t second_ms = static_cast<uint32_t>(dwell_epoch_us() / 1000);
+    return static_cast<int32_t>(second_ms - context_.state.own.fix_ms);
 }
 
 void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {

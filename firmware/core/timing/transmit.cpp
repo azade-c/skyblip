@@ -32,10 +32,10 @@ int Transmitter::instant_in(int slot, uint32_t utc) const {
 }
 
 Transmitter::Attempt Transmitter::attempt(const SlotPlan& plan, uint32_t utc, uint32_t now_ms,
-                                          bool airborne, uint32_t fix_age_ms) const {
+                                          bool airborne, int32_t fix_lag_ms) const {
     Attempt a{};
     if (!plan.tx_allowed) return a;
-    if (fix_age_ms > kFixAgeMaxMs) return a;
+    if (fix_lag_ms > kFixLagMaxMs) return a;
     if (quiet_ && now_ms - quiet_since_ms_ < kQuietAfterForcedMs) return a;
     if (ever_sent_ && airborne && utc == last_sent_utc_) return a;
     if (ever_sent_ && !airborne && now_ms - last_sent_ms_ < kGroundPeriodMs) return a;

@@ -435,7 +435,7 @@ TEST_CASE("rf: the extrapolation residual is measured against the fix that arriv
     // aircraft again the moment it flies straight.
     h.world().set_track_deg(180);
     uint16_t worst_m = 0;
-    for (uint32_t t = 6000; t <= 6600; t += simulator::Simulator::kStepMs) {
+    for (uint32_t t = 6000; t <= 8000; t += simulator::Simulator::kStepMs) {
         h.step(t);
         const uint16_t resid_m = h.product().state().own.pred_resid_m;
         if (resid_m > worst_m) worst_m = resid_m;

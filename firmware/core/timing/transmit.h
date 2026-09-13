@@ -19,7 +19,8 @@ class Transmitter {
     static constexpr uint32_t kQuietAfterForcedMs = 2000;
     // §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground.
     static constexpr uint32_t kGroundPeriodMs = 10000;
-    static constexpr uint32_t kFixAgeMaxMs = 500;
+    // INFO: fc 13sep26 G.1.16 nav age, to the top of the transmit second: the burst is extrapolated
+    static constexpr int32_t kFixLagMaxMs = 500;
     // Ours, not the spec's: §C.5 gives the direct slot 450..1000 and requires a
     // burst to complete before the slot ends. Margin between the burst's last
     // chip and the end of the window, absorbing PPS error, the carrier sample
@@ -44,7 +45,7 @@ class Transmitter {
     // The instant this device transmits in the second `utc`, or go=false. Pure:
     // calling it twice with the same arguments gives the same answer.
     Attempt attempt(const SlotPlan& plan, uint32_t utc, uint32_t now_ms, bool airborne,
-                    uint32_t fix_age_ms) const;
+                    int32_t fix_lag_ms) const;
 
     void sent(uint32_t utc, uint32_t now_ms, bool forced);
     void busy(uint32_t now_ms);

@@ -264,11 +264,17 @@ TEST_CASE("transmit: one burst per second airborne, one per ten on the ground") 
     CHECK(g.attempt(slot_plan(900), 21, 20600, false, 0).go);
 }
 
-// §G.1.16: the navigation solution must not be older than 500 ms.
-TEST_CASE("transmit: a stale fix is not transmitted") {
+// §G.1.16, measured to the top of the transmit second: what it refuses is a missed solution.
+TEST_CASE("transmit: a missed solution is not transmitted, a late slot is") {
     Transmitter t = airborne_transmitter();
     CHECK(t.attempt(slot_plan(500), 10, 10000, true, 500).go);
     CHECK_FALSE(t.attempt(slot_plan(500), 10, 10000, true, 501).go);
+
+    // This second's own solution, however late in the slot the burst goes out.
+    CHECK(t.attempt(slot_plan(750), 10, 10750, true, 0).go);
+
+    // A solution stamped after the second it opens: early, not stale.
+    CHECK(t.attempt(slot_plan(500), 10, 10000, true, -20).go);
 }
 
 // §D.3: force after 3000 ms of failed attempts, then 2000 ms off air.
