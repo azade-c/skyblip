@@ -156,18 +156,50 @@ TEST_CASE("epd: a turned glass writes the same count of black pixels it was hand
     CHECK(black == fb.count_black());
 }
 
-// The rail is cut at power off, so both banks come up garbage: the diff starts on a stated truth.
-TEST_CASE("epd: begin() takes the glass for white, and the first partial diffs against that") {
+// A partial against an unknown glass diffs against garbage, so a session's first frame is full.
+TEST_CASE("epd: the first present after begin() is a full refresh, whatever was asked") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
     ui::Framebuffer fb;
-    fb.clear(/*white=*/false);
+    fb.clear(true);
 
     d.present(fb, hal::Refresh::Partial, 0);
+    CHECK(f.last_full);
+
+    settle(d, 0);
+    d.present(fb, hal::Refresh::Partial, 5000);
+    CHECK_FALSE(f.last_full);
+}
+
+// The rail is cut at power off, so both banks come up garbage: this frame needs neither.
+TEST_CASE("epd: paint_black drives every pixel from white, on the partial waveform") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+
+    d.paint_black(0);
     CHECK_FALSE(f.last_full);
     REQUIRE(f.ram_previous.size() == ui::Framebuffer::kBytes);
+    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
     for (uint8_t b : f.ram_previous) REQUIRE(b == 0xFF);  // panel RAM 1 is white
+    for (uint8_t b : f.ram) REQUIRE(b == 0x00);
+    CHECK(f.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH);
+}
+
+// The black is the session's first frame, so what follows it is a partial and not a second full.
+TEST_CASE("epd: a paint_black leaves the glass known, and the page after it is a partial") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+
+    d.paint_black(0);
+    CHECK(d.ready(parts::Ssd1681::kReadyAfterPartialMs));
+    ui::Framebuffer fb;
+    fb.clear(true);
+    d.present(fb, hal::Refresh::Partial, 1000);
+    CHECK_FALSE(f.last_full);
+    for (uint8_t b : f.ram_previous) REQUIRE(b == 0x00);  // the black it was left on
 }
 
 // The simulator draws this: a partial that changed no pixel is invisible on glass.

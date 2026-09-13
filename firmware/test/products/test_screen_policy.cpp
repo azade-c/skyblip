@@ -1,4 +1,4 @@
-// The refresh policy over the real SSD1681 driver: partials only, and swaps through black.
+// The refresh policy over the SSD1681: partials, swaps through black, a wash for an unparked glass.
 #include "test/support/screen_rig.h"
 
 TEST_CASE("screen policy: a static frame is never re-presented") {
@@ -117,4 +117,71 @@ TEST_CASE("screen policy: presents wait for the panel, none is issued mid-refres
 
     rig.tick(t += 2700);  // settled: the pending change lands
     CHECK(rig.chip.present_count == count + 1);
+}
+
+// A pilot switching on wants the page, not 2.6 s of wash: the mark says the glass was left parked.
+TEST_CASE("screen policy: a session after a park that landed opens on the black, not a full") {
+    Rig rig;
+    rig.leave_park_mark();
+    rig.screen.open_glass();
+
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    CHECK(rig.chip.present_count == 2);  // the black, then the page
+    CHECK_FALSE(rig.chip.last_full);
+    // Taken at boot, so a cell pulled now leaves the session after this one nothing to find.
+    CHECK_FALSE(rig.park_marked());
+}
+
+// A cell pulled mid-page leaves that page on the glass for months, and a partial cannot lift it.
+TEST_CASE("screen policy: a session after a park that never landed opens on a full") {
+    Rig rig;
+    rig.screen.open_glass();
+
+    uint32_t t = 0;
+    rig.tick(t += 1000);
+    CHECK(rig.chip.present_count == 1);
+    CHECK(rig.chip.last_full);
+    CHECK(rig.chip.framebuffer().count_black() == 0);
+
+    rig.run_seconds(t, 4);
+    CHECK(rig.chip.present_count == 3);  // the full, the black, then the page
+    CHECK_FALSE(rig.chip.last_full);
+}
+
+TEST_CASE("screen policy: the park frame that landed leaves the mark the next session takes") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    REQUIRE_FALSE(rig.park_marked());
+
+    rig.screen.set_power(false);
+    rig.run_seconds(t, 6);
+    CHECK(rig.chip.last_full);
+    CHECK(rig.park_marked());
+}
+
+// A panel too hot to drive parks without a frame, and what stays on the glass is the page.
+TEST_CASE("screen policy: a park that never put a frame on the glass leaves no mark") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.die_temperature(go::ScreenService::kHoldAboveDeciCelsius + 10);
+
+    rig.screen.set_power(false);
+    rig.run_seconds(t, 6);
+    CHECK_FALSE(rig.park_marked());
+}
+
+// THE RULE, core/power/cutoff.h: the sector the settings live on is not written on a dying cell.
+TEST_CASE("screen policy: a park on a flat cell leaves no mark, and the next session pays a full") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.state.power_level = power::PowerLevel::Cutoff;
+
+    rig.screen.set_power(false);
+    rig.run_seconds(t, 6);
+    CHECK(rig.chip.last_full);
+    CHECK_FALSE(rig.park_marked());
 }

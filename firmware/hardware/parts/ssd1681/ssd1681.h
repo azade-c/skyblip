@@ -35,6 +35,7 @@ class Ssd1681 : public hal::Display {
     const char* panel_name() const { return parts::panel_name(panel_); }
 
     void present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now_ms) override;
+    void paint_black(uint32_t now_ms) override;
     bool ready(uint32_t now_ms) override;
     void power_off() override;
     void power_on() override { begin(); }
@@ -54,6 +55,8 @@ class Ssd1681 : public hal::Display {
    private:
     void init_panel();
     void hold_reset();
+    void ensure_awake();
+    void activate(bool full, uint32_t now_ms);
     void abort_refresh();
     void finish_refresh();
     void enter_sleep();
@@ -61,6 +64,7 @@ class Ssd1681 : public hal::Display {
     void cmd(uint8_t c);
     void data(uint8_t d);
     void write_bank(uint8_t command, const uint8_t* fb_bytes);
+    void fill_bank(uint8_t command, uint8_t ram_value);
     uint8_t ram_byte(const uint8_t* fb_bytes, int gate, int column) const;
     void set_window(int x0, int y0, int x1, int y1);
     void set_cursor(int x, int y);

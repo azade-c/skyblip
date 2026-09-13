@@ -32,6 +32,10 @@ constexpr uint8_t kBorderVcom = 0x80;
 
 constexpr int kW = ui::Framebuffer::kW;
 constexpr int kH = ui::Framebuffer::kH;
+
+// INFO: fc 01aug25 panel RAM is 1=white, the framebuffer 1=black
+constexpr uint8_t kRamWhite = 0xFF;
+constexpr uint8_t kRamBlack = 0x00;
 }  // namespace
 
 void Ssd1681::begin() {
@@ -39,9 +43,7 @@ void Ssd1681::begin() {
     gpio_.mode_output(rst_);
     gpio_.mode_input(busy_, false);
     init_panel();
-    // INFO: fc 13sep26 the rail was cut, so both banks are garbage: assume white, paint black first
-    std::memset(shadow_, 0, sizeof(shadow_));
-    glass_known_ = true;
+    glass_known_ = false;
     refreshing_ = false;
     asleep_ = false;
 }
@@ -52,11 +54,7 @@ const uint8_t* Ssd1681::previous_bank(const ui::Framebuffer& fb, bool full) cons
 }
 
 void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now_ms) {
-    if (refreshing_) abort_refresh();
-    if (asleep_) {
-        init_panel();
-        asleep_ = false;
-    }
+    ensure_awake();
 
     const bool full = mode == hal::Refresh::Full || !glass_known_;
 
@@ -67,6 +65,31 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     write_bank(kWriteRam, fb.data());
     std::memcpy(shadow_, fb.data(), ui::Framebuffer::kBytes);
 
+    activate(full, now_ms);
+}
+
+// INFO: fc 13sep26 the white previous is a drive, not a claim: every pixel lands black
+void Ssd1681::paint_black(uint32_t now_ms) {
+    ensure_awake();
+
+    set_window(0, 0, kW - 1, kH - 1);
+    cmd(kBorderWaveform);
+    data(kBorderVcom);
+    fill_bank(kWriteRamPrevious, kRamWhite);
+    fill_bank(kWriteRam, kRamBlack);
+    std::memset(shadow_, 0xFF, sizeof(shadow_));
+
+    activate(/*full=*/false, now_ms);
+}
+
+void Ssd1681::ensure_awake() {
+    if (refreshing_) abort_refresh();
+    if (!asleep_) return;
+    init_panel();
+    asleep_ = false;
+}
+
+void Ssd1681::activate(bool full, uint32_t now_ms) {
     cmd(kDisplayUpdateCtrl2);
     data(full ? kSequenceFull : kSequencePartial);
     cmd(kMasterActivation);
@@ -172,10 +195,20 @@ void Ssd1681::data(uint8_t d) {
     spi_.select(false);
 }
 
+void Ssd1681::fill_bank(uint8_t command, uint8_t ram_value) {
+    set_cursor(0, 0);
+    cmd(command);
+    uint8_t gate_line[ui::Framebuffer::kStride];
+    std::memset(gate_line, ram_value, sizeof(gate_line));
+    gpio_.set(dc_, true);
+    spi_.select(true);
+    for (int gate = 0; gate < kH; gate++) spi_.transfer(gate_line, nullptr, sizeof(gate_line));
+    spi_.select(false);
+}
+
 void Ssd1681::write_bank(uint8_t command, const uint8_t* fb_bytes) {
     set_cursor(0, 0);
     cmd(command);
-    // INFO: fc 01aug25 panel RAM is 1=white, the framebuffer 1=black
     uint8_t gate_line[ui::Framebuffer::kStride];
     gpio_.set(dc_, true);
     spi_.select(true);

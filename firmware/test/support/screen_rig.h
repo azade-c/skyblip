@@ -6,6 +6,7 @@
 #include "hardware/parts/ssd1681/model.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/host/clock.h"
+#include "hardware/platform/host/kvstore.h"
 #include "products/skyblip_go/services/screen.h"
 #include "runtime/null.h"
 
@@ -20,9 +21,10 @@ struct Rig {
     models::Ssd1681 chip;
     parts::Ssd1681 epd{chip, chip, chip.dc, chip.rst, chip.busy};
     platform::host::Clock clock;
+    platform::host::KvStore store;
     runtime::NullRoles null;
-    hal::Roles roles{clock,   null.rf,        null.link,        epd,  // epd fills Display
-                     null.kv, null.log_flash, null.annunciator, null.dfu};
+    hal::Roles roles{clock, null.rf,        null.link,        epd,  // epd fills Display
+                     store, null.log_flash, null.annunciator, null.dfu};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
@@ -30,7 +32,7 @@ struct Rig {
 
     Rig() {
         chip.attach_clock(clock);
-        roles.capabilities = hal::Capability::Display;
+        roles.capabilities = hal::Capability::Display | hal::Capability::Storage;
         // With a fix the radar page draws rings and the range label, so churn()
         // below produces real pixel changes.
         state.own.fix_valid = true;
@@ -67,6 +69,18 @@ struct Rig {
     }
 
     void alarm(uint8_t level) { state.alarm_level = level; }
+
+    // What a park frame that landed left on flash, as the session after it finds it.
+    void leave_park_mark() {
+        const uint8_t mark = 1;
+        store.write(go::ScreenService::kParkMarkKey, &mark, sizeof(mark));
+    }
+
+    bool park_marked() {
+        uint8_t mark = 0;
+        size_t len = 0;
+        return is_ok(store.read(go::ScreenService::kParkMarkKey, &mark, sizeof(mark), len));
+    }
 
     void die_temperature(int16_t decicelsius) {
         state.die_decicelsius = decicelsius;

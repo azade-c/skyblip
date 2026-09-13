@@ -116,6 +116,7 @@ class Product {
 
         if (board != Status::Ok) return board;
         if (!flyable_) return Status::Down;
+        screen_.open_glass();
         const Status loop = loop_.setup();
         state_.started = loop == Status::Ok;
         return loop;

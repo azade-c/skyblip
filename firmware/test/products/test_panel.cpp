@@ -183,6 +183,46 @@ TEST_CASE("product: a device that can fly keeps the self test off the glass at b
     CHECK(rig.platform.chips().epd.present_count == 2);  // the black, then the page
 }
 
+// A cell pulled mid-page leaves that page on the glass for as long as the unit sits in a bag.
+TEST_CASE("product: a boot the last session left unparked washes the glass before the black") {
+    Rig rig;
+    rig.mark_unparked();
+    REQUIRE(rig.setup() == Status::Ok);
+
+    rig.run(0, 500);
+    CHECK(rig.platform.chips().epd.present_count == 1);
+    CHECK(rig.platform.chips().epd.last_full);
+    CHECK(rig.platform.chips().epd.framebuffer().count_black() == 0);
+
+    rig.run(500, 6000);
+    CHECK(rig.platform.chips().epd.present_count == 3);  // the wash, the black, then the page
+    CHECK_FALSE(rig.platform.chips().epd.last_full);
+}
+
+// The pilot switching the device back on pays 2.6 s of wash once, and the session after it none.
+TEST_CASE("product: the park frame leaves the mark that keeps the next boot off a full") {
+    Rig rig;
+    rig.mark_unparked();
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    rig.run(t, t + 6000);
+    t += 6000;
+
+    rig.product.screen().set_power(false);
+    rig.run(t, t + 6000);
+    REQUIRE_FALSE(rig.platform.chips().epd.powered);
+
+    Go again{rig.platform};
+    REQUIRE(again.setup() == Status::Ok);
+    const int parked = rig.platform.chips().epd.present_count;
+    for (uint32_t at = 12000; at <= 15000; at += 50) {
+        rig.platform.clock().set_millis(at);
+        again.step(at);
+    }
+    CHECK(rig.platform.chips().epd.present_count == parked + 2);  // the black, then the page
+    CHECK_FALSE(rig.platform.chips().epd.last_full);
+}
+
 TEST_CASE("product: the self-test page reaches the panel before anything refuses") {
     constexpr hal::Capabilities kNoGnss = static_cast<hal::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
