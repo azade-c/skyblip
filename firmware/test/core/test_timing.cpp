@@ -137,6 +137,15 @@ SlotPlan slot_plan(int phase_ms) {
     return s.plan(phase_ms, anchored());
 }
 
+int instant_at(uint32_t addr, uint32_t utc) {
+    return airborne_transmitter(addr).attempt(slot_plan(500), utc, utc * 1000, true, 0).at_ms;
+}
+
+bool bursts_overlap(int one_ms, int other_ms) {
+    const int apart = one_ms > other_ms ? one_ms - other_ms : other_ms - one_ms;
+    return apart < static_cast<int>(Transmitter::kAirTimeMs);
+}
+
 }  // namespace
 
 TEST_CASE("transmit: the instant is inside the direct slot, with room for the burst") {
@@ -191,6 +200,27 @@ TEST_CASE("transmit: two devices do not pick the same instant every second") {
             same++;
     }
     CHECK(same < 5);
+}
+
+// Two addresses differ by a fixed XOR delta forever: a mixer that carried it would marry the pair.
+TEST_CASE("transmit: a shared instant in one second is a fresh draw in the next") {
+    constexpr uint32_t kOwn = 0x5B7E57;
+    constexpr uint32_t kPeer = 0x5B003D;
+    CHECK(instant_at(kOwn, 1) == instant_at(kPeer, 1));
+    // 631 and 667, seven burst lengths apart, from the pair that shared 782 ms a second earlier.
+    CHECK(instant_at(kPeer, 2) - instant_at(kOwn, 2) == 36);
+
+    const int shared_ms = instant_at(kOwn, 1);
+    const int own_next_ms = instant_at(kOwn, 2);
+    int shared = 0, still_overlapping = 0;
+    for (uint32_t addr = 0x5B0000; addr < 0x5C0000; addr++) {
+        if (addr == kOwn || instant_at(addr, 1) != shared_ms) continue;
+        shared++;
+        if (bursts_overlap(own_next_ms, instant_at(addr, 2))) still_overlapping++;
+    }
+    REQUIRE(shared > 100);
+    // 11 of 202, the odds of two 5 ms bursts meeting in a 341 ms slot. A carried delta keeps 202.
+    CHECK(still_overlapping * 10 < shared);
 }
 
 // §C.2.5: traffic alternates between the two M-band channels.
