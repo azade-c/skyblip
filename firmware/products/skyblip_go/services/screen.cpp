@@ -221,11 +221,10 @@ void ScreenService::tick(uint32_t now_ms) {
 
     const bool changed = !presented_once_ ||
                          std::memcmp(fb_.data(), presented_.data(), ui::Framebuffer::kBytes) != 0;
-    if (!changed && !want_full_) return;
+    if (!changed) return;
 
-    const hal::Refresh mode = want_full_ ? hal::Refresh::Full : hal::Refresh::Partial;
-    context_.roles.display.present(fb_, mode, now_ms);
-    note_presented(mode, now_ms);
+    context_.roles.display.present(fb_, hal::Refresh::Partial, now_ms);
+    note_presented(now_ms);
 }
 
 // TODO: fc 12sep26 a cold glass is unmeasured, and no rule that returns is one full a frame (#62)
@@ -236,30 +235,26 @@ ScreenService::Thermal ScreenService::thermal() const {
 }
 
 // INFO: fc 09mar26 SoftRF runs this glass on partials alone, power-on to power-off
-bool ScreenService::transitions_through_black() const {
-    if (want_full_) return false;
-    return context_.state.alarm_level == 0;
-}
+bool ScreenService::transitions_through_black() const { return context_.state.alarm_level == 0; }
 
 // INFO: fc 09mar26 SoftRF's page transition: all black through the partial waveform, then the page
 void ScreenService::present_black_flash(uint32_t now_ms) {
     fb_.clear(/*white=*/false);
     context_.roles.display.present(fb_, hal::Refresh::Partial, now_ms);
-    note_presented(hal::Refresh::Partial, now_ms);
+    note_presented(now_ms);
     prompt_on_glass_ = false;
     last_render_ms_ = now_ms;
     dirty_ = true;
     flashed_ = true;
 }
 
-void ScreenService::note_presented(hal::Refresh mode, uint32_t now_ms) {
+void ScreenService::note_presented(uint32_t now_ms) {
     flashed_ = false;
     std::memcpy(presented_.data(), fb_.data(), ui::Framebuffer::kBytes);
     presented_once_ = true;
     context_.state.panel_presented = true;
     prompt_on_glass_ = prompt_ != comms::Pending::None;
     last_present_ms_ = now_ms;
-    if (mode == hal::Refresh::Full) want_full_ = false;
 }
 
 void ScreenService::next_page() {
@@ -280,14 +275,15 @@ void ScreenService::set_backlight(bool on) {
 }
 
 void ScreenService::set_power(bool on) {
-    dirty_ = true;
-    want_full_ = true;
     powered_ = on;
     if (on) {
         park_ = ParkStep::None;
         context_.roles.display.power_on();
+        // INFO: fc 13sep26 the full waveform is the park frame's alone, so the black a page swaps
+        repaint_through_black();
         return;
     }
+    dirty_ = true;
     park(ParkFrame::Wordmark);
 }
 

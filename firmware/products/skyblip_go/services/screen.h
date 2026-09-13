@@ -94,7 +94,7 @@ class ScreenService : public runtime::Service {
     enum class ParkStep : uint8_t { None, Frame, Sleep };
     void park(ParkFrame frame);
     void draw_park_frame(ParkFrame frame);
-    void note_presented(hal::Refresh mode, uint32_t now_ms);
+    void note_presented(uint32_t now_ms);
 
     // 1 m/s = 196.85 ft/min, from eighth-m/s.
     int32_t climb_fpm() const {
@@ -129,8 +129,7 @@ class ScreenService : public runtime::Service {
     uint32_t last_present_ms_{0};
     uint8_t last_alarm_{0};
     bool dirty_{true};
-    bool want_full_{true};
-    bool flash_pending_{false};
+    bool flash_pending_{true};
     bool flashed_{false};
     bool presented_once_{false};
     bool showing_self_test_{false};

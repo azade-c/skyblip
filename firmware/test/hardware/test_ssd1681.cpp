@@ -156,21 +156,18 @@ TEST_CASE("epd: a turned glass writes the same count of black pixels it was hand
     CHECK(black == fb.count_black());
 }
 
-TEST_CASE("epd: the first present after begin() is a full refresh, whatever was asked") {
+// The rail is cut at power off, so both banks come up garbage: the diff starts on a stated truth.
+TEST_CASE("epd: begin() takes the glass for white, and the first partial diffs against that") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
     ui::Framebuffer fb;
-    fb.clear(true);
+    fb.clear(/*white=*/false);
 
-    // The glass content is unknown before the first full lands, so a partial
-    // (differential) refresh would diff against garbage.
     d.present(fb, hal::Refresh::Partial, 0);
-    CHECK(f.last_full);
-
-    settle(d, 0);
-    d.present(fb, hal::Refresh::Partial, 5000);
     CHECK_FALSE(f.last_full);
+    REQUIRE(f.ram_previous.size() == ui::Framebuffer::kBytes);
+    for (uint8_t b : f.ram_previous) REQUIRE(b == 0xFF);  // panel RAM 1 is white
 }
 
 // The simulator draws this: a partial that changed no pixel is invisible on glass.

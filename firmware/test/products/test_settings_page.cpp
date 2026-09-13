@@ -451,9 +451,9 @@ TEST_CASE("product: the page transitions through black, and no keypress asks for
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.run(t, t + 3000);  // the boot frame is the full one, and it is the last
+    rig.run(t, t + 3000);  // the boot frame came through black, like every frame after it
     t += 3000;
-    REQUIRE(rig.platform.chips().epd.last_full);
+    REQUIRE_FALSE(rig.platform.chips().epd.last_full);
 
     open_settings(rig, t);
     rig.run(t, t + 4000);

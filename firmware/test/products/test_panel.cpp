@@ -24,7 +24,7 @@ class HeldDie : public hal::DieTemperature {
 
 }  // namespace
 
-TEST_CASE("product: a pad tap switches page and the layout swap lands full") {
+TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     CHECK(rig.product.screen().page() == go::Page::Radar);
@@ -32,7 +32,7 @@ TEST_CASE("product: a pad tap switches page and the layout swap lands full") {
     uint32_t t = 100;
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::SixPack);
-    CHECK(rig.platform.chips().epd.last_full);  // the first page on the glass is the full one
+    CHECK_FALSE(rig.platform.chips().epd.last_full);  // power on to power off, partials alone
     rig.run(t, t + 4000);
     t += 4000;
 
@@ -180,7 +180,7 @@ TEST_CASE("product: a device that can fly keeps the self test off the glass at b
 
     rig.run(0, 2000);
     CHECK(rig.product.screen().page() == go::Page::Radar);
-    CHECK(rig.platform.chips().epd.present_count == 1);
+    CHECK(rig.platform.chips().epd.present_count == 2);  // the black, then the page
 }
 
 TEST_CASE("product: the self-test page reaches the panel before anything refuses") {

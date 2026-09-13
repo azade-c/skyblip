@@ -5,11 +5,11 @@ TEST_CASE("screen policy: a static frame is never re-presented") {
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    CHECK(rig.chip.present_count == 1);  // the boot frame, full
-    CHECK(rig.chip.last_full);
+    CHECK(rig.chip.present_count == 2);  // the boot black, then the page
+    CHECK_FALSE(rig.chip.last_full);
 
     rig.run_seconds(t, 30);  // nothing on screen changes
-    CHECK(rig.chip.present_count == 1);
+    CHECK(rig.chip.present_count == 2);
 }
 
 TEST_CASE("screen policy: a minute of changing frames costs partials and no full") {

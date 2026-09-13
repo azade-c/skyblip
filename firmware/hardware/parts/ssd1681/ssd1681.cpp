@@ -39,7 +39,9 @@ void Ssd1681::begin() {
     gpio_.mode_output(rst_);
     gpio_.mode_input(busy_, false);
     init_panel();
-    glass_known_ = false;
+    // INFO: fc 13sep26 the rail was cut, so both banks are garbage: assume white, paint black first
+    std::memset(shadow_, 0, sizeof(shadow_));
+    glass_known_ = true;
     refreshing_ = false;
     asleep_ = false;
 }
