@@ -6,6 +6,7 @@
 // alarm is allowed to say out loud about a target it has already announced.
 #include <cmath>
 
+#include "core/flight/extrapolate.h"
 #include "core/traffic/alarm.h"
 #include "core/traffic/link.h"
 #include "core/traffic/sanity.h"
@@ -20,9 +21,10 @@ namespace {
 
 uint16_t c9(int deg) { return static_cast<uint16_t>(((deg % 360 + 360) % 360) * 512 / 360); }
 
-messages::OwnState flying(int mps, int track_deg, int16_t turn_dps = 0) {
+messages::OwnState flying(int mps, int track_deg, int16_t turn_dps = 0, uint32_t at_ms = 0) {
     messages::OwnState o{};
     o.turn_dps = turn_dps;
+    o.fix_ms = at_ms;
     o.fix_valid = true;
     o.lat_1e7 = 481000000;
     o.lon_1e7 = 81000000;
@@ -51,6 +53,7 @@ messages::AircraftObs neighbour(const messages::OwnState& own, int north_m, int 
     t.lon_1e7 = own.lon_1e7 + static_cast<int32_t>(east_scaled * 1000000 / 11132);
     t.rx_utc = at_ms / 1000;
     t.rx_ms = static_cast<uint16_t>(at_ms % 1000);
+    t.at_ms = at_ms;
     return t;
 }
 
@@ -183,18 +186,33 @@ TEST_CASE("alarm: level escalates as a target closes head-on") {
         return neighbour(own, north_m, 0, up_m, 40, 180);
     };
 
-    CHECK(assess(own, target_at(5000, 0)).level <= 1);  // far
-    CHECK(assess(own, target_at(1200, 0)).level >= 2);  // important
-    CHECK(assess(own, target_at(300, 0)).level == 3);   // urgent
+    CHECK(assess(own, target_at(5000, 0), 0).level <= 1);  // far
+    CHECK(assess(own, target_at(1200, 0), 0).level >= 2);  // important
+    CHECK(assess(own, target_at(300, 0), 0).level == 3);   // urgent
     // large vertical separation suppresses the alarm
-    CHECK(assess(own, target_at(300, 800)).level == 0);
+    CHECK(assess(own, target_at(300, 800), 0).level == 0);
 }
 
 TEST_CASE("alarm: invalid when own has no fix") {
     messages::OwnState own{};
     messages::AircraftObs t{};
     t.valid_pos = true;
-    CHECK_FALSE(assess(own, t).valid);
+    CHECK_FALSE(assess(own, t, 0).valid);
+}
+
+// The pinned bug: a fix and a report from different instants were subtracted as if they were one.
+TEST_CASE("alarm: both sides are carried to the instant the geometry is read at") {
+    const messages::OwnState own = flying(30, 0, 0, 10'000);
+    const messages::AircraftObs head_on = neighbour(own, 1000, 0, 0, 30, 180, 10'000);
+
+    CHECK(assess(own, head_on, 10'000).rel_dist_m == doctest::Approx(1000).epsilon(0.02));
+
+    // A second on, with nothing heard since: 30 m/s each, nose to nose, 60 m of it gone.
+    CHECK(assess(own, head_on, 11'000).rel_dist_m == doctest::Approx(940).epsilon(0.02));
+
+    // Past the model's reach, both stand where they were last known to be.
+    const uint32_t too_late = 10'000 + flight::kMaxExtrapolationMs + 1;
+    CHECK(assess(own, head_on, too_late).rel_dist_m == doctest::Approx(1000).epsilon(0.02));
 }
 
 // The bug this replaced added both speeds together whatever the geometry, so a
@@ -205,19 +223,19 @@ TEST_CASE("alarm: closing speed is the relative velocity on the line of sight") 
     const messages::OwnState own = flying(30, 0);
 
     // Ahead of us, going the same way at the same speed: the gap is not moving.
-    const AlarmAssessment formation = assess(own, neighbour(own, 800, 0, 0, 30, 0));
+    const AlarmAssessment formation = assess(own, neighbour(own, 800, 0, 0, 30, 0), 0);
     CHECK(formation.closing_mps == 0);
 
     // The same target turned around: both speeds, because both are spent on us.
-    const AlarmAssessment head_on = assess(own, neighbour(own, 800, 0, 0, 30, 180));
+    const AlarmAssessment head_on = assess(own, neighbour(own, 800, 0, 0, 30, 180), 0);
     CHECK(head_on.closing_mps == doctest::Approx(60).epsilon(0.05));
 
     // Behind us and slower: the gap is opening at the difference.
-    const AlarmAssessment overtaken = assess(own, neighbour(own, -800, 0, 0, 20, 0));
+    const AlarmAssessment overtaken = assess(own, neighbour(own, -800, 0, 0, 20, 0), 0);
     CHECK(overtaken.closing_mps == doctest::Approx(-10).epsilon(0.15));
 
     // Abeam, flying parallel: nothing of that 30 m/s is aimed at us.
-    const AlarmAssessment abeam = assess(own, neighbour(own, 0, 600, 0, 30, 0));
+    const AlarmAssessment abeam = assess(own, neighbour(own, 0, 600, 0, 30, 0), 0);
     CHECK(abeam.closing_mps == 0);
 }
 
@@ -225,10 +243,10 @@ TEST_CASE("alarm: closing speed is the relative velocity on the line of sight") 
 // one crossing our nose 2 km out at 80 m/s of closure is.
 TEST_CASE("alarm: urgency is what the geometry says, not what the range ring says") {
     const messages::OwnState own = flying(30, 0);
-    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 0)).level < 3);
-    CHECK(assess(own, neighbour(own, -300, 0, 0, 40, 180)).level == 1);
-    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 180)).level == 3);
-    CHECK(assess(own, neighbour(own, 900, 0, 0, 50, 180)).level == 3);
+    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 0), 0).level < 3);
+    CHECK(assess(own, neighbour(own, -300, 0, 0, 40, 180), 0).level == 1);
+    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 180), 0).level == 3);
+    CHECK(assess(own, neighbour(own, 900, 0, 0, 50, 180), 0).level == 3);
 }
 
 // Uplinked and relayed traffic often arrives as a position with no velocity.
@@ -239,7 +257,7 @@ TEST_CASE("alarm: a target that reports no velocity degrades, it does not vanish
     messages::AircraftObs quiet = neighbour(own, 900, 0, 0, 0, 0);
     quiet.has_speed = false;
 
-    const AlarmAssessment a = assess(own, quiet);
+    const AlarmAssessment a = assess(own, quiet, 0);
     CHECK(a.closing_mps >= 30 + kUnknownTargetSpeedMps - 1);
     CHECK(a.level == 3);
 }
@@ -463,11 +481,11 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
             std::sqrt((target_east - own_east) * (target_east - own_east) +
                       (target_north - own_north) * (target_north - own_north));
 
-        const messages::OwnState own = flying(23, turn_dps * second, turn_dps);
+        const messages::OwnState own = flying(23, turn_dps * second, turn_dps, t);
         const messages::AircraftObs target =
             neighbour(own, static_cast<int>(target_north - own_north),
                       static_cast<int>(target_east - own_east), 0, 23, 34 + turn_dps * second, t);
-        const uint8_t raw_level = assess(own, target).level;
+        const uint8_t raw_level = assess(own, target, t).level;
         if (raw_level > raw_peak_level) raw_peak_level = raw_level;
         const AlarmTracker::Decision d = tracker.update(own, target, t);
         if (separation_m < min_separation_m) {

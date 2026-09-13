@@ -1,10 +1,4 @@
-// F3. A fix is solved when the receiver speaks; the burst carrying it leaves
-// somewhere in the direct slot, up to a second later, and the ADS-L TimeStamp
-// names an instant to the quarter second. Sending the position from one instant
-// under the timestamp of another is a lie of 10 m at 50 m/s over 200 ms, and
-// 50 m if the receiver has fallen back to 1 Hz. These cases pin the model that
-// closes that gap, the residual that says whether the model is describing this
-// aircraft, and the gap past which there is no model, only a guess.
+// F3. A position sent under another instant's timestamp is a lie of 50 m at 50 m/s over a second.
 #include <cmath>
 
 #include "core/flight/extrapolate.h"
@@ -61,6 +55,37 @@ TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
     CHECK(east_m(own, extrapolate(own, 500).lon_1e7) == doctest::Approx(20.0).epsilon(0.02));
     CHECK(east_m(own, extrapolate(own, -1000).lon_1e7) == doctest::Approx(-40.0).epsilon(0.01));
     CHECK(extrapolate(own, 0).lat_1e7 == own.lat_1e7);
+}
+
+// A neighbour is carried by the three things its burst states: position, ground speed and track.
+TEST_CASE("extrapolate: a reported target moves along its reported track") {
+    const messages::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
+    messages::AircraftObs obs{};
+    obs.valid_pos = true;
+    obs.has_speed = true;
+    obs.lat_1e7 = own.lat_1e7;
+    obs.lon_1e7 = own.lon_1e7;
+    obs.alt_m = 1200;
+    obs.speed_q = 40 * 4;
+    obs.track_c9 = 128;  // due east
+
+    const Prediction at = extrapolate(obs, 1000);
+    REQUIRE(at.valid);
+    CHECK(east_m(own, at.lon_1e7) == doctest::Approx(40.0).epsilon(0.01));
+    CHECK(north_m(own.lat_1e7, at.lat_1e7) == doctest::Approx(0.0).epsilon(0.01));
+    CHECK(at.alt_m == obs.alt_m);  // no climb reported, no climb invented
+
+    obs.has_climb = true;
+    obs.climb_e8 = 8 * 2;  // 2 m/s
+    CHECK(extrapolate(obs, 1000).alt_m == 1202);
+
+    // Relayed traffic often arrives as a position and nothing else: there is no
+    // model to run, and the last known position is the only honest answer.
+    obs.has_speed = false;
+    const Prediction still = extrapolate(obs, 1000);
+    CHECK_FALSE(still.valid);
+    CHECK(still.lat_1e7 == obs.lat_1e7);
+    CHECK(still.lon_1e7 == obs.lon_1e7);
 }
 
 // The reason for the half-turn-before, half-turn-after split
@@ -159,11 +184,7 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
     CHECK(missed > 5);
 }
 
-// F3. The TimeStamp field names an instant to the quarter second, and the burst
-// leaves the radio somewhere in the direct slot - up to a second after the
-// solution behind it was computed. Encoding the fix as it stands under a
-// timestamp that says "now" transmits a position the aircraft has already left:
-// 10 m at 50 m/s over 200 ms, 50 m if the receiver has fallen back to 1 Hz.
+// F3. The burst leaves a second after its solution: as it stands, it is 50 m behind at 50 m/s.
 TEST_CASE("adsl: the transmitted position is the position at the instant transmitted") {
     messages::OwnState own{};
     own.fix_valid = true;

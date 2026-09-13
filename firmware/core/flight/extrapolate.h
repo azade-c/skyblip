@@ -42,6 +42,13 @@ struct Prediction {
 // A negative offset predicts backwards, which is how the residual is measured.
 Prediction extrapolate(const messages::OwnState& own, int32_t dt_ms);
 
+// INFO: fc 13sep26 a neighbour's burst carries position, speed and track, and no turn rate
+Prediction extrapolate(const messages::AircraftObs& obs, int32_t dt_ms);
+
+// INFO: fc 13sep26 a separation only means something between two states carried to one instant
+messages::OwnState carried_to(const messages::OwnState& own, uint32_t now_ms);
+messages::AircraftObs carried_to(const messages::AircraftObs& obs, uint32_t now_ms);
+
 // INFO: rs 03aug26 OGN's PredResid (src/ogn.h:1424-1430): predict the previous
 // position forward to the instant the next one arrived and sum the absolute
 // north, east and vertical misses in metres. It is the only live measure of

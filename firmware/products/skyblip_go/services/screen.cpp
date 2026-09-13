@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/flight/atmosphere.h"
+#include "core/flight/extrapolate.h"
 #include "core/power/cutoff.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/units.h"
@@ -216,7 +217,7 @@ void ScreenService::tick(uint32_t now_ms) {
 
     last_render_ms_ = now_ms;
     dirty_ = false;
-    render();
+    render(now_ms);
 
     const bool changed = !presented_once_ ||
                          std::memcmp(fb_.data(), presented_.data(), ui::Framebuffer::kBytes) != 0;
@@ -352,7 +353,7 @@ void ScreenService::draw_settings_page() {
     ui::draw_settings(fb_, snapshot);
 }
 
-void ScreenService::render() {
+void ScreenService::render(uint32_t now_ms) {
     if (prompt_ != comms::Pending::None) {
         draw_prompt();
         return;
@@ -380,11 +381,14 @@ void ScreenService::render() {
             snap.max_alarm = context_.state.alarm_level;
             int n = 0;
             if (own.fix_valid) {
+                const messages::OwnState own_now = flight::carried_to(own, now_ms);
                 for (int i = 0; i < traffic::TrafficTable::kCapacity && n < kMaxRadarTargets; i++) {
                     const traffic::Target* t = context_.state.traffic.at(i);
                     if (!t || !t->used) continue;
                     int32_t north = 0, east = 0, up = 0;
-                    if (!protocol::relative_ned(own, t->obs, north, east, up)) continue;
+                    if (!protocol::relative_ned(own_now, flight::carried_to(t->obs, now_ms), north,
+                                                east, up))
+                        continue;
                     targets_[n].north_m = north;
                     targets_[n].east_m = east;
                     targets_[n].up_m = up;

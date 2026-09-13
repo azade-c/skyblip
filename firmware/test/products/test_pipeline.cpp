@@ -93,7 +93,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
 
     // 5) alarm: the closure comes off the relative velocity vector, so a level 3
     //    here is the geometry saying so and not the range gate it used to be.
-    traffic::AlarmAssessment a = traffic::assess(own, obs);
+    traffic::AlarmAssessment a = traffic::assess(own, obs, own.fix_ms);
     CHECK(a.valid);
     CHECK(a.rel_dist_m > 700);
     CHECK(a.rel_dist_m < 900);
@@ -108,7 +108,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     // AlarmTracker's SteadyRange suppression, which is what the product runs.
     messages::AircraftObs chase = obs;
     chase.track_c9 = own.track_c9;
-    const traffic::AlarmAssessment following = traffic::assess(own, chase);
+    const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
     CHECK(following.closing_mps < traffic::kClosingFloorMps);
     CHECK(following.level == 2);
 

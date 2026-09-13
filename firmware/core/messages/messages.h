@@ -32,6 +32,8 @@ struct AircraftObs {
     uint16_t track_c9;
     uint32_t rx_utc;
     uint16_t rx_ms;
+    // INFO: fc 13sep26 the instant this position was true, on hal::Clock, for the geometry to align
+    uint32_t at_ms;
     int8_t rssi_dbm;
     Source source;
     bool has_climb;

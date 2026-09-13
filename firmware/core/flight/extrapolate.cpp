@@ -52,48 +52,107 @@ int32_t turn_angle16(int16_t turn_dps, int32_t dt_ms) {
         div_round(static_cast<int64_t>(turn_dps) * dt_ms * kTurn16, kMilliDegreesPerTurn));
 }
 
-Prediction passthrough(const messages::OwnState& own) {
+struct Motion {
+    int32_t lat_1e7;
+    int32_t lon_1e7;
+    int32_t alt_m;
+    int32_t alt_msl_m;
+    uint16_t speed_q;
+    uint16_t track_c9;
+    int16_t climb_e8;
+    int16_t turn_dps;
+    bool known;
+    bool climbs;
+};
+
+Prediction carry(const Motion& m, int32_t dt_ms) {
     Prediction out{};
-    out.lat_1e7 = own.lat_1e7;
-    out.lon_1e7 = own.lon_1e7;
-    out.alt_m = own.alt_m;
-    out.alt_msl_m = own.alt_msl_m;
-    out.track_c9 = static_cast<uint16_t>(own.track_c9 & kTrackC9Mask);
+    out.lat_1e7 = m.lat_1e7;
+    out.lon_1e7 = m.lon_1e7;
+    out.alt_m = m.alt_m;
+    out.alt_msl_m = m.alt_msl_m;
+    out.track_c9 = static_cast<uint16_t>(m.track_c9 & kTrackC9Mask);
     out.valid = false;
+
+    if (!m.known) return out;
+    if (dt_ms > kMaxExtrapolationMs || dt_ms < -kMaxExtrapolationMs) return out;
+    out.valid = true;
+    if (dt_ms == 0) return out;
+
+    const int32_t turn16 = turn_angle16(m.turn_dps, dt_ms);
+    const int16_t heading =
+        static_cast<int16_t>(static_cast<uint16_t>(angle16_of(m.track_c9) + turn16 / 2));
+
+    const int64_t scale = kTrigOne * kMicrometresPerE7;
+    const int64_t travel =
+        static_cast<int64_t>(m.speed_q) * dt_ms * kMicrometresPerMetre / (kSpeedQPerMps * kMsPerS);
+    out.lat_1e7 = m.lat_1e7 + static_cast<int32_t>(div_round(travel * icos(heading), scale));
+    const int64_t east = div_round(travel * isin(heading), scale);
+    out.lon_1e7 =
+        m.lon_1e7 + static_cast<int32_t>(div_round(east * kTrigOne, lat_cosine(m.lat_1e7)));
+
+    if (m.climbs) {
+        const int32_t rise = static_cast<int32_t>(
+            div_round(static_cast<int64_t>(m.climb_e8) * dt_ms, kClimbE8PerMps * kMsPerS));
+        out.alt_m = m.alt_m + rise;
+        out.alt_msl_m = m.alt_msl_m + rise;
+    }
+
+    const uint16_t track16 =
+        static_cast<uint16_t>(angle16_of(m.track_c9) + turn16 + (1 << (kTrackC9ToAngle - 1)));
+    out.track_c9 = static_cast<uint16_t>((track16 >> kTrackC9ToAngle) & kTrackC9Mask);
     return out;
 }
 
 }  // namespace
 
 Prediction extrapolate(const messages::OwnState& own, int32_t dt_ms) {
-    Prediction out = passthrough(own);
-    if (!own.fix_valid) return out;
-    if (dt_ms > kMaxExtrapolationMs || dt_ms < -kMaxExtrapolationMs) return out;
-    out.valid = true;
-    if (dt_ms == 0) return out;
+    Motion m{};
+    m.lat_1e7 = own.lat_1e7;
+    m.lon_1e7 = own.lon_1e7;
+    m.alt_m = own.alt_m;
+    m.alt_msl_m = own.alt_msl_m;
+    m.speed_q = own.speed_q;
+    m.track_c9 = own.track_c9;
+    m.climb_e8 = own.climb_e8;
+    m.turn_dps = own.turn_dps;
+    m.known = own.fix_valid;
+    m.climbs = own.climb_valid;
+    return carry(m, dt_ms);
+}
 
-    const int32_t turn16 = turn_angle16(own.turn_dps, dt_ms);
-    const int16_t heading =
-        static_cast<int16_t>(static_cast<uint16_t>(angle16_of(own.track_c9) + turn16 / 2));
+// INFO: fc 13sep26 ADS-L carries no turn rate, so a neighbour is carried straight (G.1.8, G.1.10)
+Prediction extrapolate(const messages::AircraftObs& obs, int32_t dt_ms) {
+    Motion m{};
+    m.lat_1e7 = obs.lat_1e7;
+    m.lon_1e7 = obs.lon_1e7;
+    m.alt_m = obs.alt_m;
+    m.alt_msl_m = obs.alt_m;
+    m.speed_q = obs.speed_q;
+    m.track_c9 = obs.track_c9;
+    m.climb_e8 = obs.climb_e8;
+    m.known = obs.valid_pos && obs.has_speed;
+    m.climbs = obs.has_climb;
+    return carry(m, dt_ms);
+}
 
-    const int64_t scale = kTrigOne * kMicrometresPerE7;
-    const int64_t travel = static_cast<int64_t>(own.speed_q) * dt_ms * kMicrometresPerMetre /
-                           (kSpeedQPerMps * kMsPerS);
-    out.lat_1e7 = own.lat_1e7 + static_cast<int32_t>(div_round(travel * icos(heading), scale));
-    const int64_t east = div_round(travel * isin(heading), scale);
-    out.lon_1e7 =
-        own.lon_1e7 + static_cast<int32_t>(div_round(east * kTrigOne, lat_cosine(own.lat_1e7)));
+messages::OwnState carried_to(const messages::OwnState& own, uint32_t now_ms) {
+    const Prediction p = extrapolate(own, static_cast<int32_t>(now_ms - own.fix_ms));
+    messages::OwnState out = own;
+    out.lat_1e7 = p.lat_1e7;
+    out.lon_1e7 = p.lon_1e7;
+    out.alt_m = p.alt_m;
+    out.alt_msl_m = p.alt_msl_m;
+    out.track_c9 = p.track_c9;
+    return out;
+}
 
-    if (own.climb_valid) {
-        const int32_t rise = static_cast<int32_t>(
-            div_round(static_cast<int64_t>(own.climb_e8) * dt_ms, kClimbE8PerMps * kMsPerS));
-        out.alt_m = own.alt_m + rise;
-        out.alt_msl_m = own.alt_msl_m + rise;
-    }
-
-    const uint16_t track16 =
-        static_cast<uint16_t>(angle16_of(own.track_c9) + turn16 + (1 << (kTrackC9ToAngle - 1)));
-    out.track_c9 = static_cast<uint16_t>((track16 >> kTrackC9ToAngle) & kTrackC9Mask);
+messages::AircraftObs carried_to(const messages::AircraftObs& obs, uint32_t now_ms) {
+    const Prediction p = extrapolate(obs, static_cast<int32_t>(now_ms - obs.at_ms));
+    messages::AircraftObs out = obs;
+    out.lat_1e7 = p.lat_1e7;
+    out.lon_1e7 = p.lon_1e7;
+    out.alt_m = p.alt_m;
     return out;
 }
 

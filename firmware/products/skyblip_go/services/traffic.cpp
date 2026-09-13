@@ -91,6 +91,7 @@ void TrafficService::on_frame(const messages::RfEvent& event, uint32_t now_ms) {
     }
 
     obs.rx_ms = static_cast<uint16_t>(now_ms % 1000);
+    obs.at_ms = now_ms;
     obs.rssi_dbm = event.rssi_dbm;
     context_.state.traffic.update(obs, utc);
     context_.state.rx_ok++;
@@ -130,6 +131,7 @@ void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) 
         messages::AircraftObs& obs = relayed[i];
         obs.rx_utc = utc;
         obs.rx_ms = static_cast<uint16_t>(now_ms % 1000);
+        obs.at_ms = now_ms;
         obs.rssi_dbm = event.rssi_dbm;
         if (context_.state.traffic.update(obs, utc) >= 0) context_.state.uplink_targets++;
     }

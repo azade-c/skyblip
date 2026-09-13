@@ -221,6 +221,9 @@ struct Encounter {
     uint32_t min_true_ms{0};
     uint8_t level_at_min_true{0};
     int32_t min_reported_m{999999};
+    // How far the range the device acts on sits from the truth, averaged over
+    // the encounter: the one number that says whether the geometry is aligned.
+    int32_t mean_range_error_m{0};
     int32_t traffic_count{0};
 };
 
@@ -235,6 +238,8 @@ const traffic::Target* only_target(const bus::State& state) {
 Encounter measure(simulator::Simulator& s) {
     Encounter e{};
     const uint32_t until = s.scenario().duration_ms;
+    int64_t error_sum = 0;
+    int samples = 0;
     uint8_t spoken = 0;
     for (uint32_t t = 0; t <= until; t += simulator::Simulator::kStepMs) {
         s.step(t);
@@ -259,7 +264,7 @@ Encounter measure(simulator::Simulator& s) {
         const traffic::Target* target = only_target(state);
         if (target == nullptr) continue;
 
-        const traffic::AlarmAssessment a = traffic::assess(state.own, target->obs);
+        const traffic::AlarmAssessment a = traffic::assess(state.own, target->obs, t);
         if (!a.valid) continue;
         const uint8_t level = state.alarm_level;
         const int32_t range_m = a.rel_dist_m;
@@ -274,6 +279,8 @@ Encounter measure(simulator::Simulator& s) {
         if (t >= Encounter::kSettledMs && level > e.settled_peak_level)
             e.settled_peak_level = level;
         if (range_m < e.min_reported_m) e.min_reported_m = range_m;
+        error_sum += range_m > true_m ? range_m - true_m : true_m - range_m;
+        samples++;
         if (true_m < e.min_true_m) {
             e.min_true_m = true_m;
             e.min_true_ms = t;
@@ -281,6 +288,7 @@ Encounter measure(simulator::Simulator& s) {
         }
         e.traffic_count = state.traffic.count();
     }
+    if (samples > 0) e.mean_range_error_m = static_cast<int32_t>(error_sum / samples);
     return e;
 }
 
@@ -299,6 +307,7 @@ void report(const Encounter& e) {
     MESSAGE("closest approach: " << e.min_true_m << " m true at t=" << e.min_true_ms
                                  << " ms, published level " << static_cast<int>(e.level_at_min_true)
                                  << ", closest the model ever saw " << e.min_reported_m << " m");
+    MESSAGE("mean range error: " << e.mean_range_error_m << " m");
     MESSAGE("peak published level after " << Encounter::kSettledMs
                                           << " ms: " << static_cast<int>(e.settled_peak_level));
 }
@@ -357,12 +366,11 @@ TEST_CASE("scenario: two gliders sharing a thermal core pass inside 15 m in sile
     CHECK(e.min_true_ms > 10000);
     CHECK(e.level_at_min_true == traffic::kSuppressedLevel);
 
-    // The device could not have known better from range alone either: a target
-    // report is up to a second old, so at 23 m/s around a 102 m circle the
-    // closest range the model was ever handed is more than twice the true miss.
-    CHECK(e.min_reported_m > 20);
+    // Two circling gliders extrapolate badly: neither reports a turn rate, so each is carried
+    // straight.
     CHECK(e.min_reported_m < 60);
     CHECK(e.min_reported_m > e.min_true_m * 2);
+    CHECK(e.mean_range_error_m < 20);
 }
 
 // The other side of the fence, so v1.1 cannot buy circling prediction by going
@@ -387,6 +395,10 @@ TEST_CASE("scenario: a glider joining the thermal on a straight line is still ca
     CHECK(e.first_ms[3] < 30000);
     CHECK(e.first_range_m[3] > 900);
     CHECK(e.last_spoken_level == 3);
+
+    // Both sides carried to the instant the range is read at: unaligned, this encounter reads 57 m
+    // out.
+    CHECK(e.mean_range_error_m < 40);
 
     // Own-ship's own circle swings the closure up and down under the target, so
     // the published level breathes with it. What is pinned is that the highest

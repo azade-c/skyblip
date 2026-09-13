@@ -73,7 +73,7 @@ class ScreenService : public runtime::Service {
     void mark_dirty() { dirty_ = true; }
 
    private:
-    void render();
+    void render(uint32_t now_ms);
     void repaint_through_black();
     void draw_prompt();
     void draw_settings_page();

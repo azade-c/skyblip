@@ -52,7 +52,9 @@ constexpr int32_t kUnknownTargetSpeedMps = 30;
 // No collision in any time a pilot can act on.
 constexpr int32_t kNoImpactS = 32767;
 
-AlarmAssessment assess(const messages::OwnState& own, const messages::AircraftObs& target);
+// INFO: fc 13sep26 now_ms is the instant both sides are carried to, on hal::Clock
+AlarmAssessment assess(const messages::OwnState& own, const messages::AircraftObs& target,
+                       uint32_t now_ms);
 
 // Why a contact that the geometry graded higher is being held down.
 enum class Suppression : uint8_t { None, CoCircling, SteadyRange };

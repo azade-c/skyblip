@@ -1,5 +1,6 @@
 #include "core/traffic/alarm.h"
 
+#include "core/flight/extrapolate.h"
 #include "core/flight/turn.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/intmath.h"
@@ -44,7 +45,12 @@ int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
 }  // namespace
 
-AlarmAssessment assess(const messages::OwnState& own, const messages::AircraftObs& target) {
+// INFO: fc 13sep26 two positions from different instants are not a separation, so both are carried
+// to now
+AlarmAssessment assess(const messages::OwnState& own_fix, const messages::AircraftObs& reported,
+                       uint32_t now_ms) {
+    const messages::OwnState own = flight::carried_to(own_fix, now_ms);
+    const messages::AircraftObs target = flight::carried_to(reported, now_ms);
     AlarmAssessment a{};
     int32_t n_m, e_m, u_m;
     if (!protocol::relative_ned(own, target, n_m, e_m, u_m)) return a;
@@ -76,7 +82,7 @@ AlarmAssessment assess(const messages::OwnState& own, const messages::AircraftOb
 AlarmTracker::Decision AlarmTracker::update(const messages::OwnState& own,
                                             const messages::AircraftObs& target, uint32_t now_ms) {
     Decision d{};
-    d.assessment = assess(own, target);
+    d.assessment = assess(own, target, now_ms);
     if (!d.assessment.valid) return d;
 
     Slot* slot = slot_for(target, now_ms);

@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/flight/atmosphere.h"
+#include "core/flight/extrapolate.h"
 #include "core/protocol/nmea_out.h"
 
 namespace skyblip::go {
@@ -65,24 +66,24 @@ void NmeaService::tick(uint32_t now_ms) {
     }
     last_pass_ms_ = now_ms;
     passed_once_ = true;
-    run_pass();
+    run_pass(now_ms);
 }
 
 // The order is the policy: the alarm sentence is written first and is never
 // inside the per-pass cap, so the one sentence a pilot's life may depend on
 // cannot be the one a full sky pushes off the end.
-void NmeaService::run_pass() {
+void NmeaService::run_pass(uint32_t now_ms) {
     const int negotiated = static_cast<int>(context_.roles.link.payload_bytes());
     payload_ = negotiated < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload
                : negotiated > kFrameBytesCap         ? kFrameBytesCap
                                                      : negotiated;
     frame_len_ = 0;
     stalled_ = false;
-    emit_status();
+    emit_status(now_ms);
     emit_ownship();
     emit_altitude();
     emit_vario_and_battery();
-    emit_targets();
+    emit_targets(now_ms);
     flush();
 }
 
@@ -90,7 +91,7 @@ void NmeaService::run_pass() {
 // matters most - highest level, nearest at equal level. The level is the one
 // core/traffic already published on the target (products/.../alarm.cpp is its
 // single writer), so the tablet's alarm and the buzzer cannot disagree.
-void NmeaService::emit_status() {
+void NmeaService::emit_status(uint32_t now_ms) {
     const messages::OwnState& own = context_.state.own;
     const traffic::Target* threat = nullptr;
     traffic::AlarmAssessment worst{};
@@ -101,7 +102,7 @@ void NmeaService::emit_status() {
         const traffic::Target* target = context_.state.traffic.at(slot);
         if (target == nullptr || !target->used) continue;
         heard++;
-        const traffic::AlarmAssessment assessment = traffic::assess(own, target->obs);
+        const traffic::AlarmAssessment assessment = traffic::assess(own, target->obs, now_ms);
         if (!assessment.valid) continue;
         const bool higher = target->alarm_level > worst_level;
         const bool nearer = target->alarm_level == worst_level &&
@@ -202,8 +203,8 @@ void NmeaService::emit_vario_and_battery() {
 // latency on the tail and never a target - the alternative, a burst that sends
 // the first N slots every second, means slot 11 is a target the tablet is never
 // told about at all.
-void NmeaService::emit_targets() {
-    const messages::OwnState& own = context_.state.own;
+void NmeaService::emit_targets(uint32_t now_ms) {
+    const messages::OwnState own = flight::carried_to(context_.state.own, now_ms);
     if (!own.fix_valid) return;
 
     int sent = 0;
@@ -213,8 +214,9 @@ void NmeaService::emit_targets() {
         const int slot = (from + step) % traffic::TrafficTable::kCapacity;
         const traffic::Target* target = context_.state.traffic.at(slot);
         if (target == nullptr || !target->used) continue;
-        const int len = protocol::format_pflaa(sentence_, sizeof(sentence_), own, target->obs,
-                                               target->alarm_level);
+        const int len =
+            protocol::format_pflaa(sentence_, sizeof(sentence_), own,
+                                   flight::carried_to(target->obs, now_ms), target->alarm_level);
         if (len <= 0) continue;
         write(sentence_, len);
         sent++;

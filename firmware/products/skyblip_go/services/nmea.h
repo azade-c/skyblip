@@ -86,12 +86,12 @@ class NmeaService : public runtime::Service {
 
    private:
     bool listening() const;
-    void run_pass();
-    void emit_status();
+    void run_pass(uint32_t now_ms);
+    void emit_status(uint32_t now_ms);
     void emit_ownship();
     void emit_altitude();
     void emit_vario_and_battery();
-    void emit_targets();
+    void emit_targets(uint32_t now_ms);
     void write(const char* bytes, int len);
     void flush();
 
