@@ -49,7 +49,6 @@ class RadioService : public runtime::Service {
     static hal::RfMode mode_for(const timing::SlotPlan& plan);
     static void listen_for(timing::Band band, hal::RfPlan& plan);
     timing::Transmitter::Attempt attempt(const timing::SlotPlan& plan, uint32_t now_ms) const;
-    bool transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const;
     void arm_dwell(const timing::SlotPlan& plan, uint32_t now_ms);
     void publish_dwell(uint32_t now_ms);
     void collect_outcome(uint32_t now_ms);

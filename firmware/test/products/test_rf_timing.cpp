@@ -598,3 +598,25 @@ TEST_CASE("rf: own-ship keeps transmitting across the 49.7-day wrap") {
     CHECK(h.product().radio().duty_permille(t) < timing::AirTime::kLimitPermille);
     CHECK_FALSE(h.product().radio().over_budget());
 }
+
+// The ground rate is one burst per ten seconds, so most of this run is dwells
+// that carry nothing, and none of them is a transmission that failed.
+TEST_CASE("rf: a device on the ground transmits, and reports no burst it never armed") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(true);
+    h.world().set_speed_kt(0);
+    run_on(h, past_settling(h), 30000);
+
+    CHECK(h.product().state().tx_ok > 0);
+    CHECK(h.product().state().timing_stats.missed() == 0);
+
+    const radio::Log& log = h.product().state().radio_log;
+    int sent = 0, lost = 0;
+    for (int i = 0; i < log.count(); i++) {
+        if (log.newest(i).event == radio::Event::Transmitted) sent++;
+        if (log.newest(i).event == radio::Event::Lost) lost++;
+    }
+    CHECK(sent > 0);
+    CHECK(lost == 0);
+}

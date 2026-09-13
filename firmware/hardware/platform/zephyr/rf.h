@@ -50,7 +50,7 @@ class Rf : public hal::Rf {
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
         if (clock_.micros() >= plan.end_us) {
-            emit(messages::RfEventType::Missed);
+            if (plan.tx != nullptr) emit(messages::RfEventType::Missed);
             return Status::WouldBlock;
         }
         plan_ = plan;
@@ -96,7 +96,7 @@ class Rf : public hal::Rf {
             abort_ = false;
             const hal::RfPlan plan = plan_;
             if (clock_.micros() >= plan.end_us) {
-                emit(messages::RfEventType::Missed);
+                if (plan.tx != nullptr) emit(messages::RfEventType::Missed);
                 continue;
             }
             sleep_until(plan.start_us);

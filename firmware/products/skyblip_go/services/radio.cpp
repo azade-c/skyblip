@@ -17,7 +17,7 @@ void RadioService::tick(uint32_t now_ms) {
 
     const hal::RfMode want = mode_for(plan);
     const bool same_dwell = want == armed_ && plan.freq_hz == armed_freq_;
-    if (!same_dwell || transmit_due(plan, now_ms)) arm_dwell(plan, now_ms);
+    if (!same_dwell) arm_dwell(plan, now_ms);
     publish_dwell(now_ms);
 }
 
@@ -123,14 +123,6 @@ void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
     plan.gaussian_bt_e2 = protocol::kMbandGaussianBtE2;
 }
 
-// The dwell already armed carries this second's burst, or there is none to
-// carry: re-arming would only restart the receiver mid-slot.
-bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const {
-    if (tx_armed_) return false;
-    const timing::Transmitter::Attempt a = attempt(plan, now_ms);
-    return a.go && ms_until(a.at_ms, phase_ms()) >= 0;
-}
-
 timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
                                                    uint32_t now_ms) const {
     const messages::OwnState& own = context_.state.own;
@@ -162,12 +154,11 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     listen_for(slot.band, plan);
     const int opens_in_ms = ms_until(slot.start_ms, phase);
     const int closes_in_ms = ms_until(slot.end_ms, phase);
+    if (closes_in_ms <= 0) return;
     // Arming inside the window means the dwell has already started: begin now and
     // keep the same hard stop, rather than waiting a whole second for the next one.
     plan.start_us = opens_in_ms > 0 ? now_us + static_cast<uint64_t>(opens_in_ms) * 1000 : now_us;
-    const uint64_t closes_us =
-        closes_in_ms > 0 ? now_us + static_cast<uint64_t>(closes_in_ms) * 1000 : plan.start_us;
-    plan.end_us = closes_us > plan.start_us ? closes_us : plan.start_us + 1000;
+    plan.end_us = now_us + static_cast<uint64_t>(closes_in_ms) * 1000;
 
     const timing::Transmitter::Attempt a = attempt(slot, now_ms);
     over_budget_ = a.over_budget;

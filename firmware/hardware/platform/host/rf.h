@@ -78,7 +78,7 @@ class Rf : public hal::Rf {
     void take_pending(uint64_t now_us) {
         has_pending_ = false;
         if (now_us >= pending_.end_us) {
-            emit(messages::RfEventType::Missed, 0, 0, now_us);
+            if (pending_.tx != nullptr) emit(messages::RfEventType::Missed, 0, 0, now_us);
             return;
         }
         adopt(pending_);

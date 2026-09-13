@@ -34,4 +34,12 @@ At the design rate of one 5 ms burst per second we sit at half the allowance, so
 
 `kSlot1End` is 1200 ms, 200 ms past the second it opened in, because FLARM-generation traffic is still transmitting there. That tail is receive-only: §C.5 ends the direct slot at 1000 and `Transmitter::last_instant_in()` bounds the draw so a burst always completes inside the slot and inside the dwell that carries it.
 
-`SlotPlan::own_tx_dwell` is a property of the dwell, not of the phase the service happens to tick on. Slot 0's dwell opens at 400 and its burst is placed from 450, so the plan that opens the dwell has to carry it: `hal::Rf::arm()` queues a plan armed mid-dwell behind the one already flying, and a burst added by a second arm is read only after the window it asked for has closed.
+`SlotPlan::own_tx_dwell` is a property of the dwell, not of the phase the service happens to tick on. Slot 0's dwell opens at 400 and its burst is placed from 450, so the plan that opens the dwell has to carry it.
+
+## One arm per dwell, and never a window that has closed
+
+`hal::Rf::arm()` queues a plan behind the dwell already flying, on silicon because the executor is a thread that reads its plan once, and on the host because it models the same rule. Two things follow, and both were bugs on the bench before 2026-09-15.
+
+A burst is armed with the dwell that carries it or not at all. A plan armed mid-dwell is read when that dwell ends, by which time its own window has closed, so the burst never keys and is reported as one that was lost. `RadioService` therefore arms on the dwell's edge and does not re-arm inside it: an attempt that turns true mid-dwell, which is what a device that has never transmitted does, waits for the next dwell rather than firing a plan nobody can fly.
+
+A window already behind the phase is not armed at all. The guard phases between dwells (`SlotState::Hop`, `SwitchOtoM`) report the dwell that has just closed, and arming that plan produced a stub of a millisecond or two that the executor could only drop. A dropped plan carrying no burst is silent now: it is a receive dwell that did not happen, not a transmission that failed, and the station log said `LOST` for it.

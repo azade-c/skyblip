@@ -385,4 +385,117 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     while (events.pop(e))
         if (e.type == messages::RfEventType::Missed) missed++;
     CHECK(missed == 1);
+
+    // The same queueing with nothing to transmit is a receive dwell that did not
+    // happen, not a burst that was lost: the log would name it a failed
+    // transmission and send a reader after a fault that is not there.
+    hal::RfPlan next_dwell = flying;
+    next_dwell.start_us = 1400000;
+    next_dwell.end_us = 1799000;
+    REQUIRE(rf.arm(next_dwell) == Status::Ok);
+    for (uint32_t t = 1400; t <= 1450; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+    }
+    hal::RfPlan listening = next_dwell;
+    listening.start_us = 1455000;
+    listening.end_us = 1600000;
+    REQUIRE(rf.arm(listening) == Status::Ok);
+    for (uint32_t t = 1460; t <= 1810; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+    }
+    missed = 0;
+    while (events.pop(e))
+        if (e.type == messages::RfEventType::Missed) missed++;
+    CHECK(missed == 0);
+}
+
+namespace {
+
+// The policy alone, with every plan it hands the executor kept for reading.
+struct Armings {
+    platform::host::Clock clock{};
+    struct Recorder : hal::Rf {
+        Status begin() override { return Status::Ok; }
+        Status arm(const hal::RfPlan& plan) override {
+            last = plan;
+            arms++;
+            return Status::Ok;
+        }
+        void abort() override {}
+        hal::RfPlan last{};
+        uint32_t arms{0};
+    } rf{};
+    bus::Bus bus{};
+    bus::State state{};
+    runtime::NullRoles null{};
+    hal::Roles roles{clock,
+                     rf,
+                     null.link,
+                     null.display,
+                     null.kv,
+                     null.log_flash,
+                     null.annunciator,
+                     null.dfu,
+                     hal::Capability::Rf,
+                     0x5B7E57};
+    runtime::Context context{roles, bus, state};
+    go::RadioService radio{context};
+
+    static constexpr uint64_t kEdgeUs = 30000000;
+
+    void tick_at(int phase_ms) {
+        const uint64_t now_us = kEdgeUs + static_cast<uint64_t>(phase_ms) * 1000;
+        clock.set_micros(now_us);
+        state.clock.pps_locked = true;
+        state.clock.utc_valid = true;
+        state.clock.pps_edge_us = kEdgeUs;
+        radio.tick(static_cast<uint32_t>(now_us / 1000));
+    }
+};
+
+}  // namespace
+
+// The guard phases between dwells report the dwell that has just closed, and a
+// window already behind the phase used to be armed as a 1 ms stub the executor
+// then dropped: one fabricated LOST per pass that landed in a guard.
+TEST_CASE("rf: the guard between two dwells is not a dwell, and nothing is armed inside it") {
+    Armings a;
+    a.clock.set_micros(Armings::kEdgeUs);
+    REQUIRE(a.radio.setup() == Status::Ok);
+
+    a.tick_at(100);
+    const uint32_t armed_in_slot1 = a.rf.arms;
+    CHECK(a.rf.last.freq_hz == timing::kMband1Hz);
+
+    a.tick_at(397);
+    CHECK(a.rf.arms == armed_in_slot1);
+
+    a.tick_at(799);
+    CHECK(a.rf.arms == armed_in_slot1);
+
+    // And the dwell that opens right after the guard is armed whole.
+    a.tick_at(400);
+    CHECK(a.rf.arms == armed_in_slot1 + 1);
+    CHECK(a.rf.last.freq_hz == timing::kMband0Hz);
+    CHECK(a.rf.last.end_us - a.rf.last.start_us > 300000);
+}
+
+// A plan armed while a dwell is flying is read only when that dwell ends, by
+// which time its own window has closed: a burst added to a dwell already on air
+// is a burst that never keys and is then reported as one that was lost.
+TEST_CASE("rf: a dwell is armed once, at its own edge, and never again from inside it") {
+    Armings a;
+    a.clock.set_micros(Armings::kEdgeUs);
+    REQUIRE(a.radio.setup() == Status::Ok);
+    a.state.own.fix_valid = true;
+    a.state.own.utc_valid = true;
+    a.state.own.tx_settled = true;
+    a.state.own.flight_state = 2;
+
+    a.tick_at(400);
+    const uint32_t armed_at_the_edge = a.rf.arms;
+    for (int phase = 410; phase < 790; phase += 10) a.tick_at(phase);
+    CHECK(a.rf.arms == armed_at_the_edge);
 }
