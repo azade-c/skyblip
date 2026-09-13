@@ -21,19 +21,9 @@ struct Rig {
     Go product{platform};
 
     explicit Rig(hal::Capabilities fitted = platform::host::Platform::kFullyFitted)
-        : platform(fitted) {
-        mark_parked();
-    }
+        : platform(fitted) {}
 
     Status setup() { return product.setup(); }
-
-    // Switched off the usual way last time, so this boot is the ordinary one.
-    void mark_parked() {
-        const uint8_t mark = 1;
-        platform.kv().write(go::ScreenService::kParkMarkKey, &mark, sizeof(mark));
-    }
-
-    void mark_unparked() { platform.kv().erase(go::ScreenService::kParkMarkKey); }
 
     void run(uint32_t from, uint32_t to, uint32_t step = 50) {
         for (uint32_t t = from; t <= to; t += step) {

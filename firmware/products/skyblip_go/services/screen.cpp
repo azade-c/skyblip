@@ -96,37 +96,6 @@ void ScreenService::repaint_through_black() {
     flash_pending_ = true;
 }
 
-void ScreenService::open_black() {
-    opening_ = OpenStep::Black;
-    dirty_ = true;
-}
-
-// INFO: fc 13sep26 a cell that died left the page on the glass, and only a full lifts it
-void ScreenService::open_glass() {
-    open_black();
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Display)) return;
-    if (!park_mark_taken()) opening_ = OpenStep::Clean;
-}
-
-bool ScreenService::park_mark_taken() {
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Storage)) return true;
-    uint8_t mark = 0;
-    size_t len = 0;
-    if (!is_ok(context_.roles.kv.read(kParkMarkKey, &mark, sizeof(mark), len))) return false;
-    context_.roles.kv.erase(kParkMarkKey);
-    return true;
-}
-
-// INFO: fc 13sep26 the mark shares the settings sector, so it takes the settings rule
-void ScreenService::leave_park_mark() {
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Storage)) return;
-    if (!power::may_write(context_.state.power_level, context_.state.supply_warned,
-                          power::DurableWrite::Settings))
-        return;
-    const uint8_t mark = 1;
-    context_.roles.kv.write(kParkMarkKey, &mark, sizeof(mark));
-}
-
 void ScreenService::dismiss_self_test(uint32_t now_ms) {
     showing_self_test_ = false;
     editor_.enter(now_ms);
@@ -236,11 +205,6 @@ void ScreenService::tick(uint32_t now_ms) {
     if (!dirty_ && now_ms - last_render_ms_ < kRenderPeriodMs) return;
     if (!context_.roles.display.ready(now_ms)) return;
 
-    if (opening_ != OpenStep::None) {
-        open_next_frame(now_ms);
-        return;
-    }
-
     if (flash_pending_) {
         flash_pending_ = false;
         if (transitions_through_black()) {
@@ -271,19 +235,6 @@ ScreenService::Thermal ScreenService::thermal() const {
 
 // INFO: fc 09mar26 SoftRF runs this glass on partials alone, power-on to power-off
 bool ScreenService::transitions_through_black() const { return context_.state.alarm_level == 0; }
-
-void ScreenService::open_next_frame(uint32_t now_ms) {
-    if (opening_ == OpenStep::Clean) {
-        opening_ = OpenStep::Black;
-        fb_.clear(/*white=*/true);
-        context_.roles.display.present(fb_, hal::Refresh::Full, now_ms);
-        note_presented(now_ms);
-        dirty_ = true;
-        return;
-    }
-    opening_ = OpenStep::None;
-    present_black(now_ms);
-}
 
 // INFO: fc 09mar26 SoftRF's page transition: all black through the partial waveform, then the page
 void ScreenService::present_black(uint32_t now_ms) {
@@ -327,7 +278,7 @@ void ScreenService::set_power(bool on) {
     if (on) {
         park_ = ParkStep::None;
         context_.roles.display.power_on();
-        open_black();
+        repaint_through_black();
         return;
     }
     dirty_ = true;
@@ -338,7 +289,6 @@ void ScreenService::set_power(bool on) {
 void ScreenService::park(ParkFrame frame) {
     powered_ = false;
     park_frame_ = frame;
-    park_frame_landed_ = false;
     park_ = may_present_park_frame() ? ParkStep::Frame : ParkStep::Sleep;
 }
 
@@ -348,14 +298,11 @@ void ScreenService::settle_park(uint32_t now_ms) {
     if (!context_.roles.display.ready(now_ms)) return;
     if (park_ == ParkStep::Frame) {
         park_ = ParkStep::Sleep;
-        park_frame_landed_ = true;
         draw_park_frame(park_frame_);
         context_.roles.display.present(fb_, hal::Refresh::Full, now_ms);
         return;
     }
     park_ = ParkStep::None;
-    if (park_frame_landed_) leave_park_mark();
-    park_frame_landed_ = false;
     context_.roles.display.power_off();
     set_backlight(false);
 }
@@ -482,7 +429,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.gnss.solutions = context_.state.gnss_solutions;
             snap.rx_ok = context_.state.rx_ok;
             snap.tx_ok = context_.state.tx_ok;
-            snap.tx_fault = context_.state.tx_fault;
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             ui::draw_radio_log(fb_, snap);

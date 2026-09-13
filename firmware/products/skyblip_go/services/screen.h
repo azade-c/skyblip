@@ -26,9 +26,6 @@ class ScreenService : public runtime::Service {
     static constexpr uint32_t kRenderPeriodMs = 1000;
     static constexpr uint32_t kPresentFloorMs = 1000;
 
-    // INFO: fc 13sep26 no mark at boot means the last session ended without the park frame's full
-    static constexpr const char* kParkMarkKey = "glass";
-
     // INFO: fc 06sep26 Good Display rates the glass 0..50 C, read on a die above ambient
     static constexpr int16_t kHoldAboveDeciCelsius = 500;
 
@@ -48,9 +45,6 @@ class ScreenService : public runtime::Service {
     void attach_config(comms::ConfigService& config) { config_ = &config; }
 
     void attach_self_test(const ui::BootSnapshot& snapshot) { self_test_ = &snapshot; }
-
-    // INFO: fc 13sep26 taking the mark is a flash write, and every pass after it may be a dwell
-    void open_glass();
 
     void next_page();
     void set_backlight(bool on);
@@ -81,10 +75,6 @@ class ScreenService : public runtime::Service {
    private:
     void render(uint32_t now_ms);
     void repaint_through_black();
-    void open_black();
-    void open_next_frame(uint32_t now_ms);
-    bool park_mark_taken();
-    void leave_park_mark();
     void draw_prompt();
     void draw_settings_page();
     void dismiss_self_test(uint32_t now_ms);
@@ -102,7 +92,6 @@ class ScreenService : public runtime::Service {
     bool may_present_park_frame() const;
     enum class ParkFrame : uint8_t { Wordmark, Installing, Blank };
     enum class ParkStep : uint8_t { None, Frame, Sleep };
-    enum class OpenStep : uint8_t { None, Clean, Black };
     void park(ParkFrame frame);
     void draw_park_frame(ParkFrame frame);
     void note_presented(uint32_t now_ms);
@@ -140,14 +129,12 @@ class ScreenService : public runtime::Service {
     uint32_t last_present_ms_{0};
     uint8_t last_alarm_{0};
     bool dirty_{true};
-    bool flash_pending_{false};
+    bool flash_pending_{true};
     bool flashed_{false};
     bool presented_once_{false};
     bool showing_self_test_{false};
     ParkStep park_{ParkStep::None};
     ParkFrame park_frame_{ParkFrame::Wordmark};
-    bool park_frame_landed_{false};
-    OpenStep opening_{OpenStep::Black};
     bool backlight_{false};
     bool powered_{true};
 };
