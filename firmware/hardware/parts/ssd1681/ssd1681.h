@@ -53,6 +53,7 @@ class Ssd1681 : public hal::Display {
 
    private:
     void init_panel();
+    void load_partial_waveform();
     void hold_reset();
     void abort_refresh();
     void finish_refresh();

@@ -65,9 +65,16 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                     deep_sleeps++;
                 }
                 if (b == kMasterActivation) {
+                    activations++;
                     rails_on =
                         powered && (sequence_ & kEnableAnalog) && !(sequence_ & kDisableAnalog);
+                    // INFO: fc 13sep26 SSD1681 6.7: a loaded OTP set brings its own EOPT with it
+                    if (sequence_ & kLoadLut) {
+                        end_option = kEndOptionPor;
+                        waveform_loads++;
+                    }
                     if (sequence_ & kDisplay) {
+                        end_option_at_display = end_option;
                         present_count++;
                         if (clock_ != nullptr) {
                             refresh_since_ms_ = clock_->millis();
@@ -87,6 +94,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                     if (b & kDisplay) last_full = !(b & kLoadLutMode2);
                 }
                 if (pending_ == kBorderWaveform) border = b;
+                if (pending_ == kEndOption) end_option = b;
             }
         }
     }
@@ -135,6 +143,10 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     bool powered{true};
     bool rails_on{false};
     uint8_t border{0};
+    uint8_t end_option{kEndOptionPor};
+    uint8_t end_option_at_display{0};
+    int waveform_loads{0};
+    int activations{0};
     bool backlight{false};
     bool last_full{true};
 
@@ -144,7 +156,10 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     static constexpr uint8_t kMasterActivation = 0x20;
     static constexpr uint8_t kUpdateCtrl2 = 0x22;
     static constexpr uint8_t kBorderWaveform = 0x3C;
+    static constexpr uint8_t kEndOption = 0x3F;
+    static constexpr uint8_t kEndOptionPor = 0x02;
     static constexpr uint8_t kDeepSleep = 0x10;
+    static constexpr uint8_t kLoadLut = 0x10;
     static constexpr uint8_t kEnableAnalog = 0x40;
     static constexpr uint8_t kLoadLutMode2 = 0x08;
     static constexpr uint8_t kDisplay = 0x04;

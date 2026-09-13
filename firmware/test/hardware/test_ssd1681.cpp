@@ -262,6 +262,40 @@ TEST_CASE("epd: the border follows the waveform on a wash and is held at VCOM on
     CHECK(f.border == 0x80);
 }
 
+// The first partial after a full came out grey, and later ones recovered: the power-down cut it off.
+TEST_CASE("epd: a partial holds the source level into the power-off it ends with") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+    ui::Framebuffer fb;
+    fb.clear(true);
+
+    d.present(fb, hal::Refresh::Full, 0);
+    settle(d, 0);
+
+    fb.set_pixel(5, 5, true);
+    d.present(fb, hal::Refresh::Partial, 5000);
+    CHECK(f.end_option_at_display == 0x07);
+}
+
+// EOPT is part of the waveform set, so a write before the load is a write the load throws away.
+TEST_CASE("epd: the partial waveform is loaded before the frame, not in the same activation") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+    ui::Framebuffer fb;
+    fb.clear(true);
+
+    d.present(fb, hal::Refresh::Full, 0);
+    settle(d, 0);
+    CHECK(f.activations == 1);  // the wash loads and displays in one
+
+    fb.set_pixel(5, 5, true);
+    d.present(fb, hal::Refresh::Partial, 5000);
+    CHECK(f.waveform_loads == 2);
+    CHECK(f.activations == 3);  // the partial loads, then displays
+}
+
 // Ink migrates under the bias a powered panel holds, and in the sun it migrates fast.
 TEST_CASE("epd: every refresh ends with the rails down, the partial as well as the wash") {
     models::Ssd1681 f;

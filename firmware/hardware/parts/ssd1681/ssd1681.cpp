@@ -22,9 +22,16 @@ constexpr uint8_t kSetRamYCounter = 0x4F;
 constexpr uint8_t kDeepSleep = 0x10;
 constexpr uint8_t kDeepSleepRetainRam = 0x01;
 
+constexpr uint8_t kEndOption = 0x3F;
+
 constexpr uint8_t kSequenceFull = 0xF7;
-// INFO: fc 12sep26 0xFF ends a partial with the rails down, as Waveshare's own 0xCF does
-constexpr uint8_t kSequencePartial = 0xFF;
+// INFO: fc 13sep26 0xFF is these two fused, and fused there is no window to set EOPT between them
+constexpr uint8_t kSequenceLoadPartialWaveform = 0xB9;
+// INFO: fc 12sep26 0xCF ends a partial with the rails down, as Waveshare's own partial does
+constexpr uint8_t kSequencePartial = 0xCF;
+
+// INFO: fc 13sep26 SSD1681 3F: the source outputs hold their last level into the power-off ramp
+constexpr uint8_t kEndOptionHoldSourceThroughPowerOff = 0x07;
 
 // INFO: fc 09mar26 VBD follows LUT1 at 0x05 and greys over a run of partials; 0x80 holds it at VCOM
 constexpr uint8_t kBorderFollowLut1 = 0x05;
@@ -59,6 +66,7 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     const bool full = mode == hal::Refresh::Full || !glass_known_;
 
     set_window(0, 0, kW - 1, kH - 1);
+    if (!full) load_partial_waveform();
     cmd(kBorderWaveform);
     data(full ? kBorderFollowLut1 : kBorderVcom);
     write_bank(kWriteRamPrevious, previous_bank(fb, full));
@@ -74,6 +82,16 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     partial_refresh_ = !full;
     ready_at_ms_ = now_ms + (full ? kReadyAfterFullMs : kReadyAfterPartialMs);
     timeout_at_ms_ = now_ms + kBusyTimeoutMs;
+}
+
+// INFO: fc 13sep26 SSD1681 6.7: one OTP set is LUT, gate/source voltage, VCOM and EOPT together
+void Ssd1681::load_partial_waveform() {
+    cmd(kDisplayUpdateCtrl2);
+    data(kSequenceLoadPartialWaveform);
+    cmd(kMasterActivation);
+    wait_busy();
+    cmd(kEndOption);
+    data(kEndOptionHoldSourceThroughPowerOff);
 }
 
 bool Ssd1681::ready(uint32_t now_ms) {
