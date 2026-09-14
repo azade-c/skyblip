@@ -3,6 +3,7 @@
 
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
+#include "core/radio/log.h"
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
 #include "core/timing/transmit.h"
@@ -51,6 +52,7 @@ class RadioService : public runtime::Service {
     timing::Transmitter::Attempt attempt(const timing::SlotPlan& plan, uint32_t now_ms) const;
     bool transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const;
     void arm_dwell(const timing::SlotPlan& plan, uint32_t now_ms);
+    void log_refusal(radio::Event outcome, const timing::SlotPlan& slot, uint32_t now_ms);
     void publish_dwell(uint32_t now_ms);
     void collect_outcome(uint32_t now_ms);
     void take_carrier_samples();
@@ -80,6 +82,7 @@ class RadioService : public runtime::Service {
     uint32_t seen_carrier_samples_{0};
     bool tx_armed_{false};
     bool over_budget_{false};
+    bool held_logged_{false};
 };
 
 }  // namespace skyblip::go

@@ -32,7 +32,8 @@ void right_aligned(Framebuffer& fb, int x_end, int y, const char* text, int len)
 }
 
 bool own_burst(radio::Event event) {
-    return event == radio::Event::Transmitted || event == radio::Event::Lost;
+    return event == radio::Event::Transmitted || event == radio::Event::Lost ||
+           event == radio::Event::Held || event == radio::Event::Unarmed;
 }
 
 bool names_one_emitter(messages::Source source) { return source != messages::Source::AdslUplink; }
@@ -41,6 +42,8 @@ const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
         case radio::Event::Transmitted: return "SENT";
         case radio::Event::Lost: return "LOST";
+        case radio::Event::Held: return "HELD";
+        case radio::Event::Unarmed: return "ARM";
         case radio::Event::BadCrc: return "CRC";
         case radio::Event::Undecoded: return "DEC";
         case radio::Event::Received:

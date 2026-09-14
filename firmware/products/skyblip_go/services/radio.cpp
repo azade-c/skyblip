@@ -172,7 +172,13 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     // The one place this policy's own refusal is decided: a plan the hour's
     // air-time budget already refused to arm, counted apart from a dwell that
     // was armed and then missed its outcome.
-    if (a.over_budget) context_.state.timing_stats.record_refused();
+    if (a.over_budget) {
+        context_.state.timing_stats.record_refused();
+        if (!held_logged_) {
+            log_refusal(radio::Event::Held, slot, now_ms);
+            held_logged_ = true;
+        }
+    }
     const int burst_in_ms = ms_until(a.at_ms, phase);
     const uint64_t tx_at_us =
         now_us + static_cast<uint64_t>(burst_in_ms > 0 ? burst_in_ms : 0) * 1000;
@@ -196,6 +202,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         // that cannot complete before its end is refused here rather than
         // truncated on air", read out on the bench.
         context_.state.timing_stats.record_missed();
+        if (carries_tx) log_refusal(radio::Event::Unarmed, slot, now_ms);
         return;
     }
     armed_ = plan.mode;
@@ -209,9 +216,27 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     }
 }
 
+void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slot,
+                               uint32_t now_ms) {
+    const bus::State& state = context_.state;
+    const radio::Stamp stamp =
+        radio::stamp_of(context_.roles.clock.micros(), state.clock.pps_edge_us,
+                        state.clock.pps_locked, state.traffic_now(now_ms));
+    radio::Entry entry{};
+    entry.event = outcome;
+    entry.band = slot.band;
+    entry.channel = slot.freq_hz == timing::kMband1Hz ? 1 : 0;
+    entry.at_s = stamp.at_s;
+    entry.into_ms = stamp.into_ms;
+    entry.phase_valid = stamp.phase_valid;
+    entry.utc = state.own.utc_valid;
+    context_.state.radio_log.record(entry);
+}
+
 void RadioService::collect_outcome(uint32_t now_ms) {
     if (context_.state.tx_ok != seen_tx_ok_) {
         seen_tx_ok_ = context_.state.tx_ok;
+        held_logged_ = false;
         transmitter_.sent(tx_utc_, now_ms);
         // The executor's own report against the deadline this dwell was armed
         // for: both absolute instants on the same clock, so slot 1's wrap

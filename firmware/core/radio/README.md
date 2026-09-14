@@ -4,12 +4,14 @@ The station log: every burst this radio sent or heard, in the order it happened,
 
 `rx_ok` and `tx_ok` are totals, and a total cannot tell an empty sky from a receiver that frames nothing. The traffic table only ever holds what already decoded, so a burst that arrived and did not become a frame leaves no trace in it. That burst is the one worth seeing: it is the difference between "nobody is transmitting" and "everybody is transmitting and I am deaf to them", and the two have the same reading on every other page. Two skyBlips that both transmit and neither hears is the fault this exists for, and it happened: `git log core/protocol/air.cpp`.
 
-`Event` names the five things that can happen to a burst.
+`Event` names the seven things that can happen to a burst.
 
 | | |
 |---|---|
 | `Transmitted` | own-ship's burst left the antenna |
 | `Lost` | own-ship's burst was armed and never completed: the dwell ran out, or the radio's transmit timeout did |
+| `Held` | the hour's air-time budget refused it (`timing::Transmitter::Attempt::over_budget`) |
+| `Unarmed` | `hal::Rf` refused the plan that carried it, so nothing was ever armed |
 | `Received` | a burst arrived, framed, and named an aircraft |
 | `BadCrc` | an integrity check refused it: the chip's own CRC, an ADS-L CRC no forward correction could rescue, an ALP-TAS CRC, or a Reed-Solomon codeword the uplink could not correct |
 | `Undecoded` | the bits survived their check and still named no aircraft: no known system behind the sync window, or an ALP-TAS frame with no fix of our own to decode it against |
@@ -38,4 +40,8 @@ A phase is refused rather than guessed. Without a PPS lock there is no edge to m
 
 The capacity is what one screen holds. Nothing is kept that could not be shown: this is a tape of what is happening now, not a history to scroll back through. `ui/screens/radio_log.cpp` draws exactly `Log::kCapacity` rows for that reason.
 
-`go::TrafficService` is the only writer. It already drains `bus.rf`, and it is the one place that knows whether a burst that arrived also decoded, which is the distinction the whole page turns on.
+`go::TrafficService` writes everything the air reported. It already drains `bus.rf`, and it is the one place that knows whether a burst that arrived also decoded, which is the distinction the whole page turns on.
+
+`go::RadioService` writes the two the air never sees. A burst its own policy refused reaches no executor and raises no event, so before `Held` and `Unarmed` existed the counters moved and the page stayed silent - which reads exactly like a dead transmitter to the one person looking at it. `Held` is the hour's allowance holding every burst until it frees up, and `Unarmed` is the executor refusing a plan that cannot complete inside its own dwell.
+
+`Held` is recorded once per spell, not once per refusal. The allowance holds for minutes at a time and a row a second would push the sky itself off a sixteen-row tape, so the row says when the spell began and `timing_stats.refused()` counts every one. The next completed burst ends the spell, and a refusal after that is a new one. `Unarmed` is written only for a plan that carried a burst: a receive dwell the executor refused is a deafness, not a transmission, and it keeps its counter in `timing_stats.missed()` until the page has somewhere honest to put it.

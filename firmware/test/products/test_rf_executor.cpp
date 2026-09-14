@@ -421,11 +421,12 @@ struct Armings {
         Status arm(const hal::RfPlan& plan) override {
             last = plan;
             arms++;
-            return Status::Ok;
+            return refuse ? Status::OutOfRange : Status::Ok;
         }
         void abort() override {}
         hal::RfPlan last{};
         uint32_t arms{0};
+        bool refuse{false};
     } rf{};
     bus::Bus bus{};
     bus::State state{};
@@ -445,13 +446,25 @@ struct Armings {
 
     static constexpr uint64_t kEdgeUs = 30000000;
 
-    void tick_at(int phase_ms) {
-        const uint64_t now_us = kEdgeUs + static_cast<uint64_t>(phase_ms) * 1000;
+    void tick_at(int phase_ms) { tick_in(0, phase_ms); }
+
+    void tick_in(uint32_t second, int phase_ms) {
+        const uint64_t edge_us = kEdgeUs + static_cast<uint64_t>(second) * 1000000;
+        const uint64_t now_us = edge_us + static_cast<uint64_t>(phase_ms) * 1000;
         clock.set_micros(now_us);
         state.clock.pps_locked = true;
         state.clock.utc_valid = true;
-        state.clock.pps_edge_us = kEdgeUs;
+        state.clock.pps_edge_us = edge_us;
         radio.tick(static_cast<uint32_t>(now_us / 1000));
+    }
+
+    void ready_to_transmit(uint32_t utc) {
+        state.own.fix_valid = true;
+        state.own.utc_valid = true;
+        state.own.tx_settled = true;
+        state.own.flight_state = 2;
+        state.own.utc = utc;
+        state.own.fix_ms = static_cast<uint32_t>(kEdgeUs / 1000);
     }
 };
 
@@ -559,4 +572,53 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     }
     CHECK(sent == 1);
     CHECK(missed == 0);
+}
+
+// A burst refused before it was ever armed left the counters moving and the page
+// silent, which reads exactly like a dead transmitter to the one person looking.
+TEST_CASE("rf: a plan the radio refuses is a burst that never armed, not one that went missing") {
+    Armings a;
+    a.clock.set_micros(Armings::kEdgeUs);
+    REQUIRE(a.radio.setup() == Status::Ok);
+    a.ready_to_transmit(1000);
+    a.rf.refuse = true;
+
+    a.tick_at(400);
+
+    REQUIRE(a.rf.last.tx != nullptr);
+    REQUIRE(a.state.radio_log.count() == 1);
+    CHECK(a.state.radio_log.newest(0).event == radio::Event::Unarmed);
+    CHECK(a.state.timing_stats.missed() == 1);
+}
+
+// The hour's allowance holds every burst until it frees up again, so one row says
+// when that began: a spell of them would push the sky itself off a 16-row tape.
+TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and counted every time") {
+    Armings a;
+    a.clock.set_micros(Armings::kEdgeUs);
+    REQUIRE(a.radio.setup() == Status::Ok);
+    a.ready_to_transmit(1000);
+
+    // EN 300 220-2 band M is 10 permille of the hour: 7200 bursts of 5 ms fill it.
+    for (int i = 0; i < 7202; i++) {
+        a.state.tx_ok++;
+        a.tick_at(100);
+    }
+    REQUIRE(a.state.radio_log.count() == 0);
+
+    a.state.own.utc++;
+    a.tick_at(400);
+
+    REQUIRE(a.state.radio_log.count() == 1);
+    CHECK(a.state.radio_log.newest(0).event == radio::Event::Held);
+    CHECK(a.state.radio_log.newest(0).band == messages::Band::M);
+    CHECK(a.state.timing_stats.refused() == 1);
+
+    a.state.own.utc++;
+    a.state.own.fix_ms = static_cast<uint32_t>((Armings::kEdgeUs + 1000000) / 1000);
+    a.tick_in(1, 205);
+    a.tick_in(1, 400);
+
+    CHECK(a.state.radio_log.count() == 1);
+    CHECK(a.state.timing_stats.refused() == 2);
 }

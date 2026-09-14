@@ -33,9 +33,11 @@ Each row is one burst.
 34:56.804 RX M1 DEC 25B   -95    a frame nothing here could make an aircraft of
 34:55.615 TX M0 SENT      4800   own-ship's burst left the antenna
 34:53.000 TX M0 LOST             armed, and the radio never reported it sent
+34:52.450 TX M0 HELD             the hour's air-time allowance is holding our bursts
+34:51.450 TX M0 ARM              the radio refused the plan that carried it
 ```
 
-The columns are the stamp, the direction, the dwell's band and channel, the verdict, the emitter's address, and one right-hand figure: the level a burst arrived at, or the microseconds own-ship's burst took to complete. `CRC` and `DEC` are the ones that matter: a burst reached the dwell and did not become a frame. They are the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
+The columns are the stamp, the direction, the dwell's band and channel, the verdict, the emitter's address, and one right-hand figure: the level a burst arrived at, or the microseconds own-ship's burst took to complete. The bottom three rows are the three ways a burst fails to reach the antenna, and they were one word and two silences: `LOST` was armed and never reported, `HELD` and `ARM` were refused before that, one by our own duty-cycle policy and one by the radio. `core/radio/README.md` has which is which. `CRC` and `DEC` are the ones that matter: a burst reached the dwell and did not become a frame. They are the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
 
 The stamp is the minute, the second and the millisecond the burst landed at, `T+<seconds>` since boot before the receiver has given us a second. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
 

@@ -151,6 +151,19 @@ TEST_CASE("radio log page: a burst that never framed says so instead of naming a
     CHECK_FALSE(shows(fb, 4 + 18 * 6, kFirstRowY, "3FA21C"));
 }
 
+// A transmitter the page shows nothing for reads as a dead one, whatever refused the burst.
+TEST_CASE("radio log page: the two refusals read apart from a burst that was armed and lost") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Held));
+    log.record(entry_of(radio::Event::Unarmed));
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "ARM"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "HELD"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "LOST"));
+}
+
 // Bits the air corrupted and bits nothing here knew what to do with are different faults.
 TEST_CASE("radio log page: an integrity failure and an undecodable frame read apart") {
     radio::Log log;
@@ -179,7 +192,10 @@ TEST_CASE("radio log page: own-ship's two outcomes read apart, and both read as 
         radio::Event event;
         const char* verdict;
     };
-    const Case cases[] = {{radio::Event::Transmitted, "SENT"}, {radio::Event::Lost, "LOST"}};
+    const Case cases[] = {{radio::Event::Transmitted, "SENT"},
+                          {radio::Event::Lost, "LOST"},
+                          {radio::Event::Held, "HELD"},
+                          {radio::Event::Unarmed, "ARM"}};
     for (const Case& c : cases) {
         radio::Log log;
         log.record(entry_of(c.event));
