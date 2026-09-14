@@ -67,6 +67,14 @@ The turn coordinator's title carries its unit, `TURN D/S`, because its dial show
 
 The card reads `TRK`, not `HDG`. It is GNSS course over ground, referenced to true north: there is no magnetometer on the board, and no magnetic variation model to turn true into magnetic, so labelling it a heading would claim a sensor and a datum the device does not have. In a crosswind it differs from the heading the compass shows, which is the pilot's to reconcile.
 
+## status
+
+Every reading on this page is a measurement except two, and those two are states a pilot has to be able to read without knowing what is inside the box.
+
+The first row is the receiver. `GNSS 3D 9 SAT` when there is a fix, `2D` under four satellites because four is the fewest that can solve for altitude whatever the receiver calls its solution, and `GNSS NO FIX` when there is not: the label names the sensor and the value names the state, where `FIX` as a label read like a claim the page was not always able to make. The satellite count goes with the fix rather than reading `--` beside it, because the count a receiver reports is satellites used in the solution, and there is no solution to have used any.
+
+The last field of the traffic row is `TX ON` or `TX OFF`, and it answers the question the page exists for: is anyone being told where this aircraft is. It used to read `PPS OK`, which named a pin on a part, was not a thing a pilot could act on, and was not on its own enough to put a burst on air. What it reports now is `timing::own_ship_transmits`, the same predicate `RadioService` refuses an attempt with, so the glass cannot disagree with the radio. When it reads `OFF` the reason is the row above: no fix, or no UTC. The one case it does not distinguish is the 20 s settle after acquisition (`gnss::kFirstFixSettleMs`), which passes on its own. PPS lock itself is support's business and lives in the timing report.
+
 ## settings
 
 The panel half of "a pilot with no phone can change the things that matter". It is a list of rows a thumb walks and a small editor that decides what a press means, both pure: the page takes a snapshot, the editor takes the values in and hands new values back, so the service owns the state and the file owns the meaning.
@@ -80,7 +88,7 @@ A pilot cannot get stuck here: the rows only ever advance and the tap past the l
 | Page | What it answers |
 |---|---|
 | `sixpack` | what own-ship is doing: speed, altitude, vertical speed, track, turn |
-| `status` | what the sensors say: fix, position, pressure, battery, UTC |
+| `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |
 | `signal` | every emitter heard, nearest first, with the e.r.p. its level implies |
 | `settings` | the values a pilot can change without a phone |
 | `boot`, `confirm`, `installing` | the three moments that are not pages: coming up, being asked, being written |

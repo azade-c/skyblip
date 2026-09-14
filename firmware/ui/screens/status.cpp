@@ -22,6 +22,8 @@ constexpr int kAeroUnitEnd = kColumn(15);  // past a leading space and four char
 constexpr int kSiNumberEnd = kColumn(22);
 constexpr int kSiUnitX = kColumn(22);
 
+constexpr uint8_t kSatellitesForAltitude = 4;
+
 // 1 m/s = 1.94384 kt, from quarter-m/s.
 int32_t knots(uint16_t speed_q) { return (static_cast<int32_t>(speed_q) * 194384) / (4 * 100000); }
 
@@ -157,26 +159,23 @@ void draw_status(Framebuffer& fb, const StatusSnapshot& s) {
     // number lines up in its column.
     int y = 27;
 
-    // Fix state and the clock it comes from, on one line: both answer "is the
-    // GNSS working". A count with no fix behind it is dashes, which is the same
-    // bit the fix flag carries.
-    char sats[4] = {'-', '-', 0, 0};
-    if (s.fix_valid) {
-        n = fmt_uint(sats, s.sats, 2);
-        sats[n] = 0;
-    }
-    // Four satellites are the fewest that can solve for altitude, so a fix on
-    // three is a 2D one whatever the receiver calls it.
-    const char* mode = !s.fix_valid ? "--" : (s.sats >= 4 ? "3D" : "2D");
-
     n = fmt_string(buf, " ");
     if (s.utc_valid)
         n += fmt_seconds_of_day(buf + n, s.utc);
     else
         n += fmt_string(buf + n, "--:--:--");
     buf[n] = 0;
-    text_row(fb, y, "FIX", sats, " SAT", "UTC", buf);
-    fb.draw_text(kValueX, y, mode, true, 1);
+
+    if (s.fix_valid) {
+        char sats[4];
+        n = fmt_uint(sats, s.sats, 2);
+        sats[n] = 0;
+        text_row(fb, y, "GNSS", sats, " SAT", "UTC", buf);
+        fb.draw_text(kValueX, y, s.sats >= kSatellitesForAltitude ? "3D" : "2D", true, 1);
+    } else {
+        text_row(fb, y, "GNSS", "", "", "UTC", buf);
+        fb.draw_text(kValueX, y, "NO FIX", true, 1);
+    }
     y += kLineH;
 
     // Full 1e-7 degrees on both, which is what the fix carries. A signed
@@ -205,11 +204,10 @@ void draw_status(Framebuffer& fb, const StatusSnapshot& s) {
     text_row(fb, y, "TRK", buf, " TRUE");
     y += kLineH;
 
-    // Traffic count, and the PPS lock that decides whether we may transmit.
     char count[8];
     n = fmt_uint(count, static_cast<uint32_t>(s.n_targets), 1);
     count[n] = 0;
-    text_row(fb, y, "TFC", count, "", "PPS", s.pps_locked ? " OK" : " --");
+    text_row(fb, y, "TFC", count, "", "TX", s.transmitting ? " ON" : " OFF");
     y += kLineH;
 
     // The aligned block: the pressures the altitudes depend on, then altitude on

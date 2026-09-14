@@ -136,7 +136,8 @@ timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
     // F5: a cold receiver's first solutions walk, and the flight state derived
     // from them decides our transmit rate. Nothing goes on air until own-ship
     // says the solution behind it has settled.
-    if (!own.fix_valid || !own.utc_valid || !own.tx_settled) return timing::Transmitter::Attempt{};
+    if (!timing::own_ship_transmits(own, context_.state.clock))
+        return timing::Transmitter::Attempt{};
     const bool airborne = own.flight_state == kFlightStateAirborne;
     return transmitter_.attempt(plan, slot_utc(), now_ms, airborne, fix_lag_ms());
 }

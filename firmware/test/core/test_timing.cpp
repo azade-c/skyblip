@@ -307,6 +307,29 @@ TEST_CASE("transmit: nothing goes out unless the slot allows it") {
     CHECK(early.at_ms >= kDirectStart);
 }
 
+TEST_CASE("transmit: own-ship goes on air only with a settled fix on an anchored clock") {
+    skyblip::messages::OwnState own{};
+    own.fix_valid = true;
+    own.utc_valid = true;
+    own.tx_settled = true;
+    CHECK(own_ship_transmits(own, anchored()));
+
+    CHECK_FALSE(own_ship_transmits(own, ClockState{true, false, 0}));
+    CHECK_FALSE(own_ship_transmits(own, ClockState{false, true, 0}));
+
+    skyblip::messages::OwnState unfixed = own;
+    unfixed.fix_valid = false;
+    CHECK_FALSE(own_ship_transmits(unfixed, anchored()));
+
+    skyblip::messages::OwnState untimed = own;
+    untimed.utc_valid = false;
+    CHECK_FALSE(own_ship_transmits(untimed, anchored()));
+
+    skyblip::messages::OwnState unsettled = own;
+    unsettled.tx_settled = false;
+    CHECK_FALSE(own_ship_transmits(unsettled, anchored()));
+}
+
 // E1. Nothing gates a burst on the channel, but a pilot still reads how loud the site is.
 
 TEST_CASE("channel: the floor starts at the seed and walks to what the receiver hears") {

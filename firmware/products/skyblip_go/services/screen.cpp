@@ -6,6 +6,7 @@
 #include "core/flight/extrapolate.h"
 #include "core/power/cutoff.h"
 #include "core/protocol/nmea_out.h"
+#include "core/timing/transmit.h"
 #include "core/util/units.h"
 #include "ui/screens/installing.h"
 #include "ui/widgets/wordmark.h"
@@ -441,7 +442,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.callsign = settings.callsign;
             snap.fix_valid = own.fix_valid;
             snap.utc_valid = own.utc_valid;
-            snap.pps_locked = context_.state.clock.pps_locked;
+            snap.transmitting = timing::own_ship_transmits(own, context_.state.clock);
             snap.sats = own.sats;
             snap.lat_1e7 = own.lat_1e7;
             snap.lon_1e7 = own.lon_1e7;

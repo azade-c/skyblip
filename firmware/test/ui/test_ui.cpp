@@ -395,6 +395,49 @@ TEST_CASE("status: the battery row states the voltage, the charge and which curv
         for (int x = 0; x < Framebuffer::kW; x++) CHECK_FALSE(charging.get_pixel(x, y));
 }
 
+TEST_CASE("status: a receiver with no fix says so where a fix would have read 3D") {
+    StatusSnapshot s;
+    s.sats = 9;
+    Framebuffer searching;
+    draw_status(searching, s);
+
+    CHECK(reads_in(searching, "NO FIX", 0, 24, 120, 40));
+    CHECK_FALSE(reads_in(searching, "SAT", 0, 24, 120, 40));
+    CHECK_FALSE(reads_in(searching, "3D", 0, 24, 120, 40));
+
+    StatusSnapshot fixed = s;
+    fixed.fix_valid = true;
+    Framebuffer solved;
+    draw_status(solved, fixed);
+    CHECK(reads_in(solved, "3D", 0, 24, 120, 40));
+    CHECK(reads_in(solved, "9 SAT", 0, 24, 120, 40));
+    CHECK_FALSE(reads_in(solved, "NO FIX", 0, 24, 120, 40));
+
+    StatusSnapshot flat = fixed;
+    flat.sats = 3;
+    Framebuffer two_d;
+    draw_status(two_d, flat);
+    CHECK(reads_in(two_d, "2D", 0, 24, 120, 40));
+}
+
+// The page used to report PPS lock, a pin a pilot cannot act on.
+TEST_CASE("status: the page reports whether own-ship is transmitting, not the PPS pin") {
+    StatusSnapshot s;
+    s.fix_valid = true;
+    s.sats = 9;
+    Framebuffer silent;
+    draw_status(silent, s);
+    CHECK(reads_in(silent, "TX OFF", 100, 65, 200, 85));
+    CHECK_FALSE(reads_in(silent, "PPS", 0, 65, 200, 85));
+
+    StatusSnapshot seen = s;
+    seen.transmitting = true;
+    Framebuffer on_air;
+    draw_status(on_air, seen);
+    CHECK(reads_in(on_air, "TX ON", 100, 65, 200, 85));
+    CHECK_FALSE(reads_in(on_air, "TX OFF", 100, 65, 200, 85));
+}
+
 TEST_CASE("panel model: the driver's own output is what the model shows") {
     Framebuffer fb;
     StatusSnapshot s;

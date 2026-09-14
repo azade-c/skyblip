@@ -1,6 +1,3 @@
-// Shows own-ship sensor state: GNSS fix, sats, position, altitude, speed, track,
-// pressure, UTC, PPS lock, traffic count and the battery.
-// This is the page that makes the sensor inputs observable on the panel.
 #ifndef SKYBLIP_UI_SCREENS_STATUS_H
 #define SKYBLIP_UI_SCREENS_STATUS_H
 
@@ -18,7 +15,7 @@ struct StatusSnapshot {
     const char* callsign{""};
     bool fix_valid{false};
     bool utc_valid{false};
-    bool pps_locked{false};
+    bool transmitting{false};
     bool baro_valid{false};
     uint8_t sats{0};
     int32_t lat_1e7{0};

@@ -7,6 +7,10 @@
 
 namespace skyblip::timing {
 
+inline bool own_ship_transmits(const messages::OwnState& own, const ClockState& clock) {
+    return own.fix_valid && own.utc_valid && own.tx_settled && clock.utc_valid && clock.pps_locked;
+}
+
 class Transmitter {
    public:
     // §C.2 at 100 kchip/s: 16-chip preamble, 64-chip Manchester sync word, then
