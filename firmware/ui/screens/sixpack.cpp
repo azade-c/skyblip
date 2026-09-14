@@ -270,8 +270,8 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     const char* state = !s.have_data ? "NO FIX" : (s.airborne ? "FLIGHT" : "GROUND");
     dial(fb, kCx[1], 0, state, 0);
     horizon(fb, kCx[1], kCy[0], pitch, bank);
-    char clock[8] = "---";
-    if (s.have_flight_time) fmt_hours_colon_minutes(clock, s.flight_seconds);
+    char clock[8];
+    fmt_flight_clock(clock, s.flight_seconds, s.have_flight_time);
     value_text(fb, kCx[1], 0, clock);
 
     dial(fb, kCx[2], 0, "ALT FT", kAltTicks);

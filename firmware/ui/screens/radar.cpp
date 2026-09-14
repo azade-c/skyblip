@@ -98,10 +98,7 @@ void clear_behind(Framebuffer& fb, int x, int y, int w, int h, int pad) {
 
 void flight_clock(Framebuffer& fb, const RadarSnapshot& snap) {
     char buf[8];
-    if (snap.have_flight_time)
-        fmt_hours_colon_minutes(buf, snap.flight_seconds);
-    else
-        buf[fmt_string(buf, "---")] = 0;
+    fmt_flight_clock(buf, snap.flight_seconds, snap.have_flight_time);
     clear_behind(fb, kMargin, kClockY, text_width(buf, kClockScale), kGlyphH * kClockScale,
                  kLabelPad);
     fb.draw_text(kMargin, kClockY, buf, true, kClockScale);

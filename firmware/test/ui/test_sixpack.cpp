@@ -108,7 +108,9 @@ TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withh
     CHECK(ink_at(fb, kTiles[3], 90));   // and the turn coordinator's wings are level
     CHECK(ink_at(fb, kTiles[3], -90));
 
-    for (const Tile& t : kTiles) CHECK(value_matches(fb, t, "---"));
+    for (const Tile& t : kTiles)
+        if (&t != &kTiles[1]) CHECK(value_matches(fb, t, "---"));
+    CHECK(value_matches(fb, kTiles[1], "-:--"));
 
     // A device that cannot see satellites is not a device on the ground.
     CHECK(title_matches(fb, kTiles[1], "NO FIX"));
@@ -254,7 +256,7 @@ TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in")
     Framebuffer fp;
     draw_sixpack(fp, parked);
     CHECK(title_matches(fp, kTiles[1], "GROUND"));
-    CHECK(value_matches(fp, kTiles[1], "---"));
+    CHECK(value_matches(fp, kTiles[1], "-:--"));
     CHECK(black_in(fp, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
 }
 

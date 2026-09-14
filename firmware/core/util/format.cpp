@@ -77,8 +77,13 @@ int fmt_seconds_of_day(char* out, uint32_t seconds) {
     return n;
 }
 
-int fmt_hours_colon_minutes(char* out, uint32_t seconds) {
+int fmt_flight_clock(char* out, uint32_t seconds, bool have_time) {
     constexpr uint32_t kMaxMinutes = 99 * 60 + 59;
+    if (!have_time) {
+        const int dashes = fmt_string(out, "-:--");
+        out[dashes] = 0;
+        return dashes;
+    }
     uint32_t minutes = seconds / 60;
     if (minutes > kMaxMinutes) minutes = kMaxMinutes;
     int n = fmt_uint(out, minutes / 60);

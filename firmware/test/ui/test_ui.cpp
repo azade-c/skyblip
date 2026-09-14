@@ -254,7 +254,7 @@ TEST_CASE("radar: the flight time reads in the bottom-left, and dashes before a 
     CHECK(reads_in(radar(long_flight), "3:07", 0, 176, 60, 198, 2));
 
     RadarSnapshot no_fix;
-    CHECK(reads_in(radar(no_fix), "---", 0, 176, 60, 198, 2));
+    CHECK(reads_in(radar(no_fix), "-:--", 0, 176, 60, 198, 2));
 
     // The sector a pilot is flying into carries the plot and nothing else.
     CHECK_FALSE(reads_in(radar(flying(47)), "0:42", 40, 0, 160, 90, 2));
