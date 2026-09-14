@@ -280,14 +280,17 @@ TEST_CASE("indication: the millisecond counter wrapping costs one flash, not a s
     // unsigned subtraction, so the wrap restarts a wink; an absolute comparison
     // would have left the lamp in whichever phase it was in for ever.
     constexpr uint32_t kJustBeforeWrap = 0xFFFFF000u;
+    constexpr uint32_t kMsAcrossTheWrap = 0x3000u;
     Situation s{};
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = true;
 
     Lamp lamp;
-    for (uint32_t t = kJustBeforeWrap; t != 0x00002000u; t += kStepMs) lamp.step(s, t);
+    uint32_t now_ms = kJustBeforeWrap;
+    for (uint32_t elapsed = 0; elapsed < kMsAcrossTheWrap; elapsed += kStepMs, now_ms += kStepMs)
+        lamp.step(s, now_ms);
     const uint32_t flashes_across_the_wrap = lamp.flashes;
-    lamp.run(s, 0x00002000u, 0x00002000u + 30000);
+    lamp.run(s, now_ms, now_ms + 30000);
     CHECK(lamp.flashes > flashes_across_the_wrap);
     CHECK(lamp.duty_permille() <= kSteadyDutyCeilingPermille);
 }
