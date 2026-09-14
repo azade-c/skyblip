@@ -35,6 +35,7 @@ struct Rig {
         // below produces real pixel changes.
         state.own.fix_valid = true;
         state.own.sats = 9;
+        state.flight_time_valid = true;
         epd.begin();
     }
 
@@ -49,15 +50,13 @@ struct Rig {
         for (int i = 0; i < seconds; i++) tick(t += 1000);
     }
 
-    // Forces a visible change every second: the satellite count in the footer
-    // on the radar page flips. Orthogonal to alarm level and traffic count, so
-    // the quiet-sky logic stays in the case's hands.
+    // Forces a visible change every second, orthogonal to alarm level and traffic count.
     void churn(uint32_t& t, int seconds) { churn_at(t, 1000, seconds); }
 
     // The same flip at the caller's cadence, for the policies measured in minutes.
     void churn_at(uint32_t& t, uint32_t step_ms, int times) {
         for (int i = 0; i < times; i++) {
-            state.own.sats = state.own.sats == 9 ? 8 : 9;
+            state.flight_seconds += 60;
             tick(t += step_ms);
         }
     }

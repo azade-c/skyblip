@@ -77,6 +77,17 @@ int fmt_seconds_of_day(char* out, uint32_t seconds) {
     return n;
 }
 
+int fmt_hours_colon_minutes(char* out, uint32_t seconds) {
+    constexpr uint32_t kMaxMinutes = 99 * 60 + 59;
+    uint32_t minutes = seconds / 60;
+    if (minutes > kMaxMinutes) minutes = kMaxMinutes;
+    int n = fmt_uint(out, minutes / 60);
+    out[n++] = ':';
+    n += fmt_uint(out + n, minutes % 60, 2);
+    out[n] = 0;
+    return n;
+}
+
 int fmt_nmea_lat(char* out, int32_t lat_1e7) {
     int n = fmt_dm(out, lat_1e7, 2);
     out[n++] = ',';

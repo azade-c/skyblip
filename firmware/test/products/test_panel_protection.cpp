@@ -215,7 +215,7 @@ TEST_CASE("screen policy: a park mid-refresh waits for the glass, it does not ta
     Rig rig;
     uint32_t t = 0;
     rig.churn(t, 5);
-    rig.state.own.sats = 7;
+    rig.state.flight_seconds += 60;
     rig.tick(t += 1000);
     const int before = rig.chip.present_count;
     REQUIRE(rig.epd.refreshing());

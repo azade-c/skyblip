@@ -372,7 +372,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.have_fix = own.fix_valid;
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
-            snap.sats = own.sats;
+            snap.flight_seconds = context_.state.flight_seconds;
+            snap.have_flight_time = context_.state.flight_time_valid;
+            snap.airborne = context_.state.flight_running;
+            snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
             int n = 0;
             if (own.fix_valid) {

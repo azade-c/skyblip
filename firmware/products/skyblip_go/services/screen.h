@@ -101,6 +101,11 @@ class ScreenService : public runtime::Service {
         return (static_cast<int32_t>(context_.state.own.climb_e8) * 19685) / (8 * 100);
     }
 
+    bool receiver_listening() const {
+        return hal::has(context_.roles.capabilities, hal::Capability::Rf) &&
+               context_.state.clock.pps_locked;
+    }
+
     comms::ConfigService* config_{nullptr};
     const ui::BootSnapshot* self_test_{nullptr};
     comms::Pending prompt_{comms::Pending::None};

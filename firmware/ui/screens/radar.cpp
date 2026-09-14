@@ -29,18 +29,18 @@ constexpr int kRingW = 2;
 constexpr int kGlyphH = 7;
 constexpr int kCellW = 6;
 constexpr int kAlarmBarH = 3;
-constexpr int kTrackScale = 3;
+constexpr int kClockScale = 2;
 constexpr int kRangeScale = 2;
-constexpr int kSatScale = kRangeScale;
-constexpr int kTrafficScale = kTrackScale;
-constexpr int kTrackPad = 8;
-constexpr int kRangePad = 2;
+constexpr int kStateScale = 1;
+constexpr int kTrafficScale = 3;
+constexpr int kRangePad = 6;
+constexpr int kLabelPad = 2;
+constexpr int kStackGap = 2;
 constexpr int kFooterBottom = Framebuffer::kH - kMargin;
 constexpr int kFooterY = kFooterBottom - kGlyphH;
-constexpr int kTrackY = kFooterBottom - kGlyphH * kTrackScale;
-constexpr int kSatY = kFooterBottom - kGlyphH * kSatScale;
-constexpr int kTrafficY = kFooterBottom - kGlyphH * kTrafficScale;
-constexpr int kRangeY = kSatY - kMargin - kGlyphH * kRangeScale;
+constexpr int kClockY = kFooterBottom - kGlyphH * kClockScale;
+constexpr int kStateY = kClockY - kStackGap - kGlyphH * kStateScale;
+constexpr int kRangeY = kFooterBottom - kGlyphH * kRangeScale;
 constexpr int kUnitGap = 3;
 constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
@@ -92,48 +92,47 @@ int text_width(const char* s, int scale) {
     return n * kCellW * scale - scale;
 }
 
-void text_center(Framebuffer& fb, int cx, int y, const char* s, int scale = 1) {
-    fb.draw_text(cx - text_width(s, scale) / 2, y, s, true, scale);
-}
-
 void clear_behind(Framebuffer& fb, int x, int y, int w, int h, int pad) {
     fb.rect(x - pad, y - pad, w + 2 * pad, h + 2 * pad, false, true);
 }
 
-void track_label(Framebuffer& fb, const RadarSnapshot& snap) {
+void flight_clock(Framebuffer& fb, const RadarSnapshot& snap) {
     char buf[8];
-    const int n = snap.have_fix ? fmt_uint(buf, snap.track_deg % 360, 3) : fmt_string(buf, "---");
-    buf[n] = 0;
-    const int w = text_width(buf, kTrackScale);
-    clear_behind(fb, kCx - w / 2, kTrackY, w, kGlyphH * kTrackScale, kTrackPad);
-    text_center(fb, kCx, kTrackY, buf, kTrackScale);
-}
-
-void unit_count(Framebuffer& fb, int x, int y, const char* number, int scale, const char* unit) {
-    const int w = text_width(number, scale);
-    fb.draw_text(x, y, number, true, scale);
-    fb.draw_text(x + w + kUnitGap, y + kGlyphH * (scale - 1), unit, true, 1);
+    if (snap.have_flight_time)
+        fmt_hours_colon_minutes(buf, snap.flight_seconds);
+    else
+        buf[fmt_string(buf, "---")] = 0;
+    clear_behind(fb, kMargin, kClockY, text_width(buf, kClockScale), kGlyphH * kClockScale,
+                 kLabelPad);
+    fb.draw_text(kMargin, kClockY, buf, true, kClockScale);
 }
 
 void range_label(Framebuffer& fb, int32_t range_nm) {
     char buf[8];
     buf[fmt_uint(buf, static_cast<uint32_t>(range_nm))] = 0;
-    const int w = text_width(buf, kRangeScale) + kUnitGap + text_width("NM", 1);
-    clear_behind(fb, kMargin, kRangeY, w, kGlyphH * kRangeScale, kRangePad);
-    unit_count(fb, kMargin, kRangeY, buf, kRangeScale, "NM");
+    const int number_w = text_width(buf, kRangeScale);
+    const int w = number_w + kUnitGap + text_width("NM", 1);
+    const int x = kCx - w / 2;
+    clear_behind(fb, x, kRangeY, w, kGlyphH * kRangeScale, kRangePad);
+    fb.draw_text(x, kRangeY, buf, true, kRangeScale);
+    fb.draw_text(x + number_w + kUnitGap, kRangeY + kGlyphH * (kRangeScale - 1), "NM", true, 1);
 }
 
-void satellites(Framebuffer& fb, uint8_t sats, bool have_fix) {
-    char buf[4];
-    buf[fmt_uint(buf, sats)] = 0;
-    unit_count(fb, kMargin, kSatY, buf, kSatScale, have_fix ? "SAT" : "NO FIX");
+void flight_state(Framebuffer& fb, const RadarSnapshot& snap) {
+    const char* state = !snap.have_fix ? "NO FIX" : (snap.airborne ? "FLIGHT" : "GROUND");
+    clear_behind(fb, kMargin, kStateY, text_width(state, kStateScale), kGlyphH * kStateScale,
+                 kLabelPad);
+    fb.draw_text(kMargin, kStateY, state, true, kStateScale);
 }
 
-void aircraft(Framebuffer& fb, int in_view) {
+void aircraft(Framebuffer& fb, int in_view, bool counting) {
     char buf[4];
-    buf[fmt_uint(buf, static_cast<uint32_t>(in_view))] = 0;
+    if (counting)
+        buf[fmt_uint(buf, static_cast<uint32_t>(in_view))] = 0;
+    else
+        buf[fmt_string(buf, "-")] = 0;
     const int x = Framebuffer::kW - kMargin - text_width(buf, kTrafficScale);
-    fb.draw_text(x, kTrafficY, buf, true, kTrafficScale);
+    fb.draw_text(x, kFooterBottom - kGlyphH * kTrafficScale, buf, true, kTrafficScale);
     fb.draw_text(x - kUnitGap - text_width("ACT", 1), kFooterY, "ACT", true, 1);
 }
 
@@ -171,10 +170,10 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
 
     const int in_view = snap.have_fix ? plot(fb, snap, track) : 0;
 
+    flight_clock(fb, snap);
+    flight_state(fb, snap);
     range_label(fb, snap.range_nm);
-    track_label(fb, snap);
-    satellites(fb, snap.sats, snap.have_fix);
-    aircraft(fb, in_view);
+    aircraft(fb, in_view, snap.have_fix && snap.receiver_listening);
 
     if (snap.max_alarm >= 3) fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);
 }

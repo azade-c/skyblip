@@ -45,7 +45,10 @@ RadarSnapshot flying(uint16_t track_deg) {
     snap.have_fix = true;
     snap.range_nm = kDefaultRangeNm;
     snap.track_deg = track_deg;
-    snap.sats = 9;
+    snap.have_flight_time = true;
+    snap.airborne = true;
+    snap.flight_seconds = 42 * 60;
+    snap.receiver_listening = true;
     return snap;
 }
 
@@ -183,9 +186,9 @@ TEST_CASE("radar: everything is centred on the 99|100 point, not on a pixel") {
             if (left < 0) left = x;
             right = x;
         }
-    // column 62: clear of the track label, which erases the ring where it sits
+    // column 50: clear of the flight clock, which erases the ring where it sits
     for (int y = 0; y < 200; y++)
-        if (fb.get_pixel(62, y)) {
+        if (fb.get_pixel(50, y)) {
             if (top < 0) top = y;
             bottom = y;
         }
@@ -211,7 +214,7 @@ TEST_CASE("radar: the range ring is one unbroken stroke, and the only ring on th
 
     // A stroke that steps diagonally reads as speckled glass, holes and all.
     int speckles = 0;
-    for (int y = 1; y < 199; y++)
+    for (int y = 1; y < 170; y++)  // above the footer, where no label bites the arc
         for (int x = 1; x < 199; x++) {
             if (!fb.get_pixel(x, y)) continue;
             const int dx = x < 100 ? 99 - x : x - 100, dy = y < 100 ? 99 - y : y - 100;
@@ -221,7 +224,7 @@ TEST_CASE("radar: the range ring is one unbroken stroke, and the only ring on th
                                    fb.get_pixel(x, y - 1) + fb.get_pixel(x, y + 1);
             if (neighbours < 2) speckles++;
         }
-    CHECK(speckles <= 2);  // the two ends where the track label cuts the stroke
+    CHECK(speckles == 0);
 }
 
 TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glass") {
@@ -243,28 +246,35 @@ TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glas
     CHECK_FALSE(beam.get_pixel(99, 99 - 46 + 1 - 2));
 }
 
-TEST_CASE("radar: the track reads under the plot, and dashes when there is no fix") {
-    CHECK(reads_in(radar(flying(47)), "047", 55, 165, 145, 200, 3));
-    CHECK(reads_in(radar(flying(360)), "000", 55, 165, 145, 200, 3));
+TEST_CASE("radar: the flight time reads in the bottom-left, and dashes before a flight") {
+    CHECK(reads_in(radar(flying(47)), "0:42", 0, 176, 60, 198, 2));
+
+    RadarSnapshot long_flight = flying(47);
+    long_flight.flight_seconds = 3 * 3600 + 7 * 60 + 59;
+    CHECK(reads_in(radar(long_flight), "3:07", 0, 176, 60, 198, 2));
 
     RadarSnapshot no_fix;
-    CHECK(reads_in(radar(no_fix), "---", 55, 165, 145, 200, 3));
+    CHECK(reads_in(radar(no_fix), "---", 0, 176, 60, 198, 2));
 
     // The sector a pilot is flying into carries the plot and nothing else.
-    CHECK_FALSE(reads_in(radar(flying(47)), "047", 40, 0, 160, 90, 3));
+    CHECK_FALSE(reads_in(radar(flying(47)), "0:42", 40, 0, 160, 90, 2));
 }
 
-TEST_CASE("radar: the range stands over the satellite count, clear of the plot") {
+TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") {
     const Framebuffer fb = radar(flying(0));
-    CHECK(reads_in(fb, "4", 0, 160, 30, 182, 2));
-    CHECK(reads_in(fb, "NM", 10, 165, 45, 182));
+    CHECK(reads_in(fb, "4", 70, 176, 100, 198, 2));
+    CHECK(reads_in(fb, "NM", 95, 183, 130, 198));
 
-    RadarSnapshot closer = flying(0);
-    closer.range_nm = 2;
-    CHECK(reads_in(radar(closer), "2", 0, 160, 30, 182, 2));
+    RadarSnapshot wider = flying(0);
+    wider.range_nm = 12;
+    CHECK(reads_in(radar(wider), "12", 70, 176, 106, 198, 2));
+
+    // The ring is cleared off the label rather than read through it.
+    for (int y = 186; y < 196; y++)
+        for (int x = 82; x < 88; x++) CHECK_FALSE(fb.get_pixel(x, y));
 }
 
-TEST_CASE("radar: the footer counts what is on the glass, either side of the track") {
+TEST_CASE("radar: the footer counts what is on the glass, either side of the clock") {
     RadarTarget targets[3] = {
         {2000, 0, 0, 1},
         {0, -3000, 0, 1},
@@ -275,46 +285,62 @@ TEST_CASE("radar: the footer counts what is on the glass, either side of the tra
     snap.targets = targets;
     const Framebuffer fb = radar(snap);
 
-    CHECK(reads_in(fb, "9", 0, 175, 30, 200, 2));
-    CHECK(reads_in(fb, "SAT", 15, 175, 60, 200));
+    CHECK(reads_in(fb, "FLIGHT", 0, 168, 50, 182));
+    CHECK(reads_in(fb, "0:42", 0, 176, 60, 198, 2));
     CHECK(reads_in(fb, "2", 170, 170, 200, 200, 3));
     CHECK(reads_in(fb, "ACT", 140, 175, 190, 200));
-    // The track sits ON the ring, so reading it is the check that it is cleared.
-    CHECK(reads_in(fb, "000", 60, 165, 140, 200, 3));
 
     RadarSnapshot closer = flying(0);
     closer.range_nm = 2;
-    closer.sats = 0;
+    closer.airborne = false;
     const Framebuffer near = radar(closer);
-    CHECK(reads_in(near, "0", 0, 175, 30, 200, 2));
+    CHECK(reads_in(near, "GROUND", 0, 168, 50, 182));
     CHECK(reads_in(near, "0", 170, 170, 200, 200, 3));
+}
+
+// An empty sky and a radio that is not listening yet look the same on the plot.
+TEST_CASE("radar: a radio not yet listening counts no aircraft, it dashes") {
+    RadarSnapshot deaf = flying(0);
+    deaf.receiver_listening = false;
+    const Framebuffer fb = radar(deaf);
+
+    CHECK(reads_in(fb, "-", 170, 170, 200, 200, 3));
+    CHECK_FALSE(reads_in(fb, "0", 170, 170, 200, 200, 3));
+    CHECK(reads_in(fb, "ACT", 140, 175, 190, 200));
+
+    RadarSnapshot no_position = flying(0);
+    no_position.have_fix = false;
+    CHECK(reads_in(radar(no_position), "-", 170, 170, 200, 200, 3));
+
+    CHECK(reads_in(radar(flying(0)), "0", 170, 170, 200, 200, 3));
 }
 
 TEST_CASE("radar: the footer sits on one baseline, a margin clear of the glass edge") {
     const Framebuffer fb = radar(flying(0));
-    int digits_bottom = -1, label_bottom = -1;
-    for (int y = 170; y < 200; y++)
+    int clock_bottom = -1, range_bottom = -1, count_bottom = -1;
+    for (int y = 180; y < 200; y++)
         for (int x = 0; x < 200; x++)
             if (fb.get_pixel(x, y)) {
-                if (x < 30 || x > 170) digits_bottom = y;
-                if (x > 80 && x < 120) label_bottom = y;
+                if (x < 60) clock_bottom = y;
+                if (x > 80 && x < 120) range_bottom = y;
+                if (x > 170) count_bottom = y;
             }
-    CHECK(digits_bottom == label_bottom);
-    for (int y = digits_bottom + 1; y < 200; y++)
+    CHECK(clock_bottom == count_bottom);
+    CHECK(range_bottom == count_bottom);
+    for (int y = count_bottom + 1; y < 200; y++)
         for (int x = 0; x < 200; x++) CHECK_FALSE(fb.get_pixel(x, y));
-    CHECK(199 - digits_bottom >= 4);
+    CHECK(199 - count_bottom >= 4);
 }
 
-TEST_CASE("radar: a device with no fix says so where it reports its satellites") {
+TEST_CASE("radar: a device with no fix says so where it reports its flight state") {
     RadarSnapshot searching;
-    searching.sats = 4;
+    searching.airborne = true;  // stale from the last flight: no fix outranks it
     const Framebuffer fb = radar(searching);
 
-    CHECK(reads_in(fb, "4", 0, 175, 30, 200, 2));
-    CHECK(reads_in(fb, "NO FIX", 15, 175, 80, 200));
-    CHECK_FALSE(reads_in(fb, "SAT", 0, 175, 80, 200));
+    CHECK(reads_in(fb, "NO FIX", 0, 168, 50, 182));
+    CHECK_FALSE(reads_in(fb, "FLIGHT", 0, 168, 50, 182));
     // The picture itself stays empty rather than carrying a second message.
-    CHECK_FALSE(reads_in(fb, "NO FIX", 20, 20, 180, 175));
+    CHECK_FALSE(reads_in(fb, "NO FIX", 20, 20, 180, 150));
 }
 
 TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {

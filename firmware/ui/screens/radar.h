@@ -21,7 +21,10 @@ struct RadarSnapshot {
     bool have_fix{false};
     int32_t range_nm{kDefaultRangeNm};
     uint16_t track_deg{0};
-    uint8_t sats{0};
+    uint32_t flight_seconds{0};
+    bool have_flight_time{false};
+    bool airborne{false};
+    bool receiver_listening{false};
     int n_targets{0};
     const RadarTarget* targets{nullptr};
     uint8_t max_alarm{0};

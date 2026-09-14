@@ -52,7 +52,6 @@ constexpr int32_t kPitchFullScaleDeg = 20;
 // A standard-rate turn (3 deg/s) at typical light-aircraft speeds is ~30 deg of
 // bank, where the coordinator's index marks sit.
 constexpr int32_t kStandardRateMarkDeg = 30;
-constexpr uint32_t kFlightClockMaxMinutes = 99 * 60 + 59;
 constexpr int kWingHalf = kR - 8;
 
 int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -101,15 +100,6 @@ void value_center(Framebuffer& fb, int cx, int row, bool have, int32_t v, bool n
     int n = fmt_int(buf, v, min_digits, 0, no_plus || v == 0);
     buf[n] = 0;
     value_text(fb, cx, row, buf);
-}
-
-void fmt_hours_colon_minutes(char* out, uint32_t seconds) {
-    uint32_t minutes = seconds / 60;
-    if (minutes > kFlightClockMaxMinutes) minutes = kFlightClockMaxMinutes;
-    int n = fmt_uint(out, minutes / 60);
-    out[n++] = ':';
-    n += fmt_uint(out + n, minutes % 60, 2);
-    out[n] = 0;
 }
 
 // Marks are stepped along the true radius in half-pixels rather than drawn as a
