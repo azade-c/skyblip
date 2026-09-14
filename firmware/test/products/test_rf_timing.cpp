@@ -106,6 +106,36 @@ TEST_CASE("rf: what happened on air reaches the station log, sent and heard alik
     CHECK(heard);
 }
 
+// One burst sent on one device and heard on another is compared on this phase alone.
+TEST_CASE("rf: the log dates a burst to the millisecond of the second it landed in") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(true);
+    h.world().set_speed_kt(50);
+    h.world().add_aircraft(1200, 300, 50, 30, 90, 600, 0);
+    run_on(h, past_settling(h), 6000);
+
+    const radio::Log& log = h.product().state().radio_log;
+    int dated = 0, channelled = 0;
+    for (int i = 0; i < log.count(); i++) {
+        const radio::Entry& entry = log.newest(i);
+        REQUIRE(entry.phase_valid);
+        CHECK(entry.into_ms < 1000);
+        // The phase is where the burst ENDED, so only a dwell it cannot have run into names one.
+        if (entry.band == messages::Band::M && entry.into_ms < timing::kSlot0End - 100) {
+            CHECK(entry.channel == 0);
+            channelled++;
+        }
+        if (entry.event != radio::Event::Transmitted) continue;
+        dated++;
+        CHECK(entry.into_ms >= timing::kDirectStart);
+        CHECK(entry.tx_span_valid);
+        CHECK(entry.tx_span_us > 0);
+    }
+    CHECK(dated > 0);
+    CHECK(channelled > 0);
+}
+
 // Two devices on a bench, both transmitting, neither ever hearing the other.
 TEST_CASE("rf: a burst own-ship put on air is one another skyBlip frames") {
     simulator::Simulator h;

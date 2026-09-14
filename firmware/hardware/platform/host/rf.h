@@ -109,6 +109,7 @@ class Rf : public hal::Rf {
         armed_count_++;
         radio_.wake();
         band_ = plan_.mode == hal::RfMode::RxOband ? messages::Band::O : messages::Band::M;
+        freq_hz_ = plan_.freq_hz;
         if (plan_.freq_hz != 0) radio_.configure_radio(dwell_config(plan_));
         radio_.start_receive();
     }
@@ -172,6 +173,7 @@ class Rf : public hal::Rf {
     void push_rx(const parts::RadioEvent& ev, uint64_t now_us) {
         rx_.type = messages::RfEventType::RxDone;
         rx_.band = band_;
+        rx_.freq_hz = freq_hz_;
         rx_.len = ev.len;
         rx_.rssi_dbm = ev.rssi_dbm;
         rx_.at_us = now_us;
@@ -182,6 +184,7 @@ class Rf : public hal::Rf {
         messages::RfEvent e{};
         e.type = type;
         e.band = band_;
+        e.freq_hz = freq_hz_;
         e.len = len;
         e.rssi_dbm = rssi;
         e.at_us = now_us;
@@ -196,6 +199,7 @@ class Rf : public hal::Rf {
     hal::RfCarrier carrier_{};
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
+    uint32_t freq_hz_{0};
     uint32_t last_ms_{0};
     uint32_t armed_count_{0};
     int sleeps_{0};

@@ -159,6 +159,7 @@ struct RfEvent {
     uint8_t len;
     int8_t rssi_dbm;
     uint64_t at_us;
+    uint32_t freq_hz;
     std::array<uint8_t, kRfEventBytes> data;
 };
 

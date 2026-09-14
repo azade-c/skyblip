@@ -62,6 +62,7 @@ struct State {
     // layer that owns the deadline (RadioService) can measure against it
     // without a second reader of the bus.
     uint64_t last_tx_done_at_us{0};
+    uint64_t tx_deadline_us{0};
     uint32_t gnss_solutions{0};
     bool panel_presented{false};
     uint32_t pressure_pa{0};

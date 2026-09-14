@@ -1,5 +1,7 @@
 #include "products/skyblip_go/services/traffic.h"
 
+#include "core/timing/slot.h"
+
 namespace skyblip::go {
 
 // The one thing this service knows before any frame arrives: which aircraft is
@@ -21,7 +23,7 @@ void TrafficService::tick(uint32_t now_ms) {
             case messages::RfEventType::RxDone: on_frame(event, now_ms); break;
             case messages::RfEventType::CrcError:
                 context_.state.rx_bad++;
-                log(event, now_ms, radio::Event::Unframed);
+                log(event, now_ms, radio::Event::BadCrc);
                 break;
             // TODO: fc 15sep26 rx_bad is the wrong counter for a transmit failure (skyblip#61)
             case messages::RfEventType::Missed:
@@ -44,14 +46,25 @@ void TrafficService::tick(uint32_t now_ms) {
 
 void TrafficService::log(const messages::RfEvent& event, uint32_t now_ms, radio::Event outcome,
                          const messages::AircraftObs* obs) {
+    const bus::State& state = context_.state;
+    const radio::Stamp stamp = radio::stamp_of(event.at_us, state.clock.pps_edge_us,
+                                               state.clock.pps_locked, state.traffic_now(now_ms));
     radio::Entry entry{};
     entry.event = outcome;
     entry.band = event.band;
-    entry.at_s = context_.state.traffic_now(now_ms);
-    entry.utc = context_.state.own.utc_valid;
+    entry.channel = event.freq_hz == timing::kMband1Hz ? 1 : 0;
+    entry.at_s = stamp.at_s;
+    entry.into_ms = stamp.into_ms;
+    entry.phase_valid = stamp.phase_valid;
+    entry.utc = state.own.utc_valid;
     if (event.type == messages::RfEventType::RxDone) {
         entry.rssi_dbm = event.rssi_dbm;
         entry.rssi_valid = true;
+        entry.len = event.len;
+    }
+    if (outcome == radio::Event::Transmitted && state.tx_deadline_us != 0) {
+        entry.tx_span_us = radio::tx_span_of(event.at_us, state.tx_deadline_us);
+        entry.tx_span_valid = true;
     }
     if (obs != nullptr) {
         entry.source = obs->source;
@@ -70,17 +83,18 @@ void TrafficService::on_frame(const messages::RfEvent& event, uint32_t now_ms) {
     }
     if (system == protocol::System::Unknown) {
         context_.state.rx_bad++;
-        log(event, now_ms, radio::Event::Unframed);
+        log(event, now_ms, radio::Event::Undecoded);
         return;
     }
 
     const uint32_t utc = context_.state.traffic_now(now_ms);
     messages::AircraftObs obs{};
     const bool alptas = system == protocol::System::Alptas;
-    const bool decoded = alptas ? decode_alptas(frame, utc, obs) : decode_adsl(frame, utc, obs);
-    if (!decoded) {
+    const radio::Event outcome =
+        alptas ? decode_alptas(frame, utc, obs) : decode_adsl(frame, utc, obs);
+    if (outcome != radio::Event::Received) {
         context_.state.rx_bad++;
-        log(event, now_ms, radio::Event::Unframed);
+        log(event, now_ms, outcome);
         return;
     }
 
@@ -107,7 +121,7 @@ void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) 
     if (uplink_codec_.decode(event.data.data(), relayed, protocol::AdslUplink::kMaxTargets,
                              stats) != Status::Ok) {
         context_.state.uplink_bad++;
-        log(event, now_ms, radio::Event::Unframed);
+        log(event, now_ms, radio::Event::BadCrc);
         return;
     }
 
@@ -133,14 +147,16 @@ void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) 
 
 // The Manchester error map travels with the frame, so the forward correction
 // knows which bits the air already told us not to trust.
-bool TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc, messages::AircraftObs& obs) {
+radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
+                                         messages::AircraftObs& obs) {
     protocol::AdslPacket p{};
     p.init();
     __builtin_memcpy(&p.Version, frame.data, protocol::kAdslFrameBytes);
-    if (p.check_crc() != 0 && (p.correct(frame.err) < 0 || p.check_crc() != 0)) return false;
+    if (p.check_crc() != 0 && (p.correct(frame.err) < 0 || p.check_crc() != 0))
+        return radio::Event::BadCrc;
     p.descramble();
     protocol::to_obs(p, utc, 0, 0, messages::Source::AdslDirect, obs);
-    return true;
+    return radio::Event::Received;
 }
 
 // ALP-TAS codes position relative to the receiver and keys on the second the
@@ -148,15 +164,18 @@ bool TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc, messages:
 // against. Slot 1 reaches 200 ms past its own second (§C.5), and a burst caught
 // in that tail was keyed to the second before this one, so the previous key is
 // the second and last thing to try.
-bool TrafficService::decode_alptas(const protocol::Frame& frame, uint32_t utc,
-                                   messages::AircraftObs& obs) const {
+radio::Event TrafficService::decode_alptas(const protocol::Frame& frame, uint32_t utc,
+                                           messages::AircraftObs& obs) const {
     const messages::OwnState& own = context_.state.own;
-    if (!own.fix_valid || !own.utc_valid) return false;
-    if (!protocol::alptas_crc_ok(frame.data)) return false;
+    if (!own.fix_valid || !own.utc_valid) return radio::Event::Undecoded;
+    if (!protocol::alptas_crc_ok(frame.data)) return radio::Event::BadCrc;
     const int32_t lat = own.lat_1e7;
     const int32_t lon = own.lon_1e7;
-    if (protocol::alptas_decode(frame.data, utc, lat, lon, obs) == Status::Ok) return true;
-    return utc > 0 && protocol::alptas_decode(frame.data, utc - 1, lat, lon, obs) == Status::Ok;
+    if (protocol::alptas_decode(frame.data, utc, lat, lon, obs) == Status::Ok)
+        return radio::Event::Received;
+    if (utc > 0 && protocol::alptas_decode(frame.data, utc - 1, lat, lon, obs) == Status::Ok)
+        return radio::Event::Received;
+    return radio::Event::Undecoded;
 }
 
 }  // namespace skyblip::go

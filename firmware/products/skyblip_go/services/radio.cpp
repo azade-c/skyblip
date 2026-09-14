@@ -205,7 +205,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     if (carries_tx) {
         tx_utc_ = slot_utc();
         tx_end_us_ = plan.end_us;
-        tx_deadline_us_ = tx_at_us;
+        context_.state.tx_deadline_us = tx_at_us;
     }
 }
 
@@ -218,7 +218,7 @@ void RadioService::collect_outcome(uint32_t now_ms) {
         // costs this nothing.
         context_.state.timing_stats.record_dwell_phase(
             static_cast<int64_t>(context_.state.last_tx_done_at_us) -
-            static_cast<int64_t>(tx_deadline_us_));
+            static_cast<int64_t>(context_.state.tx_deadline_us));
         tx_armed_ = false;
     }
     // INFO: fc 15sep26 a dwell that ended unreported took the radio with it, and is counted here

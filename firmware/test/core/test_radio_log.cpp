@@ -50,13 +50,63 @@ TEST_CASE("radio log: past capacity the oldest burst is the one dropped") {
 
 TEST_CASE("radio log: every outcome a burst can have is one it keeps") {
     radio::Log log;
-    for (radio::Event event : {radio::Event::Transmitted, radio::Event::Lost,
-                               radio::Event::Received, radio::Event::Unframed}) {
+    for (radio::Event event :
+         {radio::Event::Transmitted, radio::Event::Lost, radio::Event::Received,
+          radio::Event::BadCrc, radio::Event::Undecoded}) {
         radio::Entry e{};
         e.event = event;
         log.record(e);
         CHECK(log.newest(0).event == event);
     }
+}
+
+TEST_CASE("radio log: a burst is dated by the phase it landed at, not the pass that drained it") {
+    const radio::Stamp stamp = radio::stamp_of(12'462'000, 12'000'000, true, 45296);
+
+    CHECK(stamp.phase_valid);
+    CHECK(stamp.at_s == 45296);
+    CHECK(stamp.into_ms == 462);
+}
+
+// Slot 1 closes 200 ms into the next second, so its tail is drained under a second the air had not.
+TEST_CASE("radio log: a burst before the edge belongs to the second its dwell opened in") {
+    const radio::Stamp stamp = radio::stamp_of(11'950'000, 12'000'000, true, 45296);
+
+    CHECK(stamp.phase_valid);
+    CHECK(stamp.at_s == 45295);
+    CHECK(stamp.into_ms == 950);
+}
+
+// Without an edge to measure from, a phase is arithmetic on an instant nothing anchored.
+TEST_CASE("radio log: an unlocked clock reports the second and refuses the phase") {
+    const radio::Stamp stamp = radio::stamp_of(12'462'000, 12'000'000, false, 45296);
+
+    CHECK_FALSE(stamp.phase_valid);
+    CHECK(stamp.at_s == 45296);
+    CHECK(stamp.into_ms == 0);
+}
+
+TEST_CASE("radio log: an instant the latched edge cannot reach carries no phase") {
+    const radio::Stamp stamp = radio::stamp_of(12'000'000, 20'000'000, true, 45296);
+
+    CHECK_FALSE(stamp.phase_valid);
+    CHECK(stamp.at_s == 45296);
+}
+
+// Keying to completion: §C.2's M-band burst is 4800 us of it, the pass that collected it the rest.
+TEST_CASE("radio log: a sent burst measures from the instant it was aimed at to the one reported") {
+    CHECK(radio::tx_span_of(12'004'800, 12'000'000) == 4800);
+    CHECK(radio::tx_span_of(12'000'000, 12'000'000) == 0);
+}
+
+// A span too wide to bound is one this row must not report as a smaller one.
+TEST_CASE("radio log: a span past the column saturates rather than wrapping") {
+    CHECK(radio::tx_span_of(13'000'000, 12'000'000) == radio::kTxSpanLimitUs);
+}
+
+// A report cannot precede the instant the burst was keyed at.
+TEST_CASE("radio log: a completion before its own deadline measures nothing") {
+    CHECK(radio::tx_span_of(11'999'000, 12'000'000) == 0);
 }
 
 TEST_CASE("radio log: a cleared log holds nothing and starts over") {
