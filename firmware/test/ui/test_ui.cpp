@@ -238,6 +238,17 @@ TEST_CASE("radar: the range ring is one unbroken stroke, and the only ring on th
 constexpr int kPlotX = 100;
 constexpr int kPlotY = 54;
 
+RadarTarget abeam[1] = {{0, 3000, 0, 0}};
+
+// The dots are only struck when the plot has company, so every case has some.
+RadarSnapshot cruising(int32_t speed_mps) {
+    RadarSnapshot snap = flying(0);
+    snap.speed_mps = speed_mps;
+    snap.n_targets = 1;
+    snap.targets = abeam;
+    return snap;
+}
+
 RadarSnapshot one_target(RadarTarget* t) {
     RadarSnapshot snap = flying(0);
     snap.n_targets = 1;
@@ -269,6 +280,82 @@ TEST_CASE("radar: traffic wears its TCAS symbol, hollow, filled, or an advisory 
     RadarTarget urgent[1] = {{2 * kMetresPerNm, 0, 0, 3}};
     CHECK(ink_in(radar(one_target(urgent)), kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) ==
           ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
+}
+
+TEST_CASE("radar: a leader line runs the minute ahead of the target, not past the ring") {
+    // 30 m/s for 60 s is 1800 m, which is 22 px on the 4 NM ring.
+    RadarTarget north[1] = {{2 * kMetresPerNm, 0, 0, 0, 0, false, 30, 0}};
+    const Framebuffer ahead = radar(one_target(north));
+    CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
+    CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
+    CHECK_FALSE(ahead.get_pixel(kPlotX, kPlotY - 30));
+
+    RadarTarget crossing[1] = {{2 * kMetresPerNm, 0, 0, 0, 0, false, 30, 90}};
+    const Framebuffer east = radar(one_target(crossing));
+    CHECK(east.get_pixel(kPlotX + 20, kPlotY));
+    CHECK_FALSE(east.get_pixel(kPlotX, kPlotY - 16));
+
+    RadarTarget parked[1] = {{2 * kMetresPerNm, 0, 0, 0, 0, false, 0, 0}};
+    CHECK_FALSE(radar(one_target(parked)).get_pixel(kPlotX, kPlotY - 16));
+
+    // 100 m/s from 3.8 NM out would leave the glass: the ring is where it stops.
+    RadarTarget fast[1] = {{(38 * kMetresPerNm) / 10, 0, 0, 0, 0, false, 100, 0}};
+    const Framebuffer clipped = radar(one_target(fast));
+    CHECK(clipped.get_pixel(kPlotX, 8));
+    for (int y = 0; y < 6; y++) CHECK_FALSE(clipped.get_pixel(kPlotX, y));
+}
+
+TEST_CASE("radar: two dots off the nose mark the next minute and the one after") {
+    const Framebuffer fb = radar(cruising(30));
+
+    // 30 m/s for 60 s is 1800 m, 22 px up the glass, on the 99|100 pair.
+    CHECK(fb.get_pixel(99, 77));
+    CHECK(fb.get_pixel(100, 77));
+    CHECK(fb.get_pixel(99, 78));
+    CHECK(fb.get_pixel(100, 78));
+    CHECK_FALSE(fb.get_pixel(98, 77));
+    CHECK_FALSE(fb.get_pixel(101, 77));
+    CHECK_FALSE(fb.get_pixel(99, 76));
+    // Nothing joins it to the aeroplane: the glass between them stays clear.
+    CHECK_FALSE(fb.get_pixel(99, 85));
+    CHECK_FALSE(fb.get_pixel(100, 85));
+
+    // The second minute is twice as far up the same line.
+    CHECK(fb.get_pixel(99, 55));
+    CHECK(fb.get_pixel(100, 56));
+    CHECK_FALSE(fb.get_pixel(99, 53));
+
+    // Twice the speed puts the first dot where the second one was.
+    CHECK(radar(cruising(60)).get_pixel(99, 55));
+
+    // A second minute beyond the ring is dropped, not parked on the stroke.
+    const Framebuffer clipped = radar(cruising(80));
+    CHECK(clipped.get_pixel(99, 40));
+    for (int y = 10; y < 20; y++) CHECK_FALSE(clipped.get_pixel(99, y));
+
+    CHECK_FALSE(radar(cruising(0)).get_pixel(99, 77));
+
+    RadarSnapshot searching;
+    searching.speed_mps = 30;
+    CHECK_FALSE(radar(searching).get_pixel(99, 77));
+}
+
+// An empty ring needs no scale: the dots are read against traffic or not at all.
+TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
+    RadarSnapshot alone = flying(0);
+    alone.speed_mps = 30;
+    CHECK_FALSE(radar(alone).get_pixel(99, 77));
+    CHECK_FALSE(radar(alone).get_pixel(99, 55));
+
+    CHECK(radar(cruising(30)).get_pixel(99, 77));
+
+    // Heard but outside the ring is not on the plot, and does not bring them back.
+    RadarTarget far_out[1] = {{40000, 0, 0, 0}};
+    RadarSnapshot beyond = flying(0);
+    beyond.speed_mps = 30;
+    beyond.n_targets = 1;
+    beyond.targets = far_out;
+    CHECK_FALSE(radar(beyond).get_pixel(99, 77));
 }
 
 TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {

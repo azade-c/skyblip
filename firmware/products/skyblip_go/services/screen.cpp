@@ -374,6 +374,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.have_fix = own.fix_valid;
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
+            snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
             snap.flight_seconds = context_.state.flight_seconds;
             snap.have_flight_time = context_.state.flight_time_valid;
             snap.airborne = context_.state.flight_running;
@@ -394,6 +395,9 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].alarm_level = t->alarm_level;
                     targets_[n].climb_e8 = obs.climb_e8;
                     targets_[n].has_climb = obs.has_climb;
+                    targets_[n].speed_mps =
+                        obs.has_speed ? to_mps(QuarterMetresPerSec(obs.speed_q)).v : 0;
+                    targets_[n].track_deg = to_degrees(Cordic9(obs.track_c9)).v;
                     n++;
                 }
             }

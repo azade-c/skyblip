@@ -56,6 +56,12 @@ constexpr int kChevronH = 3;
 constexpr int kChevronGap = 2;
 constexpr int32_t kFeetPerTagUnit = 100;
 constexpr int16_t kChevronClimbE8 = 20;
+constexpr int32_t kLeaderSeconds = 60;
+constexpr int kMinLeaderPx = 3;
+constexpr int kClipSteps = 64;
+constexpr int kOwnNoseAhead = kSkyshipRowsToNose + 1;
+constexpr int kMinuteDotW = 2;
+constexpr int kMinutesMarked = 2;
 
 int half_chord_in_half_pixels(int r, int b) {
     const int32_t v = 4 * r * r - (2 * b + 1) * (2 * b + 1);
@@ -146,18 +152,69 @@ void aircraft(Framebuffer& fb, int in_view, bool counting) {
 }
 
 struct Plotted {
+    int32_t right;
+    int32_t ahead;
     int x;
     int y;
 };
 
+int64_t range_metres(const RadarSnapshot& snap) {
+    return (snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
+}
+
+int32_t to_px(int32_t metres, int64_t range) {
+    return static_cast<int32_t>((static_cast<int64_t>(metres) * kOuterR) / range);
+}
+
+bool inside_ring(int32_t right, int32_t ahead) {
+    return right * right + ahead * ahead <= kOuterR * kOuterR;
+}
+
 bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, Plotted& out) {
-    const int64_t range = (snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
+    const int64_t range = range_metres(snap);
     const HeadingUp at = heading_up(t.north_m, t.east_m, track);
-    const int dx = static_cast<int>((static_cast<int64_t>(at.right) * kOuterR) / range);
-    const int dy = static_cast<int>((static_cast<int64_t>(at.ahead) * kOuterR) / range);
-    if (dx * dx + dy * dy > kOuterR * kOuterR) return false;
-    out = {px_of(dx), py_of(dy)};
+    const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
+    if (!inside_ring(dx, dy)) return false;
+    out = {dx, dy, px_of(dx), py_of(dy)};
     return true;
+}
+
+void shorten_into_ring(const Plotted& from, int32_t& right, int32_t& ahead) {
+    if (inside_ring(from.right + right, from.ahead + ahead)) return;
+    int lo = 0, hi = kClipSteps;
+    while (hi - lo > 1) {
+        const int mid = (lo + hi) / 2;
+        if (inside_ring(from.right + right * mid / kClipSteps,
+                        from.ahead + ahead * mid / kClipSteps))
+            lo = mid;
+        else
+            hi = mid;
+    }
+    right = right * lo / kClipSteps;
+    ahead = ahead * lo / kClipSteps;
+}
+
+void own_minute_marks(Framebuffer& fb, const RadarSnapshot& snap) {
+    if (snap.speed_mps <= 0) return;
+    for (int minute = 1; minute <= kMinutesMarked; minute++) {
+        const int32_t ahead = to_px(snap.speed_mps * kLeaderSeconds * minute, range_metres(snap));
+        if (ahead > kOuterR || ahead - kOwnNoseAhead < kMinLeaderPx) continue;
+        fb.rect(kNear, kNear - ahead, kMinuteDotW, kMinuteDotW, true, true);
+    }
+}
+
+void leader(Framebuffer& fb, const RadarSnapshot& snap, const RadarTarget& t, int16_t track,
+            const Plotted& p) {
+    if (t.speed_mps <= 0) return;
+    const int16_t course = c16(t.track_deg);
+    const int64_t run = static_cast<int64_t>(t.speed_mps) * kLeaderSeconds;
+    const HeadingUp v = heading_up(static_cast<int32_t>((run * icos(course)) / kQ14One),
+                                   static_cast<int32_t>((run * isin(course)) / kQ14One), track);
+    const int64_t range = range_metres(snap);
+    int32_t right = to_px(v.right, range), ahead = to_px(v.ahead, range);
+    if (right * right + ahead * ahead < kMinLeaderPx * kMinLeaderPx) return;
+    shorten_into_ring(p, right, ahead);
+    fb.line(p.x, p.y, px_of(p.right + right), py_of(p.ahead + ahead), true);
 }
 
 void diamond(Framebuffer& fb, int cx, int cy, int r, bool fill) {
@@ -239,25 +296,32 @@ void draw_tag(Framebuffer& fb, const Tag& tag) {
 }
 
 int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
+    Plotted shown[kMaxRadarTargets];
+    const RadarTarget* in_view[kMaxRadarTargets];
+    int n = 0;
+    for (int i = 0; i < snap.n_targets && n < kMaxRadarTargets; i++) {
+        Plotted p;
+        if (!plot_point(snap, snap.targets[i], track, p)) continue;
+        shown[n] = p;
+        in_view[n] = &snap.targets[i];
+        n++;
+    }
+
+    for (int i = 0; i < n; i++) leader(fb, snap, *in_view[i], track, shown[i]);
+
     Box tagged[kMaxRadarTargets];
     int n_tags = 0;
-    Plotted p;
-    for (int i = 0; i < snap.n_targets && n_tags < kMaxRadarTargets; i++) {
-        if (!plot_point(snap, snap.targets[i], track, p)) continue;
-        const Tag tag = tag_for(p, snap.targets[i]);
+    for (int i = 0; i < n; i++) {
+        const Tag tag = tag_for(shown[i], *in_view[i]);
         bool clash = false;
         for (int j = 0; j < n_tags && !clash; j++) clash = overlap(tag.box, tagged[j]);
         if (clash) continue;
         draw_tag(fb, tag);
         tagged[n_tags++] = tag.box;
     }
-    int in_view = 0;
-    for (int i = 0; i < snap.n_targets; i++)
-        if (plot_point(snap, snap.targets[i], track, p)) {
-            traffic_symbol(fb, p, snap.targets[i].alarm_level);
-            in_view++;
-        }
-    return in_view;
+
+    for (int i = 0; i < n; i++) traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
+    return n;
 }
 
 }  // namespace
@@ -272,6 +336,7 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
     draw_skyship(fb, kFar, kNear);
 
     const int in_view = snap.have_fix ? plot(fb, snap, track) : 0;
+    if (in_view > 0) own_minute_marks(fb, snap);
 
     flight_clock(fb, snap);
     flight_state(fb, snap);

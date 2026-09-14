@@ -74,6 +74,8 @@ constexpr Ownship kDefaultOwnship{kGlyphW, kGlyphH, kGlyphOriginRow, kOwnshipRow
 void draw_skyship(Framebuffer& fb, int cx, int cy) {
     const Ownship& s = kDefaultOwnship;
     static_assert(kGlyphW % 2 == 0, "even width: the centre is a pixel PAIR");
+    static_assert(kGlyphOriginRow == kSkyshipRowsToNose,
+                  "the nose a screen clears is this sprite's");
     const int x0 = cx - s.w / 2, y0 = cy - s.origin_row;
     for (int row = 0; row < s.h; row++) {
         uint32_t bits = s.rows[row];
