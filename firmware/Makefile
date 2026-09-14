@@ -12,6 +12,9 @@
 # core/ and ui/ must compile with NO framework headers. The device image is built
 # by Zephyr/west, not here.
 
+# 155 translation units and no ccache: serial, a full rebuild is five minutes.
+MAKEFLAGS += -j$(shell nproc 2>/dev/null || echo 4)
+
 CXX      ?= c++
 # -Wconversion is intentionally OFF: fixed-point bit-math (varint/adsl) truncates
 # by design. Keep the high-signal warnings on and treat them as errors.
