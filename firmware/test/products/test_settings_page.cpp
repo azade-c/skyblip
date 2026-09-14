@@ -421,7 +421,7 @@ TEST_CASE("product: the volume can be turned up in the air, where a phone is ref
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     airborne(rig, t);
-    REQUIRE(rig.product.config().config().flight_state() == comms::FlightState::Airborne);
+    REQUIRE(rig.product.config().config().flight_state() == flight::FlightState::Airborne);
 
     // The companion app cannot: an unattended phone rewriting the whole struct
     // mid-flight is what that rule is for.

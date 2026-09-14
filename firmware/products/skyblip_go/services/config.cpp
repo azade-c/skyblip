@@ -12,12 +12,8 @@ Status ConfigLinkService::setup() {
 
 void ConfigLinkService::tick(uint32_t now_ms) {
     drain_link_events();
-    // INFO: cf 02aug26 The gate's one source of truth. core/flight owns the
-    // decision and publishes the ADS-L G.1.4 code on the bus; this reads it
-    // there rather than keeping a second opinion, so "on the ground" means the
-    // same thing to the update lockout as it does to the transmitter. Nobody
-    // calling this is what left flight_ at Unknown, which refuses everything.
-    config_.set_flight_state(comms::flight_state_from(context_.state.own.flight_state));
+    // INFO: cf 02aug26 nobody calling this leaves the gate at Unknown, which refuses everything
+    config_.set_flight_state(context_.state.confirmed_flight_state);
 
     // INFO: cf 02aug26 core/power decided what the divider reading means and
     // what a low cell is; this hands the already-decided numbers to the link

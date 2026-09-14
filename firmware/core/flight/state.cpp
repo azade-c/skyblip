@@ -15,6 +15,15 @@ int32_t motion_e8(const FlightSample& sample) {
     return motion;
 }
 
+FlightState state_from(uint8_t adsl_code) {
+    switch (static_cast<FlightState>(adsl_code)) {
+        case FlightState::OnGround: return FlightState::OnGround;
+        case FlightState::Airborne: return FlightState::Airborne;
+        case FlightState::Unknown: break;
+    }
+    return FlightState::Unknown;
+}
+
 bool FlightMonitor::jerky(uint16_t previous_q, uint16_t now_q) {
     const int32_t previous = previous_q;
     const int32_t now = now_q;

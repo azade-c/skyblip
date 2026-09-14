@@ -8,15 +8,6 @@
 
 namespace skyblip::comms {
 
-FlightState flight_state_from(uint8_t adsl_code) {
-    switch (static_cast<flight::FlightState>(adsl_code)) {
-        case flight::FlightState::OnGround: return FlightState::Ground;
-        case flight::FlightState::Airborne: return FlightState::Airborne;
-        case flight::FlightState::Unknown: break;
-    }
-    return FlightState::Unknown;
-}
-
 const char* pending_title(Pending pending) {
     switch (pending) {
         case Pending::Set: return "SETTINGS";
@@ -62,9 +53,8 @@ void ConfigService::tick(uint32_t now_ms) {
     }
 }
 
-void ConfigService::set_flight_state(FlightState fs) {
-    if (fs == FlightState::Airborne) {
-        airborne_latched_ = true;
+void ConfigService::set_flight_state(flight::FlightState fs) {
+    if (fs == flight::FlightState::Airborne) {
         upload_window_open_ = false;
         // A prompt that survived the take-off roll would be an authorisation a
         // pilot could confirm with an elbow in the air.
@@ -74,13 +64,7 @@ void ConfigService::set_flight_state(FlightState fs) {
             ack(false, "in_flight");
         }
     }
-    if (fs == FlightState::Ground) airborne_latched_ = false;
-    if (airborne_latched_)
-        flight_ = FlightState::Airborne;
-    else if (fs == FlightState::Ground)
-        flight_ = FlightState::Ground;
-    else
-        flight_ = FlightState::Unknown;
+    flight_ = fs;
 }
 
 void ConfigService::on_link_up(const messages::LinkUp& up) {
@@ -167,11 +151,11 @@ bool ConfigService::needs_swap_power(Pending pending) {
     return pending == Pending::Dfu || pending == Pending::Apply;
 }
 
-const char* ConfigService::flight_name(FlightState fs) {
+const char* ConfigService::flight_name(flight::FlightState fs) {
     switch (fs) {
-        case FlightState::Ground: return "ground";
-        case FlightState::Airborne: return "airborne";
-        case FlightState::Unknown: break;
+        case flight::FlightState::OnGround: return "ground";
+        case flight::FlightState::Airborne: return "airborne";
+        case flight::FlightState::Unknown: break;
     }
     return "unknown";
 }

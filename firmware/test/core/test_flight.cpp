@@ -5,6 +5,7 @@
 // aircraft transmitting at the rate a parked device uses. These cases are the
 // two launches a speed threshold cannot tell apart: a glider on a ridge with
 // the wind on the nose, and a glider being towed to the launch point.
+#include "core/flight/ground.h"
 #include "core/flight/state.h"
 #include "doctest/doctest.h"
 
@@ -186,4 +187,39 @@ TEST_CASE("flight: the takeoff hold is counted across the 49.7-day wrap") {
     // And the landing hold, ten seconds later, on the far side.
     CHECK(hold(monitor, t, 9, 0.0, 0.0) == FlightState::Airborne);
     CHECK(hold(monitor, t, 1, 0.0, 0.0) == FlightState::OnGround);
+}
+
+TEST_CASE("flight: only the two ADS-L G.1.4 codes name a state, every other value is unknown") {
+    CHECK(state_from(static_cast<uint8_t>(FlightState::OnGround)) == FlightState::OnGround);
+    CHECK(state_from(static_cast<uint8_t>(FlightState::Airborne)) == FlightState::Airborne);
+    CHECK(state_from(static_cast<uint8_t>(FlightState::Unknown)) == FlightState::Unknown);
+    CHECK(airborne(static_cast<uint8_t>(FlightState::Airborne)));
+    CHECK_FALSE(airborne(static_cast<uint8_t>(FlightState::OnGround)));
+
+    // G.1.4 is two bits and we own neither the sender nor the future: a code
+    // this build does not know is not a ground anything may unlock on.
+    for (uint16_t code = 3; code < 256; code++)
+        CHECK(state_from(static_cast<uint8_t>(code)) == FlightState::Unknown);
+}
+
+TEST_CASE("flight: a lost fix is not a landing, so the ground latch holds airborne") {
+    GroundLatch latch;
+    CHECK(latch.state() == FlightState::Unknown);
+    CHECK_FALSE(latch.on_ground());
+
+    latch.update(FlightState::OnGround);
+    CHECK(latch.on_ground());
+
+    // Unknown before anything was confirmed is not a ground either: every gate
+    // behind this fails closed.
+    latch.update(FlightState::Unknown);
+    CHECK(latch.state() == FlightState::Unknown);
+    CHECK_FALSE(latch.on_ground());
+
+    latch.update(FlightState::Airborne);
+    latch.update(FlightState::Unknown);
+    CHECK(latch.state() == FlightState::Airborne);
+
+    latch.update(FlightState::OnGround);
+    CHECK(latch.on_ground());
 }

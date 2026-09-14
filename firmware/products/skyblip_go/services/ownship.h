@@ -2,6 +2,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_OWNSHIP_H
 
 #include "core/flight/extrapolate.h"
+#include "core/flight/ground.h"
 #include "core/flight/state.h"
 #include "core/flight/timer.h"
 #include "core/gnss/first_fix.h"
@@ -20,7 +21,7 @@ class OwnshipService : public runtime::Service {
     bool baro_active() const { return baro_ref_ms_ != 0; }
 
     // ADS-L G.1.4 FlightState, decided by core/flight from the fix stream.
-    uint8_t flight_state_from(const messages::OwnState& own, uint32_t now_ms);
+    flight::FlightState flight_state_from(const messages::OwnState& own, uint32_t now_ms);
 
     // The one copy of "has the receiver settled": the transmit gate reads it
     // through state.own.tx_settled, and whoever annunciates the first fix takes
@@ -40,6 +41,7 @@ class OwnshipService : public runtime::Service {
 
     flight::FlightMonitor flight_{};
     flight::FlightTimer timer_{};
+    flight::GroundLatch ground_{};
     gnss::FirstFix settle_{};
     int32_t vs_ref_alt_cm_{0};
     uint32_t vs_ref_ms_{0};

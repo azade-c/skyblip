@@ -49,7 +49,7 @@ TEST_CASE("comms: status reports why the device came up") {
     settings::Settings s = settings::defaults(0xAA55);
     std::memcpy(s.callsign, "D-KXYZ", 7);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.set_reset_reason(power::ResetReason::Watchdog);
 
     cs.on_rx(frame("{\"cmd\":\"status\"}"));
@@ -114,7 +114,7 @@ TEST_CASE("comms: status carries state of charge, the charging flag, the level a
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.set_battery_state(battery_of(61, false), power::PowerLevel::Normal);
 
     cs.on_rx(frame("{\"cmd\":\"status\"}"));
@@ -130,7 +130,7 @@ TEST_CASE("comms: an invalid battery is reported as invalid, never as a false ze
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     // No set_battery_state call at all: no sample has ever arrived.
 
     cs.on_rx(frame("{\"cmd\":\"status\"}"));
@@ -146,7 +146,7 @@ TEST_CASE(
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     // A baseline, and then a real change, both before the link comes up.
     cs.set_battery_state(battery_of(50, false), power::PowerLevel::Normal);
@@ -184,7 +184,7 @@ TEST_CASE("comms: status has room for every worst-case field, and the last key s
     settings::Settings s = settings::defaults(0xFFFFFF);
     std::memcpy(s.callsign, "ABCDEFGHI", 10);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.set_reset_reason(power::ResetReason::Lockup);
     power::BatteryState battery{};
     battery.millivolts = 4200;

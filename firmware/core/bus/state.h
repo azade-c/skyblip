@@ -2,6 +2,7 @@
 #define SKYBLIP_CORE_BUS_STATE_H
 
 #include "core/flight/atmosphere.h"
+#include "core/flight/ground.h"
 #include "core/messages/messages.h"
 #include "core/power/battery.h"
 #include "core/power/charging.h"
@@ -67,6 +68,7 @@ struct State {
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};
     bool flight_running{false};
+    flight::FlightState confirmed_flight_state{flight::FlightState::Unknown};
     bool panel_presented{false};
     uint32_t pressure_pa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.

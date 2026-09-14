@@ -51,7 +51,7 @@ TEST_CASE("comms: get returns current config on the Config endpoint") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(0xAA55);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"get\"}"));
     REQUIRE(link.sent.size() == 1);
     CHECK(link.last_on(messages::Endpoint::Config));
@@ -62,7 +62,7 @@ TEST_CASE("comms: set on the ground stages, needs confirmation, then applies") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     cs.on_rx(frame("{\"cmd\":\"set\",\"aircraft_type\":4}"));
     CHECK(cs.pending() == Pending::Set);
@@ -80,38 +80,34 @@ TEST_CASE("comms: set is REFUSED in flight (fail closed), no staging") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.on_rx(frame("{\"cmd\":\"set\",\"aircraft_type\":4}"));
     CHECK(cs.pending() == Pending::None);
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
     CHECK(int(s.aircraft_type) == 1);
 }
 
-TEST_CASE("comms: unknown flight-state refuses, and airborne latches") {
+// The latch itself is core/flight/ground.h's; this gate refuses whatever is not a confirmed ground.
+TEST_CASE("comms: unknown flight-state refuses") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Unknown);  // never confirmed on ground
-    CHECK(cs.flight_state() == FlightState::Unknown);
+    cs.set_flight_state(flight::FlightState::Unknown);  // never confirmed on ground
+    CHECK(cs.flight_state() == flight::FlightState::Unknown);
     cs.on_rx(frame("{\"cmd\":\"set\",\"stealth\":true}"));
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
 
-    // once airborne, a lost fix (Unknown) must NOT clear the latch
-    cs.set_flight_state(FlightState::Airborne);
-    cs.set_flight_state(FlightState::Unknown);
-    CHECK(cs.flight_state() == FlightState::Airborne);
-    // positive ground reading clears it
-    cs.set_flight_state(FlightState::Ground);
-    CHECK(cs.flight_state() == FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
+    CHECK(cs.flight_state() == flight::FlightState::OnGround);
 }
 
 TEST_CASE("comms: confirm re-checks the gate, becoming airborne cancels apply") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"set\",\"aircraft_type\":4}"));
-    cs.set_flight_state(FlightState::Airborne);  // took off before confirming
+    cs.set_flight_state(flight::FlightState::Airborne);  // took off before confirming
     cs.confirm();
     CHECK(int(s.aircraft_type) == 1);  // NOT applied
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
@@ -125,7 +121,7 @@ TEST_CASE("comms: dfu opens an upload window only after on-screen confirmation")
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     CHECK_FALSE(cs.upload_allowed());
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
@@ -145,7 +141,7 @@ TEST_CASE(
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"apply\"}"));
     CHECK(cs.pending() == Pending::Apply);
     CHECK_FALSE(cs.install_requested());
@@ -164,13 +160,13 @@ TEST_CASE("comms: apply with nothing in the secondary slot is refused, not reboo
     SpyDfu dfu;
     dfu.staged = false;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"apply\"}"));
     CHECK(cs.pending() == Pending::None);
     CHECK(link.last().bytes.find("nothing_staged") != std::string::npos);
 
     ConfigService without_dfu(link, s);
-    without_dfu.set_flight_state(FlightState::Ground);
+    without_dfu.set_flight_state(flight::FlightState::OnGround);
     without_dfu.on_rx(frame("{\"cmd\":\"apply\"}"));
     CHECK(without_dfu.pending() == Pending::None);
     CHECK(link.last().bytes.find("nothing_staged") != std::string::npos);
@@ -182,7 +178,7 @@ TEST_CASE("comms: dfu and apply are refused at the door below the low-battery wa
         settings::Settings s = settings::defaults(1);
         SpyDfu dfu;
         ConfigService cs(link, s, &dfu);
-        cs.set_flight_state(FlightState::Ground);
+        cs.set_flight_state(flight::FlightState::OnGround);
         power::BatteryState low{};
         low.valid = true;
         low.millivolts = 3400;
@@ -203,7 +199,7 @@ TEST_CASE("comms: a cell that falls through the warning inside the prompt refuse
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     power::BatteryState healthy{};
     healthy.valid = true;
     healthy.millivolts = 4000;
@@ -266,7 +262,7 @@ TEST_CASE("comms: recovery reboots into the drag-and-drop bootloader after confi
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"recovery\"}"));
     CHECK(cs.pending() == Pending::Recovery);
     CHECK(dfu.recovery == 0);
@@ -281,7 +277,7 @@ TEST_CASE("comms: a recovery a reboot cannot carry finishes through power off") 
     SpyDfu dfu;
     dfu.recovery_path = hal::RecoveryPath::PowerOffToFinish;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"recovery\"}"));
     cs.confirm();
     CHECK(dfu.recovery == 1);
@@ -293,7 +289,7 @@ TEST_CASE("comms: recovery refused in flight") {
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.on_rx(frame("{\"cmd\":\"recovery\"}"));
     CHECK(cs.pending() == Pending::None);
     CHECK(dfu.recovery == 0);
@@ -306,7 +302,7 @@ TEST_CASE("comms: power_off is confirmed on the device, then latched for the seq
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     cs.on_rx(frame("{\"cmd\":\"power_off\"}"));
     CHECK(cs.pending() == Pending::PowerOff);
@@ -326,17 +322,17 @@ TEST_CASE("comms: power_off refused in flight") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.on_rx(frame("{\"cmd\":\"power_off\"}"));
     CHECK(cs.pending() == Pending::None);
     CHECK_FALSE(cs.power_off_requested());
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
 
     // And a confirmation that arrives after takeoff does not turn it off either.
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"power_off\"}"));
     REQUIRE(cs.pending() == Pending::PowerOff);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.confirm();
     CHECK_FALSE(cs.power_off_requested());
 }
@@ -353,16 +349,16 @@ TEST_CASE("comms: takeoff closes an open upload window and it stays latched") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     cs.confirm();
     REQUIRE(cs.upload_allowed());
 
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     CHECK_FALSE(cs.upload_allowed());
 
     // An "Unknown" reading after takeoff must not read as permission.
-    cs.set_flight_state(FlightState::Unknown);
+    cs.set_flight_state(flight::FlightState::Unknown);
     CHECK_FALSE(cs.upload_allowed());
 }
 
@@ -370,7 +366,7 @@ TEST_CASE("comms: upload window expires") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.tick(1000);
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     cs.confirm();
@@ -393,7 +389,7 @@ TEST_CASE("comms: the upload and confirmation windows span the 49.7-day wrap") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.tick(before);
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     cs.confirm();
@@ -408,7 +404,7 @@ TEST_CASE("comms: the upload and confirmation windows span the 49.7-day wrap") {
     // it, and expired thirty seconds after it was raised.
     platform::host::Link second_link;
     ConfigService prompt(second_link, s);
-    prompt.set_flight_state(FlightState::Ground);
+    prompt.set_flight_state(flight::FlightState::OnGround);
     prompt.tick(before);
     prompt.on_rx(frame("{\"cmd\":\"dfu\"}"));
     REQUIRE(prompt.pending() == Pending::Dfu);
@@ -423,7 +419,7 @@ TEST_CASE("comms: disconnect closes the upload window") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     cs.confirm();
     REQUIRE(cs.upload_allowed());
@@ -438,37 +434,21 @@ TEST_CASE("comms: DFU refused in flight") {
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
     ConfigService cs(link, s, &dfu);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     CHECK(cs.pending() == Pending::None);
     CHECK(dfu.triggered == 0);
 }
 
-// Wire one: the value behind the gate. Nothing used to set it, so flight_ stayed
-// Unknown and every sensitive operation was refused forever - green tests, dead
-// device. It now comes from state.own.flight_state, and only one code opens it.
+// Nothing used to set the gate, so it stayed Unknown and refused forever: green tests, dead device.
 TEST_CASE("comms: only the ADS-L on-ground code is permission, every other value refuses") {
-    CHECK(flight_state_from(static_cast<uint8_t>(flight::FlightState::OnGround)) ==
-          FlightState::Ground);
-    CHECK(flight_state_from(static_cast<uint8_t>(flight::FlightState::Airborne)) ==
-          FlightState::Airborne);
-    CHECK(flight_state_from(static_cast<uint8_t>(flight::FlightState::Unknown)) ==
-          FlightState::Unknown);
-
-    // G.1.4 is two bits and we own neither the sender nor the future: a code
-    // this build does not know is not a ground it may unlock on.
-    for (uint16_t code = 3; code < 256; code++)
-        CHECK(flight_state_from(static_cast<uint8_t>(code)) == FlightState::Unknown);
-
-    // And the state machine behind it behaves exactly as it does when the value
-    // is set by hand: a receiver that says "on the ground" is the only way in.
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(flight_state_from(0));
+    cs.set_flight_state(flight::state_from(0));
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     CHECK(cs.pending() == Pending::None);
-    cs.set_flight_state(flight_state_from(1));
+    cs.set_flight_state(flight::state_from(1));
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
     CHECK(cs.pending() == Pending::Dfu);
 }
@@ -477,7 +457,7 @@ TEST_CASE("comms: a prompt nobody answers expires, and a later confirm grants no
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.tick(1000);
 
     cs.on_rx(frame("{\"cmd\":\"dfu\"}"));
@@ -499,11 +479,11 @@ TEST_CASE("comms: taking off takes a standing prompt away with it") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"recovery\"}"));
     REQUIRE(cs.pending() == Pending::Recovery);
 
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     CHECK(cs.pending() == Pending::None);
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
 }
@@ -530,7 +510,7 @@ TEST_CASE("comms: link down cancels a pending change") {
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"set\",\"stealth\":true}"));
     CHECK(cs.pending() == Pending::Set);
     cs.on_link_down(messages::LinkDown{1});
@@ -551,7 +531,7 @@ TEST_CASE("comms: a set is refused below the low-battery warning, with the reaso
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     power::BatteryState low{};
     low.valid = true;
@@ -589,7 +569,7 @@ TEST_CASE("comms: a cell that falls while the prompt stands cancels the change")
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"set\",\"aircraft_type\":4}"));
     REQUIRE(cs.pending() == Pending::Set);
 
@@ -611,7 +591,7 @@ TEST_CASE("comms: a fired power-failure comparator closes the door on its own") 
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     power::BatteryState healthy{};
     healthy.valid = true;
     healthy.millivolts = 4000;
@@ -693,7 +673,7 @@ TEST_CASE("comms: the status reply still fits the narrowest phone with the tempe
         settings::Settings s = settings::defaults(1);
         ConfigService cs(link, s);
         cs.set_reset_reason(power::ResetReason::Lockup);
-        cs.set_flight_state(FlightState::Airborne);
+        cs.set_flight_state(flight::FlightState::Airborne);
         power::BatteryState full{};
         full.millivolts = 4200;
         full.percent = 100;

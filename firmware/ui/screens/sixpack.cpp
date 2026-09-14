@@ -24,7 +24,6 @@ constexpr int kIndexTabLen = 5;
 constexpr int kNeedle = kR - 6;
 constexpr int kFaceR = kR - 1;
 constexpr int kDeadInnerR = kR - 7;
-constexpr int32_t kArcStep = 128;
 constexpr int kShortNeedle = kR - 15;
 constexpr int kHubR = 2;
 constexpr int kCharW = 6;
@@ -116,16 +115,6 @@ void tick(Framebuffer& fb, int cx, int cy, int16_t a, int len = kTickLen) {
     radial_mark(fb, cx, cy, a, kR - len, kFaceR);
 }
 
-void arc(Framebuffer& fb, int cx, int cy, int r, int16_t from, int16_t to) {
-    const int32_t span = (static_cast<int32_t>(to) - from) & 0xFFFF;
-    for (int32_t step = 0; step <= span; step += kArcStep) {
-        int32_t v = (from + step) & 0xFFFF;
-        if (v >= kTurn / 2) v -= kTurn;
-        const int16_t a = static_cast<int16_t>(v);
-        fb.set_pixel(cx + radial(r, isin(a)), cy - radial(r, icos(a)), true);
-    }
-}
-
 void dial(Framebuffer& fb, int cx, int row, const char* title, int ticks = kTicks) {
     const int cy = kCy[row];
     fb.circle(cx, cy, kR, true);
@@ -139,16 +128,12 @@ void dead_sector(Framebuffer& fb, int cx, int cy, int32_t from_deg, int32_t to_d
         for (int dx = -kR; dx <= kR; dx++) {
             if (((dx + dy) & 1) != 0) continue;
             const int r2 = dx * dx + dy * dy;
-            if (r2 >= kFaceR * kFaceR || r2 <= kDeadInnerR * kDeadInnerR) continue;
+            if (r2 > kR * kR || r2 <= kDeadInnerR * kDeadInnerR) continue;
             const int16_t a = iatan2(dx, -dy);
             if (from <= to ? (a < from || a > to) : (a < from && a > to)) continue;
             fb.set_pixel(cx + dx, cy + dy, true);
         }
     }
-    radial_mark(fb, cx, cy, from, kDeadInnerR, kFaceR);
-    radial_mark(fb, cx, cy, to, kDeadInnerR, kFaceR);
-    arc(fb, cx, cy, kDeadInnerR, from, to);
-    arc(fb, cx, cy, kFaceR, from, to);
 }
 
 int32_t vsi_deg(int32_t fpm) {

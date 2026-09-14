@@ -72,6 +72,9 @@ constexpr uint32_t kMaxSampleGapMs = 30000;
 // four times the absolute climb, derated by the fix's own DOP.
 int32_t motion_e8(const FlightSample& sample);
 
+FlightState state_from(uint8_t adsl_code);
+inline bool airborne(uint8_t adsl_code) { return state_from(adsl_code) == FlightState::Airborne; }
+
 // Fed every solution, in order. Holds its state through a fix outage rather
 // than forgetting it: the aircraft is still where it was.
 class FlightMonitor {

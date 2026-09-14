@@ -266,8 +266,7 @@ void FlightLogService::step_erase() {
 }
 
 bool FlightLogService::on_ground() const {
-    if (config_ != nullptr) return config_->flight_state() == comms::FlightState::Ground;
-    return comms::flight_state_from(context_.state.own.flight_state) == comms::FlightState::Ground;
+    return context_.state.confirmed_flight_state == flight::FlightState::OnGround;
 }
 
 const FlightLogService::SessionInfo* FlightLogService::find(uint32_t session_id) const {

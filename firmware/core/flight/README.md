@@ -5,11 +5,20 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 | File | What it decides |
 |---|---|
 | `state` | airborne or on the ground, which gates the DFU lockout and the transmit rate |
+| `ground` | the same answer with a landing held back, which is what a permission gate reads |
 | `timer` | how long this flight has been running |
 | `atmosphere` | the standard atmosphere as integer math: pressure altitude, subscales, vertical speed |
 | `turn` | rate of turn from two reported tracks |
 | `extrapolate` | where an aircraft will be, for the transmitter and the alarm |
 | `log_record`, `log_session` | what a flight leaves behind, and when a session runs |
+
+## ground
+
+`state` answers one question about one solution, and the bus carries that answer as the ADS-L G.1.4 code in `own.flight_state`. `state_from` reads it back, and it is the only place that does: G.1.4 is two bits and we own neither the sender nor the future, so a code this build does not name is `Unknown`, which every gate refuses.
+
+`GroundLatch` is the second question, the one a door asks: may this device be written to, erased, updated. `Unknown` is not a ground - a device that has never had a fix has not proven anything - and once `Airborne` has been seen, only a positive `OnGround` clears it. A fix lost in flight is therefore never a landing: without the latch, a receiver dropping out over a ridge would unlock the firmware update mid-flight, which is the same failure the hold in `state` exists to prevent one layer down.
+
+There is one latch, owned by the service that owns the monitor (`products/skyblip_go/services/ownship.cpp`) and published as `state.confirmed_flight_state`. The DFU and settings gate in `core/comms/config.h` and the flight log's offload gate both read that one value rather than deriving a second opinion or asking each other, so "on the ground" means the same thing to all three.
 
 ## timer
 

@@ -47,11 +47,11 @@ int16_t iatan2(int32_t y, int32_t x) {
     if (ax >= ay) {
         int64_t r = (static_cast<int64_t>(ay) << 14) / (ax ? ax : 1);
         angle = static_cast<int32_t>((r * 0x2000) >> 14);
-        angle -= static_cast<int32_t>(((r * (0x4000 - r)) >> 14) * 0x0AAA >> 14);
+        angle += static_cast<int32_t>(((r * (0x4000 - r)) >> 14) * 0x0AAA >> 14);
     } else {
         int64_t r = (static_cast<int64_t>(ax) << 14) / (ay ? ay : 1);
         angle = static_cast<int32_t>((r * 0x2000) >> 14);
-        angle -= static_cast<int32_t>(((r * (0x4000 - r)) >> 14) * 0x0AAA >> 14);
+        angle += static_cast<int32_t>(((r * (0x4000 - r)) >> 14) * 0x0AAA >> 14);
         angle = 0x4000 - angle;
     }
     if (x < 0) angle = 0x8000 - angle;

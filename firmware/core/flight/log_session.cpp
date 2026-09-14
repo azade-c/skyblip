@@ -38,13 +38,13 @@ void LogSession::reset() {
 }
 
 LogAction LogSession::update(const messages::OwnState& own, uint32_t now_ms) {
-    const bool airborne = own.flight_state == static_cast<uint8_t>(FlightState::Airborne);
+    const bool flying = airborne(own.flight_state);
     // A record with no position or no UTC is a row of zeroes in a flight log.
     // The session survives a fix outage - the aircraft is still where it was -
     // but nothing is written across it.
     const bool usable = own.fix_valid && own.utc_valid;
 
-    if (open_ && !airborne) {
+    if (open_ && !flying) {
         if (usable) {
             LogRecord last = log_record_from(own);
             last.session_end = true;
@@ -61,7 +61,7 @@ LogAction LogSession::update(const messages::OwnState& own, uint32_t now_ms) {
     sampled_ = true;
 
     const LogRecord record = log_record_from(own);
-    if (!airborne && !open_) {
+    if (!flying && !open_) {
         // On the ground and staying there: kept in RAM, never written, and
         // overwritten by the next one. This is the whole answer to "the device
         // does not log while it is parked".

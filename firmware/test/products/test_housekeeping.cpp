@@ -379,12 +379,12 @@ TEST_CASE("product: the gate opens on the ground the fix stream proved, not on a
     // was stuck in - Unknown, forever.
     rig.send("{\"cmd\":\"dfu\"}");
     rig.run(t, 500);
-    CHECK(rig.config().flight_state() == comms::FlightState::Unknown);
+    CHECK(rig.config().flight_state() == flight::FlightState::Unknown);
     CHECK(rig.config().pending() == comms::Pending::None);
     t = 500;
 
     rig.on_ground(t);
-    CHECK(rig.config().flight_state() == comms::FlightState::Ground);
+    CHECK(rig.config().flight_state() == flight::FlightState::OnGround);
     rig.send("{\"cmd\":\"dfu\"}");
     rig.run(t, t + 500);
     t += 500;
@@ -393,7 +393,7 @@ TEST_CASE("product: the gate opens on the ground the fix stream proved, not on a
     // And the same stream takes it away again: the transmitter and the update
     // lockout are reading one decision, not two.
     rig.airborne(t);
-    CHECK(rig.config().flight_state() == comms::FlightState::Airborne);
+    CHECK(rig.config().flight_state() == flight::FlightState::Airborne);
     CHECK(rig.config().pending() == comms::Pending::None);
     CHECK(rig.product.screen().prompt() == comms::Pending::None);
 }

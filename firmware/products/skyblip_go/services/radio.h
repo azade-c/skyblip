@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_RADIO_H
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_RADIO_H
 
+#include "core/flight/state.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
 #include "core/radio/log.h"
@@ -30,8 +31,6 @@ class RadioService : public runtime::Service {
     bool over_budget() const { return over_budget_; }
 
    private:
-    static constexpr uint8_t kFlightStateAirborne = 2;
-
     // Both from micros(), which is 64-bit and does not wrap: nothing about where
     // the radio believes it is inside the second reads the 32-bit millisecond
     // counter (hal/clock.h).

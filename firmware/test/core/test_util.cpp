@@ -3,6 +3,7 @@
 // resolution codecs ADS-L packs its fields into. Every one is a silent failure
 // mode. A varint that rounds the wrong way or an iatan2 that is a quadrant out
 // reaches the pilot as a target in the wrong place, with nothing logged.
+#include <cmath>
 #include <cstdlib>  // std::abs
 #include <cstring>
 #include <string>
@@ -118,6 +119,20 @@ TEST_CASE("intmath: iatan2 cardinal directions (16-bit cyclic)") {
     CHECK(deg(iatan2(0, 1000)) == 0);
     CHECK(std::abs(deg(iatan2(1000, 0)) - 90) <= 1);
     CHECK(std::abs(deg(iatan2(0, -1000)) - 180) <= 1);
+}
+
+// The cardinals were exact while everything between them was up to 8 degrees out.
+TEST_CASE("intmath: iatan2 holds a degree everywhere, not only on the cardinals") {
+    double worst = 0;
+    for (int d = 0; d < 360; d++) {
+        const double rad = d * M_PI / 180.0;
+        const int16_t a = iatan2(static_cast<int32_t>(std::lround(10000 * std::sin(rad))),
+                                 static_cast<int32_t>(std::lround(10000 * std::cos(rad))));
+        const double got = static_cast<double>(a) * 360.0 / 65536.0;
+        const double want = d > 180 ? d - 360 : d;
+        worst = std::fmax(worst, d == 180 ? 0 : std::fabs(got - want));
+    }
+    CHECK(worst < 1.0);
 }
 
 TEST_CASE("format: hex, dec, fixed point") {

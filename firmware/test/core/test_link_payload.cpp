@@ -63,7 +63,7 @@ power::BatteryState full_battery() {
 // flight word, the longest power level, a full cell.
 void make_worst_case(ConfigService& cs) {
     cs.set_reset_reason(power::ResetReason::Lockup);
-    cs.set_flight_state(FlightState::Airborne);
+    cs.set_flight_state(flight::FlightState::Airborne);
     cs.set_battery_state(full_battery(), power::PowerLevel::Cutoff);
 }
 
@@ -171,7 +171,7 @@ TEST_CASE("comms: a link that came up at the BLE minimum is answered with a coun
     link.declare_payload_bytes(hal::kMinimumLinkPayload);
     settings::Settings s = widest_settings();
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
 
     // Nothing in this dialect fits twenty bytes, not even a refusal, so the
     // honest answer is silence and a number - never a notification the
@@ -244,7 +244,7 @@ TEST_CASE("comms: a status push the controller could not take is retried, not lo
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_link_up(messages::LinkUp{1, link.payload_bytes()});
 
     // Out of buffers for one pass - an upload sharing the connection will do
@@ -270,7 +270,7 @@ TEST_CASE("comms: a push that will never fit is counted once and not retried for
     link.declare_payload_bytes(hal::kMinimumLinkPayload);
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.set_flight_state(FlightState::Ground);
+    cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_link_up(messages::LinkUp{1, link.payload_bytes()});
 
     cs.set_battery_state(full_battery(), power::PowerLevel::Normal);

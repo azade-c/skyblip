@@ -385,7 +385,7 @@ TEST_CASE("flight log: an offload is refused in the air, on the same gate a sett
     uint32_t t = 0;
     taxi(rig, t, 20);
     fly(rig, t, 60);
-    REQUIRE(rig.product.config().config().flight_state() == comms::FlightState::Airborne);
+    REQUIRE(rig.product.config().config().flight_state() == flight::FlightState::Airborne);
 
     rig.platform.link().clear();
     rig.send_log("{\"cmd\":\"list\"}");

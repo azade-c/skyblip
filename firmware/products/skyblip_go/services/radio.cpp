@@ -138,8 +138,8 @@ timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
     // says the solution behind it has settled.
     if (!timing::own_ship_transmits(own, context_.state.clock))
         return timing::Transmitter::Attempt{};
-    const bool airborne = own.flight_state == kFlightStateAirborne;
-    return transmitter_.attempt(plan, slot_utc(), now_ms, airborne, fix_lag_ms());
+    return transmitter_.attempt(plan, slot_utc(), now_ms, flight::airborne(own.flight_state),
+                                fix_lag_ms());
 }
 
 // INFO: fc 13sep26 zero when this second's solution is in hand, a whole second when one was missed

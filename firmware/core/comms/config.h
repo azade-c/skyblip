@@ -17,15 +17,7 @@
 
 namespace skyblip::comms {
 
-enum class FlightState : uint8_t { Ground, Airborne, Unknown };
-
 enum class Pending : uint8_t { None, Set, Dfu, Apply, Recovery, PowerOff, EraseLog, GnssCold };
-
-// INFO: cf 02aug26 The gate reads whatever core/flight decided from the fix
-// stream, and only the two codes it recognises mean anything: ADS-L G.1.4
-// OnGround is the single value that can open this door. Every other code, and
-// every value the enum does not name, is Unknown - which refuses.
-FlightState flight_state_from(uint8_t adsl_code);
 
 // What a prompt says it is, and what confirming it will do. The panel and the
 // phone read the same two strings, so a pilot pressing the button and a pilot
@@ -62,8 +54,9 @@ class ConfigService {
                   const timing::SlotTimingStats* timing_stats = nullptr)
         : link_(link), settings_(s), dfu_(dfu), timing_stats_(timing_stats) {}
 
-    void set_flight_state(FlightState fs);
-    FlightState flight_state() const { return flight_; }
+    // INFO: cf 02aug26 OnGround opens this door, latched in core/flight/ground.h
+    void set_flight_state(flight::FlightState fs);
+    flight::FlightState flight_state() const { return flight_; }
 
     // The durable-write policy's own counters, read out beside the dwell
     // histograms because they are measurements of the same second: a write that
@@ -242,22 +235,21 @@ class ConfigService {
     // frame that mixes two subsystems (core/comms/diagnostics.h).
     void send_diagnostics();
     void send_report(DiagnosticsReport& report);
-    static const char* flight_name(FlightState fs);
+    static const char* flight_name(flight::FlightState fs);
     static bool needs_swap_power(Pending pending);
     bool image_staged() const;
-    bool on_ground() const { return flight_ == FlightState::Ground; }
+    bool on_ground() const { return flight_ == flight::FlightState::OnGround; }
 
     hal::Link& link_;
     settings::Settings& settings_;
     hal::Dfu* dfu_;
     const timing::SlotTimingStats* timing_stats_;
     const timing::DurableWriteWindow* writes_{nullptr};
-    FlightState flight_{FlightState::Unknown};
+    flight::FlightState flight_{flight::FlightState::Unknown};
     Diagnostics diag_{};
     bool supply_warned_{false};
     bool link_up_{false};
     bool status_push_due_{false};
-    bool airborne_latched_{false};
     bool power_off_requested_{false};
     bool install_requested_{false};
     bool log_erase_requested_{false};

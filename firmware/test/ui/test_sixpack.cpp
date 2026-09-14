@@ -378,6 +378,10 @@ TEST_CASE("sixpack: the vertical speed dial is marked every 500 fpm and shaded p
     // Ten degrees either side of the horizontal is all the arc no rate can reach.
     CHECK(ink_at(fb, vsi, 90, kBandR));
     CHECK_FALSE(ink_at(fb, vsi, -90));
+
+    // The shading is angled by iatan2, the scale by cordic: they used to disagree by 8 degrees.
+    CHECK_FALSE(ink_at(fb, vsi, 72, kBandR));
+    CHECK_FALSE(ink_at(fb, vsi, 108, kBandR));
 }
 
 // A rate of zero is a rate, not a direction: +0 and -0 are both noise on a glance.

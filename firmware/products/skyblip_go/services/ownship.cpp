@@ -5,7 +5,8 @@
 
 namespace skyblip::go {
 
-uint8_t OwnshipService::flight_state_from(const messages::OwnState& own, uint32_t now_ms) {
+flight::FlightState OwnshipService::flight_state_from(const messages::OwnState& own,
+                                                      uint32_t now_ms) {
     flight::FlightSample sample{};
     sample.at_ms = now_ms;
     sample.speed_q = own.speed_q;
@@ -14,7 +15,7 @@ uint8_t OwnshipService::flight_state_from(const messages::OwnState& own, uint32_
     sample.hdop_e2 = own.hdop_e2;
     sample.fix_valid = own.fix_valid;
     sample.climb_valid = own.climb_valid;
-    return static_cast<uint8_t>(flight_.update(sample));
+    return flight_.update(sample);
 }
 
 void OwnshipService::tick(uint32_t now_ms) {
@@ -25,6 +26,7 @@ void OwnshipService::tick(uint32_t now_ms) {
     while (context_.bus.baro.pop(sample)) apply_baro(sample);
 
     timer_.update(flight_.state(), now_ms);
+    context_.state.confirmed_flight_state = ground_.state();
     context_.state.flight_seconds = timer_.seconds();
     context_.state.flight_time_valid = timer_.flown();
     context_.state.flight_running = timer_.running();
@@ -68,7 +70,9 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& f, uint32_t now_ms
         own.climb_valid = true;
     }
 
-    own.flight_state = flight_state_from(own, now_ms);
+    const flight::FlightState declared = flight_state_from(own, now_ms);
+    own.flight_state = static_cast<uint8_t>(declared);
+    ground_.update(declared);
     update_turn_rate(now_ms);
     update_residual(previous);
 }

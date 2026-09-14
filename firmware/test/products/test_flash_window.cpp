@@ -188,7 +188,7 @@ TEST_CASE("flash window: a change made on the ground is written promptly") {
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
     stand_on_the_ground(rig, t);
-    REQUIRE(rig.product.config().config().flight_state() == comms::FlightState::Ground);
+    REQUIRE(rig.product.config().config().flight_state() == flight::FlightState::OnGround);
 
     const uint32_t asked_at = t;
     change_volume(rig, 3);
