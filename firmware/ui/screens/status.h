@@ -23,11 +23,11 @@ struct StatusSnapshot {
     int32_t alt_m{0};      // GNSS, WGS-84 ellipsoid
     int32_t alt_qnh_m{0};  // barometric altitude on the QNH set below
     int32_t alt_std_m{0};  // pressure altitude, 1013.25 hPa datum (QNE)
-    uint32_t pressure_pa{0};
-    uint32_t qnh_pa{0};    // the altimeter subscale setting
-    uint16_t speed_q{0};   // quarter-m/s
-    uint16_t track_c9{0};  // cordic9
-    int16_t climb_e8{0};   // eighth-m/s
+    uint32_t pressure_mpa{0};
+    uint32_t qnh_pa{0};     // the altimeter subscale setting
+    uint16_t speed_q{0};    // quarter-m/s
+    uint16_t track_c9{0};   // cordic9
+    int32_t climb_mm_s{0};  // as measured, not as transmitted
     uint32_t utc{0};
     int n_targets{0};
     bool battery_valid{false};

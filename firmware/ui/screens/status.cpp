@@ -32,11 +32,6 @@ int32_t kilometres_per_hour(uint16_t speed_q) {
     return (static_cast<int32_t>(speed_q) * 36) / (4 * 10);
 }
 
-// 1 m/s = 196.85 ft/min, from eighth-m/s.
-int32_t feet_per_minute(int16_t climb_e8) {
-    return (static_cast<int32_t>(climb_e8) * 19685) / (8 * 100);
-}
-
 // Draw "LABEL  value" on one row.
 void row(Framebuffer& fb, int y, const char* label, const char* value) {
     fb.draw_text(kLeft, y, label, true, 1);
@@ -90,26 +85,23 @@ void dual_row(Framebuffer& fb, int y, const char* label, Quantity aero, Quantity
 // Both pressures on one line, in the two number columns: what the sensor reads,
 // and the subscale the altitudes below are read against. Neither is aero-vs-SI,
 // so they share the one unit.
-void pressure_row(Framebuffer& fb, int y, uint32_t pressure_pa, uint32_t qnh_pa) {
-    // Whole hectopascals: five cells hold no decimal, and a subscale is set in
-    // whole hPa anyway.
-    char baro[8];
-    int n = fmt_uint(baro, (pressure_pa + 50) / 100, 1);
+void pressure_row(Framebuffer& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa) {
+    char baro[12];
+    int n = fmt_uint(baro, pressure_mpa / 100, 1, 3);
     baro[n] = 0;
 
-    // "QNH 1013" is three cells wider than the value field, so it grows left
-    // into the gap and the barometer's own unit gives up its cells: one hPa at
-    // the end serves both numbers, and it lands in the unit column with every
-    // other unit on the page.
-    char qnh[12];
-    n = fmt_string(qnh, "QNH ");
+    char qnh[8];
+    n = fmt_string(qnh, "Q");
     if (qnh_pa != 0)
         n += fmt_uint(qnh + n, (qnh_pa + 50) / 100, 1);
     else
         n += fmt_string(qnh + n, "----");
     qnh[n] = 0;
 
-    text_row(fb, y, "BARO", baro, "", qnh, " hPa");
+    fb.draw_text(kLeft, y, "BARO", true, 1);
+    right_aligned(fb, kAeroUnitEnd, y, baro, length(baro));
+    right_aligned(fb, kSiNumberEnd, y, qnh, length(qnh));
+    fb.draw_text(kSiUnitX, y, " hPa", true, 1);
 }
 
 // Volts and state of charge, and the fact that decides which of the two curves
@@ -215,7 +207,7 @@ void draw_status(Framebuffer& fb, const StatusSnapshot& s) {
     // 1013.25 hPa standard setting - the one a flight level counts in hundreds
     // of feet. Then the motion pair.
     if (s.baro_valid) {
-        pressure_row(fb, y, s.pressure_pa, s.qnh_pa);
+        pressure_row(fb, y, s.pressure_mpa, s.qnh_pa);
         y += kLineH;
 
         dual_row(fb, y, "ALT", {to_feet(Metres(s.alt_qnh_m)).v, 0, " ft"}, {s.alt_qnh_m, 0, " m"},
@@ -238,8 +230,8 @@ void draw_status(Framebuffer& fb, const StatusSnapshot& s) {
              {kilometres_per_hour(s.speed_q), 0, " km/h"}, true);
     y += kLineH;
 
-    dual_row(fb, y, "VS", {feet_per_minute(s.climb_e8), 0, " fpm"},
-             {(static_cast<int32_t>(s.climb_e8) * 10) / 8, 1, " m/s"}, false);
+    dual_row(fb, y, "VS", {to_feet_per_minute(MillimetresPerSec(s.climb_mm_s)).v, 0, " fpm"},
+             {s.climb_mm_s / 10, 2, " m/s"}, false);
     y += kLineH;
 
     battery_row(fb, y, s);

@@ -120,6 +120,10 @@ Every reading on this page is a measurement except two, and those two are states
 
 The first row is the receiver. `GNSS 3D 9 SAT` when there is a fix, `2D` under four satellites because four is the fewest that can solve for altitude whatever the receiver calls its solution, and `GNSS NO FIX` when there is not: the label names the sensor and the value names the state, where `FIX` as a label read like a claim the page was not always able to make. The satellite count goes with the fix rather than reading `--` beside it, because the count a receiver reports is satellites used in the solution, and there is no solution to have used any.
 
+The barometer row reads the sensor, not a rounding of it: `1013.252 Q1013 hPa` is the BME280's own pressure to the tenth of a pascal beside the subscale the altitudes under it are read against. A pascal is nine centimetres of altitude at sea level, so a page that printed whole hectopascals threw away three digits the part measures and left a bench with no way to see the sensor breathing. The subscale contracts to the METAR's own `Q1013` to make room, and the one `hPa` at the end serves both numbers.
+
+The vertical speed is the measurement too, in millimetres per second, not the 0.125 m/s the radio transmits: that unit is 24.6 ft/min wide, so a page driven off it would step the needle in 25 fpm jumps that no barometer put there. `core/flight/README.md` has what the chain resolves.
+
 The last field of the traffic row is `TX ON` or `TX OFF`, and it answers the question the page exists for: is anyone being told where this aircraft is. It used to read `PPS OK`, which named a pin on a part, was not a thing a pilot could act on, and was not on its own enough to put a burst on air. What it reports now is `timing::own_ship_transmits`, the same predicate `RadioService` refuses an attempt with, so the glass cannot disagree with the radio. When it reads `OFF` the reason is the row above: no fix, or no UTC. The one case it does not distinguish is the 20 s settle after acquisition (`gnss::kFirstFixSettleMs`), which passes on its own. PPS lock itself is support's business and lives in the timing report.
 
 ## settings

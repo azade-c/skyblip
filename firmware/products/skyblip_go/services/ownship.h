@@ -7,6 +7,7 @@
 #include "core/flight/timer.h"
 #include "core/gnss/first_fix.h"
 #include "runtime/service.h"
+#include "runtime/tasks.h"
 
 namespace skyblip::go {
 
@@ -36,28 +37,27 @@ class OwnshipService : public runtime::Service {
     void update_derived_qnh(const messages::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const messages::OwnState& previous);
-    bool vs_from_alt_cm(int32_t alt_cm, uint32_t now_ms, uint32_t window_ms, int32_t& ref_alt_cm,
-                        uint32_t& ref_ms, int16_t& out_e8) const;
+    void adopt_climb(int32_t mm_s);
+    bool vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms, int32_t& ref_alt_mm,
+                        uint32_t& ref_ms, int32_t& out_mm_s) const;
 
     flight::FlightMonitor flight_{};
     flight::FlightTimer timer_{};
     flight::GroundLatch ground_{};
     gnss::FirstFix settle_{};
-    int32_t vs_ref_alt_cm_{0};
+    int32_t vs_ref_alt_mm_{0};
     uint32_t vs_ref_ms_{0};
-    int32_t baro_ref_alt_cm_{0};
+    int32_t baro_ref_alt_mm_{0};
     uint32_t baro_ref_ms_{0};
     uint32_t turn_ref_ms_{0};
     uint16_t turn_ref_track_c9_{0};
     int32_t qnh_filter_acc_{0};
 
     static constexpr uint32_t kVsWindowMs = 2000;
-    // Pressure is far quieter than differentiated GNSS altitude, so the same
-    // confidence needs a shorter window - which is the point of having a baro.
-    static constexpr uint32_t kBaroVsWindowMs = 1000;
+    static constexpr uint32_t kBaroVsWindowMs = runtime::kBaroPeriodMs / 2;
     static constexpr uint32_t kTurnWindowMs = 1000;
-    static constexpr int32_t kQnhHalfMinuteWeight = 128;
-    static constexpr int16_t kQnhSteadyClimbE8 = 32;
+    static constexpr int32_t kQnhHalfMinuteSamples = 32;
+    static constexpr int32_t kQnhSteadyClimbMmS = 4000;
 };
 
 }  // namespace skyblip::go

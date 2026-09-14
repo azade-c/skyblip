@@ -459,7 +459,7 @@ TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {
     s.sats = 9;
     s.alt_m = 1500;
     s.speed_q = 80;
-    s.climb_e8 = 16;
+    s.climb_mm_s = 2000;
     s.track_c9 = 128;
     draw_status(both, s);
 
@@ -468,12 +468,27 @@ TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {
     Framebuffer with_baro;
     StatusSnapshot b = s;
     b.baro_valid = true;
-    b.pressure_pa = 84556;
+    b.pressure_mpa = 84556000;
     b.qnh_pa = 101325;
     b.alt_qnh_m = 1500;
     b.alt_std_m = 1500;
     draw_status(with_baro, b);
     CHECK(with_baro.count_black() > both.count_black());
+}
+
+TEST_CASE("status: the barometer row reads what the sensor resolves, beside the subscale") {
+    Framebuffer fb;
+    StatusSnapshot s;
+    s.baro_valid = true;
+    s.pressure_mpa = 101325253;  // the BME280's own tenths of a pascal
+    s.qnh_pa = 101300;
+    s.climb_mm_s = -1234;  // -242 fpm, a rate the 0.125 m/s of ADS-L cannot hold
+    draw_status(fb, s);
+
+    CHECK(reads_in(fb, "1013.252", 0, 85, 200, 105));
+    CHECK(reads_in(fb, "Q1013", 0, 85, 200, 105));
+    CHECK(reads_in(fb, "-242", 0, 165, 200, 185));
+    CHECK(reads_in(fb, "-1.23", 0, 165, 200, 185));
 }
 
 TEST_CASE("status: the battery row states the voltage, the charge and which curve") {
@@ -575,7 +590,7 @@ TEST_CASE("panel model: the driver's own output is what the model shows") {
     s.fix_valid = true;
     s.alt_m = 900;
     s.baro_valid = true;
-    s.pressure_pa = 90810;
+    s.pressure_mpa = 90810000;
     draw_status(fb, s);
 
     skyblip::models::Ssd1681 panel;

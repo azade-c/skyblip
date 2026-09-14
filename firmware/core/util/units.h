@@ -39,6 +39,20 @@ struct EighthMetresPerSec {
     constexpr explicit EighthMetresPerSec(int16_t e) : v(e) {}
 };
 
+struct MillimetresPerSec {
+    int32_t v{0};
+    constexpr MillimetresPerSec() = default;
+    constexpr explicit MillimetresPerSec(int32_t mm) : v(mm) {}
+};
+struct FeetPerMinute {
+    int32_t v{0};
+    constexpr FeetPerMinute() = default;
+    constexpr explicit FeetPerMinute(int32_t f) : v(f) {}
+};
+constexpr FeetPerMinute to_feet_per_minute(MillimetresPerSec mm) {
+    return FeetPerMinute(static_cast<int32_t>((static_cast<int64_t>(mm.v) * 19685) / 100000));
+}
+
 struct Cordic9 {
     uint16_t v{0};
     constexpr Cordic9() = default;

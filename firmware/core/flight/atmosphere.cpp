@@ -32,35 +32,51 @@ constexpr int32_t kAltCm[] = {
 constexpr int kN = static_cast<int>(sizeof(kAltCm) / sizeof(kAltCm[0]));
 constexpr uint32_t kHiPa = kLoPa + static_cast<uint32_t>(kN - 1) * kStepPa;
 
+constexpr uint32_t kMilli = 1000;
+constexpr uint32_t kLoMpa = kLoPa * kMilli;
+constexpr uint32_t kHiMpa = kHiPa * kMilli;
+constexpr uint32_t kStepMpa = kStepPa * kMilli;
+
+constexpr int32_t alt_mm_at(int i) { return kAltCm[i] * 10; }
+
 }  // namespace
 
-int32_t pressure_to_alt_cm(uint32_t pa) {
-    if (pa <= kLoPa) return kAltCm[0];
-    if (pa >= kHiPa) return kAltCm[kN - 1];
+int32_t pressure_to_alt_mm(uint32_t mpa) {
+    if (mpa <= kLoMpa) return alt_mm_at(0);
+    if (mpa >= kHiMpa) return alt_mm_at(kN - 1);
 
-    const uint32_t off = pa - kLoPa;
-    const int i = static_cast<int>(off / kStepPa);
-    const uint32_t frac = off % kStepPa;
-    if (frac == 0) return kAltCm[i];
+    const uint32_t off = mpa - kLoMpa;
+    const int i = static_cast<int>(off / kStepMpa);
+    const uint32_t frac = off % kStepMpa;
+    if (frac == 0) return alt_mm_at(i);
 
     // Table descends with pressure, so the step is negative. Interpolate on it.
-    const int32_t span = kAltCm[i + 1] - kAltCm[i];
-    return kAltCm[i] + static_cast<int32_t>((static_cast<int64_t>(span) * frac) / kStepPa);
+    const int64_t span = alt_mm_at(i + 1) - alt_mm_at(i);
+    return alt_mm_at(i) + static_cast<int32_t>((span * frac) / kStepMpa);
 }
 
-uint32_t alt_cm_to_pressure(int32_t alt_cm) {
-    if (alt_cm >= kAltCm[0]) return kLoPa;
-    if (alt_cm <= kAltCm[kN - 1]) return kHiPa;
+int32_t pressure_to_alt_cm(uint32_t pa) {
+    if (pa >= kHiPa) return kAltCm[kN - 1];
+    return pressure_to_alt_mm(pa * kMilli) / 10;
+}
 
-    uint32_t lo = kLoPa, hi = kHiPa;
+uint32_t alt_mm_to_pressure_mpa(int32_t alt_mm) {
+    if (alt_mm >= alt_mm_at(0)) return kLoMpa;
+    if (alt_mm <= alt_mm_at(kN - 1)) return kHiMpa;
+
+    uint32_t lo = kLoMpa, hi = kHiMpa;
     while (hi - lo > 1) {
         const uint32_t mid = lo + (hi - lo) / 2;
-        if (pressure_to_alt_cm(mid) > alt_cm)
+        if (pressure_to_alt_mm(mid) > alt_mm)
             lo = mid;  // still too high up: raise the pressure
         else
             hi = mid;
     }
     return hi;
+}
+
+uint32_t alt_cm_to_pressure(int32_t alt_cm) {
+    return (alt_mm_to_pressure_mpa(alt_cm * 10) + kMilli / 2) / kMilli;
 }
 
 int32_t alt_cm_on_setting(uint32_t pa, uint32_t setting_pa) {
@@ -74,16 +90,21 @@ bool qnh_from_alt(uint32_t pa, int32_t alt_msl_cm, uint32_t& out_pa) {
     return true;
 }
 
-bool climb_e8_from_alt(int32_t alt_cm_now, int32_t alt_cm_then, uint32_t dt_ms, int16_t& out_e8) {
+bool climb_mm_s_from_alt(int32_t alt_mm_now, int32_t alt_mm_then, uint32_t dt_ms,
+                         int32_t& out_mm_s) {
     if (dt_ms < kMinWindowMs || dt_ms > kMaxWindowMs) return false;
 
-    // cm over ms -> eighth-metres per second: (dcm/100) / (dt/1000) * 8.
-    const int64_t d_cm = static_cast<int64_t>(alt_cm_now) - alt_cm_then;
-    int64_t e8 = (d_cm * 80) / static_cast<int64_t>(dt_ms);
+    const int64_t d_mm = static_cast<int64_t>(alt_mm_now) - alt_mm_then;
+    out_mm_s = static_cast<int32_t>((d_mm * 1000) / static_cast<int64_t>(dt_ms));
+    return true;
+}
+
+int16_t climb_e8_from_mm_s(int32_t mm_s) {
+    const int64_t eighths = static_cast<int64_t>(mm_s) * 8;
+    int64_t e8 = (eighths >= 0 ? eighths + 500 : eighths - 500) / 1000;
     if (e8 > 32767) e8 = 32767;
     if (e8 < -32768) e8 = -32768;
-    out_e8 = static_cast<int16_t>(e8);
-    return true;
+    return static_cast<int16_t>(e8);
 }
 
 }  // namespace skyblip::flight

@@ -25,7 +25,7 @@ void ScreenService::handle_input(uint32_t now_ms) {
     if (pending != prompt_) {
         prompt_ = pending;
         prompt_since_ms_ = now_ms;
-        repaint_through_black();
+        change_screen();
         gesture_.disarm();
         prompt_on_glass_ = false;
     }
@@ -92,21 +92,21 @@ void ScreenService::sync_editor(uint32_t now_ms) {
     editor_.leave();
 }
 
-void ScreenService::repaint_through_black() {
+void ScreenService::change_screen() {
     dirty_ = true;
-    flash_pending_ = true;
+    change_ = Change::Asked;
 }
 
 void ScreenService::dismiss_self_test(uint32_t now_ms) {
     showing_self_test_ = false;
     editor_.enter(now_ms);
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::enter_settings(uint32_t now_ms) {
     mode_ = Mode::Settings;
     sync_editor(now_ms);
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::page_forward(uint32_t now_ms) {
@@ -123,7 +123,7 @@ void ScreenService::page_forward(uint32_t now_ms) {
 void ScreenService::show_radar() {
     if (mode_ == Mode::Settings) leave_settings();
     page_ = Page::Radar;
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::leave_settings() {
@@ -131,7 +131,7 @@ void ScreenService::leave_settings() {
     showing_self_test_ = false;
     editor_.leave();
     page_ = traffic_page();
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::step_editor(uint32_t now_ms) {
@@ -178,7 +178,7 @@ void ScreenService::resolve(ui::Gesture gesture) {
     prompt_ = comms::Pending::None;
     gesture_.disarm();
     prompt_on_glass_ = false;
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::tick(uint32_t now_ms) {
@@ -206,14 +206,15 @@ void ScreenService::tick(uint32_t now_ms) {
     if (!dirty_ && now_ms - last_render_ms_ < kRenderPeriodMs) return;
     if (!context_.roles.display.ready(now_ms)) return;
 
-    if (flash_pending_) {
-        flash_pending_ = false;
-        if (transitions_through_black()) {
-            present_black(now_ms);
+    if (change_ == Change::Asked) {
+        change_ = Change::None;
+        if (!alarm_standing()) {
+            wipe_glass(now_ms);
             return;
         }
     }
-    if (presented_once_ && !flashed_ && now_ms - last_present_ms_ < kPresentFloorMs) return;
+    if (presented_once_ && change_ != Change::Wiped && now_ms - last_present_ms_ < kPresentFloorMs)
+        return;
 
     last_render_ms_ = now_ms;
     dirty_ = false;
@@ -234,22 +235,19 @@ ScreenService::Thermal ScreenService::thermal() const {
     return Thermal::Refresh;
 }
 
-// INFO: fc 09mar26 SoftRF runs this glass on partials alone, power-on to power-off
-bool ScreenService::transitions_through_black() const { return context_.state.alarm_level == 0; }
-
-// INFO: fc 09mar26 SoftRF's page transition: all black through the partial waveform, then the page
-void ScreenService::present_black(uint32_t now_ms) {
+// INFO: fc 09mar26 SoftRF changes page on partials alone: all black through the waveform, then it
+void ScreenService::wipe_glass(uint32_t now_ms) {
     fb_.clear(/*white=*/false);
     context_.roles.display.paint_black(now_ms);
     note_presented(now_ms);
     prompt_on_glass_ = false;
     last_render_ms_ = now_ms;
     dirty_ = true;
-    flashed_ = true;
+    change_ = Change::Wiped;
 }
 
 void ScreenService::note_presented(uint32_t now_ms) {
-    flashed_ = false;
+    change_ = Change::None;
     std::memcpy(presented_.data(), fb_.data(), ui::Framebuffer::kBytes);
     presented_once_ = true;
     context_.state.panel_presented = true;
@@ -266,7 +264,7 @@ void ScreenService::next_page() {
             break;
         }
     }
-    repaint_through_black();
+    change_screen();
 }
 
 void ScreenService::set_backlight(bool on) {
@@ -279,7 +277,7 @@ void ScreenService::set_power(bool on) {
     if (on) {
         park_ = ParkStep::None;
         context_.roles.display.power_on();
-        repaint_through_black();
+        change_screen();
         return;
     }
     dirty_ = true;
@@ -455,7 +453,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.alt_m = own.alt_m;
             snap.speed_q = own.speed_q;
             snap.track_c9 = own.track_c9;
-            snap.climb_e8 = own.climb_e8;
+            snap.climb_mm_s = own.climb_mm_s;
             snap.utc = own.utc;
             snap.n_targets = context_.state.traffic.count();
             snap.baro_valid = context_.state.baro_active;
@@ -470,13 +468,12 @@ void ScreenService::render(uint32_t now_ms) {
             const power::PowerLevel level = context_.state.power_level;
             snap.battery_low =
                 level == power::PowerLevel::Low || level == power::PowerLevel::Cutoff;
-            snap.pressure_pa = context_.state.pressure_pa;
+            snap.pressure_mpa = context_.state.pressure_mpa;
             snap.qnh_pa = context_.state.qnh_pa;
             if (context_.state.baro_active) {
-                snap.alt_qnh_m =
-                    flight::alt_cm_on_setting(context_.state.pressure_pa, context_.state.qnh_pa) /
-                    100;
-                snap.alt_std_m = flight::pressure_to_alt_cm(context_.state.pressure_pa) / 100;
+                const uint32_t pa = context_.state.pressure_mpa / 1000;
+                snap.alt_qnh_m = flight::alt_cm_on_setting(pa, context_.state.qnh_pa) / 100;
+                snap.alt_std_m = flight::pressure_to_alt_cm(pa) / 100;
             }
             ui::draw_status(fb_, snap);
             break;

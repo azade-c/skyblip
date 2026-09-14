@@ -12,6 +12,26 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 | `extrapolate` | where an aircraft will be, for the transmitter and the alarm |
 | `log_record`, `log_session` | what a flight leaves behind, and when a session runs |
 
+## atmosphere
+
+Pressure is the only altitude source that is datum-free in a useful way: a rate derived from it needs no agreement with anyone. That is what the module is for. It is deliberately not the altitude skyBlip broadcasts, because the collision alarm compares relative altitude against other aircraft (`core/traffic/alarm.h`, a 300 m window), so every participant must share one datum and which one belongs to the ADS-L spec, not to us.
+
+The curve is the ICAO troposphere formula tabulated at 500 Pa steps and interpolated, in millipascals to millimetres. Those units are not ambition, they are what the part resolves and where the resolution goes:
+
+| Link | Resolution | As altitude |
+|---|---|---|
+| BME280 at the driver's x16 / x2 oversampling and IIR 4 | 0.5 Pa RMS noise | 4 cm |
+| what Zephyr's `sensor_value` carries | 1/256 Pa | 1.5 cm |
+| `pressure_to_alt_mm` | 1 mPa | 0.008 mm |
+| table interpolation against the closed form | | under 25 cm, a bias, not jitter |
+| `climb_e8_from_mm_s`, the ADS-L G.1.9 unit | 0.125 m/s | 24.6 ft/min of rate |
+
+The chain used to truncate the driver's reading to a whole pascal, which is nine centimetres at sea level, twice the sensor's own noise and forty times what the driver handed over: over a one-second window that is 17 ft/min of quantisation invented after the measurement. Millipascals cost nothing here - the table lookup is the same two loads and a multiply - and what they buy is a vertical speed whose error is the barometer's rather than ours.
+
+The rate is therefore measured in mm/s and encoded to eighths of a metre per second only where the radio needs it (`core/protocol/adsl.cpp`). Every screen, and the `$LK8EX1` vario, reads the measurement. `kMinWindowMs` and `kMaxWindowMs` bound the interval a rate may be taken over: too short and the sensor noise is the answer, too long and it is history.
+
+The barometer is sampled once a second on the PPS edge (`boards/lilygo/t_echo_plus/board.h`), so the second a rate is taken over is the second the fix stream is dated in. That needs the part in forced mode: in Zephyr's default normal mode the chip converts on its own standby timer and a read returns a sample of unknown age, which is the one error differentiating over that second cannot survive.
+
 ## ground
 
 `state` answers one question about one solution, and the bus carries that answer as the ADS-L G.1.4 code in `own.flight_state`. `state_from` reads it back, and it is the only place that does: G.1.4 is two bits and we own neither the sender nor the future, so a code this build does not name is `Unknown`, which every gate refuses.

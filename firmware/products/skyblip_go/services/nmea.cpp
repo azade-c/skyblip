@@ -150,7 +150,7 @@ void NmeaService::emit_ownship() {
 // present for the same reason.
 void NmeaService::emit_altitude() {
     if (!context_.state.baro_active) return;
-    const int32_t alt_cm = flight::pressure_to_alt_cm(context_.state.pressure_pa);
+    const int32_t alt_cm = flight::pressure_to_alt_cm(context_.state.pressure_mpa / 1000);
     write(sentence_,
           protocol::format_pgrmz(sentence_, sizeof(sentence_), centimetres_to_feet(alt_cm),
                                  context_.state.own.fix_valid));
@@ -174,21 +174,18 @@ void NmeaService::emit_vario_and_battery() {
     protocol::Lk8Ex1 v{};
 
     if (context_.state.baro_active) {
-        v.pressure_pa = context_.state.pressure_pa;
+        v.pressure_pa = context_.state.pressure_mpa / 1000;
         v.has_pressure = true;
         // Field 2 is the 1013.25 datum, the same datum-free figure $PGRMZ
         // carries and for the same reason: the consumer applies its own
         // subscale. A consumer that read field 1 recomputes this and ignores it.
-        v.alt_m = flight::pressure_to_alt_cm(context_.state.pressure_pa) / 100;
+        v.alt_m = flight::pressure_to_alt_cm(context_.state.pressure_mpa / 1000) / 100;
         v.has_alt = true;
     }
 
-    // Eighths of a metre per second to centimetres per second, rounded away from
-    // zero: 100/8 is 12.5, so the halves are real and dropping them would bias
-    // every climb towards level flight.
     if (own.climb_valid) {
-        const int32_t eighths = static_cast<int32_t>(own.climb_e8) * 25;
-        v.vario_cm_s = (eighths >= 0 ? eighths + 1 : eighths - 1) / 2;
+        const int32_t mm_s = own.climb_mm_s;
+        v.vario_cm_s = (mm_s >= 0 ? mm_s + 5 : mm_s - 5) / 10;
         v.has_vario = true;
     }
 

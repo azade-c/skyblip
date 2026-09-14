@@ -24,7 +24,8 @@ constexpr uint32_t kTaskWatchdogMs = 5000;
 constexpr uint32_t kHardwareWatchdogMs = 12000;
 constexpr uint32_t kRadioNoRxReinitMs = 30000;
 constexpr uint32_t kPpsLossListenOnlyMs = 60000;
-constexpr uint32_t kBaroPeriodMs = 250;
+constexpr uint32_t kBaroPeriodMs = 1000;
+constexpr uint32_t kBaroPpsWindowMs = 2 * kServiceStepMs;
 // A cell moves over minutes. The gauge needs three readings before it can throw
 // out a transient, so a second between them is the slowest cadence that still
 // shows the state of charge on the first screen a pilot sees.

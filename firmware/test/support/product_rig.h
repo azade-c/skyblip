@@ -110,7 +110,8 @@ struct Rig {
     }
 
     void push_baro(int32_t alt_cm, uint32_t at_ms) {
-        product.bus().baro.push(messages::BaroSample{flight::alt_cm_to_pressure(alt_cm), at_ms});
+        product.bus().baro.push(
+            messages::BaroSample{flight::alt_mm_to_pressure_mpa(alt_cm * 10), at_ms});
     }
 
     // Held across steps, then released across steps: ui::Button only reports a

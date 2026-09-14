@@ -72,43 +72,60 @@ TEST_CASE("atmosphere: a pressure and a height that no weather explains is refus
     CHECK(derived == 7);
 }
 
-TEST_CASE("atmosphere: climb rate in eighth-m/s, both signs") {
-    int16_t e8 = 0;
-    // +10 m over 2 s = +5 m/s = 40 eighths.
-    REQUIRE(flight::climb_e8_from_alt(101000, 100000, 2000, e8));
-    CHECK(e8 == 40);
+TEST_CASE("atmosphere: climb rate in mm/s, both signs") {
+    int32_t mm_s = 0;
+    // +10 m over 2 s = +5 m/s.
+    REQUIRE(flight::climb_mm_s_from_alt(1010000, 1000000, 2000, mm_s));
+    CHECK(mm_s == 5000);
     // Sinking at the same rate.
-    REQUIRE(flight::climb_e8_from_alt(100000, 101000, 2000, e8));
-    CHECK(e8 == -40);
+    REQUIRE(flight::climb_mm_s_from_alt(1000000, 1010000, 2000, mm_s));
+    CHECK(mm_s == -5000);
     // Level flight.
-    REQUIRE(flight::climb_e8_from_alt(100000, 100000, 2000, e8));
-    CHECK(e8 == 0);
+    REQUIRE(flight::climb_mm_s_from_alt(1000000, 1000000, 2000, mm_s));
+    CHECK(mm_s == 0);
+}
+
+TEST_CASE("atmosphere: a rate finer than the ADS-L unit survives the measurement") {
+    // 12 cm in a second is a fifth of the 0.125 m/s ADS-L transmits in.
+    int32_t mm_s = 0;
+    REQUIRE(flight::climb_mm_s_from_alt(1000120, 1000000, 1000, mm_s));
+    CHECK(mm_s == 120);
+    CHECK(flight::climb_e8_from_mm_s(mm_s) == 1);
+    CHECK(flight::climb_e8_from_mm_s(-mm_s) == -1);
+    CHECK(flight::climb_e8_from_mm_s(5000) == 40);
+    CHECK(flight::climb_e8_from_mm_s(0) == 0);
 }
 
 TEST_CASE("atmosphere: an unusable window is refused, not guessed at") {
-    int16_t e8 = 123;
-    CHECK_FALSE(flight::climb_e8_from_alt(101000, 100000, 0, e8));
-    CHECK_FALSE(flight::climb_e8_from_alt(101000, 100000, 100, e8));
-    CHECK_FALSE(flight::climb_e8_from_alt(101000, 100000, 60000, e8));
-    CHECK(e8 == 123);  // the caller's value is left alone
+    int32_t mm_s = 123;
+    CHECK_FALSE(flight::climb_mm_s_from_alt(1010000, 1000000, 0, mm_s));
+    CHECK_FALSE(flight::climb_mm_s_from_alt(1010000, 1000000, 100, mm_s));
+    CHECK_FALSE(flight::climb_mm_s_from_alt(1010000, 1000000, 60000, mm_s));
+    CHECK(mm_s == 123);  // the caller's value is left alone
 }
 
 TEST_CASE("atmosphere: an absurd rate saturates instead of overflowing int16") {
-    int16_t e8 = 0;
-    REQUIRE(flight::climb_e8_from_alt(900000, -50000, 500, e8));
-    CHECK(e8 == 32767);
-    REQUIRE(flight::climb_e8_from_alt(-50000, 900000, 500, e8));
-    CHECK(e8 == -32768);
+    int32_t mm_s = 0;
+    REQUIRE(flight::climb_mm_s_from_alt(9000000, -500000, 500, mm_s));
+    CHECK(flight::climb_e8_from_mm_s(mm_s) == 32767);
+    REQUIRE(flight::climb_mm_s_from_alt(-500000, 9000000, 500, mm_s));
+    CHECK(flight::climb_e8_from_mm_s(mm_s) == -32768);
 }
 
 TEST_CASE("atmosphere: a real climb through the table reads back as its rate") {
     // 1000 m to 1010 m in 2 s is +5 m/s, computed only from pressures.
-    const uint32_t p0 = flight::alt_cm_to_pressure(100000);
-    const uint32_t p1 = flight::alt_cm_to_pressure(101000);
-    int16_t e8 = 0;
-    REQUIRE(flight::climb_e8_from_alt(flight::pressure_to_alt_cm(p1),
-                                      flight::pressure_to_alt_cm(p0), 2000, e8));
-    CHECK(e8 == doctest::Approx(40).epsilon(0.05));
+    const uint32_t p0 = flight::alt_mm_to_pressure_mpa(1000000);
+    const uint32_t p1 = flight::alt_mm_to_pressure_mpa(1010000);
+    int32_t mm_s = 0;
+    REQUIRE(flight::climb_mm_s_from_alt(flight::pressure_to_alt_mm(p1),
+                                        flight::pressure_to_alt_mm(p0), 2000, mm_s));
+    CHECK(mm_s == doctest::Approx(5000).epsilon(0.005));
+}
+
+TEST_CASE("atmosphere: a pascal is centimetres of altitude, so the curve is walked finer") {
+    const int32_t sea = flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000);
+    CHECK(flight::pressure_to_alt_mm((flight::kIsaSeaLevelPa - 1) * 1000) - sea == 83);
+    CHECK(sea - flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000 + 1000) == 83);
 }
 
 TEST_CASE("atmosphere: a subscale setting is what the reading is measured from") {

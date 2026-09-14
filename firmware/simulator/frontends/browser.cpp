@@ -108,8 +108,8 @@ KEEPALIVE int simulator_sats() { return g_simulator.product().state().own.sats; 
 KEEPALIVE int simulator_lat_1e7() { return g_simulator.product().state().own.lat_1e7; }
 KEEPALIVE int simulator_lon_1e7() { return g_simulator.product().state().own.lon_1e7; }
 KEEPALIVE int simulator_alt_m() { return g_simulator.product().state().own.alt_m; }
-KEEPALIVE int simulator_pressure_pa() {
-    return static_cast<int>(g_simulator.product().state().pressure_pa);
+KEEPALIVE int simulator_pressure_mpa() {
+    return static_cast<int>(g_simulator.product().state().pressure_mpa);
 }
 KEEPALIVE int simulator_battery_mv() { return g_simulator.product().state().battery.millivolts; }
 KEEPALIVE int simulator_battery_percent() { return g_simulator.product().state().battery.percent; }
@@ -118,7 +118,7 @@ KEEPALIVE int simulator_battery_charging() {
 }
 KEEPALIVE int simulator_speed_q() { return g_simulator.product().state().own.speed_q; }
 KEEPALIVE int simulator_track_c9() { return g_simulator.product().state().own.track_c9; }
-KEEPALIVE int simulator_climb_e8() { return g_simulator.product().state().own.climb_e8; }
+KEEPALIVE int simulator_climb_mm_s() { return g_simulator.product().state().own.climb_mm_s; }
 KEEPALIVE int simulator_traffic_count() { return g_simulator.product().state().traffic.count(); }
 KEEPALIVE int simulator_alarm_level() { return g_simulator.product().state().alarm_level; }
 KEEPALIVE int simulator_shutdown_phase() {

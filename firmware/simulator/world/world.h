@@ -122,7 +122,6 @@ class World {
     // A modelled press has to last longer than ui::Button's debounce window or
     // the firmware is right to ignore it.
     static constexpr uint32_t kPressMs = 60;
-    static constexpr uint32_t kBaroPeriodMs = 250;
 
     // Where the ground station is, so a relayed burst arrives at a level a
     // receiver can plausibly hear. A skyPost is a fixed site with a mast and
@@ -138,7 +137,6 @@ class World {
     size_t next_event_{0};
     uint32_t start_ms_{0};
     uint32_t last_aircraft_ms_{0};
-    uint32_t last_baro_ms_{0};
     uint32_t airmass_qnh_pa_{flight::kIsaSeaLevelPa};
     uint32_t press_since_ms_{0};
     uint32_t tap_since_ms_{0};

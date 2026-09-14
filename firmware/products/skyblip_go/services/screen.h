@@ -2,6 +2,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_SCREEN_H
 
 #include "core/comms/config.h"
+#include "core/util/units.h"
 #include "runtime/service.h"
 #include "ui/framebuffer.h"
 #include "ui/input/gesture.h"
@@ -74,7 +75,7 @@ class ScreenService : public runtime::Service {
 
    private:
     void render(uint32_t now_ms);
-    void repaint_through_black();
+    void change_screen();
     void draw_prompt();
     void draw_settings_page();
     void dismiss_self_test(uint32_t now_ms);
@@ -87,8 +88,8 @@ class ScreenService : public runtime::Service {
     void step_editor(uint32_t now_ms);
     void resolve(ui::Gesture gesture);
     Page traffic_page() const;
-    bool transitions_through_black() const;
-    void present_black(uint32_t now_ms);
+    enum class Change : uint8_t { None, Asked, Wiped };
+    void wipe_glass(uint32_t now_ms);
     bool may_present_park_frame() const;
     enum class ParkFrame : uint8_t { Wordmark, Installing, Blank };
     enum class ParkStep : uint8_t { None, Frame, Sleep };
@@ -96,10 +97,11 @@ class ScreenService : public runtime::Service {
     void draw_park_frame(ParkFrame frame);
     void note_presented(uint32_t now_ms);
 
-    // 1 m/s = 196.85 ft/min, from eighth-m/s.
     int32_t climb_fpm() const {
-        return (static_cast<int32_t>(context_.state.own.climb_e8) * 19685) / (8 * 100);
+        return to_feet_per_minute(MillimetresPerSec(context_.state.own.climb_mm_s)).v;
     }
+
+    bool alarm_standing() const { return context_.state.alarm_level != 0; }
 
     bool receiver_listening() const {
         return hal::has(context_.roles.capabilities, hal::Capability::Rf) &&
@@ -134,8 +136,7 @@ class ScreenService : public runtime::Service {
     uint32_t last_present_ms_{0};
     uint8_t last_alarm_{0};
     bool dirty_{true};
-    bool flash_pending_{true};
-    bool flashed_{false};
+    Change change_{Change::Asked};
     bool presented_once_{false};
     bool showing_self_test_{false};
     ParkStep park_{ParkStep::None};

@@ -175,14 +175,14 @@ TEST_CASE("simulator: a modelled climb reaches own-ship state through the barome
     run(h, 0, 6000);
 
     // Both sensors see the same air, and the barometer is what publishes the rate.
-    CHECK(h.product().state().own.climb_e8 > 16);  // more than 2 m/s
-    CHECK(h.product().state().own.climb_e8 < 40);  // and less than 5 m/s
+    CHECK(h.product().state().own.climb_mm_s > 2000);
+    CHECK(h.product().state().own.climb_mm_s < 4000);
     // above sea level
-    CHECK(h.world().baro().pressure_pa() < flight::kIsaSeaLevelPa);
+    CHECK(h.world().baro().pressure_mpa() < flight::kIsaSeaLevelPa * 1000);
 
     h.world().set_climb_e1(-30);  // now sinking
     run(h, 6000, 14000);
-    CHECK(h.product().state().own.climb_e8 < 0);
+    CHECK(h.product().state().own.climb_mm_s < 0);
 }
 
 TEST_CASE("simulator: an escalating threat buzzes and, from 'important', vibrates") {

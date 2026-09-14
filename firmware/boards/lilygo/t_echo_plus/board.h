@@ -106,6 +106,22 @@ class TEchoPlus {
         };
     }
 
+    void poll_baro_on_pps(const timing::ClockState& clock, uint32_t now_ms) {
+        if (!hal::has(capabilities_, hal::Capability::Baro)) return;
+        if (!baro_due(clock, now_ms)) return;
+        last_baro_ms_ = now_ms;
+        uint32_t mpa = 0;
+        if (platform_.read_pressure_mpa(mpa)) bus_.baro.push(messages::BaroSample{mpa, now_ms});
+    }
+
+    bool baro_due(const timing::ClockState& clock, uint32_t now_ms) const {
+        const uint32_t since = now_ms - last_baro_ms_;
+        if (since < runtime::kBaroPeriodMs / 2) return false;
+        if (!clock.pps_locked) return since >= runtime::kBaroPeriodMs;
+        return clock.ms_since_pps < runtime::kBaroPpsWindowMs ||
+               since >= 2 * runtime::kBaroPeriodMs;
+    }
+
     void poll_battery(uint32_t now_ms) {
         if (!hal::has(capabilities_, hal::Capability::Battery)) return;
         if (now_ms - last_battery_ms_ < runtime::kBatteryPeriodMs) return;
@@ -143,13 +159,6 @@ class TEchoPlus {
             if (gnss_.poll()) bus_.gnss.push(gnss_.solution());
         }
 
-        if (hal::has(capabilities_, hal::Capability::Baro) &&
-            now_ms - last_baro_ms_ >= runtime::kBaroPeriodMs) {
-            last_baro_ms_ = now_ms;
-            uint32_t pa = 0;
-            if (platform_.read_pressure_pa(pa)) bus_.baro.push(messages::BaroSample{pa, now_ms});
-        }
-
         poll_battery(now_ms);
 
         const bool button_down = platform_.button_down();
@@ -169,6 +178,7 @@ class TEchoPlus {
         const uint64_t now_us = platform_.clock().micros();
         state.clock.pps_locked = platform_.pps().locked();
         state.clock.ms_since_pps = platform_.pps().ms_since(now_us);
+        poll_baro_on_pps(state.clock, now_ms);
         // The edge itself, as the surface latched it: whoever reads it later
         // reads an instant that has not gone stale in the meantime. Rebuilding
         // it from the millisecond phase threw away up to a millisecond of the

@@ -17,18 +17,13 @@ namespace skyblip::flight {
 // ISA sea-level pressure.
 constexpr uint32_t kIsaSeaLevelPa = 101325;
 
-// Pressure -> ISA pressure altitude, in CENTIMETRES. Centimetres, not metres,
-// because vertical speed is a difference of two of these a second or two apart:
-// at 1 m resolution a 0.5 m/s climb would quantise to nothing.
-//
-// Clamped to the table's range (26000..110000 Pa, about -698..+10108 m), which
-// also covers the ISA troposphere limit: the formula below is only valid to
-// 11 km (22632 Pa) anyway.
+int32_t pressure_to_alt_mm(uint32_t mpa);
 int32_t pressure_to_alt_cm(uint32_t pa);
 
 // The inverse, by bisection over the SAME table, so a caller that needs to go
 // the other way (a modelled barometer, a test) cannot drift from the forward
 // curve. Slower, and never on the flight path.
+uint32_t alt_mm_to_pressure_mpa(int32_t alt_mm);
 uint32_t alt_cm_to_pressure(int32_t alt_cm);
 
 // Altitude above the datum an altimeter subscale names: pressure altitude of
@@ -47,10 +42,9 @@ bool qnh_from_alt(uint32_t pa, int32_t alt_msl_cm, uint32_t& out_pa);
 constexpr uint32_t kMinWindowMs = 500;
 constexpr uint32_t kMaxWindowMs = 10000;
 
-// Vertical speed in eighth-metres per second (the ADS-L climb unit) from two
-// pressure altitudes and the time between them. Returns false when dt is too
-// short to divide by, or so long the answer would be meaningless.
-bool climb_e8_from_alt(int32_t alt_cm_now, int32_t alt_cm_then, uint32_t dt_ms, int16_t& out_e8);
+bool climb_mm_s_from_alt(int32_t alt_mm_now, int32_t alt_mm_then, uint32_t dt_ms,
+                         int32_t& out_mm_s);
+int16_t climb_e8_from_mm_s(int32_t mm_s);
 
 }  // namespace skyblip::flight
 

@@ -7,14 +7,14 @@ namespace skyblip::models {
 
 class Bme280 {
    public:
-    void set_altitude_m(int32_t m) { pressure_pa_ = flight::alt_cm_to_pressure(m * 100); }
+    void set_altitude_mm(int32_t mm) { pressure_mpa_ = flight::alt_mm_to_pressure_mpa(mm); }
 
-    void set_pressure_pa(uint32_t pa) { pressure_pa_ = pa; }
+    void set_pressure_mpa(uint32_t mpa) { pressure_mpa_ = mpa; }
 
-    uint32_t pressure_pa() const { return pressure_pa_; }
+    uint32_t pressure_mpa() const { return pressure_mpa_; }
 
    private:
-    uint32_t pressure_pa_{flight::kIsaSeaLevelPa};
+    uint32_t pressure_mpa_{flight::kIsaSeaLevelPa * 1000};
 };
 
 }  // namespace skyblip::models

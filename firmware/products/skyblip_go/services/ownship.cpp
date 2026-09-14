@@ -62,13 +62,10 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& f, uint32_t now_ms
 
     // A barometer, once it has spoken, owns vertical speed. The GNSS reference
     // keeps moving anyway so losing the sensor falls back seamlessly.
-    int16_t e8 = 0;
+    int32_t mm_s = 0;
     const bool have =
-        vs_from_alt_cm(f.alt_m * 100, now_ms, kVsWindowMs, vs_ref_alt_cm_, vs_ref_ms_, e8);
-    if (have && !baro_active()) {
-        own.climb_e8 = e8;
-        own.climb_valid = true;
-    }
+        vs_from_alt_mm(f.alt_m * 1000, now_ms, kVsWindowMs, vs_ref_alt_mm_, vs_ref_ms_, mm_s);
+    if (have && !baro_active()) adopt_climb(mm_s);
 
     const flight::FlightState declared = flight_state_from(own, now_ms);
     own.flight_state = static_cast<uint8_t>(declared);
@@ -109,14 +106,19 @@ uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& f, uint32_t 
 }
 
 void OwnshipService::apply_baro(const messages::BaroSample& sample) {
-    context_.state.pressure_pa = sample.pressure_pa;
-    const int32_t alt_cm = flight::pressure_to_alt_cm(sample.pressure_pa);
-    int16_t e8 = 0;
-    if (vs_from_alt_cm(alt_cm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_cm_, baro_ref_ms_, e8)) {
-        context_.state.own.climb_e8 = e8;
-        context_.state.own.climb_valid = true;
-    }
+    context_.state.pressure_mpa = sample.pressure_mpa;
+    const int32_t alt_mm = flight::pressure_to_alt_mm(sample.pressure_mpa);
+    int32_t mm_s = 0;
+    if (vs_from_alt_mm(alt_mm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_mm_, baro_ref_ms_, mm_s))
+        adopt_climb(mm_s);
     update_derived_qnh(sample);
+}
+
+void OwnshipService::adopt_climb(int32_t mm_s) {
+    messages::OwnState& own = context_.state.own;
+    own.climb_mm_s = mm_s;
+    own.climb_e8 = flight::climb_e8_from_mm_s(mm_s);
+    own.climb_valid = true;
 }
 
 void OwnshipService::update_derived_qnh(const messages::BaroSample& sample) {
@@ -126,19 +128,19 @@ void OwnshipService::update_derived_qnh(const messages::BaroSample& sample) {
         context_.state.derived_qnh_pa = 0;
         return;
     }
-    const bool manoeuvring =
-        own.climb_valid && (own.climb_e8 > kQnhSteadyClimbE8 || own.climb_e8 < -kQnhSteadyClimbE8);
+    const bool manoeuvring = own.climb_valid && (own.climb_mm_s > kQnhSteadyClimbMmS ||
+                                                 own.climb_mm_s < -kQnhSteadyClimbMmS);
     if (manoeuvring) return;
 
     uint32_t qnh_pa = 0;
-    if (!flight::qnh_from_alt(sample.pressure_pa, own.alt_msl_m * 100, qnh_pa)) return;
+    if (!flight::qnh_from_alt(sample.pressure_mpa / 1000, own.alt_msl_m * 100, qnh_pa)) return;
 
-    const int32_t sampled = static_cast<int32_t>(qnh_pa) * kQnhHalfMinuteWeight;
+    const int32_t sampled = static_cast<int32_t>(qnh_pa) * kQnhHalfMinuteSamples;
     qnh_filter_acc_ = qnh_filter_acc_ == 0
                           ? sampled
-                          : qnh_filter_acc_ + (sampled - qnh_filter_acc_) / kQnhHalfMinuteWeight;
-    context_.state.derived_qnh_pa =
-        static_cast<uint32_t>((qnh_filter_acc_ + kQnhHalfMinuteWeight / 2) / kQnhHalfMinuteWeight);
+                          : qnh_filter_acc_ + (sampled - qnh_filter_acc_) / kQnhHalfMinuteSamples;
+    context_.state.derived_qnh_pa = static_cast<uint32_t>(
+        (qnh_filter_acc_ + kQnhHalfMinuteSamples / 2) / kQnhHalfMinuteSamples);
 }
 
 void OwnshipService::update_turn_rate(uint32_t now_ms) {
@@ -156,18 +158,19 @@ void OwnshipService::update_turn_rate(uint32_t now_ms) {
     turn_ref_track_c9_ = track_c9;
 }
 
-bool OwnshipService::vs_from_alt_cm(int32_t alt_cm, uint32_t now_ms, uint32_t window_ms,
-                                    int32_t& ref_alt_cm, uint32_t& ref_ms, int16_t& out_e8) const {
+bool OwnshipService::vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,
+                                    int32_t& ref_alt_mm, uint32_t& ref_ms,
+                                    int32_t& out_mm_s) const {
     if (ref_ms == 0) {
         ref_ms = now_ms == 0 ? 1 : now_ms;
-        ref_alt_cm = alt_cm;
+        ref_alt_mm = alt_mm;
         return false;
     }
     if (now_ms - ref_ms < window_ms) return false;
 
-    const bool ok = flight::climb_e8_from_alt(alt_cm, ref_alt_cm, now_ms - ref_ms, out_e8);
+    const bool ok = flight::climb_mm_s_from_alt(alt_mm, ref_alt_mm, now_ms - ref_ms, out_mm_s);
     ref_ms = now_ms;
-    ref_alt_cm = alt_cm;
+    ref_alt_mm = alt_mm;
     return ok;
 }
 

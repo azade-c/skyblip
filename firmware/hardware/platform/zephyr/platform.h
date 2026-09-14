@@ -128,8 +128,8 @@ class Platform {
     // identify a DIFFERENT board, one whose buzzer stage pulls the pin down
     // (platform/nRF52.cpp:1265-1275).
     bool buzzer_pin_held_low() const { return board_buzzer_pin_held_low() != 0; }
-    bool read_pressure_pa(uint32_t& out_pa) {
-        return baro_ != nullptr && baro_->read_pressure_pa(out_pa);
+    bool read_pressure_mpa(uint32_t& out_mpa) {
+        return baro_ != nullptr && baro_->read_pressure_mpa(out_mpa);
     }
     bool read_battery_mv(uint16_t& out_mv) { return battery_.read_mv(out_mv); }
     bool external_power() { return zephyr::Battery::external_power(); }

@@ -15,21 +15,27 @@ class Baro {
 
     bool ready() const { return device_is_ready(dev_); }
 
-    // One sample. Returns false and leaves `out_pa` untouched on any failure, so
-    // a sensor that stops answering degrades to "no baro" rather than to a
-    // plausible-looking wrong altitude.
-    bool read_pressure_pa(uint32_t& out_pa) {
+    bool read_pressure_mpa(uint32_t& out_mpa) {
         if (sensor_sample_fetch(dev_) != 0) return false;
         struct sensor_value press{};
         if (sensor_channel_get(dev_, SENSOR_CHAN_PRESS, &press) != 0) return false;
-        // kPa -> Pa, keeping the fractional part: val2 is micro-kPa.
-        const int64_t pa = static_cast<int64_t>(press.val1) * 1000 + press.val2 / 1000;
-        if (pa < 1000 || pa > 200000) return false;  // implausible: treat as a fault
-        out_pa = static_cast<uint32_t>(pa);
+        const int64_t mpa = millipascals(press);
+        if (mpa < kMinPlausibleMpa || mpa > kMaxPlausibleMpa) return false;
+        out_mpa = static_cast<uint32_t>(mpa);
         return true;
     }
 
    private:
+    static constexpr int64_t kMilliPaPerPa = 1000;
+    static constexpr int64_t kMilliPaPerKiloPa = 1000 * kMilliPaPerPa;
+    static constexpr int64_t kMinPlausibleMpa = 1000 * kMilliPaPerPa;
+    static constexpr int64_t kMaxPlausibleMpa = 200000 * kMilliPaPerPa;
+
+    // INFO: fc 14sep26 sensor_value.val2 is micro-kPa, which is the millipascal itself
+    static int64_t millipascals(const struct sensor_value& kpa) {
+        return static_cast<int64_t>(kpa.val1) * kMilliPaPerKiloPa + kpa.val2;
+    }
+
     const struct device* dev_;
 };
 

@@ -317,7 +317,7 @@ TEST_CASE(
     uint32_t t = 0;
     // The air the aircraft is actually flying through, and a subscale nowhere
     // near standard, set on the device the way the settings page sets it.
-    rig.platform.baro().chip.set_pressure_pa(90000);
+    rig.platform.baro().chip.set_pressure_mpa(90000000);
     rig.state().qnh_pa = 98000;
     fly(rig, t, 3);
     rig.raise_link();
@@ -333,9 +333,9 @@ TEST_CASE(
     REQUIRE(f.size() >= 3);
     CHECK(f[2] == "F");
 
-    const int32_t standard_cm = flight::pressure_to_alt_cm(rig.state().pressure_pa);
-    const int32_t on_subscale_cm =
-        flight::alt_cm_on_setting(rig.state().pressure_pa, rig.state().qnh_pa);
+    const uint32_t pressure_pa = rig.state().pressure_mpa / 1000;
+    const int32_t standard_cm = flight::pressure_to_alt_cm(pressure_pa);
+    const int32_t on_subscale_cm = flight::alt_cm_on_setting(pressure_pa, rig.state().qnh_pa);
     const int32_t sent_cm = static_cast<int32_t>(std::stoi(f[1])) * 3048 / 100;
     // What an EFB does with this figure is apply its own QNH, so the figure has
     // to be the datum-free one: pressure altitude on 1013.25. Within a foot of
@@ -357,7 +357,7 @@ TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cad
     uint32_t t = 0;
     // A cell in the flat middle, and air the aircraft is really flying through.
     rig.platform.battery().millivolts = 3800;
-    rig.platform.baro().chip.set_pressure_pa(90000);
+    rig.platform.baro().chip.set_pressure_mpa(90000000);
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
@@ -374,10 +374,10 @@ TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cad
     REQUIRE(f.size() == 6);
     // Field 1 is the raw pressure in pascals, which is what a consumer prefers
     // over field 2 because it can apply its own datum to it.
-    CHECK(std::stol(f[1]) == static_cast<long>(rig.state().pressure_pa));
+    CHECK(std::stol(f[1]) == static_cast<long>(rig.state().pressure_mpa / 1000));
     // Field 2 is metres on 1013.25, the same datum-free figure $PGRMZ carries.
-    CHECK(std::abs(std::stol(f[2]) - flight::pressure_to_alt_cm(rig.state().pressure_pa) / 100) <=
-          1);
+    CHECK(std::abs(std::stol(f[2]) -
+                   flight::pressure_to_alt_cm(rig.state().pressure_mpa / 1000) / 100) <= 1);
     // Field 5 is the gauge's own percentage, offset by 1000. A device that says
     // 55% on its panel and something else on the tablet is a support call.
     CHECK(std::stol(f[5]) == 1000 + rig.state().battery.percent);

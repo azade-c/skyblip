@@ -27,12 +27,9 @@ void World::step(uint32_t now_ms, const bus::State& state) {
     // air. Setting them apart would show a climb rate no real pair can produce.
     // The airmass shifts the pressure the sensor sees, as weather does, without
     // moving the aircraft.
-    if (now_ms - last_baro_ms_ >= kBaroPeriodMs) {
-        last_baro_ms_ = now_ms;
-        const int32_t alt_msl_m = gnss().alt_m - gnss().geoid_separation_m;
-        baro().set_pressure_pa(flight::alt_cm_to_pressure(
-            alt_msl_m * 100 + flight::pressure_to_alt_cm(airmass_qnh_pa_)));
-    }
+    const int32_t alt_msl_mm = gnss().alt_mm() - gnss().geoid_separation_m * 1000;
+    baro().set_pressure_mpa(flight::alt_mm_to_pressure_mpa(
+        alt_msl_mm + flight::pressure_to_alt_mm(airmass_qnh_pa_ * 1000)));
 
     service_button(now_ms);
     service_pad(now_ms);

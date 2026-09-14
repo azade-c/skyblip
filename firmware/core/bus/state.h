@@ -70,7 +70,7 @@ struct State {
     bool flight_running{false};
     flight::FlightState confirmed_flight_state{flight::FlightState::Unknown};
     bool panel_presented{false};
-    uint32_t pressure_pa{0};
+    uint32_t pressure_mpa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.
     uint32_t qnh_pa{flight::kIsaSeaLevelPa};
     uint32_t derived_qnh_pa{0};

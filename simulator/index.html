@@ -429,8 +429,8 @@ function draw() {
   $('t_alt').textContent  = f.alt() + ' m';
   $('t_spd').textContent  = (f.speedQ()/4).toFixed(1) + ' m/s';
   $('t_trk').textContent  = Math.round(f.trackC9()*360/512).toString().padStart(3,'0') + '°';
-  $('t_vs').textContent   = (f.climbE8()/8).toFixed(1) + ' m/s';
-  $('t_baro').textContent = (f.pressurePa()/100).toFixed(1) + ' hPa';
+  $('t_vs').textContent   = (f.climbMmS()/1000).toFixed(2) + ' m/s';
+  $('t_baro').textContent = (f.pressureMpa()/100000).toFixed(3) + ' hPa';
   $('t_bat').textContent  = (f.batteryMv()/1000).toFixed(2) + ' V · ' + f.batteryPercent() + ' %'
                             + (f.batteryCharging() ? ' charging' : '');
   $('t_tfc').textContent  = f.traffic() + ' target(s)';

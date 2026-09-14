@@ -175,6 +175,8 @@ class L76k : public io::Uart, public io::UartRate {
     size_t available() override { return pending_.size(); }
 
     // Advance own-ship along its track and emit an NMEA burst per solution.
+    int32_t alt_mm() const { return alt_m * 1000 + static_cast<int32_t>(climbed_m_ * 1000); }
+
     void tick(uint32_t now_ms) {
         last_tick_ms_ = now_ms;
         // First tick only anchors the cadence. Anchoring on `last_ms_ == 0`

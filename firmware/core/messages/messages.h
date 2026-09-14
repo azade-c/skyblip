@@ -57,6 +57,7 @@ struct OwnState {
     // geoid-referenced figure a panel or an IGC file wants.
     int32_t alt_m;
     int32_t alt_msl_m;
+    int32_t climb_mm_s;
     int16_t climb_e8;
     uint16_t speed_q;
     uint16_t track_c9;
@@ -164,7 +165,7 @@ struct RfEvent {
 };
 
 struct BaroSample {
-    uint32_t pressure_pa;
+    uint32_t pressure_mpa;
     uint32_t at_ms;
 };
 
