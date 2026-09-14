@@ -482,20 +482,81 @@ TEST_CASE("rf: the guard between two dwells is not a dwell, and nothing is armed
     CHECK(a.rf.last.end_us - a.rf.last.start_us > 300000);
 }
 
-// A plan armed while a dwell is flying is read only when that dwell ends, by
-// which time its own window has closed: a burst added to a dwell already on air
-// is a burst that never keys and is then reported as one that was lost.
-TEST_CASE("rf: a dwell is armed once, at its own edge, and never again from inside it") {
+// Whether a burst may go out is decided on the fix, the rate and the slot, and
+// those clear when they clear: a solution that lands after the dwell opened used
+// to cost the whole second, because the dwell was armed at its edge and never
+// looked at again.
+TEST_CASE("rf: a burst whose gates clear inside the dwell is armed into that dwell") {
     Armings a;
     a.clock.set_micros(Armings::kEdgeUs);
     REQUIRE(a.radio.setup() == Status::Ok);
-    a.state.own.fix_valid = true;
     a.state.own.utc_valid = true;
     a.state.own.tx_settled = true;
     a.state.own.flight_state = 2;
+    a.state.own.fix_ms = static_cast<uint32_t>(Armings::kEdgeUs / 1000);
 
     a.tick_at(400);
     const uint32_t armed_at_the_edge = a.rf.arms;
-    for (int phase = 410; phase < 790; phase += 10) a.tick_at(phase);
-    CHECK(a.rf.arms == armed_at_the_edge);
+    CHECK(a.rf.last.tx == nullptr);
+
+    a.state.own.fix_valid = true;
+    a.tick_at(410);
+    CHECK(a.rf.arms == armed_at_the_edge + 1);
+    REQUIRE(a.rf.last.tx != nullptr);
+    CHECK(a.rf.last.tx_at_us >= a.rf.last.start_us);
+    CHECK(a.rf.last.tx_at_us < a.rf.last.end_us);
+
+    for (int phase = 420; phase < 790; phase += 10) a.tick_at(phase);
+    CHECK(a.rf.arms == armed_at_the_edge + 1);
+}
+
+// The dwell is armed at its edge, where the gates on a burst may not have
+// cleared yet; the burst is armed when it is due, into the dwell already on air.
+// A second plan for the same channel inside the same window is that burst, not
+// the next dwell, and queueing it behind the one flying meant it never keyed.
+TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
+    models::Sx1262 chip;
+    parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
+    platform::host::Clock clock;
+    bus::Queue<messages::RfEvent, 8> events;
+    platform::host::Rf rf(radio, clock, events);
+    REQUIRE(rf.begin() == Status::Ok);
+
+    hal::RfPlan dwell{};
+    dwell.mode = hal::RfMode::RxMband;
+    dwell.freq_hz = timing::kMband0Hz;
+    dwell.start_us = 400000;
+    dwell.end_us = 799000;
+    REQUIRE(rf.arm(dwell) == Status::Ok);
+    for (uint32_t t = 400; t <= 450; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+    }
+
+    const uint8_t frame[protocol::AdslPacket::kTxBytes] = {0x72, 0x4B};
+    hal::RfPlan burst = dwell;
+    burst.start_us = 455000;
+    burst.tx = frame;
+    burst.tx_len = sizeof(frame);
+    burst.tx_at_us = 600000;
+    REQUIRE(rf.arm(burst) == Status::Ok);
+
+    uint8_t on_air[messages::kRfEventBytes];
+    uint8_t on_air_len = 0;
+    for (uint32_t t = 460; t <= 800; t += 10) {
+        clock.set_millis(t);
+        rf.service(t);
+        if (chip.take_tx(on_air, on_air_len)) chip.signal_tx_done();
+    }
+
+    CHECK(on_air_len > 0);
+    CHECK(tuned_khz(chip) == timing::kMband0Hz / 1000);
+    int sent = 0, missed = 0;
+    messages::RfEvent e{};
+    while (events.pop(e)) {
+        if (e.type == messages::RfEventType::TxDone) sent++;
+        if (e.type == messages::RfEventType::Missed) missed++;
+    }
+    CHECK(sent == 1);
+    CHECK(missed == 0);
 }

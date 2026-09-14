@@ -36,10 +36,10 @@ At the design rate of one 5 ms burst per second we sit at half the allowance, so
 
 `SlotPlan::own_tx_dwell` is a property of the dwell, not of the phase the service happens to tick on. Slot 0's dwell opens at 400 and its burst is placed from 450, so the plan that opens the dwell has to carry it.
 
-## One arm per dwell, and never a window that has closed
+## The dwell is armed at its edge, the burst when it is due
 
-`hal::Rf::arm()` queues a plan behind the dwell already flying, on silicon because the executor is a thread that reads its plan once, and on the host because it models the same rule. Two things follow, and both were bugs on the bench before 2026-09-15.
+`hal::Rf::arm()` queues a plan behind the dwell already flying, on silicon because the executor is a thread that reads its plan once, and on the host because it models the same rule. A plan queued that way is read when the flying dwell ends, by which time its own window has closed, so it is dropped.
 
-A burst is armed with the dwell that carries it or not at all. A plan armed mid-dwell is read when that dwell ends, by which time its own window has closed, so the burst never keys and is reported as one that was lost. `RadioService` therefore arms on the dwell's edge and does not re-arm inside it: an attempt that turns true mid-dwell, which is what a device that has never transmitted does, waits for the next dwell rather than firing a plan nobody can fly.
+A burst cannot wait for that. Whether one may go out is decided on the fix, the rate and the slot, and those clear when they clear: a solution that lands after 400 ms would cost the whole second if the dwell were armed at its edge and never looked at again. So a second plan for the channel the dwell is already flying, carrying a burst that fits inside the window it is already in, is not the next dwell: it is this dwell's burst, and `arm()` hands it to the dwell in flight instead of queueing it. On silicon that crosses a thread boundary, published under the scheduler lock and read by the dwell loop; on the host it is the same rule in one thread, which is why the suite can hold it.
 
 A window already behind the phase is not armed at all. The guard phases between dwells (`SlotState::Hop`, `SwitchOtoM`) report the dwell that has just closed, and arming that plan produced a stub of a millisecond or two that the executor could only drop. A dropped plan carrying no burst is silent now: it is a receive dwell that did not happen, not a transmission that failed, and the station log said `LOST` for it.

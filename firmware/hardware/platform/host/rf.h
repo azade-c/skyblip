@@ -28,6 +28,12 @@ class Rf : public hal::Rf {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
+        if (armed_ && joins_flying_dwell(plan)) {
+            plan_.tx = plan.tx;
+            plan_.tx_len = plan.tx_len;
+            plan_.tx_at_us = plan.tx_at_us;
+            return Status::Ok;
+        }
         if (armed_) {
             pending_ = plan;
             has_pending_ = true;
@@ -68,6 +74,12 @@ class Rf : public hal::Rf {
     uint32_t armed_count() const { return armed_count_; }
 
    private:
+    bool joins_flying_dwell(const hal::RfPlan& plan) const {
+        return plan.tx != nullptr && plan_.tx == nullptr && plan.mode == plan_.mode &&
+               plan.freq_hz == plan_.freq_hz && plan.tx_at_us >= clock_.micros() &&
+               plan.tx_at_us < plan_.end_us;
+    }
+
     void finish(uint64_t now_us) {
         sample_carrier();
         if (plan_.tx != nullptr && !completed_) emit(messages::RfEventType::Missed, 0, 0, now_us);

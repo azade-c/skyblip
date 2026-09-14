@@ -53,6 +53,7 @@ class Rf : public hal::Rf {
             if (plan.tx != nullptr) emit(messages::RfEventType::Missed);
             return Status::WouldBlock;
         }
+        if (joins_flying_dwell(plan)) return Status::Ok;
         plan_ = plan;
         k_sem_give(&armed_);
         return Status::Ok;
@@ -82,6 +83,19 @@ class Rf : public hal::Rf {
    private:
     static void entry(void* self, void*, void*) { static_cast<Rf*>(self)->run(); }
 
+    // INFO: fc 15sep26 the dwell loop owns the burst fields, so the publish is ordered by the flag
+    bool joins_flying_dwell(const hal::RfPlan& plan) {
+        if (!flying_ || plan.tx == nullptr || burst_ != nullptr) return false;
+        if (plan.mode != flying_mode_ || plan.freq_hz != flying_freq_) return false;
+        if (plan.tx_at_us < clock_.micros() || plan.tx_at_us >= flying_end_us_) return false;
+        k_sched_lock();
+        burst_at_us_ = plan.tx_at_us;
+        burst_len_ = plan.tx_len;
+        burst_ = plan.tx;
+        k_sched_unlock();
+        return true;
+    }
+
     void run() {
         health_us_ = clock_.micros();
         for (;;) {
@@ -101,8 +115,14 @@ class Rf : public hal::Rf {
             }
             sleep_until(plan.start_us);
             if (abort_) continue;
+            burst_ = nullptr;
+            flying_mode_ = plan.mode;
+            flying_freq_ = plan.freq_hz;
+            flying_end_us_ = plan.end_us;
+            flying_ = true;
             start(plan);
             dwell(plan);
+            flying_ = false;
             health();
         }
     }
@@ -169,12 +189,22 @@ class Rf : public hal::Rf {
     }
 
     void dwell(const hal::RfPlan& plan) {
+        const uint8_t* tx = plan.tx;
+        uint8_t tx_len = plan.tx_len;
+        uint64_t tx_at_us = plan.tx_at_us;
         bool completed = false;
         bool transmitted = false;
         while (!abort_ && clock_.micros() < plan.end_us) {
-            if (plan.tx != nullptr && !transmitted && clock_.micros() >= plan.tx_at_us) {
+            if (tx == nullptr && burst_ != nullptr) {
+                k_sched_lock();
+                tx = const_cast<const uint8_t*>(burst_);
+                tx_len = burst_len_;
+                tx_at_us = burst_at_us_;
+                k_sched_unlock();
+            }
+            if (tx != nullptr && !transmitted && clock_.micros() >= tx_at_us) {
                 transmitted = true;
-                radio_.transmit(plan.tx, plan.tx_len);
+                radio_.transmit(tx, tx_len);
             }
             const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
             switch (ev.type) {
@@ -190,7 +220,7 @@ class Rf : public hal::Rf {
             }
         }
         sample_carrier();
-        if (plan.tx != nullptr && !completed) emit(messages::RfEventType::Missed);
+        if (tx != nullptr && !completed) emit(messages::RfEventType::Missed);
     }
 
     // The frame is already in the event that will carry it. An O-band uplink
@@ -229,6 +259,13 @@ class Rf : public hal::Rf {
     struct k_thread thread_{};
     k_tid_t tid_{nullptr};
     K_KERNEL_STACK_MEMBER(stack_, kStackSize);
+    const uint8_t* volatile burst_{nullptr};
+    uint64_t burst_at_us_{0};
+    uint64_t flying_end_us_{0};
+    uint32_t flying_freq_{0};
+    hal::RfMode flying_mode_{hal::RfMode::Idle};
+    uint8_t burst_len_{0};
+    volatile bool flying_{false};
     volatile bool abort_{false};
     volatile bool sleep_requested_{false};
 };

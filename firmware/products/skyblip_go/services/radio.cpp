@@ -17,7 +17,7 @@ void RadioService::tick(uint32_t now_ms) {
 
     const hal::RfMode want = mode_for(plan);
     const bool same_dwell = want == armed_ && plan.freq_hz == armed_freq_;
-    if (!same_dwell) arm_dwell(plan, now_ms);
+    if (!same_dwell || transmit_due(plan, now_ms)) arm_dwell(plan, now_ms);
     publish_dwell(now_ms);
 }
 
@@ -121,6 +121,13 @@ void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
     plan.fdev_hz = protocol::kMbandDeviationHz;
     plan.bandwidth_hz = protocol::kMbandChannelBandwidthHz;
     plan.gaussian_bt_e2 = protocol::kMbandGaussianBtE2;
+}
+
+// INFO: fc 15sep26 the gates a burst waits on clear inside the dwell, hal::Rf::arm() joins it there
+bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const {
+    if (tx_armed_) return false;
+    const timing::Transmitter::Attempt a = attempt(plan, now_ms);
+    return a.go && ms_until(a.at_ms, phase_ms()) >= 0;
 }
 
 timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
