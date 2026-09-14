@@ -16,10 +16,11 @@ constexpr int kFirstRowY = 27;
 constexpr int kLineH = 10;
 
 constexpr int kClockX = kColumn(0);
-constexpr int kWayX = kColumn(9);
-constexpr int kBandX = kColumn(12);
-constexpr int kVerdictX = kColumn(14);
-constexpr int kAddrX = kColumn(19);
+constexpr int kWayX = kColumn(10);
+constexpr int kBandX = kColumn(13);
+constexpr int kVerdictX = kColumn(16);
+constexpr int kAddrX = kColumn(18);
+constexpr int kLenX = kColumn(20);
 constexpr int kRssiEnd = kColumn(30);
 constexpr int kRightEnd = kColumn(32);
 
@@ -40,16 +41,30 @@ const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
         case radio::Event::Transmitted: return "SENT";
         case radio::Event::Lost: return "LOST";
-        case radio::Event::Unframed: return "BAD";
+        case radio::Event::BadCrc: return "CRC";
+        case radio::Event::Undecoded: return "DEC";
         case radio::Event::Received:
         default: return nullptr;
     }
 }
 
 int fmt_stamp(char* out, const radio::Entry& entry) {
-    if (entry.utc) return fmt_seconds_of_day(out, entry.at_s);
-    int n = fmt_string(out, "T+");
-    return n + fmt_uint(out + n, entry.at_s % kUptimeClockWrapS);
+    if (!entry.utc) {
+        int n = fmt_string(out, "T+");
+        return n + fmt_uint(out + n, entry.at_s % kUptimeClockWrapS);
+    }
+    int n = fmt_uint(out, entry.at_s / 60 % 60, 2);
+    out[n++] = ':';
+    n += fmt_uint(out + n, entry.at_s % 60, 2);
+    if (!entry.phase_valid) return n;
+    out[n++] = '.';
+    return n + fmt_uint(out + n, entry.into_ms, 3);
+}
+
+int fmt_dwell(char* out, const radio::Entry& entry) {
+    if (entry.band == messages::Band::O) return fmt_string(out, "O");
+    int n = fmt_string(out, "M");
+    return n + fmt_uint(out + n, entry.channel);
 }
 
 void draw_title(Framebuffer& fb, const RadioLogSnapshot& snap) {
@@ -100,13 +115,19 @@ void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
 
     fb.draw_text(kWayX, y, own_burst(entry.event) ? "TX" : "RX", true, 1);
 
-    buf[0] = entry.band == messages::Band::O ? 'O' : 'M';
-    buf[1] = 0;
+    n = fmt_dwell(buf, entry);
+    buf[n] = 0;
     fb.draw_text(kBandX, y, buf, true, 1);
 
     const char* verdict = verdict_of(entry);
     if (verdict != nullptr) {
         fb.draw_text(kVerdictX, y, verdict, true, 1);
+        if (entry.len > 0) {
+            n = fmt_uint(buf, entry.len);
+            n += fmt_string(buf + n, "B");
+            buf[n] = 0;
+            fb.draw_text(kLenX, y, buf, true, 1);
+        }
     } else {
         buf[0] = messages::source_letter(entry.source);
         buf[1] = 0;
@@ -118,6 +139,12 @@ void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
         }
     }
 
+    if (entry.tx_span_valid) {
+        n = fmt_uint(buf, entry.tx_span_us);
+        buf[n] = 0;
+        right_aligned(fb, kRssiEnd, y, buf, n);
+        return;
+    }
     if (!entry.rssi_valid) return;
     n = fmt_int(buf, entry.rssi_dbm, 1, 0, false);
     buf[n] = 0;

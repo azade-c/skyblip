@@ -37,6 +37,8 @@ radio::Entry entry_of(radio::Event event) {
     e.event = event;
     e.band = messages::Band::M;
     e.at_s = 45296;  // 12:34:56
+    e.into_ms = 462;
+    e.phase_valid = true;
     e.utc = true;
     return e;
 }
@@ -70,18 +72,74 @@ TEST_CASE("radio log page: a received frame shows when, from whom, and how loud"
 
     Framebuffer fb;
     draw_radio_log(fb, with(log));
-    CHECK(shows(fb, 4, kFirstRowY, "12:34:56"));
-    CHECK(shows(fb, 4 + 9 * 6, kFirstRowY, "RX"));
-    CHECK(shows(fb, 4 + 12 * 6, kFirstRowY, "M"));
-    CHECK(shows(fb, 4 + 14 * 6, kFirstRowY, "A"));
-    CHECK(shows(fb, 4 + 19 * 6, kFirstRowY, "3FA21C"));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56.462"));
+    CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "RX"));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY, "M0"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "A"));
+    CHECK(shows(fb, 4 + 18 * 6, kFirstRowY, "3FA21C"));
     CHECK(shows(fb, 4 + 27 * 6, kFirstRowY, "-87"));
+}
+
+// The reading two devices are compared on: the same burst, sent at one phase and heard at another.
+TEST_CASE("radio log page: the phase a burst landed at is printed to the millisecond") {
+    radio::Log log;
+    radio::Entry e = received(0x3FA21C, -87);
+    e.into_ms = 7;
+    log.record(e);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56.007"));
+}
+
+// A phase against an edge nothing latched would be a number the reader could act on wrongly.
+TEST_CASE("radio log page: a burst with no phase measured shows the second alone") {
+    radio::Log log;
+    radio::Entry e = received(0x3FA21C, -87);
+    e.phase_valid = false;
+    log.record(e);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56"));
+    CHECK_FALSE(shows(fb, 4, kFirstRowY, "34:56."));
+}
+
+// §C.2.5 alternates the two M-band channels: a receiver on one hears half its neighbours.
+TEST_CASE("radio log page: the M band's two channels read apart, and the O band has none") {
+    radio::Log log;
+    radio::Entry second = received(0x3FA21C, -87);
+    second.channel = 1;
+    log.record(second);
+    radio::Entry uplink = received(0x3FA21C, -87);
+    uplink.band = messages::Band::O;
+    log.record(uplink);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY, "O"));
+    CHECK_FALSE(shows(fb, 4 + 13 * 6, kFirstRowY, "O0"));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY + kLineH, "M1"));
+}
+
+// Microseconds from the instant the slot aimed the burst at to the one the radio reported.
+TEST_CASE("radio log page: a sent burst reads how long it took to leave") {
+    radio::Log log;
+    radio::Entry e = entry_of(radio::Event::Transmitted);
+    e.tx_span_us = 4800;
+    e.tx_span_valid = true;
+    log.record(e);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "SENT"));
+    CHECK(shows(fb, 4 + 26 * 6, kFirstRowY, "4800"));
 }
 
 // The one row that separates an empty sky from a receiver that frames nothing.
 TEST_CASE("radio log page: a burst that never framed says so instead of naming an aircraft") {
     radio::Log log;
-    radio::Entry bad = entry_of(radio::Event::Unframed);
+    radio::Entry bad = entry_of(radio::Event::BadCrc);
     bad.rssi_dbm = -101;
     bad.rssi_valid = true;
     bad.addr = 0x3FA21C;
@@ -89,8 +147,30 @@ TEST_CASE("radio log page: a burst that never framed says so instead of naming a
 
     Framebuffer fb;
     draw_radio_log(fb, with(log));
-    CHECK(shows(fb, 4 + 14 * 6, kFirstRowY, "BAD"));
-    CHECK_FALSE(shows(fb, 4 + 19 * 6, kFirstRowY, "3FA21C"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "CRC"));
+    CHECK_FALSE(shows(fb, 4 + 18 * 6, kFirstRowY, "3FA21C"));
+}
+
+// Bits the air corrupted and bits nothing here knew what to do with are different faults.
+TEST_CASE("radio log page: an integrity failure and an undecodable frame read apart") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Undecoded));
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "DEC"));
+}
+
+// A plausible length under a failed check is a marginal link, a wild one is noise past the sync.
+TEST_CASE("radio log page: a failed burst that delivered bytes says how many") {
+    radio::Log log;
+    radio::Entry bad = entry_of(radio::Event::BadCrc);
+    bad.len = 23;
+    log.record(bad);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 20 * 6, kFirstRowY, "23B"));
 }
 
 // A transmission that failed, read as a bad reception, sends a reader after the wrong fault.
@@ -105,20 +185,20 @@ TEST_CASE("radio log page: own-ship's two outcomes read apart, and both read as 
         log.record(entry_of(c.event));
         Framebuffer fb;
         draw_radio_log(fb, with(log));
-        CHECK(shows(fb, 4 + 9 * 6, kFirstRowY, "TX"));
-        CHECK(shows(fb, 4 + 14 * 6, kFirstRowY, c.verdict));
+        CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
+        CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, c.verdict));
     }
 }
 
 // A level nothing measured is a level the page does not print.
 TEST_CASE("radio log page: a burst with no level reported shows none") {
     radio::Log log;
-    log.record(entry_of(radio::Event::Unframed));
+    log.record(entry_of(radio::Event::BadCrc));
 
     Framebuffer fb;
     draw_radio_log(fb, with(log));
     CHECK_FALSE(shows(fb, 4 + 27 * 6, kFirstRowY, "+0"));
-    CHECK(shows(fb, 4 + 14 * 6, kFirstRowY, "BAD"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "CRC"));
 }
 
 TEST_CASE("radio log page: the newest burst is the top row and the rest fall away") {
@@ -128,7 +208,7 @@ TEST_CASE("radio log page: the newest burst is the top row and the rest fall awa
 
     Framebuffer fb;
     draw_radio_log(fb, with(log));
-    CHECK(shows(fb, 4 + 19 * 6, kFirstRowY, "A00012"));
+    CHECK(shows(fb, 4 + 18 * 6, kFirstRowY, "A00012"));
     CHECK(ink_in_row(fb, kRadioLogRows - 1) > 0);
     CHECK(ink_in_row(fb, kRadioLogRows) == 0);
 }

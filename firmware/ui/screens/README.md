@@ -27,16 +27,19 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-12:34:56 RX M A 3FA21C -87     an ADS-L frame from 3FA21C
-12:34:56 RX M F 4C11A0 -93     an ALP-TAS frame, same dwell
-12:34:55 RX M BAD       -101   a burst that arrived and never framed
-12:34:55 TX M SENT             own-ship's burst left the antenna
-12:34:53 TX M LOST             armed, and the radio never reported it sent
+34:56.462 RX M0 A 3FA21C  -87    an ADS-L frame from 3FA21C
+34:56.467 RX M0 F 4C11A0  -93    an ALP-TAS frame, same dwell
+34:56.471 RX M0 CRC 23B  -101    23 bytes arrived and failed their check
+34:56.804 RX M1 DEC 25B   -95    a frame nothing here could make an aircraft of
+34:55.615 TX M0 SENT      4800   own-ship's burst left the antenna
+34:53.000 TX M0 LOST             armed, and the radio never reported it sent
 ```
 
-The columns are the stamp, the direction, the band the dwell was armed for, the verdict, the emitter's address and the level it arrived at. `BAD` is the one that matters: a burst reached the dwell and did not become a frame. It is the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
+The columns are the stamp, the direction, the dwell's band and channel, the verdict, the emitter's address, and one right-hand figure: the level a burst arrived at, or the microseconds own-ship's burst took to complete. `CRC` and `DEC` are the ones that matter: a burst reached the dwell and did not become a frame. They are the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
 
-The stamp is UTC as `hh:mm:ss` once the receiver has given us a second, and `T+<seconds>` since boot before that. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
+The stamp is the minute, the second and the millisecond the burst landed at, `T+<seconds>` since boot before the receiver has given us a second. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
+
+The hour went to pay for the milliseconds, and the tape holds sixteen rows of a sky that transmits once a second: nothing on this page spans an hour, and the phase inside the second is the whole reason a pilot with two devices opens it. `core/radio/README.md` has what the phase, the channel digit and the span are measured from; the rows print all three bare. `DBM` and a microsecond sign cost three cells the worst-case row does not have, the font has no lowercase to spell them with in the first place, and a level is already unlabelled here and on `signal` for the reason the radar's track carries no `HDG`.
 
 The GNSS line is on this page for the same reason the log is: a radio that hears nothing and a radio that is not being told where it is read identically on every other page. The solution count beside it is the one that separates a receiver saying nothing at all from one saying it cannot see the sky.
 
