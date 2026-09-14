@@ -3,6 +3,7 @@
 
 #include "core/flight/extrapolate.h"
 #include "core/flight/state.h"
+#include "core/flight/timer.h"
 #include "core/gnss/first_fix.h"
 #include "runtime/service.h"
 
@@ -38,6 +39,7 @@ class OwnshipService : public runtime::Service {
                         uint32_t& ref_ms, int16_t& out_e8) const;
 
     flight::FlightMonitor flight_{};
+    flight::FlightTimer timer_{};
     gnss::FirstFix settle_{};
     int32_t vs_ref_alt_cm_{0};
     uint32_t vs_ref_ms_{0};

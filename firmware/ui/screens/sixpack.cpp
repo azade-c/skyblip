@@ -22,6 +22,9 @@ constexpr int kAltTicks = 10;  // one mark per 100 ft, so the hands line up with
 constexpr int kCardR = kR - 7;
 constexpr int kIndexTabLen = 5;
 constexpr int kNeedle = kR - 6;
+constexpr int kFaceR = kR - 1;
+constexpr int kDeadInnerR = kR - 7;
+constexpr int32_t kArcStep = 128;
 constexpr int kShortNeedle = kR - 15;
 constexpr int kHubR = 2;
 constexpr int kCharW = 6;
@@ -31,21 +34,25 @@ constexpr int kGlyphH = 7;
 constexpr int32_t kOne = 16384;
 constexpr int32_t kTurn = 65536;
 
-constexpr int32_t kAsiFullScaleKt = 160;
-// 300 km/h is 162 kt: the same arc for the same aeroplane, so a pilot who
-// switches units keeps the needle position they learned.
-constexpr int32_t kAsiFullScaleKmh = 300;
-constexpr int32_t kAsiSpanDeg = 300;
+constexpr int32_t kAsiFullScaleKt = 175;
+constexpr int32_t kAsiFullScaleKmh = 315;
+constexpr int32_t kAsiSpanDeg = 315;
+constexpr int32_t kAsiZeroDeg = 180;
+constexpr int kAsiTicks = 8;
 constexpr int32_t kAltHundredsPerTurn = 1000;
 constexpr int32_t kAltThousandsPerTurn = 10000;
 constexpr int32_t kVsiFullScaleFpm = 2000;
-constexpr int32_t kVsiSpanDeg = 80;
+constexpr int32_t kVsiKneeFpm = 1000;
+constexpr int32_t kVsiKneeDeg = 90;
+constexpr int32_t kVsiOuterDeg = 80;
+constexpr int32_t kVsiMarkFpm = 500;
 constexpr int32_t kVsiZeroDeg = -90;
 constexpr int32_t kBankLimitDeg = 60;
 constexpr int32_t kPitchFullScaleDeg = 20;
 // A standard-rate turn (3 deg/s) at typical light-aircraft speeds is ~30 deg of
 // bank, where the coordinator's index marks sit.
 constexpr int32_t kStandardRateMarkDeg = 30;
+constexpr uint32_t kFlightClockMaxMinutes = 99 * 60 + 59;
 constexpr int kWingHalf = kR - 8;
 
 int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -80,26 +87,52 @@ void text_center(Framebuffer& fb, int cx, int y, const char* s, int scale = 1) {
     fb.draw_text(cx - (n * kCharW * scale) / 2, y, s, true, scale);
 }
 
+void value_text(Framebuffer& fb, int cx, int row, const char* s) {
+    text_center(fb, cx, value_y(row), s, kValueScale);
+}
+
 void value_center(Framebuffer& fb, int cx, int row, bool have, int32_t v, bool no_plus,
                   uint8_t min_digits = 1) {
-    const int y = value_y(row);
     if (!have) {
-        text_center(fb, cx, y, "---", kValueScale);
+        value_text(fb, cx, row, "---");
         return;
     }
     char buf[12];
     int n = fmt_int(buf, v, min_digits, 0, no_plus || v == 0);
     buf[n] = 0;
-    text_center(fb, cx, y, buf, kValueScale);
+    value_text(fb, cx, row, buf);
+}
+
+void fmt_hours_colon_minutes(char* out, uint32_t seconds) {
+    uint32_t minutes = seconds / 60;
+    if (minutes > kFlightClockMaxMinutes) minutes = kFlightClockMaxMinutes;
+    int n = fmt_uint(out, minutes / 60);
+    out[n++] = ':';
+    n += fmt_uint(out + n, minutes % 60, 2);
+    out[n] = 0;
 }
 
 // Marks are stepped along the true radius in half-pixels rather than drawn as a
 // line between two rounded end points: over 4 px, rounding both ends tilts the
 // mark by degrees, which is what made the scales look bent.
-void tick(Framebuffer& fb, int cx, int cy, int16_t a, int len = kTickLen) {
+void radial_mark(Framebuffer& fb, int cx, int cy, int16_t a, int from_r, int to_r) {
     const int32_t s = isin(a), c = icos(a);
-    for (int half = 2 * (kR - len); half <= 2 * kR; half++) {
+    for (int half = 2 * from_r; half <= 2 * to_r; half++) {
         fb.set_pixel(cx + radial_half(half, s), cy - radial_half(half, c), true);
+    }
+}
+
+void tick(Framebuffer& fb, int cx, int cy, int16_t a, int len = kTickLen) {
+    radial_mark(fb, cx, cy, a, kR - len, kFaceR);
+}
+
+void arc(Framebuffer& fb, int cx, int cy, int r, int16_t from, int16_t to) {
+    const int32_t span = (static_cast<int32_t>(to) - from) & 0xFFFF;
+    for (int32_t step = 0; step <= span; step += kArcStep) {
+        int32_t v = (from + step) & 0xFFFF;
+        if (v >= kTurn / 2) v -= kTurn;
+        const int16_t a = static_cast<int16_t>(v);
+        fb.set_pixel(cx + radial(r, isin(a)), cy - radial(r, icos(a)), true);
     }
 }
 
@@ -110,11 +143,48 @@ void dial(Framebuffer& fb, int cx, int row, const char* title, int ticks = kTick
     text_center(fb, cx, title_y(row), title);
 }
 
-void needle(Framebuffer& fb, int cx, int cy, int32_t deg, int len, bool thick = false) {
+void dead_sector(Framebuffer& fb, int cx, int cy, int32_t from_deg, int32_t to_deg) {
+    const int16_t from = c16(from_deg), to = c16(to_deg);
+    for (int dy = -kR; dy <= kR; dy++) {
+        for (int dx = -kR; dx <= kR; dx++) {
+            if (((dx + dy) & 1) != 0) continue;
+            const int r2 = dx * dx + dy * dy;
+            if (r2 >= kFaceR * kFaceR || r2 <= kDeadInnerR * kDeadInnerR) continue;
+            const int16_t a = iatan2(dx, -dy);
+            if (from <= to ? (a < from || a > to) : (a < from && a > to)) continue;
+            fb.set_pixel(cx + dx, cy + dy, true);
+        }
+    }
+    radial_mark(fb, cx, cy, from, kDeadInnerR, kFaceR);
+    radial_mark(fb, cx, cy, to, kDeadInnerR, kFaceR);
+    arc(fb, cx, cy, kDeadInnerR, from, to);
+    arc(fb, cx, cy, kFaceR, from, to);
+}
+
+int32_t vsi_deg(int32_t fpm) {
+    const int32_t v = clampi(fpm, -kVsiFullScaleFpm, kVsiFullScaleFpm);
+    const int32_t rate = v < 0 ? -v : v;
+    const int32_t inner = (rate < kVsiKneeFpm ? rate : kVsiKneeFpm) * kVsiKneeDeg / kVsiKneeFpm;
+    const int32_t outer = (rate > kVsiKneeFpm ? rate - kVsiKneeFpm : 0) * kVsiOuterDeg /
+                          (kVsiFullScaleFpm - kVsiKneeFpm);
+    return v < 0 ? kVsiZeroDeg - inner - outer : kVsiZeroDeg + inner + outer;
+}
+
+void vsi_face(Framebuffer& fb, int cx, int cy) {
+    dead_sector(fb, cx, cy, vsi_deg(kVsiFullScaleFpm), vsi_deg(-kVsiFullScaleFpm));
+    for (int32_t fpm = -kVsiFullScaleFpm; fpm <= kVsiFullScaleFpm; fpm += kVsiMarkFpm)
+        tick(fb, cx, cy, c16(vsi_deg(fpm)), fpm % kVsiKneeFpm == 0 ? kTickLen + 3 : kTickLen);
+}
+
+void needle(Framebuffer& fb, int cx, int cy, int32_t deg, int len, bool thick = false,
+            bool cleared = false) {
     const int16_t a = c16(deg);
     const int32_t s = isin(a), c = icos(a);
     const int tx = cx + radial(len, s);
     const int ty = cy - radial(len, c);
+    if (cleared)
+        for (int ox = -1; ox <= 1; ox++)
+            for (int oy = -1; oy <= 1; oy++) fb.line(cx + ox, cy + oy, tx + ox, ty + oy, false);
     fb.line(cx, cy, tx, ty, true);
     if (thick) {  // the altimeter's thousands hand: short and broad, hundreds long and fine
         fb.line(cx + 1, cy, tx + 1, ty, true);
@@ -122,8 +192,6 @@ void needle(Framebuffer& fb, int cx, int cy, int32_t deg, int len, bool thick = 
     }
     fb.circle(cx, cy, kHubR, true, true);
 }
-
-int32_t hpa_of(uint32_t pa) { return static_cast<int32_t>((pa + 50) / 100); }
 
 void horizon(Framebuffer& fb, int cx, int cy, int32_t pitch_deg, int32_t bank_deg) {
     const int32_t off =
@@ -190,51 +258,53 @@ int32_t bank_deg(int32_t turn_dps, int32_t speed_kt) {
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     fb.clear(true);
 
-    const int32_t kt = clampi(s.speed_kt, 0, 999);
-    const int32_t bank = bank_deg(s.turn_dps, kt);
-    const int32_t pitch = flight_path_deg(s.vs_fpm, kt);
+    const int32_t kt = s.have_data ? clampi(s.speed_kt, 0, 999) : 0;
+    const int32_t alt_ft = s.have_data ? s.alt_ft : 0;
+    const int32_t vs_fpm = s.have_data ? s.vs_fpm : 0;
+    const int32_t turn_dps = s.have_data ? s.turn_dps : 0;
+    const int32_t track = s.have_data ? s.track_deg % 360 : 0;
+    const int32_t bank = bank_deg(turn_dps, kt);
+    const int32_t pitch = flight_path_deg(vs_fpm, kt);
 
     const bool metric = s.units == settings::Units::Metric;
     const int32_t speed = metric ? (kt * 1852) / 1000 : kt;
     const int32_t speed_full = metric ? kAsiFullScaleKmh : kAsiFullScaleKt;
 
-    dial(fb, kCx[0], 0, metric ? "GS KM/H" : "GS KT");
-    if (s.have_data)
-        needle(fb, kCx[0], kCy[0], (clampi(speed, 0, speed_full) * kAsiSpanDeg) / speed_full,
-               kNeedle);
+    dial(fb, kCx[0], 0, metric ? "GS KM/H" : "GS KT", kAsiTicks);
+    dead_sector(fb, kCx[0], kCy[0], kAsiZeroDeg + kAsiSpanDeg, kAsiZeroDeg);
+    needle(fb, kCx[0], kCy[0],
+           kAsiZeroDeg + (clampi(speed, 0, speed_full) * kAsiSpanDeg) / speed_full, kNeedle,
+           /*thick=*/false, /*cleared=*/true);
     value_center(fb, kCx[0], 0, s.have_data, speed, true);
 
-    dial(fb, kCx[1], 0, "QNH HPA", s.have_data ? 0 : kTicks);
-    if (s.have_data) horizon(fb, kCx[1], kCy[0], pitch, bank);
-    value_center(fb, kCx[1], 0, s.qnh_pa != 0, hpa_of(s.qnh_pa), true);
+    const char* state = !s.have_data ? "NO FIX" : (s.airborne ? "FLIGHT" : "GROUND");
+    dial(fb, kCx[1], 0, state, 0);
+    horizon(fb, kCx[1], kCy[0], pitch, bank);
+    char clock[8] = "---";
+    if (s.have_flight_time) fmt_hours_colon_minutes(clock, s.flight_seconds);
+    value_text(fb, kCx[1], 0, clock);
 
     dial(fb, kCx[2], 0, "ALT FT", kAltTicks);
-    if (s.have_data) {
-        const int32_t on_scale = s.alt_ft < 0 ? 0 : s.alt_ft;
-        needle(fb, kCx[2], kCy[0], ((on_scale % kAltThousandsPerTurn) * 360) / kAltThousandsPerTurn,
-               kShortNeedle,
-               /*thick=*/true);
-        needle(fb, kCx[2], kCy[0], ((on_scale % kAltHundredsPerTurn) * 360) / kAltHundredsPerTurn,
-               kNeedle);
-    }
-    value_center(fb, kCx[2], 0, s.have_data, s.alt_ft, true);
+    const int32_t on_scale = alt_ft < 0 ? 0 : alt_ft;
+    needle(fb, kCx[2], kCy[0], ((on_scale % kAltThousandsPerTurn) * 360) / kAltThousandsPerTurn,
+           kShortNeedle,
+           /*thick=*/true);
+    needle(fb, kCx[2], kCy[0], ((on_scale % kAltHundredsPerTurn) * 360) / kAltHundredsPerTurn,
+           kNeedle);
+    value_center(fb, kCx[2], 0, s.have_data, alt_ft, true);
 
     dial(fb, kCx[0], 1, "TURN D/S");
-    if (s.have_data) turn_coordinator(fb, kCx[0], kCy[1], bank);
-    value_center(fb, kCx[0], 1, s.have_data, s.turn_dps, false);
+    turn_coordinator(fb, kCx[0], kCy[1], bank);
+    value_center(fb, kCx[0], 1, s.have_data, turn_dps, false);
 
-    const int32_t track = s.track_deg % 360;
-    dial(fb, kCx[1], 1, "TRK", s.have_data ? 0 : kTicks);
-    if (s.have_data) heading_card(fb, kCx[1], kCy[1], track);
-    value_center(fb, kCx[1], 1, s.have_data, track, true, 3);
+    dial(fb, kCx[1], 1, "TRK", 0);
+    heading_card(fb, kCx[1], kCy[1], track);
+    value_center(fb, kCx[1], 1, s.have_data, track == 0 ? 360 : track, true, 3);
 
-    dial(fb, kCx[2], 1, "VS FPM");
-    if (s.have_data)
-        needle(fb, kCx[2], kCy[1],
-               kVsiZeroDeg + (clampi(s.vs_fpm, -kVsiFullScaleFpm, kVsiFullScaleFpm) * kVsiSpanDeg) /
-                                 kVsiFullScaleFpm,
-               kNeedle);
-    value_center(fb, kCx[2], 1, s.have_data, s.vs_fpm, false);
+    dial(fb, kCx[2], 1, "VS FPM", 0);
+    vsi_face(fb, kCx[2], kCy[1]);
+    needle(fb, kCx[2], kCy[1], vsi_deg(vs_fpm), kNeedle, /*thick=*/false, /*cleared=*/true);
+    value_center(fb, kCx[2], 1, s.have_data, vs_fpm, false);
 }
 
 }  // namespace skyblip::ui

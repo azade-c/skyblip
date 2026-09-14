@@ -406,7 +406,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.vs_fpm = climb_fpm();
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.turn_dps = own.turn_dps;
-            snap.qnh_pa = context_.state.derived_qnh_pa;
+            snap.flight_seconds = context_.state.flight_seconds;
+            snap.have_flight_time = context_.state.flight_time_valid;
+            snap.airborne = context_.state.flight_running;
             ui::draw_sixpack(fb_, snap);
             break;
         }

@@ -64,6 +64,9 @@ struct State {
     uint64_t last_tx_done_at_us{0};
     uint64_t tx_deadline_us{0};
     uint32_t gnss_solutions{0};
+    uint32_t flight_seconds{0};
+    bool flight_time_valid{false};
+    bool flight_running{false};
     bool panel_presented{false};
     uint32_t pressure_pa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.

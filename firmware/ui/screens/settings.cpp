@@ -200,7 +200,7 @@ SettingsAction SettingsEditor::act(const SettingsValues& current, SettingsValues
             break;
         case SettingsRow::Units:
             next.settings.units = current.settings.units == settings::Units::Metric
-                                      ? settings::Units::Imperial
+                                      ? settings::Units::Nautical
                                       : settings::Units::Metric;
             break;
         case SettingsRow::QnhUp:

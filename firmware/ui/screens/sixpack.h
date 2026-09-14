@@ -10,13 +10,15 @@ namespace skyblip::ui {
 
 struct SixPackSnapshot {
     bool have_data{false};
-    settings::Units units{settings::Units::Metric};
+    settings::Units units{settings::Units::Nautical};
     int32_t speed_kt{0};
     int32_t alt_ft{0};
     int32_t vs_fpm{0};
     uint16_t track_deg{0};
     int16_t turn_dps{0};  // degrees per second, positive = right
-    uint32_t qnh_pa{0};   // the barometer read against GNSS, 0 until both have spoken
+    uint32_t flight_seconds{0};
+    bool have_flight_time{false};
+    bool airborne{false};
 };
 
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& snap);

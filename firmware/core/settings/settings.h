@@ -19,7 +19,7 @@
 
 namespace skyblip::settings {
 
-enum class Units : uint8_t { Metric = 0, Imperial = 1 };
+enum class Units : uint8_t { Metric = 0, Nautical = 1 };
 
 constexpr size_t kCallsignCap = 10;
 
@@ -73,7 +73,7 @@ struct Settings {
     bool alarm_enabled{true};
     uint8_t alarm_volume{3};
     bool stealth{false};
-    Units units{Units::Metric};
+    Units units{Units::Nautical};
     uint8_t page_mask{0x1F};
     char callsign[kCallsignCap]{0};
 

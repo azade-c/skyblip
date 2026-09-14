@@ -27,39 +27,66 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-34:56.462 RX M0 A 3FA21C  -87    an ADS-L frame from 3FA21C
-34:56.467 RX M0 F 4C11A0  -93    an ALP-TAS frame, same dwell
-34:56.471 RX M0 CRC 23B  -101    23 bytes arrived and failed their check
-34:56.804 RX M1 DEC 25B   -95    a frame nothing here could make an aircraft of
-34:55.615 TX M0 SENT      4800   own-ship's burst left the antenna
-34:53.000 TX M0 LOST             armed, and the radio never reported it sent
-34:52.450 TX M0 HELD             the hour's air-time allowance is holding our bursts
-34:51.450 TX M0 ARM              the radio refused the plan that carried it
+12:34:56 RX M A 3FA21C -87     an ADS-L frame from 3FA21C
+12:34:56 RX M F 4C11A0 -93     an ALP-TAS frame, same dwell
+12:34:55 RX M BAD       -101   a burst that arrived and never framed
+12:34:55 TX M SENT             own-ship's burst left the antenna
+12:34:53 TX M LOST             armed, and the radio never reported it sent
 ```
 
-The columns are the stamp, the direction, the dwell's band and channel, the verdict, the emitter's address, and one right-hand figure: the level a burst arrived at, or the microseconds own-ship's burst took to complete. The bottom three rows are the three ways a burst fails to reach the antenna, and they were one word and two silences: `LOST` was armed and never reported, `HELD` and `ARM` were refused before that, one by our own duty-cycle policy and one by the radio. `core/radio/README.md` has which is which. `CRC` and `DEC` are the ones that matter: a burst reached the dwell and did not become a frame. They are the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
+The columns are the stamp, the direction, the band the dwell was armed for, the verdict, the emitter's address and the level it arrived at. `BAD` is the one that matters: a burst reached the dwell and did not become a frame. It is the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
 
-The stamp is the minute, the second and the millisecond the burst landed at, `T+<seconds>` since boot before the receiver has given us a second. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
-
-The hour went to pay for the milliseconds, and the tape holds sixteen rows of a sky that transmits once a second: nothing on this page spans an hour, and the phase inside the second is the whole reason a pilot with two devices opens it. `core/radio/README.md` has what the phase, the channel digit and the span are measured from; the rows print all three bare. `DBM` and a microsecond sign cost three cells the worst-case row does not have, the font has no lowercase to spell them with in the first place, and a level is already unlabelled here and on `signal` for the reason the radar's track carries no `HDG`.
+The stamp is UTC as `hh:mm:ss` once the receiver has given us a second, and `T+<seconds>` since boot before that. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
 
 The GNSS line is on this page for the same reason the log is: a radio that hears nothing and a radio that is not being told where it is read identically on every other page. The solution count beside it is the one that separates a receiver saying nothing at all from one saying it cannot see the sky.
 
 ## sixpack
 
-Six dials over the GNSS-derived own-ship state, each with its own number: ground speed, QNH, altimeter, turn coordinator, track, vertical speed. The snapshot arrives in knots, feet and feet per minute, because the bank and flight-path geometry is worked in them.
+Six dials over the GNSS-derived own-ship state, each with its own number: ground speed, flight time, altimeter, turn coordinator, track, vertical speed. The snapshot arrives in knots, feet and feet per minute, because the bank and flight-path geometry is worked in them.
 
-The top middle is the one dial whose face and whose number are different quantities. The face is the artificial horizon, pitching with the flight-path angle and rolling with the bank inferred from the track rate: neither is sensed, there is no gyro on the board, and it is kept because a 1-bit panel with a checkerboard ground on it reads as an instrument rather than as six empty circles. The number above it is the QNH, which is the useful thing the same two sensors produce.
+The top middle is the one dial whose face and whose number are different quantities. The face is the artificial horizon, pitching with the flight-path angle and rolling with the bank inferred from the track rate: neither is sensed, there is no gyro on the board, and it is kept because a 1-bit panel with a checkerboard ground on it reads as an instrument rather than as six empty circles. The number above it is the flight time, which is the one thing on this page a pilot writes down.
 
-`QNH HPA` is the altimeter setting that makes this barometer read the height above mean sea level GNSS reports: `flight::qnh_from_alt`, derived once per baro sample in `OwnshipService` and smoothed over about half a minute, because weather moves the sea-level pressure by a hectopascal an hour and a GNSS altitude wanders that much in a minute. It is a number to transcribe into the subscale on the settings page, not something applied for the pilot: a derived value that quietly became `state.qnh_pa` would hide the disagreement it exists to report.
+Its title is the state, not the quantity: `FLIGHT` over a running clock, `GROUND` over a stopped one, `NO FIX` when the receiver has no position at all. `NO FIX` rather than `NO GPS FIX` because it is what the radar page's satellite count already says in the same situation, and because GPS is one of the constellations this receiver uses rather than the name of what it is doing. A duration under a word that says which state it was accrued in needs no unit and no `TIME`, and the pair answers a question the rest of the page cannot: whether this device thinks it is flying, which is also what gates the transmit rate and the update lockout. The figure is `H:MM` since the takeoff `core/flight/state.h` declared, frozen at the landing, off `flight::FlightTimer` (see `core/flight/README.md` for what the clock does across an outage and a second takeoff). Minutes and not seconds, because it is copied into a logbook and because a seconds field on glass that refreshes every few seconds is a clock that is always slightly wrong.
 
-What the number is worth, in the order the errors bite. One hectopascal is 8.4 m near sea level, so every metre of GNSS vertical error is 0.12 hPa, and 5-15 m of it is 0.6-1.8 hPa that wanders. The BME280 is good to about 1 hPa absolute, a bias per unit that no averaging removes. Above all that, the derivation assumes the ISA lapse rate all the way down to the sea, so in air that is 10 degrees colder than standard it reads about 1.5 hPa low per 1000 ft of height: on the ground it is QNH, and at 3000 ft in winter it is the setting that would make this altimeter agree with GNSS, which is not the same number a controller would give. The dial is labelled `QNH HPA` anyway, for now, because a pilot near circuit height gets the setting they want and the alternative labels all need a paragraph of their own.
+A landing keeps the figure and changes only the title, so it is still readable while taxiing in, which is when it is wanted, and the next takeoff carries on from it rather than starting again. `---` means nothing has flown since the device was switched on, which is the one case where the dial has a title and no number.
 
-The answer is withheld rather than guessed: no fix clears it, a pair outside the settable subscale (`flight::kQnhMinPa`..`kQnhMaxPa`) is refused as a bad fix rather than published as remarkable weather, and a vertical rate past 4 m/s holds the last value instead of chasing the skew between a baro sample and a fix taken at different instants.
+It replaced a derived QNH, the one place on the device that number was shown. What that was worth is in `git log`: the derivation assumed the ISA lapse rate all the way down to the sea, so it was the setting that would make this altimeter agree with GNSS rather than the one a controller would give, drifting about 1.5 hPa per 1000 ft in cold air. The subscale a pilot flies on is still theirs to set, on the settings page.
+
+### The two scales that are not linear
+
+The speed dial rests at the bottom: zero hangs the needle straight down, and it sweeps clockwise from there, up the left of the glass and over the top, the way a car's speedometer runs. 1.8 degrees per knot, eight marks 45 degrees apart, full scale at 175 kt. That puts 100 kt straight up, which is the landmark worth having, because this dial is read by needle angle long before it is read as a number.
+
+Every number on it falls out of the geometry rather than being chosen: eight marks over seven intervals is 25 kt each, the metric scale that covers the same arc is 315 km/h, and seven intervals of that is 45 km/h each. Both are round without being made round. The eight marks sit on the eight 45-degree rays, the only angles a rasteriser draws as an exact line rather than a staircase, and full scale lands on one of them.
+
+Zero belongs at the bottom because the arc past full scale has to go somewhere, and the top of a 31-pixel dial is the part a glance actually lands on. With zero at the top the shading sat across the most legible arc on the face to say nothing at all; hanging the needle at rest instead puts the dead arc at the bottom right, where the only thing it costs is a corner. A pilot who asks for `Metric` gets 330 km/h full scale rather than a round tick value, because 178 kt is the same arc for the same aeroplane and the needle position they learned has to survive the switch.
+
+The vertical speed dial stands +1000 fpm straight up and hangs -1000 straight down: a climb-out and a circuit descent are both flown at about that, and a vertical needle is read without being interpreted. Getting the knee exactly on the vertical is what makes the scale non-linear at all, 90 degrees for the first thousand against 80 for the second. Marks every 500 fpm, long at the thousands.
+
+Both dials shade the arc their scale cannot reach: past 180 kt on the one, the 20 degrees about the horizontal between +2000 and -2000 fpm on the other. Same checkerboard on both, so the ink means one thing on this page, the scale does not go here.
+
+It is a seven-pixel band on the rim, closed on all four sides, not a pie slice from the hub. Two solid radial ends, a solid arc inside, a solid arc outside against the ring, and the checkerboard strictly within them: no shaded pixel lies on the border or past it, which is what stops the fill fraying into the face. Both were drawn before they were argued. A narrow wedge tapers into the hub and reads as a second needle pointing the wrong way, and a checkerboard with no border is a smudge at 31 pixels of radius, where the same checkerboard inside an outline is a marked arc. It is also what the instrument this page imitates does with an arc, which is to print it round the rim where the needle passes and nowhere else.
+
+The speed dial's ends are the reason full scale is 175 kt and not 180: at 175 the band runs from the vertical at the bottom to the 135-degree diagonal, so both its edges are exact rays, and each is a scale mark as well. The vario cannot have that. Its band is the 20 degrees about the horizontal, and no clean ray sits anywhere near 10 degrees off one, so the ends are taken where the scale puts them; over seven pixels those two are all but horizontal anyway, and the outline is what carries the shape.
+
+The scale marks run from the rim inwards and stop there, so every one of them touches the ring and none crosses it. Where a mark and the end of a shaded arc fall on the same angle, and on both dials they do, the shaded arc's own edge is the longer line and the mark disappears into it.
+
+The needle can land in the shading, since a stopped aircraft parks it on that very edge, so it clears a white channel through the checkerboard on both dials. Neither sector is typed in as an angle: one is the scale's own span, the other is `vsi_deg()` called on its own full scale, so moving a full scale moves its shading with it.
+
+### With no fix
+
+Every needle parks at zero rather than being left off: speed and altitude standing up, the vario level, the wings level, the horizon flat, the card showing north. An instrument with no needle at all reads as a broken instrument, and the six of them together read as a device that has crashed rather than one that is waiting for satellites.
+
+The numbers do not follow the needles. They stay `---`, because a needle at rest is a position and a number is a claim: parking the digits at `0` would say the aircraft is stationary at sea level on a track of north, which is a reading and not a rest state. The needles say what the instrument is doing, the numbers say what is known.
+
+The flight time is the exception, and it is why the title carries the state. A fix lost in the air parks five dials and freezes the clock, so `NO FIX` over `1:35` says both that the aircraft has flown for an hour and a half and that nothing on this page is being told anything right now. Blanking it would throw away the one figure the outage cannot make wrong.
+
+A track due north reads `360`, not `000`. It is what a pilot says on the radio and what every other instrument in the cockpit shows, and `000` is nobody's heading.
 
 The page reads outward from the middle. The six faces are a block: 66 px between centres in both axes, so the same 3 px of glass between two dials side by side and between the two rows, so the panel reads as one instrument rather than as two shelves. Each row's numbers and labels are stacked off its outer edge: number first at double size, label above or below it in the small font. Nothing is written between the rows, which is what pays for both the larger faces and that spacing, and the number a pilot glances at is then the biggest thing on the panel rather than a line of 5x7 text wedged under a needle.
 
-`settings::units` decides the speed dial and nothing else here. Altitude stays in feet and vertical speed in feet per minute on both settings: a level is cleared in feet and a climb rate is flown to in feet per minute wherever the aeroplane is, and a pilot who reads km/h on the speed dial still reads feet on the altimeter. The status page has room for two columns and prints the aeronautical figure and the SI one side by side; a dial has one needle, so the one place a habit has to be asked for is the speed.
+`settings::units` decides the speed dial and nothing else here, and it is `Nautical` out of the box: knots, the unit the scale below is graduated in and the one this page is designed around. The two settings are `Metric` and `Nautical`, not metric and imperial. A knot is a nautical mile an hour and a flight level is a hundred feet of pressure altitude, and neither has anything to do with the imperial system; calling them that invites somebody to add statute miles or Fahrenheit to a page that must never carry them.
+
+Altitude stays in feet and vertical speed in feet per minute whatever the setting says: a level is cleared in feet and a climb rate is flown to in feet per minute wherever the aeroplane is, and a pilot who reads km/h on the speed dial still reads feet on the altimeter. The status page has room for two columns and prints the aeronautical figure and the SI one side by side; a dial has one needle, so the one place a habit has to be asked for is the speed.
 
 A rate of zero prints as `0`, without the sign the other rates carry. `+0` and `-0` are the same number, and a sign a pilot's eye has to discard is a sign that should not have been drawn.
 

@@ -44,7 +44,7 @@ settings::Settings widest_settings() {
     s.aircraft_type = 17;
     s.alarm_volume = 5;
     s.page_mask = 255;
-    s.units = settings::Units::Imperial;
+    s.units = settings::Units::Nautical;
     std::memcpy(s.callsign, "ABCDEFGHI", 10);  // the nine characters the schema allows
     return s;
 }

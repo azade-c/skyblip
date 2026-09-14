@@ -179,7 +179,7 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
     old.alarm_enabled = false;
     old.alarm_volume = 5;
     old.stealth = true;
-    old.units = Units::Imperial;
+    old.units = Units::Nautical;
     old.page_mask = 0x05;
     std::memcpy(old.callsign, "D-KXYZ", 7);
 
@@ -197,7 +197,7 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
-    CHECK(out.units == Units::Imperial);
+    CHECK(out.units == Units::Nautical);
     CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     CHECK(int(out.version) == int(Settings::kCurrentVersion));
@@ -297,7 +297,7 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     old.alarm_enabled = false;
     old.alarm_volume = 5;
     old.stealth = true;
-    old.units = Units::Imperial;
+    old.units = Units::Nautical;
     old.page_mask = 0x05;
     std::memcpy(old.callsign, "D-KXYZ", 7);
 
@@ -315,7 +315,7 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
-    CHECK(out.units == Units::Imperial);
+    CHECK(out.units == Units::Nautical);
     CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the trim existed was never
@@ -359,7 +359,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     old.alarm_enabled = false;
     old.alarm_volume = 5;
     old.stealth = true;
-    old.units = Units::Imperial;
+    old.units = Units::Nautical;
     old.page_mask = 0x05;
     std::memcpy(old.callsign, "D-KXYZ", 7);
 
@@ -378,7 +378,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
-    CHECK(out.units == Units::Imperial);
+    CHECK(out.units == Units::Nautical);
     CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the radio trim existed was never
@@ -484,9 +484,9 @@ TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
     // fits in nine. It is written on the line and read back as the millivolts
     // the status reply and the panel already show.
     CHECK(json.find("battery_offset_mv") == std::string::npos);
-    const char* imperial = "{\"units\":1}";
-    CHECK(apply_json(s, imperial, static_cast<int>(strlen(imperial))) == Status::Ok);
-    CHECK(s.units == Units::Imperial);
+    const char* nautical = "{\"units\":1}";
+    CHECK(apply_json(s, nautical, static_cast<int>(strlen(nautical))) == Status::Ok);
+    CHECK(s.units == Units::Nautical);
 
     // An older client still sending the dropped keys is not an error: the rest
     // of its patch applies, and the keys nothing reads are ignored.

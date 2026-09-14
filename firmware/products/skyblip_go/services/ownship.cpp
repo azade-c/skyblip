@@ -24,6 +24,11 @@ void OwnshipService::tick(uint32_t now_ms) {
     messages::BaroSample sample{};
     while (context_.bus.baro.pop(sample)) apply_baro(sample);
 
+    timer_.update(flight_.state(), now_ms);
+    context_.state.flight_seconds = timer_.seconds();
+    context_.state.flight_time_valid = timer_.flown();
+    context_.state.flight_running = timer_.running();
+
     context_.state.baro_active = baro_active();
     context_.state.own.tx_settled = settle_.settled(now_ms);
     context_.state.own.fix_acquired = settle_.take_acquired();

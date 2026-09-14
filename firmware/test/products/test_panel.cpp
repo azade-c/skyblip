@@ -247,7 +247,7 @@ TEST_CASE("product: the unit setting changes the instrument page a pilot reads")
         return rig.product.screen().framebuffer().count_black();
     };
 
-    CHECK(sixpack_ink(settings::Units::Metric) != sixpack_ink(settings::Units::Imperial));
+    CHECK(sixpack_ink(settings::Units::Metric) != sixpack_ink(settings::Units::Nautical));
 }
 
 // F5. The device said nothing when the receiver finally solved, and it

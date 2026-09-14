@@ -245,7 +245,7 @@ Status apply_json(Settings& s, const char* json, int len) {
     if (r.get_bool("alarm", b)) n.alarm_enabled = b;
     if (r.get_int("alarm_volume", v)) n.alarm_volume = static_cast<uint8_t>(v);
     if (r.get_bool("stealth", b)) n.stealth = b;
-    if (r.get_int("units", v)) n.units = v ? Units::Imperial : Units::Metric;
+    if (r.get_int("units", v)) n.units = v ? Units::Nautical : Units::Metric;
     if (r.get_int("page_mask", v)) n.page_mask = static_cast<uint8_t>(v);
     // Narrowed before it is validated, not after: 65536 truncates to 0 in an
     // int16 and would pass a bound check that never saw the value sent.

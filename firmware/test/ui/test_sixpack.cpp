@@ -1,4 +1,6 @@
 // Read against a pilot's habit, not pixels: two dials on one value looks right and lies.
+#include <cmath>
+
 #include "doctest/doctest.h"
 #include "ui/framebuffer.h"
 #include "ui/screens/sixpack.h"
@@ -15,6 +17,33 @@ const Tile kTiles[6] = {{34, 67}, {100, 67}, {166, 67}, {34, 133}, {100, 133}, {
 // The number sits outside the glass: above the top row, below the bottom one.
 const int kValueScale = 2;
 int value_y(const Tile& t) { return t.cy < 100 ? t.cy - 31 - 7 - 7 * kValueScale : t.cy + 31 + 7; }
+
+// Ink at the point `deg` clockwise from the top: only the needle and the shading reach kFaceR.
+const int kFaceR = 20;
+const int kBandR = 27;
+
+bool ink_at(const Framebuffer& fb, Tile t, double deg, int r = kFaceR) {
+    const double a = deg * 3.14159265358979 / 180.0;
+    const int x = t.cx + static_cast<int>(std::lround(r * std::sin(a)));
+    const int y = t.cy - static_cast<int>(std::lround(r * std::cos(a)));
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            if (fb.get_pixel(x + dx, y + dy)) return true;
+    return false;
+}
+
+bool title_matches(const Framebuffer& fb, Tile t, const char* text) {
+    const int y0 = t.cy < 100 ? value_y(t) - 4 - 7 : value_y(t) + 7 * kValueScale + 4;
+    Framebuffer expected;
+    expected.clear(true);
+    int n = 0;
+    while (text[n]) n++;
+    expected.draw_text(t.cx - (n * 6) / 2, y0, text, true, 1);
+    for (int y = y0; y < y0 + 7; y++)
+        for (int x = t.cx - 32; x <= t.cx + 32; x++)
+            if (fb.get_pixel(x, y) != expected.get_pixel(x, y)) return false;
+    return true;
+}
 
 int black_in(const Framebuffer& fb, Tile t, int r) {
     int n = 0;
@@ -41,13 +70,15 @@ bool value_matches(const Framebuffer& fb, Tile t, const char* text) {
 SixPackSnapshot flying() {
     SixPackSnapshot s;
     s.have_data = true;
-    s.units = skyblip::settings::Units::Imperial;
+    s.units = skyblip::settings::Units::Nautical;
     s.speed_kt = 90;
     s.alt_ft = 3450;
     s.vs_fpm = 500;
     s.track_deg = 270;
     s.turn_dps = 3;
-    s.qnh_pa = 101900;
+    s.flight_seconds = 7 * 60;
+    s.have_flight_time = true;
+    s.airborne = true;
     return s;
 }
 }  // namespace
@@ -58,18 +89,45 @@ TEST_CASE("sixpack: six dials are drawn, each with its own needle") {
     Framebuffer fb;
     draw_sixpack(fb, s);
     for (const Tile& t : kTiles) CHECK(black_in(fb, t, 30) > 60);
+}
 
-    // Without a fix the dials stay, the needles go: every tile must lose ink.
+// An instrument with no needle reads as a broken instrument, so a lost fix parks them at rest.
+TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withhold") {
     SixPackSnapshot none;
-    Framebuffer empty;
-    draw_sixpack(empty, none);
-    for (const Tile& t : kTiles) CHECK(black_in(empty, t, 30) < black_in(fb, t, 30));
+    Framebuffer fb;
+    draw_sixpack(fb, none);
+
+    for (const Tile& t : kTiles) CHECK(black_in(fb, t, 30) > 60);
+
+    // Zero speed hangs its needle down, zero altitude stands its own up.
+    CHECK(fb.get_pixel(kTiles[0].cx, kTiles[0].cy + kFaceR));
+    CHECK_FALSE(fb.get_pixel(kTiles[0].cx - 1, kTiles[0].cy + kFaceR));
+    CHECK(fb.get_pixel(kTiles[2].cx, kTiles[2].cy - kFaceR));
+    CHECK_FALSE(fb.get_pixel(kTiles[2].cx - 2, kTiles[2].cy - kFaceR));
+    CHECK(ink_at(fb, kTiles[5], -90));  // a level vario points at its zero
+    CHECK(ink_at(fb, kTiles[3], 90));   // and the turn coordinator's wings are level
+    CHECK(ink_at(fb, kTiles[3], -90));
+
+    for (const Tile& t : kTiles) CHECK(value_matches(fb, t, "---"));
+
+    // A device that cannot see satellites is not a device on the ground.
+    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
+}
+
+// A frozen clock under a state that no longer holds is the one reading worth naming as stale.
+TEST_CASE("sixpack: a fix lost in flight says so, and keeps the time already flown") {
+    SixPackSnapshot lost = flying();
+    lost.have_data = false;
+    Framebuffer fb;
+    draw_sixpack(fb, lost);
+    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
+    CHECK(value_matches(fb, kTiles[1], "0:07"));
 }
 
 TEST_CASE("sixpack: needles move with the data they show") {
     SixPackSnapshot a;
     a.have_data = true;
-    a.units = skyblip::settings::Units::Imperial;
+    a.units = skyblip::settings::Units::Nautical;
     a.speed_kt = 40;
     a.alt_ft = 1200;
     a.track_deg = 0;
@@ -99,7 +157,7 @@ TEST_CASE("sixpack: needles move with the data they show") {
 TEST_CASE("sixpack: the altimeter reads like a three-pointer, the card like a compass") {
     SixPackSnapshot s;
     s.have_data = true;
-    s.units = skyblip::settings::Units::Imperial;
+    s.units = skyblip::settings::Units::Nautical;
     s.alt_ft = 2500;  // long hand at 500 ft (down), short hand at 2.5/10 (right)
     Framebuffer fb;
     draw_sixpack(fb, s);
@@ -128,18 +186,18 @@ TEST_CASE("sixpack: the altimeter reads like a three-pointer, the card like a co
 
 // B4. A dial has one needle and one number, so the km/h pilot has to ask for it.
 TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed dial") {
-    SixPackSnapshot imperial;
-    imperial.have_data = true;
-    imperial.units = skyblip::settings::Units::Imperial;
-    imperial.speed_kt = 90;  // 166 km/h
-    imperial.alt_ft = 3450;
-    imperial.vs_fpm = 500;
-    imperial.track_deg = 7;
-    SixPackSnapshot metric = imperial;
+    SixPackSnapshot nautical;
+    nautical.have_data = true;
+    nautical.units = skyblip::settings::Units::Nautical;
+    nautical.speed_kt = 90;  // 166 km/h
+    nautical.alt_ft = 3450;
+    nautical.vs_fpm = 500;
+    nautical.track_deg = 7;
+    SixPackSnapshot metric = nautical;
     metric.units = skyblip::settings::Units::Metric;
 
     Framebuffer fi, fm;
-    draw_sixpack(fi, imperial);
+    draw_sixpack(fi, nautical);
     draw_sixpack(fm, metric);
 
     // The number under a dial is the converted one, drawn where the page draws
@@ -156,19 +214,62 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     for (int i = 1; i < 6; i++) CHECK(black_in(fm, kTiles[i], 30) == black_in(fi, kTiles[i], 30));
 }
 
-TEST_CASE("sixpack: the middle number is the pressure the two sensors agree on") {
+TEST_CASE("sixpack: the middle number is the time since takeoff, in hours and minutes") {
     SixPackSnapshot s = flying();
     Framebuffer fb;
     draw_sixpack(fb, s);
-    CHECK(value_matches(fb, kTiles[1], "1019"));
+    CHECK(value_matches(fb, kTiles[1], "0:07"));
 
-    // A barometer and a fix that have not met yet: the horizon stays, the answer does not.
-    SixPackSnapshot unknown = s;
-    unknown.qnh_pa = 0;
-    Framebuffer none;
-    draw_sixpack(none, unknown);
-    CHECK(value_matches(none, kTiles[1], "---"));
-    CHECK(black_in(none, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
+    // Seconds are not shown, so the figure steps at the minute and nowhere else.
+    SixPackSnapshot later = s;
+    later.flight_seconds = 7 * 60 + 59;
+    Framebuffer fl;
+    draw_sixpack(fl, later);
+    CHECK(value_matches(fl, kTiles[1], "0:07"));
+
+    SixPackSnapshot long_trip = s;
+    long_trip.flight_seconds = 10 * 3600 + 5 * 60;
+    Framebuffer flong;
+    draw_sixpack(flong, long_trip);
+    CHECK(value_matches(flong, kTiles[1], "10:05"));
+}
+
+// The title says which state the figure belongs to, so the figure itself needs no unit.
+TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in") {
+    SixPackSnapshot s = flying();
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(title_matches(fb, kTiles[1], "FLIGHT"));
+
+    // Landed, the figure stays: it is read on the ground, under the state it was flown in.
+    SixPackSnapshot landed = s;
+    landed.airborne = false;
+    Framebuffer fl;
+    draw_sixpack(fl, landed);
+    CHECK(title_matches(fl, kTiles[1], "GROUND"));
+    CHECK(value_matches(fl, kTiles[1], "0:07"));
+
+    SixPackSnapshot parked = landed;
+    parked.have_flight_time = false;
+    Framebuffer fp;
+    draw_sixpack(fp, parked);
+    CHECK(title_matches(fp, kTiles[1], "GROUND"));
+    CHECK(value_matches(fp, kTiles[1], "---"));
+    CHECK(black_in(fp, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
+}
+
+// North is three-six-zero on every other instrument a pilot reads, and 000 is nobody's heading.
+TEST_CASE("sixpack: a track due north reads 360") {
+    SixPackSnapshot s = flying();
+    s.track_deg = 0;
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(value_matches(fb, kTiles[4], "360"));
+
+    s.track_deg = 359;
+    Framebuffer f359;
+    draw_sixpack(f359, s);
+    CHECK(value_matches(f359, kTiles[4], "359"));
 }
 
 // The horizon is drawn off a track rate and a climb rate, so nothing else may move it.
@@ -192,13 +293,89 @@ TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
     // Climbing shows more sky: the ground area shrinks.
     CHECK(black_in(f2, att, 28) < black_in(f0, att, 28));
 
-    // The pressure the pilot reads above it is none of the horizon's business.
-    SixPackSnapshot other_air = level;
-    other_air.qnh_pa = 99500;
+    // The clock the pilot reads above it is none of the horizon's business.
+    SixPackSnapshot later = level;
+    later.flight_seconds = 95 * 60;
+    later.have_flight_time = true;
     Framebuffer f3;
-    draw_sixpack(f3, other_air);
+    draw_sixpack(f3, later);
     CHECK(black_in(f3, att, 28) == black_in(f0, att, 28));
-    CHECK(value_matches(f3, att, "995"));
+    CHECK(value_matches(f3, att, "1:35"));
+}
+
+TEST_CASE("sixpack: the speed dial rests at the bottom and stands 100 kt straight up") {
+    const Tile asi = kTiles[0];
+    SixPackSnapshot s = flying();
+    s.speed_kt = 100;
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(fb.get_pixel(asi.cx, asi.cy - kFaceR));
+    CHECK_FALSE(fb.get_pixel(asi.cx - 2, asi.cy - kFaceR));
+    CHECK_FALSE(fb.get_pixel(asi.cx + 2, asi.cy - kFaceR));
+
+    // Stopped on the apron it hangs straight down, and reads through the shading, not under it.
+    SixPackSnapshot stopped = s;
+    stopped.speed_kt = 0;
+    Framebuffer fs;
+    draw_sixpack(fs, stopped);
+    CHECK(fs.get_pixel(asi.cx, asi.cy + kBandR));
+    CHECK_FALSE(fs.get_pixel(asi.cx - 2, asi.cy + kBandR));
+    CHECK_FALSE(fs.get_pixel(asi.cx + 2, asi.cy + kBandR));
+}
+
+// The arc no aeroplane reaches belongs at the bottom of the glass, not across the top of it.
+TEST_CASE("sixpack: the speed dial shades the arc past 180 kt, and nothing below it") {
+    const Tile asi = kTiles[0];
+    SixPackSnapshot s = flying();  // 90 kt, half the scale, so half way round
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+    CHECK(ink_at(fb, asi, -18));
+    CHECK(ink_at(fb, asi, 162, kBandR));
+    CHECK_FALSE(ink_at(fb, asi, -160, kBandR));
+    CHECK_FALSE(ink_at(fb, asi, -110, kBandR));
+    CHECK_FALSE(ink_at(fb, asi, 60, kBandR));
+}
+
+TEST_CASE("sixpack: the vertical speed dial stands a 1000 climb up and hangs a 1000 descent down") {
+    const Tile vsi = kTiles[5];
+    SixPackSnapshot s = flying();
+
+    s.vs_fpm = 1000;
+    Framebuffer up;
+    draw_sixpack(up, s);
+    CHECK(up.get_pixel(vsi.cx, vsi.cy - kFaceR));
+    CHECK_FALSE(up.get_pixel(vsi.cx + 3, vsi.cy - kFaceR));
+    CHECK_FALSE(up.get_pixel(vsi.cx - 3, vsi.cy - kFaceR));
+
+    s.vs_fpm = -1000;
+    Framebuffer down;
+    draw_sixpack(down, s);
+    CHECK(down.get_pixel(vsi.cx, vsi.cy + kFaceR));
+    CHECK_FALSE(down.get_pixel(vsi.cx + 3, vsi.cy + kFaceR));
+    CHECK_FALSE(down.get_pixel(vsi.cx - 3, vsi.cy + kFaceR));
+
+    s.vs_fpm = 0;
+    Framebuffer level;
+    draw_sixpack(level, s);
+    CHECK(level.get_pixel(vsi.cx - kFaceR, vsi.cy));
+    CHECK_FALSE(level.get_pixel(vsi.cx - kFaceR, vsi.cy + 3));
+}
+
+TEST_CASE("sixpack: the vertical speed dial is marked every 500 fpm and shaded past 2000") {
+    const Tile vsi = kTiles[5];
+    SixPackSnapshot s = flying();
+    s.vs_fpm = 1000;
+    Framebuffer fb;
+    draw_sixpack(fb, s);
+
+    const double marks[] = {-90, -45, 0, 40, 80, -135, 180, 140, 100};
+    for (double m : marks) CHECK(ink_at(fb, vsi, m, 29));
+    const double gaps[] = {-67.5, 20, -112.5, 160};
+    for (double g : gaps) CHECK_FALSE(ink_at(fb, vsi, g, 29));
+
+    // Ten degrees either side of the horizontal is all the arc no rate can reach.
+    CHECK(ink_at(fb, vsi, 90, kBandR));
+    CHECK_FALSE(ink_at(fb, vsi, -90));
 }
 
 // A rate of zero is a rate, not a direction: +0 and -0 are both noise on a glance.
