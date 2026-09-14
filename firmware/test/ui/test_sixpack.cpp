@@ -236,6 +236,30 @@ TEST_CASE("sixpack: the middle number is the time since takeoff, in hours and mi
     CHECK(value_matches(flong, kTiles[1], "10:05"));
 }
 
+// The reference symbol is read against the horizon behind it: pitch is what it measures.
+TEST_CASE("sixpack: the horizon carries two wing bars and a dot, clear of each other") {
+    const Tile att = kTiles[1];
+    SixPackSnapshot climbing = flying();
+    climbing.turn_dps = 0;
+    climbing.vs_fpm = 1000;  // 8 degrees up at 90 kt, so the ground is well below the bars
+    Framebuffer fb;
+    draw_sixpack(fb, climbing);
+
+    for (int i = 7; i <= 20; i++) {
+        CHECK(fb.get_pixel(att.cx - i, att.cy));
+        CHECK(fb.get_pixel(att.cx + i, att.cy));
+    }
+    for (int i = 3; i <= 6; i++) {
+        CHECK_FALSE(fb.get_pixel(att.cx - i, att.cy));
+        CHECK_FALSE(fb.get_pixel(att.cx + i, att.cy));
+    }
+    for (int dy = -2; dy <= 2; dy++)
+        for (int dx = -2; dx <= 2; dx++)
+            CHECK(fb.get_pixel(att.cx + dx, att.cy + dy) == (dx * dx + dy * dy < 8));
+    CHECK_FALSE(fb.get_pixel(att.cx - 21, att.cy));
+    CHECK_FALSE(fb.get_pixel(att.cx + 21, att.cy));
+}
+
 // The title says which state the figure belongs to, so the figure itself needs no unit.
 TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in") {
     SixPackSnapshot s = flying();

@@ -52,6 +52,9 @@ constexpr int32_t kPitchFullScaleDeg = 20;
 // bank, where the coordinator's index marks sit.
 constexpr int32_t kStandardRateMarkDeg = 30;
 constexpr int kWingHalf = kR - 8;
+constexpr int kRefInner = 7;
+constexpr int kRefOuter = 20;
+constexpr int kRefDotR = 2;
 
 int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
@@ -181,10 +184,11 @@ void horizon(Framebuffer& fb, int cx, int cy, int32_t pitch_deg, int32_t bank_de
             if (((x + y) & 1) == 0) fb.set_pixel(x, y, true);
         }
     }
-    for (int i = 0; i < 6; i++) {  // aircraft reference, solid over sky or ground
-        fb.set_pixel(cx - 11 + i, cy, true);
-        fb.set_pixel(cx + 6 + i, cy, true);
+    for (int i = kRefInner; i <= kRefOuter; i++) {  // solid over sky or ground
+        fb.set_pixel(cx - i, cy, true);
+        fb.set_pixel(cx + i, cy, true);
     }
+    fb.circle(cx, cy, kRefDotR, true, true);
 }
 
 void turn_coordinator(Framebuffer& fb, int cx, int cy, int32_t bank_deg) {
