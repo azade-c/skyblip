@@ -140,7 +140,7 @@ class TEchoPlus {
 
         if (hal::has(capabilities_, hal::Capability::Gnss)) {
             gnss_.service(now_ms);
-            if (gnss_.poll()) bus_.gnss.push(gnss_.fix());
+            if (gnss_.poll()) bus_.gnss.push(gnss_.solution());
         }
 
         if (hal::has(capabilities_, hal::Capability::Baro) &&

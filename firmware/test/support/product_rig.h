@@ -33,8 +33,8 @@ struct Rig {
     }
 
     void push_fix(int32_t alt_m, uint32_t updates) {
-        gnss::GnssFix f{};
-        f.valid = true;
+        gnss::GnssSolution f{};
+        f.is_fix = true;
         f.alt_m = alt_m;
         f.updates = updates;
         product.bus().gnss.push(f);
@@ -47,8 +47,8 @@ struct Rig {
     // A solution as a receiver reports one in flight: moving, timed, and
     // referenced to both datums. core/flight decides what it means.
     void push_timed_fix(uint16_t speed_q, int32_t alt_msl_m) {
-        gnss::GnssFix f{};
-        f.valid = true;
+        gnss::GnssSolution f{};
+        f.is_fix = true;
         f.utc_valid = true;
         f.utc = kUtcBase + utc_offset_s;
         f.lat_1e7 = 485000000 + static_cast<int32_t>(utc_offset_s) * 3000;

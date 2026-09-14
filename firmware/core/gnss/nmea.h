@@ -35,8 +35,8 @@ enum class Sentence : uint8_t { None, Rmc, Gga, Gsa, Txt };
 // INFO: fc 13sep26 GSA holds twelve satellite slots before its DOPs, so VDOP is field 17
 constexpr int kGsaVdopField = 17;
 
-struct GnssFix {
-    bool valid{false};
+struct GnssSolution {
+    bool is_fix{false};
     bool utc_valid{false};
     int32_t lat_1e7{0};
     int32_t lon_1e7{0};
@@ -71,7 +71,7 @@ class NmeaParser {
 
     bool parse_line(const char* line, int len);
 
-    const GnssFix& fix() const { return fix_; }
+    const GnssSolution& solution() const { return solution_; }
     void reset() { pos_ = 0; }
 
     // Which sentence the last accepted parse was. Only meaningful right after
@@ -92,7 +92,7 @@ class NmeaParser {
 
     char buf_[100];
     int pos_{0};
-    GnssFix fix_;
+    GnssSolution solution_;
     char version_[kVersionCap]{};
     uint32_t unrequested_{0};
     Sentence last_{Sentence::None};
@@ -106,17 +106,15 @@ class NmeaParser {
 bool nmea_checksum_ok(const char* line, int len);
 int32_t nmea_parse_coord(const char* dm, char hemi);
 
-// When the solution in `fix` was actually true, given the millisecond its last
-// sentence arrived. The burst always trails the second it describes; how far is
-// a property of the receiver, so the part stamps it and this applies it.
-inline uint32_t fix_instant_ms(const GnssFix& fix, uint32_t arrival_ms) {
-    return arrival_ms - fix.pps_latency_ms;
+inline uint32_t solution_instant_ms(const GnssSolution& solution, uint32_t arrival_ms) {
+    return arrival_ms - solution.pps_latency_ms;
 }
 
 // INFO: fc 13sep26 a locked PPS edge IS the top of the second the burst describes
-inline uint32_t fix_instant_ms(const GnssFix& fix, uint32_t arrival_ms, uint32_t pps_edge_ms,
-                               bool pps_locked) {
-    if (!pps_locked || arrival_ms - pps_edge_ms >= 1000) return fix_instant_ms(fix, arrival_ms);
+inline uint32_t solution_instant_ms(const GnssSolution& solution, uint32_t arrival_ms,
+                                    uint32_t pps_edge_ms, bool pps_locked) {
+    if (!pps_locked || arrival_ms - pps_edge_ms >= 1000)
+        return solution_instant_ms(solution, arrival_ms);
     return pps_edge_ms;
 }
 

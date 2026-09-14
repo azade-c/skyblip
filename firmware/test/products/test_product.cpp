@@ -155,7 +155,7 @@ TEST_CASE("product: with the fix gone there is no setting to read, not a stale o
     }
     REQUIRE(rig.state().derived_qnh_pa != 0);
 
-    gnss::GnssFix lost{};
+    gnss::GnssSolution lost{};
     rig.product.bus().gnss.push(lost);
     rig.run(t, t + 100);
     t += 100;
@@ -379,8 +379,8 @@ TEST_CASE("product: the first fix is announced once, then own-ship settles befor
 
     // A second acquisition is not a first one: no second chirp, and the shorter
     // wait applies.
-    gnss::GnssFix lost{};
-    lost.valid = false;
+    gnss::GnssSolution lost{};
+    lost.is_fix = false;
     rig.product.bus().gnss.push(lost);
     rig.run(3050, 3200);
     CHECK_FALSE(fix.settled(3200));

@@ -76,10 +76,10 @@ TEST_CASE("l76k: a new fix is reported exactly once") {
 
     chip.tick(1000);  // one $GPRMC + $GPGGA burst, >64 B so the chunked read wraps
     CHECK(gnss.poll());
-    CHECK(gnss.fix().valid);
-    CHECK(gnss.fix().sats == 9);
-    CHECK(gnss.fix().alt_m == 1200);
-    CHECK(gnss.fix().lat_1e7 == doctest::Approx(485000000).epsilon(0.0001));
+    CHECK(gnss.solution().is_fix);
+    CHECK(gnss.solution().sats == 9);
+    CHECK(gnss.solution().alt_m == 1200);
+    CHECK(gnss.solution().lat_1e7 == doctest::Approx(485000000).epsilon(0.0001));
 
     CHECK_FALSE(gnss.poll());  // no new bytes: the same fix is not re-delivered
 }
@@ -98,12 +98,12 @@ TEST_CASE("l76k: losing the fix is reported like any other update") {
     chip.tick(0);
     chip.tick(1000);
     REQUIRE(gnss.poll());
-    REQUIRE(gnss.fix().valid);
+    REQUIRE(gnss.solution().is_fix);
 
     chip.fix = false;
     chip.tick(2000);
     CHECK(gnss.poll());
-    CHECK_FALSE(gnss.fix().valid);
+    CHECK_FALSE(gnss.solution().is_fix);
 }
 
 // The receiver boots with pedestrian smoothing, a factory sentence set and 1 Hz.
@@ -199,8 +199,8 @@ TEST_CASE("l76k: GSA is asked for, and the VDOP in it is the one the fix carries
     CHECK(chip.gsa_enabled);
     CHECK(parts::L76k::kGsaEnabled == chip.gsa_enabled);
 
-    CHECK(gnss.fix().hdop_e2 == chip.hdop_e2);
-    CHECK(gnss.fix().vdop_e2 == chip.vdop_e2);
+    CHECK(gnss.solution().hdop_e2 == chip.hdop_e2);
+    CHECK(gnss.solution().vdop_e2 == chip.vdop_e2);
 
     // Three sentences that say what we read, and not one byte of line time more.
     CHECK_FALSE(chip.gll_enabled);
@@ -215,7 +215,7 @@ TEST_CASE("l76k: a receiver reporting no VDOP leaves the fix without one") {
     parts::L76k gnss(chip, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 1000);
 
-    CHECK(gnss.fix().vdop_e2 == 0);
+    CHECK(gnss.solution().vdop_e2 == 0);
     CHECK(protocol::AdslPacket::kVerticalErrorPerDopCm >
           protocol::AdslPacket::kHorizontalErrorPerDopCm);
 }
@@ -246,7 +246,7 @@ TEST_CASE("l76k: a burst reaches the bus once, on the sentence that closes it") 
     parts::L76k gnss(wire, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 5000);
     REQUIRE(gnss.configured());
-    REQUIRE(gnss.fix().valid);
+    REQUIRE(gnss.solution().is_fix);
 
     const uint32_t at = kBringUpLeadMs + 6000;
     chip.alt_m = 1500;
@@ -257,7 +257,7 @@ TEST_CASE("l76k: a burst reaches the bus once, on the sentence that closes it") 
         if (gnss.poll(at)) published++;
 
     CHECK(published == 1);
-    CHECK(gnss.fix().alt_m == 1500);
+    CHECK(gnss.solution().alt_m == 1500);
 }
 
 // Nothing acknowledges a $PCAS sentence, so the driver treats the receiver's own
@@ -303,8 +303,8 @@ TEST_CASE("l76k: the fix carries the part's burst-to-PPS latency") {
     chip.tick(1000);
     REQUIRE(gnss.poll());
 
-    CHECK(gnss.fix().pps_latency_ms == parts::L76k::kPpsLatencyMs);
-    CHECK(gnss::fix_instant_ms(gnss.fix(), 1000) == 1000 - parts::L76k::kPpsLatencyMs);
+    CHECK(gnss.solution().pps_latency_ms == parts::L76k::kPpsLatencyMs);
+    CHECK(gnss::solution_instant_ms(gnss.solution(), 1000) == 1000 - parts::L76k::kPpsLatencyMs);
 }
 
 // Nothing in the build compares the driver's baud with the devicetree's, so the driver states it.
@@ -366,7 +366,7 @@ TEST_CASE("l76k: a receiver that goes silent withdraws its fix, once") {
     parts::L76k gnss(chip, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 5000);
     REQUIRE(gnss.configured());
-    REQUIRE(gnss.fix().valid);
+    REQUIRE(gnss.solution().is_fix);
 
     // The chip is no longer ticked: powered, wired, saying nothing. The driver
     // is serviced and drained exactly as the board does it.
@@ -380,7 +380,7 @@ TEST_CASE("l76k: a receiver that goes silent withdraws its fix, once") {
         gnss.service(t);
         if (gnss.poll()) {
             updates++;
-            if (!gnss.fix().valid && withdrawn_at == 0) withdrawn_at = t;
+            if (!gnss.solution().is_fix && withdrawn_at == 0) withdrawn_at = t;
         }
     }
 
@@ -402,16 +402,16 @@ TEST_CASE("l76k: a solution dated 1980 does not reach the bus as a fix") {
     parts::L76k gnss(chip, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 5000);
 
-    CHECK(gnss.configured());       // the receiver is fine, it is being obeyed
-    CHECK(gnss.updates() > 0);      // and it is talking
-    CHECK_FALSE(gnss.fix().valid);  // and none of that is a fix
+    CHECK(gnss.configured());             // the receiver is fine, it is being obeyed
+    CHECK(gnss.updates() > 0);            // and it is talking
+    CHECK_FALSE(gnss.solution().is_fix);  // and none of that is a fix
     CHECK(gnss.reject_reason() == gnss::FixReject::NoDate);
 
     // The almanac lands and the date becomes real: the fix follows, with no
     // reconfiguration and no reset.
     chip.date = "010125";
     run(gnss, chip, kBringUpLeadMs + 5010, kBringUpLeadMs + 6000);
-    CHECK(gnss.fix().valid);
+    CHECK(gnss.solution().is_fix);
 }
 
 // I, row "Baud detection and recovery". A receiver that comes up at another rate
@@ -431,7 +431,7 @@ TEST_CASE("l76k: a receiver at the wrong baud is found, not written off") {
     CHECK(chip.port_baud() == 38400);
     CHECK(gnss.configured());
     CHECK_FALSE(gnss.degraded());
-    CHECK(gnss.fix().valid);
+    CHECK(gnss.solution().is_fix);
     // 9600, then 115200, then 38400: the driver's own candidate order, and it
     // stops on the one that answers.
     CHECK(chip.baud_changes == 2);
@@ -484,9 +484,9 @@ TEST_CASE("l76k: a factory reset is recoverable, and the configuration goes back
 
     // And the fix comes back on its own once the receiver has an almanac again,
     // which is the whole point: the pilot is told to wait, not to send it back.
-    CHECK_FALSE(gnss.fix().valid);
+    CHECK_FALSE(gnss.solution().is_fix);
     run(gnss, chip, t + 15010, t + models::L76k::kColdStartTtffMs + 3000);
-    CHECK(gnss.fix().valid);
+    CHECK(gnss.solution().is_fix);
 }
 
 // A cold start throws the orbit data away and keeps everything we configured:
@@ -496,7 +496,7 @@ TEST_CASE("l76k: a cold start keeps the configuration and loses only the almanac
     models::L76k chip;
     parts::L76k gnss(chip, chip);
     run(gnss, chip, 0, kBringUpLeadMs + 5000);
-    REQUIRE(gnss.fix().valid);
+    REQUIRE(gnss.solution().is_fix);
 
     gnss.request_restart(parts::L76k::Restart::Cold);
     const uint32_t t = kBringUpLeadMs + 5010;
@@ -510,7 +510,7 @@ TEST_CASE("l76k: a cold start keeps the configuration and loses only the almanac
     CHECK(gnss.config_state() == parts::L76k::Config::Ready);
 
     run(gnss, chip, t + 10, t + 5000);
-    CHECK_FALSE(gnss.fix().valid);
+    CHECK_FALSE(gnss.solution().is_fix);
     run(gnss, chip, t + 5010, t + models::L76k::kColdStartTtffMs + 3000);
-    CHECK(gnss.fix().valid);
+    CHECK(gnss.solution().is_fix);
 }

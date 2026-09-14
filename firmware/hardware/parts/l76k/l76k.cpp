@@ -20,7 +20,7 @@ void L76k::send_next(uint32_t now_ms) {
     if (next_command_ < kCommandCount) return;
     state_ = Config::Verifying;
     verify_start_ms_ = now_ms;
-    verify_updates_ = parser_.fix().updates;
+    verify_updates_ = parser_.solution().updates;
     verify_unrequested_ = parser_.unrequested();
 }
 
@@ -48,7 +48,7 @@ void L76k::verify_failed(uint32_t now_ms) {
     // at all is a receiver we cannot hear, and the rate is the first suspect. A
     // receiver that is talking has the right rate and is simply not obeying, and
     // walking the baud rates would only lose the sentences we do get.
-    const bool heard_nothing = parser_.fix().updates == verify_updates_;
+    const bool heard_nothing = parser_.solution().updates == verify_updates_;
     if (heard_nothing && next_baud()) {
         attempts_ = 1;
         begin_wake(now_ms);
@@ -109,7 +109,7 @@ void L76k::service(uint32_t now_ms) {
             break;
         case Config::Verifying:
             if (now_ms - verify_start_ms_ < kVerifyWindowMs) break;
-            if (parser_.fix().updates - verify_updates_ >= kMinVerifyUpdates && obeying())
+            if (parser_.solution().updates - verify_updates_ >= kMinVerifyUpdates && obeying())
                 state_ = Config::Ready;
             else
                 verify_failed(now_ms);
@@ -130,7 +130,7 @@ bool L76k::poll(uint32_t now_ms) {
         if (n == 0) break;
         for (size_t i = 0; i < n; i++) {
             if (!parser_.feed(static_cast<char>(buf[i]))) continue;
-            validity_.observe(parser_.fix(), parser_.last_sentence(), now_ms);
+            validity_.observe(parser_.solution(), parser_.last_sentence(), now_ms);
             closed = closed || parser_.last_sentence() == kBurstClosingSentence;
         }
         if (n < sizeof(buf)) break;  // drained
@@ -140,11 +140,11 @@ bool L76k::poll(uint32_t now_ms) {
     // A receiver that stops talking publishes nothing, so nothing would ever
     // withdraw the last fix it managed to send. The validity edge is an update in
     // its own right, and it is the one that matters most.
-    if (!closed && valid == fix_.valid) return false;
+    if (!closed && valid == solution_.is_fix) return false;
 
-    fix_ = parser_.fix();
-    fix_.valid = valid;
-    fix_.pps_latency_ms = kPpsLatencyMs;
+    solution_ = parser_.solution();
+    solution_.is_fix = valid;
+    solution_.pps_latency_ms = kPpsLatencyMs;
     return true;
 }
 

@@ -147,9 +147,10 @@ bool NmeaParser::apply_gsa(const char* f[], int nf) {
     if (nf <= kGsaVdopField) return false;
     last_ = Sentence::Gsa;
     long vdop_e2 = 0;
-    fix_.vdop_e2 = parse_scaled(f[kGsaVdopField], 100, vdop_e2) && vdop_e2 > 0 && vdop_e2 <= 0xFFFF
-                       ? static_cast<uint16_t>(vdop_e2)
-                       : 0;
+    solution_.vdop_e2 =
+        parse_scaled(f[kGsaVdopField], 100, vdop_e2) && vdop_e2 > 0 && vdop_e2 <= 0xFFFF
+            ? static_cast<uint16_t>(vdop_e2)
+            : 0;
     return true;
 }
 
@@ -188,8 +189,8 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
     if (nf < 10) return false;
     last_ = Sentence::Rmc;
     bool valid = f[2][0] == 'A';
-    fix_.valid = valid;
-    fix_.utc_valid = false;
+    solution_.is_fix = valid;
+    solution_.utc_valid = false;
     if (f[1][0] && f[9][0] && strlen(f[1]) >= 6 && strlen(f[9]) >= 6) {
         int hh = d2(f[1]), mm = d2(f[1] + 2), ss = d2(f[1] + 4);
         int day = d2(f[9]), mon = d2(f[9] + 2), yy = d2(f[9] + 4);
@@ -198,13 +199,13 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
         const bool date_sane = yy < kMaxTwoDigitYear && mon >= 1 && mon <= 12 && day >= 1 &&
                                day <= 31 && hh < 24 && mm < 60 && ss < 62;
         if (date_sane) {
-            fix_.utc = to_epoch(2000 + yy, mon, day, hh, mm, ss);
-            fix_.utc_valid = true;
+            solution_.utc = to_epoch(2000 + yy, mon, day, hh, mm, ss);
+            solution_.utc_valid = true;
         }
     }
     if (valid) {
-        if (f[3][0]) fix_.lat_1e7 = nmea_parse_coord(f[3], f[4][0]);
-        if (f[5][0]) fix_.lon_1e7 = nmea_parse_coord(f[5], f[6][0]);
+        if (f[3][0]) solution_.lat_1e7 = nmea_parse_coord(f[3], f[4][0]);
+        if (f[5][0]) solution_.lon_1e7 = nmea_parse_coord(f[5], f[6][0]);
         if (f[7][0]) {
             long kn_e1 = 0, sc = 1;
             const char* s = f[7];
@@ -217,16 +218,16 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
             }
             kn_e1 = ip * 10 + fp;
             (void)sc;
-            fix_.speed_q = static_cast<uint16_t>((kn_e1 * 2058 + 5000) / 10000);
+            solution_.speed_q = static_cast<uint16_t>((kn_e1 * 2058 + 5000) / 10000);
         }
         if (f[8][0]) {
             long ip = 0;
             const char* s = f[8];
             while (*s >= '0' && *s <= '9') ip = ip * 10 + (*s++ - '0');
-            fix_.track_c9 = static_cast<uint16_t>((ip * 512 + 180) / 360 % 512);
+            solution_.track_c9 = static_cast<uint16_t>((ip * 512 + 180) / 360 % 512);
         }
     }
-    fix_.updates++;
+    solution_.updates++;
     return true;
 }
 
@@ -235,29 +236,31 @@ bool NmeaParser::apply_gga(const char* f[], int nf, int len) {
     // that catches it, which is why moshe-braner measures it.
     if (nf < 10 || len < kMinGgaLength) return false;
     last_ = Sentence::Gga;
-    fix_.fix_quality = static_cast<uint8_t>(parse_long(f[6], 2));
-    fix_.sats = static_cast<uint8_t>(parse_long(f[7], 2));
+    solution_.fix_quality = static_cast<uint8_t>(parse_long(f[6], 2));
+    solution_.sats = static_cast<uint8_t>(parse_long(f[7], 2));
 
     long hdop_e2 = 0;
-    fix_.hdop_e2 = parse_scaled(f[8], 100, hdop_e2) && hdop_e2 > 0 && hdop_e2 <= 0xFFFF
-                       ? static_cast<uint16_t>(hdop_e2)
-                       : 0;
+    solution_.hdop_e2 = parse_scaled(f[8], 100, hdop_e2) && hdop_e2 > 0 && hdop_e2 <= 0xFFFF
+                            ? static_cast<uint16_t>(hdop_e2)
+                            : 0;
 
     long separation_m = 0;
-    fix_.geoid_separation_measured = nf > 11 && parse_scaled(f[11], 1, separation_m) &&
-                                     separation_m != 0 && separation_m > -200 && separation_m < 200;
-    fix_.geoid_separation_m = fix_.geoid_separation_measured ? static_cast<int32_t>(separation_m)
-                                                             : kDefaultGeoidSeparationM;
+    solution_.geoid_separation_measured = nf > 11 && parse_scaled(f[11], 1, separation_m) &&
+                                          separation_m != 0 && separation_m > -200 &&
+                                          separation_m < 200;
+    solution_.geoid_separation_m = solution_.geoid_separation_measured
+                                       ? static_cast<int32_t>(separation_m)
+                                       : kDefaultGeoidSeparationM;
 
     long msl_m = 0;
-    fix_.alt_msl_valid = parse_scaled(f[9], 1, msl_m);
-    fix_.alt_hae_valid = fix_.alt_msl_valid;
-    if (fix_.alt_msl_valid) {
-        fix_.alt_msl_m = static_cast<int32_t>(msl_m);
-        fix_.alt_m = fix_.alt_msl_m + fix_.geoid_separation_m;
+    solution_.alt_msl_valid = parse_scaled(f[9], 1, msl_m);
+    solution_.alt_hae_valid = solution_.alt_msl_valid;
+    if (solution_.alt_msl_valid) {
+        solution_.alt_msl_m = static_cast<int32_t>(msl_m);
+        solution_.alt_m = solution_.alt_msl_m + solution_.geoid_separation_m;
     }
 
-    fix_.updates++;
+    solution_.updates++;
     return true;
 }
 

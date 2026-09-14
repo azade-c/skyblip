@@ -30,8 +30,8 @@ TEST_CASE("gnss: RMC updates fix position, time, speed, track") {
     const char* rmc = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230825,003.1,W*6B";
     CHECK(p.parse_line(rmc, static_cast<int>(strlen(rmc))));
     CHECK(p.last_sentence() == Sentence::Rmc);
-    const GnssFix& f = p.fix();
-    CHECK(f.valid);
+    const GnssSolution& f = p.solution();
+    CHECK(f.is_fix);
     CHECK(f.utc_valid);
     CHECK(f.lat_1e7 > 480000000);
     CHECK(f.lon_1e7 > 0);
@@ -54,9 +54,9 @@ TEST_CASE("gnss: the MTK year-1980 date is refused, and so is anything before 20
     NmeaParser p;
     const char* lie = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230380,003.1,W*6F";
     REQUIRE(p.parse_line(lie, static_cast<int>(strlen(lie))));
-    CHECK(p.fix().valid);  // the receiver still claims a solution
-    CHECK_FALSE(p.fix().utc_valid);
-    CHECK(p.fix().utc == 0);
+    CHECK(p.solution().is_fix);  // the receiver still claims a solution
+    CHECK_FALSE(p.solution().utc_valid);
+    CHECK(p.solution().utc == 0);
 
     // The boundary: 69 is 2069 and believable, 70 is 1970 and a lie. OGN draws
     // the line in the same place.
@@ -66,13 +66,13 @@ TEST_CASE("gnss: the MTK year-1980 date is refused, and so is anything before 20
     // date either: month 0 and day 0 do not exist.
     const char* zeroes = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,000000,003.1,W*65";
     REQUIRE(p.parse_line(zeroes, static_cast<int>(strlen(zeroes))));
-    CHECK_FALSE(p.fix().utc_valid);
+    CHECK_FALSE(p.solution().utc_valid);
 
     // And a good date after a bad one clears it: the flag follows the sentence,
     // it is not sticky.
     const char* good = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230825,003.1,W*6B";
     REQUIRE(p.parse_line(good, static_cast<int>(strlen(good))));
-    CHECK(p.fix().utc_valid);
+    CHECK(p.solution().utc_valid);
 }
 
 // I, row "Leap seconds": DOES NOT APPLY, and this is where it is written down.
@@ -87,15 +87,15 @@ TEST_CASE("gnss: RMC time is UTC already, so no leap-second offset is applied") 
     REQUIRE(p.parse_line(rmc, static_cast<int>(strlen(rmc))));
     // Exactly the UTC epoch of 2025-08-23T12:35:19Z. Not 18 s past it, not 18 s
     // short of it: the same integer any UTC clock would produce.
-    CHECK(p.fix().utc == 1755952519u);
-    CHECK(p.fix().utc != 1755952519u + 18u);
+    CHECK(p.solution().utc == 1755952519u);
+    CHECK(p.solution().utc != 1755952519u + 18u);
 }
 
 TEST_CASE("gnss: GGA updates altitude and sats") {
     NmeaParser p;
     const char* gga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     CHECK(p.parse_line(gga, static_cast<int>(strlen(gga))));
-    const GnssFix& f = p.fix();
+    const GnssSolution& f = p.solution();
     CHECK(f.alt_msl_m == 545);
     CHECK(int(f.sats) == 8);
     CHECK(int(f.fix_quality) == 1);
@@ -111,7 +111,7 @@ TEST_CASE("gnss: GGA carries MSL and ellipsoidal height as separate values") {
     NmeaParser p;
     const char* gga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     REQUIRE(p.parse_line(gga, static_cast<int>(strlen(gga))));
-    const GnssFix& f = p.fix();
+    const GnssSolution& f = p.solution();
     CHECK(f.alt_msl_valid);
     CHECK(f.alt_msl_m == 545);
     CHECK(f.geoid_separation_m == 47);
@@ -130,19 +130,19 @@ TEST_CASE("gnss: a receiver that omits the geoid separation falls back and says 
     NmeaParser p;
     const char* omitted = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,,M,,*52";
     REQUIRE(p.parse_line(omitted, static_cast<int>(strlen(omitted))));
-    CHECK_FALSE(p.fix().geoid_separation_measured);
-    CHECK(p.fix().geoid_separation_m == kDefaultGeoidSeparationM);
-    CHECK(p.fix().alt_msl_m == 545);
-    CHECK(p.fix().alt_m == 545 + kDefaultGeoidSeparationM);
+    CHECK_FALSE(p.solution().geoid_separation_measured);
+    CHECK(p.solution().geoid_separation_m == kDefaultGeoidSeparationM);
+    CHECK(p.solution().alt_msl_m == 545);
+    CHECK(p.solution().alt_m == 545 + kDefaultGeoidSeparationM);
 }
 
 TEST_CASE("gnss: a receiver stuck at 0.0 separation falls back too") {
     NmeaParser p;
     const char* zero = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,0.0,M,,*7C";
     REQUIRE(p.parse_line(zero, static_cast<int>(strlen(zero))));
-    CHECK_FALSE(p.fix().geoid_separation_measured);
-    CHECK(p.fix().geoid_separation_m == kDefaultGeoidSeparationM);
-    CHECK(p.fix().alt_m == 545 + kDefaultGeoidSeparationM);
+    CHECK_FALSE(p.solution().geoid_separation_measured);
+    CHECK(p.solution().geoid_separation_m == kDefaultGeoidSeparationM);
+    CHECK(p.solution().alt_m == 545 + kDefaultGeoidSeparationM);
 }
 
 // GGA field 8. Without it every integrity and accuracy field we transmit is a
@@ -151,11 +151,11 @@ TEST_CASE("gnss: GGA carries HDOP in hundredths") {
     NmeaParser p;
     const char* sharp = "$GPGGA,101530,4736.2417,N,00834.9028,E,1,09,1.25,612.3,M,47.4,M,,*70";
     REQUIRE(p.parse_line(sharp, static_cast<int>(strlen(sharp))));
-    CHECK(p.fix().hdop_e2 == 125);
+    CHECK(p.solution().hdop_e2 == 125);
 
     const char* poor = "$GPGGA,101530,4736.2417,N,00834.9028,E,1,09,4.80,612.3,M,47.4,M,,*7A";
     REQUIRE(p.parse_line(poor, static_cast<int>(strlen(poor))));
-    CHECK(p.fix().hdop_e2 == 480);
+    CHECK(p.solution().hdop_e2 == 480);
 }
 
 // GSA is asked for to carry VDOP: G.1.12's vertical claim has no other source on this part.
@@ -164,12 +164,12 @@ TEST_CASE("gnss: GSA carries VDOP in hundredths") {
     const char* gsa = "$GPGSA,A,3,04,05,,09,12,,,24,,,,,2.50,1.25,2.10*0D";
     REQUIRE(p.parse_line(gsa, static_cast<int>(strlen(gsa))));
     CHECK(p.last_sentence() == Sentence::Gsa);
-    CHECK(p.fix().vdop_e2 == 210);
+    CHECK(p.solution().vdop_e2 == 210);
 
     // A 2D solution computes no vertical figure and leaves the field empty.
     const char* flat = "$GPGSA,A,2,04,05,,09,12,,,24,,,,,2.50,1.25,*11";
     REQUIRE(p.parse_line(flat, static_cast<int>(strlen(flat))));
-    CHECK(p.fix().vdop_e2 == 0);
+    CHECK(p.solution().vdop_e2 == 0);
 }
 
 // A $PCAS sentence is never acknowledged: what the receiver stops saying is the only evidence.
@@ -197,9 +197,9 @@ TEST_CASE("gnss: a GGA without a solution reports no altitude") {
     NmeaParser p;
     const char* none = "$GPGGA,101530,4736.2417,N,00834.9028,E,0,00,99.99,,M,,M,,*7F";
     REQUIRE(p.parse_line(none, static_cast<int>(strlen(none))));
-    CHECK_FALSE(p.fix().alt_msl_valid);
-    CHECK_FALSE(p.fix().alt_hae_valid);
-    CHECK(int(p.fix().fix_quality) == 0);
+    CHECK_FALSE(p.solution().alt_msl_valid);
+    CHECK_FALSE(p.solution().alt_hae_valid);
+    CHECK(int(p.solution().fix_quality) == 0);
 }
 
 TEST_CASE("gnss: byte-wise feed reconstructs a sentence") {
@@ -208,8 +208,8 @@ TEST_CASE("gnss: byte-wise feed reconstructs a sentence") {
     bool got = false;
     for (const char* c = gga; *c; c++) got |= p.feed(*c);
     CHECK(got);
-    CHECK(p.fix().alt_msl_m == 545);
-    CHECK(p.fix().alt_m == 592);
+    CHECK(p.solution().alt_msl_m == 545);
+    CHECK(p.solution().alt_m == 592);
 }
 
 // A burst is always late relative to the PPS edge whose second it describes, so
@@ -218,29 +218,29 @@ TEST_CASE("gnss: byte-wise feed reconstructs a sentence") {
 // Neither reference trusts the burst without it: SoftRF subtracts a per-chip
 // constant, OGN a PPSdelay parameter defaulting to 100 ms.
 TEST_CASE("gnss: a fix is timestamped before its sentence arrived") {
-    GnssFix f{};
+    GnssSolution f{};
     f.pps_latency_ms = 135;
-    CHECK(fix_instant_ms(f, 10'000) == 9'865);
+    CHECK(solution_instant_ms(f, 10'000) == 9'865);
 
     // Unstamped, the arrival time is the best we have.
-    GnssFix bare{};
-    CHECK(fix_instant_ms(bare, 10'000) == 10'000);
+    GnssSolution bare{};
+    CHECK(solution_instant_ms(bare, 10'000) == 10'000);
 
     // Boot: the correction reaches back past zero, and the ages computed from it
     // stay right because the arithmetic wraps the same way on both sides.
-    CHECK(static_cast<uint32_t>(500 - fix_instant_ms(f, 100)) == 535);
+    CHECK(static_cast<uint32_t>(500 - solution_instant_ms(f, 100)) == 535);
 }
 
 // A latched PPS edge dates the solution exactly, which no per-chip constant can as the burst grows.
 TEST_CASE("gnss: a locked PPS edge dates the fix, not the stamped latency") {
-    GnssFix f{};
+    GnssSolution f{};
     f.pps_latency_ms = 333;
 
-    CHECK(fix_instant_ms(f, 10'333, 10'000, true) == 10'000);
+    CHECK(solution_instant_ms(f, 10'333, 10'000, true) == 10'000);
 
     // No lock, or an edge too old to be this burst's own second: the estimate stands.
-    CHECK(fix_instant_ms(f, 10'333, 10'000, false) == 10'000);
-    CHECK(fix_instant_ms(f, 11'400, 10'000, true) == 11'067);
+    CHECK(solution_instant_ms(f, 10'333, 10'000, false) == 10'000);
+    CHECK(solution_instant_ms(f, 11'400, 10'000, true) == 11'067);
 }
 
 // I, row "Date and jump sanity", second half. A sentence that stopped early
@@ -253,7 +253,7 @@ TEST_CASE("gnss: a truncated GGA is refused, checksum or no checksum") {
     NmeaParser p;
     const char* whole = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     REQUIRE(p.parse_line(whole, static_cast<int>(strlen(whole))));
-    REQUIRE(p.fix().alt_msl_m == 545);
+    REQUIRE(p.solution().alt_msl_m == 545);
 
     // Cut after HDOP, re-checksummed: eight fields where ten are needed.
     const char* cut = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9*7C";
@@ -268,8 +268,8 @@ TEST_CASE("gnss: a truncated GGA is refused, checksum or no checksum") {
     CHECK_FALSE(p.parse_line(empty, static_cast<int>(strlen(empty))));
 
     // Neither of them touched the solution we already had.
-    CHECK(p.fix().alt_msl_m == 545);
-    CHECK(p.fix().updates == 1);
+    CHECK(p.solution().alt_msl_m == 545);
+    CHECK(p.solution().updates == 1);
 }
 
 // I, row "Receiver identification". $PCAS06 is answered with a $GPTXT banner and
@@ -289,7 +289,7 @@ TEST_CASE("gnss: the receiver names itself in a $GPTXT, and the version is kept"
 
     // A banner is not a solution: the verification window counts fixes, and a
     // receiver introducing itself must not satisfy it.
-    CHECK(p.fix().updates == 0);
+    CHECK(p.solution().updates == 0);
 
     // The part emits other $GPTXT lines (antenna status, start-up notices). A
     // version field that is sometimes an antenna warning is worse than none, so
@@ -303,5 +303,5 @@ TEST_CASE("gnss: corrupt checksum is rejected, no update") {
     NmeaParser p;
     const char* bad = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*00";
     CHECK_FALSE(p.parse_line(bad, static_cast<int>(strlen(bad))));
-    CHECK(p.fix().updates == 0);
+    CHECK(p.solution().updates == 0);
 }

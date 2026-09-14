@@ -124,7 +124,7 @@ class L76k {
     // would be measured from a clock this part does not have.
     bool poll() { return poll(serviced_ms_); }
 
-    const gnss::GnssFix& fix() const { return fix_; }
+    const gnss::GnssSolution& solution() const { return solution_; }
 
     // Why the last solution was not a fix, and how many times that has happened.
     // Both are for the self-test page and a support case, and nothing else reads
@@ -149,7 +149,7 @@ class L76k {
     // Sentences the parser accepted since boot. A receiver that is wired but
     // silent (or babbling at the wrong baud) never moves this off zero, which is
     // what the DFU health gate watches.
-    uint32_t updates() const { return parser_.fix().updates; }
+    uint32_t updates() const { return parser_.solution().updates; }
 
    private:
     static constexpr size_t kChunk = 64;
@@ -171,7 +171,7 @@ class L76k {
     io::UartRate& rate_;
     gnss::NmeaParser parser_{};
     gnss::FixValidity validity_{};
-    gnss::GnssFix fix_{};
+    gnss::GnssSolution solution_{};
     uint32_t verify_unrequested_{0};
 
     Config state_{Config::Idle};

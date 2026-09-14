@@ -48,7 +48,7 @@ constexpr uint8_t kQualityFloatRtk = 5;
 class FixValidity {
    public:
     // One accepted sentence, with the instant it arrived.
-    void observe(const GnssFix& fix, Sentence which, uint32_t now_ms);
+    void observe(const GnssSolution& solution, Sentence which, uint32_t now_ms);
 
     // The verdict, without side effects.
     FixReject evaluate(uint32_t now_ms) const;

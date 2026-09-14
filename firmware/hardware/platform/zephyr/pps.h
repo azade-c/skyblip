@@ -22,6 +22,8 @@ class Pps {
         return Status::Ok;
     }
 
+    // INFO: fc 14sep26 CASIC CFG-TP decides whether the pulse free-runs unfixed, undocumented on
+    // the L76K: an edge is not a fix
     bool locked() const {
         return edge_us_ != 0 && k_ticks_to_us_floor64(k_uptime_ticks()) - edge_us_ < kHoldoverUs;
     }

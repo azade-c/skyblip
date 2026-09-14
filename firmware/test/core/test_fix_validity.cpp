@@ -23,7 +23,7 @@ struct Burst {
     void feed(const char* line, uint32_t at_ms) {
         const int len = static_cast<int>(std::strlen(line));
         REQUIRE(parser.parse_line(line, len));
-        validity.observe(parser.fix(), parser.last_sentence(), at_ms);
+        validity.observe(parser.solution(), parser.last_sentence(), at_ms);
     }
 };
 
@@ -125,14 +125,14 @@ TEST_CASE("fix validity: the jump gate is drawn where moshe-braner draws it") {
     Burst b;
     b.feed(kRmc, 1000);
     b.feed(kGga, 1000);
-    const int32_t base_lat = b.parser.fix().lat_1e7;
+    const int32_t base_lat = b.parser.solution().lat_1e7;
 
-    GnssFix inside = b.parser.fix();
+    GnssSolution inside = b.parser.solution();
     inside.lat_1e7 = base_lat + kMaxLatitudeJump1e7;
     b.validity.observe(inside, Sentence::Rmc, 1200);
     CHECK(b.validity.valid(1200));
 
-    GnssFix outside = inside;
+    GnssSolution outside = inside;
     outside.lat_1e7 = inside.lat_1e7 + kMaxLatitudeJump1e7 + 1;
     b.validity.observe(outside, Sentence::Rmc, 1400);
     CHECK(b.validity.evaluate(1400) == FixReject::Jump);

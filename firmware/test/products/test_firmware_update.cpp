@@ -19,8 +19,8 @@ void on_ground(Rig& rig, uint32_t& t) {
 }
 
 void receiver_speaks_without_a_fix(Rig& rig) {
-    gnss::GnssFix f{};
-    f.valid = false;
+    gnss::GnssSolution f{};
+    f.is_fix = false;
     f.updates = 1;
     rig.product.bus().gnss.push(f);
 }

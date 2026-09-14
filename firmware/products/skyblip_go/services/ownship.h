@@ -28,8 +28,8 @@ class OwnshipService : public runtime::Service {
     bool take_fix_acquired() { return settle_.take_acquired(); }
 
    private:
-    void apply_fix(const gnss::GnssFix& fix, uint32_t now_ms);
-    uint32_t fix_instant(const gnss::GnssFix& fix, uint32_t now_ms) const;
+    void apply_solution(const gnss::GnssSolution& solution, uint32_t now_ms);
+    uint32_t solution_instant(const gnss::GnssSolution& solution, uint32_t now_ms) const;
     void apply_baro(const messages::BaroSample& sample);
     void update_derived_qnh(const messages::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);

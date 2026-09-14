@@ -48,7 +48,7 @@ class Queue {
 };
 
 struct Bus {
-    Queue<gnss::GnssFix, 2> gnss;
+    Queue<gnss::GnssSolution, 2> gnss;
     Queue<messages::BaroSample, 2> baro;
     Queue<messages::RfEvent, 8> rf;
     // The connection itself, ahead of the bytes that travel over it: the config

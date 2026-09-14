@@ -18,8 +18,8 @@ uint8_t OwnshipService::flight_state_from(const messages::OwnState& own, uint32_
 }
 
 void OwnshipService::tick(uint32_t now_ms) {
-    gnss::GnssFix fix{};
-    while (context_.bus.gnss.pop(fix)) apply_fix(fix, now_ms);
+    gnss::GnssSolution solution{};
+    while (context_.bus.gnss.pop(solution)) apply_solution(solution, now_ms);
 
     messages::BaroSample sample{};
     while (context_.bus.baro.pop(sample)) apply_baro(sample);
@@ -29,13 +29,13 @@ void OwnshipService::tick(uint32_t now_ms) {
     context_.state.own.fix_acquired = settle_.take_acquired();
 }
 
-void OwnshipService::apply_fix(const gnss::GnssFix& f, uint32_t now_ms) {
+void OwnshipService::apply_solution(const gnss::GnssSolution& f, uint32_t now_ms) {
     messages::OwnState& own = context_.state.own;
     const messages::OwnState previous = own;
     context_.state.gnss_solutions++;
-    settle_.update(f.valid, now_ms);
+    settle_.update(f.is_fix, now_ms);
 
-    own.fix_valid = f.valid;
+    own.fix_valid = f.is_fix;
     own.utc_valid = f.utc_valid;
     own.lat_1e7 = f.lat_1e7;
     own.lon_1e7 = f.lon_1e7;
@@ -47,7 +47,7 @@ void OwnshipService::apply_fix(const gnss::GnssFix& f, uint32_t now_ms) {
     own.hdop_e2 = f.hdop_e2;
     own.vdop_e2 = f.vdop_e2;
     own.utc = f.utc;
-    own.fix_ms = fix_instant(f, now_ms);
+    own.fix_ms = solution_instant(f, now_ms);
     own.sats = f.sats;
     own.aircraft_cat = context_.state.settings.aircraft_type;
 
@@ -93,10 +93,10 @@ void OwnshipService::update_residual(const messages::OwnState& previous) {
 }
 
 // INFO: fc 13sep26 the latched edge dates the solution exactly, the estimate only when it is lost
-uint32_t OwnshipService::fix_instant(const gnss::GnssFix& f, uint32_t now_ms) const {
+uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& f, uint32_t now_ms) const {
     const timing::ClockState& clock = context_.state.clock;
-    return gnss::fix_instant_ms(f, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000),
-                                clock.pps_locked);
+    return gnss::solution_instant_ms(f, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000),
+                                     clock.pps_locked);
 }
 
 void OwnshipService::apply_baro(const messages::BaroSample& sample) {

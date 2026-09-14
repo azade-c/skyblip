@@ -26,9 +26,9 @@ messages::OwnState own_from_gnss(const char* rmc, const char* gga) {
     gnss::NmeaParser p;
     p.parse_line(rmc, static_cast<int>(std::strlen(rmc)));
     p.parse_line(gga, static_cast<int>(std::strlen(gga)));
-    const gnss::GnssFix& f = p.fix();
+    const gnss::GnssSolution& f = p.solution();
     messages::OwnState o{};
-    o.fix_valid = f.valid;
+    o.fix_valid = f.is_fix;
     o.utc_valid = f.utc_valid;
     o.pps_locked = true;
     o.lat_1e7 = f.lat_1e7;
