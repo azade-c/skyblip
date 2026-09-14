@@ -115,7 +115,7 @@ image_version() {
   triple=$(sed -n \
     -e 's/^VERSION_MAJOR *= *\([0-9]*\).*/\1/p' \
     -e 's/^VERSION_MINOR *= *\([0-9]*\).*/\1/p' \
-    -e 's/^PATCHLEVEL *= *\([0-9]*\).*/\1/p' "$file" | paste -sd.)
+    -e 's/^PATCHLEVEL *= *\([0-9]*\).*/\1/p' "$file" | paste -sd. -)
   test -n "${triple//./}" || { echo "FAIL: no version triple in $file" >&2; exit 1; }
   # The build number orders two images of one release, as github.run_number does
   # in CI. Commit count: it only ever goes up on a branch that only moves forward.
@@ -160,20 +160,23 @@ assert_confirmed_image_differs() {
 }
 
 # The host `size` cannot read an arm-zephyr-eabi ELF, and the SDK's own tool is
-# not on PATH outside a build.
+# not on PATH outside a build. SDK 1.0 moved the toolchains under gnu/.
 size_tool() {
   local tool
-  for tool in "${ZEPHYR_SDK_INSTALL_DIR:-}"/arm-zephyr-eabi/bin/arm-zephyr-eabi-size \
-              "$HOME"/zephyr-sdk-*/arm-zephyr-eabi/bin/arm-zephyr-eabi-size; do
+  for tool in "${ZEPHYR_SDK_INSTALL_DIR:-}"/{gnu/,}arm-zephyr-eabi/bin/arm-zephyr-eabi-size \
+              "$HOME"/zephyr-sdk-*/{gnu/,}arm-zephyr-eabi/bin/arm-zephyr-eabi-size; do
     if [ -x "$tool" ]; then echo "$tool"; return; fi
   done
+  echo "FAIL: no arm-zephyr-eabi-size in the Zephyr SDK" >&2
+  exit 1
 }
 
 # mkuf2 leaves its intermediate .merged.hex beside the .uf2, so it writes into
 # the build directory and builds/ takes the copy.
 stage_artifacts() {
-  local version=$1 out=$workspace/firmware/build/$product/zephyr
-  SIZE=$(size_tool) "$python" "$workspace/scripts/size_check.py" "$out/zephyr.elf"
+  local version=$1 out=$workspace/firmware/build/$product/zephyr size
+  size=$(size_tool)
+  SIZE=$size "$python" "$workspace/scripts/size_check.py" "$out/zephyr.elf"
   "$python" "$workspace/scripts/mkuf2.py" "$workspace/firmware/build/$slug.uf2" \
     "$workspace/firmware/build/mcuboot/zephyr/zephyr.hex" \
     "$out/zephyr.signed.confirmed.hex"
