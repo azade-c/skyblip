@@ -22,7 +22,7 @@ enum class Mode : uint8_t { Traffic, Settings };
 
 class ScreenService : public runtime::Service {
    public:
-    static constexpr int kMaxRadarTargets = 12;
+    static constexpr int kMaxRadarTargets = ui::kMaxRadarTargets;
     static constexpr uint32_t kRenderPeriodMs = 1000;
     static constexpr uint32_t kPresentFloorMs = 1000;
 

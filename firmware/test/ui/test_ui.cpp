@@ -40,6 +40,13 @@ bool reads_in(const Framebuffer& fb, const char* text, int x0, int y0, int x1, i
     return false;
 }
 
+int ink_in(const Framebuffer& fb, int x0, int y0, int x1, int y1) {
+    int n = 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++) n += fb.get_pixel(x, y) ? 1 : 0;
+    return n;
+}
+
 RadarSnapshot flying(uint16_t track_deg) {
     RadarSnapshot snap;
     snap.have_fix = true;
@@ -225,6 +232,104 @@ TEST_CASE("radar: the range ring is one unbroken stroke, and the only ring on th
             if (neighbours < 2) speckles++;
         }
     CHECK(speckles == 0);
+}
+
+// 2 NM ahead on the 4 NM ring is 46 px, so every case below plots on (100, 54).
+constexpr int kPlotX = 100;
+constexpr int kPlotY = 54;
+
+RadarSnapshot one_target(RadarTarget* t) {
+    RadarSnapshot snap = flying(0);
+    snap.n_targets = 1;
+    snap.targets = t;
+    return snap;
+}
+
+TEST_CASE("radar: traffic wears its TCAS symbol, hollow, filled, or an advisory circle") {
+    RadarTarget other[1] = {{2 * kMetresPerNm, 0, 0, 0}};
+    const Framebuffer hollow = radar(one_target(other));
+    CHECK_FALSE(hollow.get_pixel(kPlotX, kPlotY));
+    CHECK(hollow.get_pixel(kPlotX - 4, kPlotY));
+    CHECK(hollow.get_pixel(kPlotX + 4, kPlotY));
+
+    RadarTarget proximate[1] = {{2 * kMetresPerNm, 0, 0, 1}};
+    const Framebuffer filled = radar(one_target(proximate));
+    CHECK(filled.get_pixel(kPlotX, kPlotY));
+    CHECK(filled.get_pixel(kPlotX - 4, kPlotY));
+    // A diamond has empty corners where a circle of the same reach has none.
+    CHECK_FALSE(filled.get_pixel(kPlotX + 3, kPlotY + 3));
+
+    RadarTarget advisory[1] = {{2 * kMetresPerNm, 0, 0, 2}};
+    const Framebuffer circle = radar(one_target(advisory));
+    CHECK(circle.get_pixel(kPlotX + 3, kPlotY + 3));
+    CHECK(ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) >
+          ink_in(filled, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
+
+    // There is no resolution advisory on this device: the loudest grade reads as the same circle.
+    RadarTarget urgent[1] = {{2 * kMetresPerNm, 0, 0, 3}};
+    CHECK(ink_in(radar(one_target(urgent)), kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) ==
+          ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
+}
+
+TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {
+    // 300 m = 984 ft, which is ten hundreds of feet to the nearest hundred.
+    RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, 1}};
+    const Framebuffer higher = radar(one_target(above));
+    CHECK(reads_in(higher, "+10", 80, 36, 120, kPlotY - 4));
+    CHECK_FALSE(reads_in(higher, "+10", 80, kPlotY, 120, 80));
+
+    RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, 1}};
+    const Framebuffer lower = radar(one_target(below));
+    CHECK(reads_in(lower, "-10", 80, kPlotY + 4, 120, 80));
+    CHECK_FALSE(reads_in(lower, "-10", 80, 36, 120, kPlotY - 4));
+
+    // Level traffic reads 00, unsigned: +0 and -0 are the same separation.
+    RadarTarget level[1] = {{2 * kMetresPerNm, 0, 10, 1}};
+    CHECK(reads_in(radar(one_target(level)), "00", 80, 36, 120, kPlotY - 4));
+}
+
+TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") {
+    // 200 m abeam is 2 px on the 4 NM ring, so the two tags want the same glass.
+    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, 1}, {2 * kMetresPerNm, 200, 600, 1}};
+    RadarSnapshot snap = flying(0);
+    snap.n_targets = 2;
+    snap.targets = pair;
+    const Framebuffer fb = radar(snap);
+
+    CHECK(reads_in(fb, "+10", 80, 36, 120, kPlotY - 4));
+    CHECK_FALSE(reads_in(fb, "+20", 80, 36, 120, kPlotY - 4));
+    // Both aircraft are still on the glass: the tag goes, the symbol stays.
+    CHECK(fb.get_pixel(kPlotX + 2 + 4, kPlotY));
+    CHECK(fb.get_pixel(kPlotX - 4, kPlotY));
+}
+
+TEST_CASE("radar: a chevron on the tag says climbing or descending, past 500 fpm") {
+    RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, 1, 0, true}};
+    const Framebuffer flat = radar(one_target(steady));
+    const int tag_top = kPlotY - 4 - 3 - 7;
+
+    // 2.5 m/s is 492 fpm: the arrow is for a rate a pilot has to act on.
+    RadarTarget slow[1] = {{2 * kMetresPerNm, 0, 300, 1, 19, true}};
+    CHECK(ink_in(radar(one_target(slow)), 80, tag_top, 120, kPlotY - 4) ==
+          ink_in(flat, 80, tag_top, 120, kPlotY - 4));
+
+    RadarTarget climbing[1] = {{2 * kMetresPerNm, 0, 300, 1, 20, true}};
+    const Framebuffer up = radar(one_target(climbing));
+    CHECK(ink_in(up, 80, tag_top, 120, kPlotY - 4) > ink_in(flat, 80, tag_top, 120, kPlotY - 4));
+
+    RadarTarget descending[1] = {{2 * kMetresPerNm, 0, 300, 1, -20, true}};
+    const Framebuffer down = radar(one_target(descending));
+    // The apex is one row and the base the other, so the two are mirror images.
+    const int arrow_x = 105;
+    CHECK(ink_in(up, arrow_x, tag_top + 2, 120, tag_top + 3) <
+          ink_in(up, arrow_x, tag_top + 4, 120, tag_top + 5));
+    CHECK(ink_in(down, arrow_x, tag_top + 2, 120, tag_top + 3) >
+          ink_in(down, arrow_x, tag_top + 4, 120, tag_top + 5));
+
+    // A target that never reported a rate is not credited with one.
+    RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, 1, 40, false}};
+    CHECK(ink_in(radar(one_target(silent)), 80, tag_top, 120, kPlotY - 4) ==
+          ink_in(flat, 80, tag_top, 120, kPlotY - 4));
 }
 
 TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glass") {

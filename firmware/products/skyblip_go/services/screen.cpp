@@ -383,14 +383,15 @@ void ScreenService::render(uint32_t now_ms) {
                 for (int i = 0; i < traffic::TrafficTable::kCapacity && n < kMaxRadarTargets; i++) {
                     const traffic::Target* t = context_.state.traffic.at(i);
                     if (!t || !t->used) continue;
+                    const messages::AircraftObs obs = flight::carried_to(t->obs, now_ms);
                     int32_t north = 0, east = 0, up = 0;
-                    if (!protocol::relative_ned(own_now, flight::carried_to(t->obs, now_ms), north,
-                                                east, up))
-                        continue;
+                    if (!protocol::relative_ned(own_now, obs, north, east, up)) continue;
                     targets_[n].north_m = north;
                     targets_[n].east_m = east;
                     targets_[n].up_m = up;
                     targets_[n].alarm_level = t->alarm_level;
+                    targets_[n].climb_e8 = obs.climb_e8;
+                    targets_[n].has_climb = obs.has_climb;
                     n++;
                 }
             }

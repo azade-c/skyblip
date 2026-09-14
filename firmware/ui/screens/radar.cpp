@@ -2,6 +2,7 @@
 
 #include "core/util/format.h"
 #include "core/util/intmath.h"
+#include "core/util/units.h"
 #include "ui/widgets/skyship.h"
 
 namespace skyblip::ui {
@@ -44,6 +45,17 @@ constexpr int kRangeY = kFooterBottom - kGlyphH * kRangeScale;
 constexpr int kUnitGap = 3;
 constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
+constexpr int kSymbolR = 4;
+constexpr int kAdvisoryR = 5;
+constexpr uint8_t kProximateLevel = 1;
+constexpr uint8_t kAdvisoryLevel = 2;
+constexpr int kTagGap = 3;
+constexpr int kTagPad = 1;
+constexpr int kChevronW = 5;
+constexpr int kChevronH = 3;
+constexpr int kChevronGap = 2;
+constexpr int32_t kFeetPerTagUnit = 100;
+constexpr int16_t kChevronClimbE8 = 20;
 
 int half_chord_in_half_pixels(int r, int b) {
     const int32_t v = 4 * r * r - (2 * b + 1) * (2 * b + 1);
@@ -133,24 +145,118 @@ void aircraft(Framebuffer& fb, int in_view, bool counting) {
     fb.draw_text(x - kUnitGap - text_width("ACT", 1), kFooterY, "ACT", true, 1);
 }
 
-int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
+struct Plotted {
+    int x;
+    int y;
+};
+
+bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, Plotted& out) {
     const int64_t range = (snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
-    int in_view = 0;
-    for (int i = 0; i < snap.n_targets; i++) {
-        const RadarTarget& t = snap.targets[i];
-        const HeadingUp at = heading_up(t.north_m, t.east_m, track);
-        const int dx = static_cast<int>((static_cast<int64_t>(at.right) * kOuterR) / range);
-        const int dy = static_cast<int>((static_cast<int64_t>(at.ahead) * kOuterR) / range);
-        if (dx * dx + dy * dy > kOuterR * kOuterR) continue;
-        const int px = px_of(dx), py = py_of(dy);
-        const int r = t.alarm_level >= 2 ? 4 : 2;
-        fb.circle(px, py, r, true, t.alarm_level >= 3);
-        if (t.up_m > 30)
-            fb.vline(px, py - r - 3, 2, true);
-        else if (t.up_m < -30)
-            fb.vline(px, py + r + 1, 2, true);
-        in_view++;
+    const HeadingUp at = heading_up(t.north_m, t.east_m, track);
+    const int dx = static_cast<int>((static_cast<int64_t>(at.right) * kOuterR) / range);
+    const int dy = static_cast<int>((static_cast<int64_t>(at.ahead) * kOuterR) / range);
+    if (dx * dx + dy * dy > kOuterR * kOuterR) return false;
+    out = {px_of(dx), py_of(dy)};
+    return true;
+}
+
+void diamond(Framebuffer& fb, int cx, int cy, int r, bool fill) {
+    for (int dy = -r; dy <= r; dy++) {
+        const int half = r - (dy < 0 ? -dy : dy);
+        if (fill) {
+            fb.hline(cx - half, cy + dy, 2 * half + 1, true);
+        } else {
+            fb.set_pixel(cx - half, cy + dy, true);
+            fb.set_pixel(cx + half, cy + dy, true);
+        }
     }
+}
+
+void traffic_symbol(Framebuffer& fb, const Plotted& p, uint8_t alarm_level) {
+    if (alarm_level >= kAdvisoryLevel) {
+        fb.circle(p.x, p.y, kAdvisoryR, true, true);
+        return;
+    }
+    diamond(fb, p.x, p.y, kSymbolR, alarm_level >= kProximateLevel);
+}
+
+void chevron(Framebuffer& fb, int x, int y, bool up) {
+    const int apex = up ? y : y + kChevronH - 1;
+    const int base = up ? y + kChevronH - 1 : y;
+    fb.line(x, base, x + kChevronW / 2, apex, true);
+    fb.line(x + kChevronW / 2, apex, x + kChevronW - 1, base, true);
+}
+
+int32_t hundreds_of_feet(int32_t up_m) {
+    const int32_t ft = to_feet(Metres(up_m)).v;
+    const int32_t half = kFeetPerTagUnit / 2;
+    return (ft >= 0 ? ft + half : ft - half) / kFeetPerTagUnit;
+}
+
+int chevron_direction(const RadarTarget& t) {
+    if (!t.has_climb) return 0;
+    if (t.climb_e8 >= kChevronClimbE8) return 1;
+    if (t.climb_e8 <= -kChevronClimbE8) return -1;
+    return 0;
+}
+
+struct Box {
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
+bool overlap(const Box& a, const Box& b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+struct Tag {
+    char text[8];
+    int climbing;
+    Box box;
+};
+
+Tag tag_for(const Plotted& p, const RadarTarget& t) {
+    Tag tag{};
+    const int32_t hundreds = hundreds_of_feet(t.up_m);
+    tag.text[fmt_int(tag.text, hundreds, 2, 0, hundreds == 0)] = 0;
+    tag.climbing = chevron_direction(t);
+    const int w = text_width(tag.text, 1) + (tag.climbing != 0 ? kChevronGap + kChevronW : 0);
+    const int r = t.alarm_level >= kAdvisoryLevel ? kAdvisoryR : kSymbolR;
+    const int y = t.up_m >= 0 ? p.y - r - kTagGap - kGlyphH : p.y + r + kTagGap;
+    tag.box = {p.x - w / 2 - kTagPad, y - kTagPad, w + 2 * kTagPad, kGlyphH + 2 * kTagPad};
+    return tag;
+}
+
+void draw_tag(Framebuffer& fb, const Tag& tag) {
+    fb.rect(tag.box.x, tag.box.y, tag.box.w, tag.box.h, false, true);
+    const int x = tag.box.x + kTagPad, y = tag.box.y + kTagPad;
+    fb.draw_text(x, y, tag.text, true, 1);
+    if (tag.climbing != 0)
+        chevron(fb, tag.box.x + tag.box.w - kTagPad - kChevronW, y + (kGlyphH - kChevronH) / 2,
+                tag.climbing > 0);
+}
+
+int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
+    Box tagged[kMaxRadarTargets];
+    int n_tags = 0;
+    Plotted p;
+    for (int i = 0; i < snap.n_targets && n_tags < kMaxRadarTargets; i++) {
+        if (!plot_point(snap, snap.targets[i], track, p)) continue;
+        const Tag tag = tag_for(p, snap.targets[i]);
+        bool clash = false;
+        for (int j = 0; j < n_tags && !clash; j++) clash = overlap(tag.box, tagged[j]);
+        if (clash) continue;
+        draw_tag(fb, tag);
+        tagged[n_tags++] = tag.box;
+    }
+    int in_view = 0;
+    for (int i = 0; i < snap.n_targets; i++)
+        if (plot_point(snap, snap.targets[i], track, p)) {
+            traffic_symbol(fb, p, snap.targets[i].alarm_level);
+            in_view++;
+        }
     return in_view;
 }
 

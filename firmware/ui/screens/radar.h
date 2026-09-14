@@ -9,12 +9,15 @@ namespace skyblip::ui {
 
 constexpr int32_t kMetresPerNm = 1852;
 constexpr int32_t kDefaultRangeNm = 4;
+constexpr int kMaxRadarTargets = 12;
 
 struct RadarTarget {
     int32_t north_m;
     int32_t east_m;
     int32_t up_m;
     uint8_t alarm_level;
+    int16_t climb_e8{0};
+    bool has_climb{false};
 };
 
 struct RadarSnapshot {
