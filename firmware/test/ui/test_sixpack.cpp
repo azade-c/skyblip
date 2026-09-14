@@ -236,6 +236,80 @@ TEST_CASE("sixpack: the middle number is the time since takeoff, in hours and mi
     CHECK(value_matches(flong, kTiles[1], "10:05"));
 }
 
+// Two dashes and a hub read as a needle: what leans here is an aeroplane seen from behind.
+TEST_CASE("sixpack: the turn coordinator flies an aeroplane between four marks") {
+    const Tile turn = kTiles[3];
+    SixPackSnapshot level = flying();
+    level.turn_dps = 0;
+    Framebuffer fb;
+    draw_sixpack(fb, level);
+
+    CHECK(fb.get_pixel(turn.cx - 22, turn.cy));  // wings
+    CHECK(fb.get_pixel(turn.cx + 22, turn.cy));
+    CHECK_FALSE(fb.get_pixel(turn.cx + 24, turn.cy));
+    CHECK_FALSE(fb.get_pixel(turn.cx + 7, turn.cy + 1));
+    CHECK_FALSE(fb.get_pixel(turn.cx + 7, turn.cy - 1));
+    CHECK(fb.get_pixel(turn.cx, turn.cy - 6));      // fin, standing above
+    CHECK(fb.get_pixel(turn.cx - 8, turn.cy - 3));  // the tailplane on the fuselage
+    CHECK(fb.get_pixel(turn.cx + 8, turn.cy - 3));
+    CHECK_FALSE(fb.get_pixel(turn.cx, turn.cy + 6));
+
+    CHECK(fb.get_pixel(turn.cx - 27, turn.cy));  // wings-level marks
+    CHECK(fb.get_pixel(turn.cx + 27, turn.cy));
+    CHECK(fb.get_pixel(turn.cx - 25, turn.cy + 9));  // standard-rate marks, 20 degrees down
+    CHECK(fb.get_pixel(turn.cx + 25, turn.cy + 9));
+    CHECK_FALSE(fb.get_pixel(turn.cx, turn.cy - 27));  // and no scale anywhere else
+    CHECK_FALSE(fb.get_pixel(turn.cx - 25, turn.cy - 9));
+}
+
+// An empty cage is the reading before the sensor has one: a centred ball claims coordination.
+TEST_CASE("sixpack: the ball sits between its cage lines, and is absent without a reading") {
+    const Tile turn = kTiles[3];
+    SixPackSnapshot coordinated = flying();
+    coordinated.have_lateral = true;
+    Framebuffer fb;
+    draw_sixpack(fb, coordinated);
+
+    CHECK(fb.get_pixel(turn.cx - 6, turn.cy + 18));  // cage
+    CHECK(fb.get_pixel(turn.cx + 6, turn.cy + 18));
+    CHECK(fb.get_pixel(turn.cx, turn.cy + 18));  // ball, centred
+
+    SixPackSnapshot skidding = coordinated;
+    skidding.lateral_mg = 200;  // full scale, a ball's width and more out
+    Framebuffer fs;
+    draw_sixpack(fs, skidding);
+    CHECK(fs.get_pixel(turn.cx + 16, turn.cy + 18));
+    CHECK_FALSE(fs.get_pixel(turn.cx - 2, turn.cy + 18));
+
+    Framebuffer blind;
+    draw_sixpack(blind, flying());
+    CHECK(blind.get_pixel(turn.cx - 6, turn.cy + 18));
+    CHECK_FALSE(blind.get_pixel(turn.cx, turn.cy + 18));
+}
+
+// Standard rate is 3 deg/s, the two-minute turn: at it, the wing is on the mark.
+TEST_CASE("sixpack: the turn coordinator puts a standard rate turn on its index marks") {
+    const Tile turn = kTiles[3];
+    SixPackSnapshot right = flying();  // 3 deg/s
+    Framebuffer fb;
+    draw_sixpack(fb, right);
+    CHECK(fb.get_pixel(turn.cx + 21, turn.cy + 8));
+    CHECK_FALSE(fb.get_pixel(turn.cx + 21, turn.cy));
+
+    SixPackSnapshot left = flying();
+    left.turn_dps = -3;
+    Framebuffer fl;
+    draw_sixpack(fl, left);
+    CHECK(fl.get_pixel(turn.cx - 21, turn.cy + 8));
+
+    // Speed does not enter it: a rate gyro's dial reads the same at any airspeed.
+    SixPackSnapshot fast = flying();
+    fast.speed_kt = 160;
+    Framebuffer ff;
+    draw_sixpack(ff, fast);
+    CHECK(ff.get_pixel(turn.cx + 21, turn.cy + 8));
+}
+
 // The reference symbol is read against the horizon behind it: pitch is what it measures.
 TEST_CASE("sixpack: the horizon carries two wing bars and a dot, clear of each other") {
     const Tile att = kTiles[1];

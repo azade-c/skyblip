@@ -19,6 +19,8 @@ struct SixPackSnapshot {
     uint32_t flight_seconds{0};
     bool have_flight_time{false};
     bool airborne{false};
+    int16_t lateral_mg{0};  // right-positive, thousandths of g across the wings
+    bool have_lateral{false};
 };
 
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& snap);

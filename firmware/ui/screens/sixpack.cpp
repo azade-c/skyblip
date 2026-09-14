@@ -48,10 +48,20 @@ constexpr int32_t kVsiMarkFpm = 500;
 constexpr int32_t kVsiZeroDeg = -90;
 constexpr int32_t kBankLimitDeg = 60;
 constexpr int32_t kPitchFullScaleDeg = 20;
-// A standard-rate turn (3 deg/s) at typical light-aircraft speeds is ~30 deg of
-// bank, where the coordinator's index marks sit.
-constexpr int32_t kStandardRateMarkDeg = 30;
-constexpr int kWingHalf = kR - 8;
+constexpr int32_t kStandardRateDps = 3;
+constexpr int32_t kRateMarkDeg = 20;
+constexpr int32_t kRateFullDeg = 45;
+constexpr int kWingHalf = kR - 9;
+constexpr int kFinLen = 6;
+constexpr int kTailUp = 3;
+constexpr int kTailHalf = 8;
+constexpr int kBallY = 18;
+constexpr int kBallR = 4;
+constexpr int kCageHalf = kBallR + 2;
+constexpr int kCageHalfH = 5;
+constexpr int kBallTravel = 16;
+constexpr int32_t kSlipFullMg = 200;
+constexpr int kFuselageR = 3;
 constexpr int kRefInner = 7;
 constexpr int kRefOuter = 20;
 constexpr int kRefDotR = 2;
@@ -191,15 +201,36 @@ void horizon(Framebuffer& fb, int cx, int cy, int32_t pitch_deg, int32_t bank_de
     fb.circle(cx, cy, kRefDotR, true, true);
 }
 
-void turn_coordinator(Framebuffer& fb, int cx, int cy, int32_t bank_deg) {
-    const int16_t a = c16(clampi(bank_deg, -kBankLimitDeg, kBankLimitDeg));
+int32_t rate_deflection_deg(int32_t turn_dps) {
+    return clampi((turn_dps * kRateMarkDeg) / kStandardRateDps, -kRateFullDeg, kRateFullDeg);
+}
+
+void inclinometer(Framebuffer& fb, int cx, int cy, int32_t lateral_mg, bool have_lateral) {
+    const int y = cy + kBallY;
+    for (int side = -1; side <= 1; side += 2)
+        fb.vline(cx + side * kCageHalf, y - kCageHalfH, 2 * kCageHalfH + 1, true);
+    if (!have_lateral) return;
+    const int32_t swing = clampi(lateral_mg, -kSlipFullMg, kSlipFullMg);
+    fb.circle(cx + static_cast<int>((swing * kBallTravel) / kSlipFullMg), y, kBallR, true, true);
+}
+
+void turn_coordinator(Framebuffer& fb, int cx, int cy, int32_t turn_dps) {
+    const int16_t a = c16(rate_deflection_deg(turn_dps));
     const int32_t s = isin(a), c = icos(a);
     const int wx = radial(kWingHalf, c);
     const int wy = radial(kWingHalf, s);
+    const int ux = radial(kTailUp, s);
+    const int uy = radial(kTailUp, c);
+    const int tx = radial(kTailHalf, c);
+    const int ty = radial(kTailHalf, s);
     fb.line(cx - wx, cy - wy, cx + wx, cy + wy, true);
-    fb.circle(cx, cy, kHubR, true, true);
-    for (int sign = -1; sign <= 1; sign += 2)
-        tick(fb, cx, cy, c16(sign * kStandardRateMarkDeg + 90));
+    fb.line(cx, cy, cx + radial(kFinLen, s), cy - radial(kFinLen, c), true);
+    fb.line(cx + ux - tx, cy - uy - ty, cx + ux + tx, cy - uy + ty, true);
+    fb.circle(cx, cy, kFuselageR, true, true);
+    for (int side = -1; side <= 1; side += 2) {
+        tick(fb, cx, cy, c16(90 * side));
+        tick(fb, cx, cy, c16(side * (90 - kRateMarkDeg) + 180));
+    }
 }
 
 // The card rotates so the flown track sits under the fixed index at the top,
@@ -272,8 +303,9 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
            kNeedle);
     value_center(fb, kCx[2], 0, s.have_data, alt_ft, true);
 
-    dial(fb, kCx[0], 1, "TURN D/S");
-    turn_coordinator(fb, kCx[0], kCy[1], bank);
+    dial(fb, kCx[0], 1, "TURN D/S", 0);
+    turn_coordinator(fb, kCx[0], kCy[1], turn_dps);
+    inclinometer(fb, kCx[0], kCy[1], s.lateral_mg, s.have_lateral);
     value_center(fb, kCx[0], 1, s.have_data, turn_dps, false);
 
     dial(fb, kCx[1], 1, "TRK", 0);
