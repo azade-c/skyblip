@@ -25,6 +25,8 @@ constexpr uint8_t kDeepSleepRetainRam = 0x01;
 constexpr uint8_t kSequenceFull = 0xF7;
 // INFO: fc 12sep26 0xFF ends a partial with the rails down, as Waveshare's own 0xCF does
 constexpr uint8_t kSequencePartial = 0xFF;
+// INFO: fc 09mar26 0xFF less its two power-down bits: the frame behind a wipe reuses the rails
+constexpr uint8_t kSequenceWipe = 0xFC;
 
 // INFO: fc 09mar26 VBD follows LUT1 at 0x05 and greys over a run of partials; 0x80 holds it at VCOM
 constexpr uint8_t kBorderFollowLut1 = 0x05;
@@ -65,7 +67,7 @@ void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now
     write_bank(kWriteRam, fb.data());
     std::memcpy(shadow_, fb.data(), ui::Framebuffer::kBytes);
 
-    activate(full, now_ms);
+    activate(full ? kSequenceFull : kSequencePartial, full, now_ms);
 }
 
 // INFO: fc 13sep26 the white previous is a drive, not a claim: every pixel lands black
@@ -79,7 +81,7 @@ void Ssd1681::paint_black(uint32_t now_ms) {
     fill_bank(kWriteRam, kRamBlack);
     std::memset(shadow_, 0xFF, sizeof(shadow_));
 
-    activate(/*full=*/false, now_ms);
+    activate(kSequenceWipe, /*full=*/false, now_ms);
 }
 
 void Ssd1681::ensure_awake() {
@@ -89,9 +91,9 @@ void Ssd1681::ensure_awake() {
     asleep_ = false;
 }
 
-void Ssd1681::activate(bool full, uint32_t now_ms) {
+void Ssd1681::activate(uint8_t sequence, bool full, uint32_t now_ms) {
     cmd(kDisplayUpdateCtrl2);
-    data(full ? kSequenceFull : kSequencePartial);
+    data(sequence);
     cmd(kMasterActivation);
 
     glass_known_ = true;

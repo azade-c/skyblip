@@ -1,8 +1,8 @@
 // SSD1681 e-paper driver tests against models/ssd1681.h. Verifies the init
 // sequence, the framebuffer to RAM polarity (fb 1=black becomes panel 0=black), the
 // two-bank differential contract (previous image in 0x26, new in 0x24), the
-// non-blocking present/ready cycle, the rails down after every refresh and the
-// hung-BUSY recovery, all on the host, no panel required.
+// non-blocking present/ready cycle, the rails down after every refresh but the wipe,
+// and the hung-BUSY recovery, all on the host, no panel required.
 #include <string>
 
 #include "doctest/doctest.h"
@@ -185,6 +185,34 @@ TEST_CASE("epd: paint_black drives every pixel from white, on the partial wavefo
     for (uint8_t b : f.ram_previous) REQUIRE(b == 0xFF);  // panel RAM 1 is white
     for (uint8_t b : f.ram) REQUIRE(b == 0x00);
     CHECK(f.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH);
+}
+
+// The wipe is never the last frame: the page behind it spends the rails it left up.
+TEST_CASE("epd: paint_black leaves the rails up, and the frame behind it takes them down") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+
+    d.paint_black(0);
+    CHECK(f.rails_on);
+    CHECK(d.ready(parts::Ssd1681::kReadyAfterPartialMs));
+
+    ui::Framebuffer fb;
+    fb.clear(true);
+    d.present(fb, hal::Refresh::Partial, 1000);
+    CHECK_FALSE(f.rails_on);
+}
+
+// A panel switched off under a wipe must not wear the bias while it waits.
+TEST_CASE("epd: power_off() takes down the rails a wipe left up") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+
+    d.paint_black(0);
+    REQUIRE(f.rails_on);
+    d.power_off();
+    CHECK_FALSE(f.rails_on);
 }
 
 // The black is the session's first frame, so what follows it is a partial and not a second full.

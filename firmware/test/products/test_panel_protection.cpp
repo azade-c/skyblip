@@ -95,13 +95,49 @@ TEST_CASE("screen policy: the panel still refreshes at exactly its rated limit")
 TEST_CASE("screen policy: going hot mid-refresh does not abandon the frame on the glass") {
     Rig rig;
     uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.state.flight_seconds += 60;
     rig.tick(t += 1000);
-    REQUIRE(rig.chip.present_count == 1);
+    const int in_flight = rig.chip.present_count;
 
     rig.die_temperature(go::ScreenService::kHoldAboveDeciCelsius + 1);
     rig.tick(t += 100);
     rig.tick(t += 2000);
-    CHECK(rig.chip.present_count == 1);
+    CHECK(rig.chip.present_count == in_flight);
+    CHECK_FALSE(rig.chip.rails_on);
+}
+
+TEST_CASE(
+    "screen policy: a hold that trips behind a wipe still lands the page and drops the rails") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.tick(t += 1000);
+    REQUIRE(rig.glass_all_black());
+
+    rig.die_temperature(go::ScreenService::kHoldAboveDeciCelsius + 1);
+    rig.run_seconds(t, 2);
+    CHECK_FALSE(rig.glass_all_black());
+    CHECK_FALSE(rig.chip.rails_on);
+}
+
+TEST_CASE("screen policy: a page change a held panel cannot finish never starts") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    const int before = rig.chip.present_count;
+
+    rig.die_temperature(go::ScreenService::kHoldAboveDeciCelsius + 1);
+    rig.screen.next_page();
+    rig.run_seconds(t, 5);
+    CHECK(rig.chip.present_count == before);
+    CHECK_FALSE(rig.glass_all_black());
+
+    // Cooled, the page change it was holding runs in full.
+    rig.die_temperature(300);
+    rig.tick(t += 1000);
+    CHECK(rig.glass_all_black());
+    rig.run_seconds(t, 2);
+    CHECK_FALSE(rig.glass_all_black());
     CHECK_FALSE(rig.chip.rails_on);
 }
 

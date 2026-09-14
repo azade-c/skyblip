@@ -447,7 +447,7 @@ TEST_CASE("product: the volume can be turned up in the air, where a phone is ref
 }
 
 // A full refresh flashes the panel for about 2.5 s, so a menu swap goes through black instead.
-TEST_CASE("product: the page transitions through black, and no keypress asks for a full") {
+TEST_CASE("product: a screen change wipes the glass, and no keypress asks for a full") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;

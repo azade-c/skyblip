@@ -94,7 +94,7 @@ void ScreenService::sync_editor(uint32_t now_ms) {
 
 void ScreenService::change_screen() {
     dirty_ = true;
-    change_ = Change::Asked;
+    if (change_ != Change::Wiped) change_ = Change::Asked;
 }
 
 void ScreenService::dismiss_self_test(uint32_t now_ms) {
@@ -196,9 +196,7 @@ void ScreenService::tick(uint32_t now_ms) {
     settle_park(now_ms);
     if (!powered_) return;
 
-    if (thermal() == Thermal::Hold ||
-        !power::may_refresh(context_.state.power_level, context_.state.supply_warned,
-                            power::PanelRefresh::Routine)) {
+    if (change_ != Change::Wiped && !refresh_allowed()) {
         context_.roles.display.ready(now_ms);
         return;
     }
@@ -220,12 +218,18 @@ void ScreenService::tick(uint32_t now_ms) {
     dirty_ = false;
     render(now_ms);
 
-    const bool changed = !presented_once_ ||
+    const bool changed = !presented_once_ || change_ == Change::Wiped ||
                          std::memcmp(fb_.data(), presented_.data(), ui::Framebuffer::kBytes) != 0;
     if (!changed) return;
 
     context_.roles.display.present(fb_, hal::Refresh::Partial, now_ms);
     note_presented(now_ms);
+}
+
+bool ScreenService::refresh_allowed() const {
+    return thermal() == Thermal::Refresh &&
+           power::may_refresh(context_.state.power_level, context_.state.supply_warned,
+                              power::PanelRefresh::Routine);
 }
 
 // TODO: fc 12sep26 a cold glass is unmeasured, and no rule that returns is one full a frame (#62)

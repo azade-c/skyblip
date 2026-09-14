@@ -89,6 +89,7 @@ class ScreenService : public runtime::Service {
     void resolve(ui::Gesture gesture);
     Page traffic_page() const;
     enum class Change : uint8_t { None, Asked, Wiped };
+    bool refresh_allowed() const;
     void wipe_glass(uint32_t now_ms);
     bool may_present_park_frame() const;
     enum class ParkFrame : uint8_t { Wordmark, Installing, Blank };

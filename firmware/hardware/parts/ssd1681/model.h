@@ -19,6 +19,8 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     // INFO: fc 13sep26 GxEPD2_154_D67.h: partial_refresh_time 500, full_refresh_time 2600
     static constexpr uint32_t kPartialBusyMs = 500;
     static constexpr uint32_t kFullBusyMs = 2600;
+    // INFO: fc 09mar26 the tail GxEPD2 counts for the power-down, and a rails-up sequence skips it
+    static constexpr uint32_t kPowerDownMs = 140;
 
     void attach_clock(const hal::Clock& clock) { clock_ = &clock; }
 
@@ -71,7 +73,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
                         present_count++;
                         if (clock_ != nullptr) {
                             refresh_since_ms_ = clock_->millis();
-                            refresh_span_ms_ = last_full ? kFullBusyMs : kPartialBusyMs;
+                            refresh_span_ms_ = last_full ? kFullBusyMs : partial_busy_ms();
                         }
                         // In deep sleep the panel's charge pump is off: it latches
                         // nothing, and keeps the last image it did latch.
@@ -149,6 +151,10 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     static constexpr uint8_t kLoadLutMode2 = 0x08;
     static constexpr uint8_t kDisplay = 0x04;
     static constexpr uint8_t kDisableAnalog = 0x02;
+
+    uint32_t partial_busy_ms() const {
+        return (sequence_ & kDisableAnalog) ? kPartialBusyMs : kPartialBusyMs - kPowerDownMs;
+    }
 
     void rasterise() {
         if (ram.size() < ui::Framebuffer::kBytes) return;

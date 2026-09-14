@@ -56,7 +56,7 @@ class Ssd1681 : public hal::Display {
     void init_panel();
     void hold_reset();
     void ensure_awake();
-    void activate(bool full, uint32_t now_ms);
+    void activate(uint8_t sequence, bool full, uint32_t now_ms);
     void abort_refresh();
     void finish_refresh();
     void enter_sleep();

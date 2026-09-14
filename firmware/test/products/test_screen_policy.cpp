@@ -53,6 +53,40 @@ TEST_CASE("screen policy: a page change goes through black, not through the full
     CHECK_FALSE(rig.chip.last_full);
 }
 
+// The rails carry the ~140 ms power-down: skipping it is the whole saving of the shorter wipe.
+TEST_CASE("screen policy: a wipe leaves the rails up, and the page behind it puts them down") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+
+    rig.screen.next_page();
+    rig.tick(t += 1000);
+    REQUIRE(rig.glass_all_black());
+    CHECK(rig.chip.rails_on);
+
+    // 500 ms of partial waveform less the 140 ms tail the wipe does not spend
+    rig.tick(t += 400);
+    REQUIRE_FALSE(rig.glass_all_black());
+    CHECK_FALSE(rig.chip.rails_on);
+}
+
+TEST_CASE("screen policy: a second page change on a black glass costs no second wipe") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    const int before = rig.chip.present_count;
+
+    rig.screen.next_page();
+    rig.tick(t += 1000);
+    REQUIRE(rig.glass_all_black());
+
+    rig.screen.next_page();
+    rig.tick(t += 600);
+    CHECK(rig.chip.present_count == before + 2);
+    CHECK_FALSE(rig.glass_all_black());
+    CHECK(rig.screen.page() == go::Page::Status);
+}
+
 TEST_CASE("screen policy: a fix arriving is a data change, presented as a partial") {
     Rig rig;
     rig.state.own.fix_valid = false;
