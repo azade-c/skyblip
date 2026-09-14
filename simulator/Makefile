@@ -11,6 +11,9 @@ PORT ?= 5114
 HOST ?= sim.skyblip.localhost
 
 FIRMWARE := ../firmware
+# watchexec 2.7.2 exits with "No such file or directory" on any -w path that
+# starts with ../, so the watcher gets the absolute one.
+FIRMWARE_ABS := $(abspath $(FIRMWARE))
 WASM_DIR := $(FIRMWARE)/build/browser
 BUILD := build
 
@@ -47,7 +50,7 @@ serve:
 watch:
 	@echo "watching: Ctrl-C to stop"
 	@if command -v watchexec >/dev/null 2>&1; then \
-	  watchexec -w . -w $(FIRMWARE) -e cpp,h,html --ignore '**/build/**' --debounce 400ms -- \
+	  watchexec -w . -w $(FIRMWARE_ABS) -e cpp,h,html --ignore '**/build/**' --debounce 400ms -- \
 	    $(MAKE) --no-print-directory build; \
 	else \
 	  last=""; \
