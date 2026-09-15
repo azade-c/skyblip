@@ -3,11 +3,13 @@
 
 #include <cstdint>
 
+#include "core/settings/settings.h"
+#include "core/util/units.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::ui {
 
-constexpr int32_t kMetresPerNm = 1852;
+using skyblip::kMetresPerNm;
 constexpr int32_t kDefaultRangeNm = 4;
 constexpr int kMaxRadarTargets = 12;
 
@@ -24,6 +26,7 @@ struct RadarTarget {
 
 struct RadarSnapshot {
     bool have_fix{false};
+    settings::Units units{settings::Units::Nautical};
     int32_t range_nm{kDefaultRangeNm};
     uint16_t track_deg{0};
     int32_t speed_mps{0};

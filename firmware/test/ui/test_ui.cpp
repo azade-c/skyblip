@@ -502,6 +502,21 @@ TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") 
         for (int x = 82; x < 88; x++) CHECK_FALSE(fb.get_pixel(x, y));
 }
 
+// B4. One circle, read in two habits: only the label under it changes.
+TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot does not move") {
+    RadarSnapshot metric = flying(0);
+    metric.units = skyblip::settings::Units::Metric;
+    const Framebuffer km = radar(metric);
+    const Framebuffer nm = radar(flying(0));
+
+    CHECK(reads_in(km, "7.4", 60, 176, 112, 198, 2));
+    CHECK(reads_in(km, "KM", 95, 183, 140, 198));
+    CHECK_FALSE(reads_in(km, "NM", 60, 176, 140, 198));
+
+    for (int y = 0; y < 170; y++)
+        for (int x = 0; x < Framebuffer::kW; x++) REQUIRE(km.get_pixel(x, y) == nm.get_pixel(x, y));
+}
+
 TEST_CASE("radar: the footer counts what is on the glass, either side of the clock") {
     RadarTarget targets[3] = {
         {2000, 0, 0, 1},

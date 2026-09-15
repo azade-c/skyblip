@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "core/settings/settings.h"
 #include "core/traffic/link.h"
 #include "ui/framebuffer.h"
 
@@ -17,6 +18,7 @@ constexpr int kSignalRows = 9;
 
 struct SignalSnapshot {
     bool have_fix{false};
+    settings::Units units{settings::Units::Nautical};
     int n_heard{0};
     int n_rows{0};
     const traffic::LinkRow* rows{nullptr};

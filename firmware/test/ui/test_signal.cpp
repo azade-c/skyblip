@@ -26,6 +26,22 @@ int ink_in_row(const Framebuffer& fb, int index) {
     return n;
 }
 
+// A case claims a column reads "2.3", not that there is ink in it.
+bool reads_right_of(const Framebuffer& fb, int x_end, int y, const char* text) {
+    int n = 0;
+    while (text[n]) n++;
+    Framebuffer wanted;
+    wanted.clear(true);
+    wanted.draw_text(0, 0, text, true, 1);
+    const int x0 = x_end - n * 6;
+    for (int dy = 0; dy < 7; dy++)
+        for (int dx = 0; dx < n * 6 - 1; dx++)
+            if (fb.get_pixel(x0 + dx, y + dy) != wanted.get_pixel(dx, dy)) return false;
+    return true;
+}
+
+int row_y(int index) { return kFirstRowY + index * kLineH; }
+
 int ink_in_column(const Framebuffer& fb, int index, int x0, int x1) {
     const int y0 = kFirstRowY + index * kLineH;
     int n = 0;
@@ -33,6 +49,20 @@ int ink_in_column(const Framebuffer& fb, int index, int x0, int x1) {
         for (int x = x0; x < x1; x++)
             if (fb.get_pixel(x, y)) n++;
     return n;
+}
+
+constexpr int kUnitsY = 28;
+constexpr int kSlantEnd = 4 + 13 * 6;
+constexpr int kAltEnd = 4 + 19 * 6;
+
+SignalSnapshot listing(const traffic::LinkRow* rows, int n, settings::Units units) {
+    SignalSnapshot snap;
+    snap.have_fix = true;
+    snap.units = units;
+    snap.n_heard = n;
+    snap.n_rows = n;
+    snap.rows = rows;
+    return snap;
 }
 
 traffic::LinkRow row_at(int32_t slant_m, int8_t rssi, int16_t erp, bool modelled) {
@@ -120,6 +150,33 @@ TEST_CASE("signal: the header counts what was heard, not what fits") {
             if (fb.get_pixel(x, y)) header_ink++;
     CHECK(header_ink > 40);
     CHECK(ink_in_row(fb, 0) == 0);
+}
+
+// B4. A pilot who asked for miles on the instruments is not handed kilometres here.
+TEST_CASE("signal: the range column reads in the unit a pilot set") {
+    traffic::LinkRow rows[1] = {row_at(4300, -92, 12, true)};  // 4.3 km, 2.3 NM
+
+    Framebuffer nautical, metric;
+    draw_signal(nautical, listing(rows, 1, settings::Units::Nautical));
+    draw_signal(metric, listing(rows, 1, settings::Units::Metric));
+
+    CHECK(reads_right_of(nautical, kSlantEnd, row_y(0), "2.3"));
+    CHECK(reads_right_of(nautical, kSlantEnd, kUnitsY, "NM"));
+    CHECK(reads_right_of(metric, kSlantEnd, row_y(0), "4.3"));
+    CHECK(reads_right_of(metric, kSlantEnd, kUnitsY, "km"));
+}
+
+// A separation is cleared and flown in feet wherever the aeroplane is.
+TEST_CASE("signal: relative altitude reads in feet under either unit setting") {
+    traffic::LinkRow rows[1] = {row_at(4300, -92, 12, true)};  // up 120 m, 394 ft
+
+    Framebuffer nautical, metric;
+    draw_signal(nautical, listing(rows, 1, settings::Units::Nautical));
+    draw_signal(metric, listing(rows, 1, settings::Units::Metric));
+
+    CHECK(reads_right_of(nautical, kAltEnd, row_y(0), "+394"));
+    CHECK(reads_right_of(metric, kAltEnd, row_y(0), "+394"));
+    CHECK(reads_right_of(metric, kAltEnd, kUnitsY, "ft"));
 }
 
 TEST_CASE("signal: more emitters than rows are cut, never overdrawn") {

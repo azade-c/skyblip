@@ -109,7 +109,7 @@ TEST_CASE("settings page: every row names what it holds, and the focused one is 
     CHECK(row_value_reads(fb, SettingsRow::AircraftType, "GLIDER", false));
     CHECK(row_label_reads(fb, SettingsRow::Alarm, false));
     CHECK(row_value_reads(fb, SettingsRow::Alarm, "ON", false));
-    CHECK(row_value_reads(fb, SettingsRow::Units, "KNOTS", false));
+    CHECK(row_value_reads(fb, SettingsRow::Units, "NAUTICAL", false));
     CHECK(row_value_reads(fb, SettingsRow::QnhUp, "1013 HPA", false));
     CHECK(row_value_reads(fb, SettingsRow::Pages, "ALL", false));
     CHECK(row_label_reads(fb, SettingsRow::Leave, false));

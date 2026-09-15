@@ -233,21 +233,23 @@ TEST_CASE("product: the self-test page names the part, not just the failure") {
     CHECK(radio_difference == 0);
 }
 
-// B4. The one page where a value appears once, so the one page the unit setting
-// can decide. What is on the glass changes; the status page's two columns do not.
-TEST_CASE("product: the unit setting changes the instrument page a pilot reads") {
-    auto sixpack_ink = [](settings::Units units) {
+// B4. The setting is handed to every page that prints a distance or a speed.
+TEST_CASE("product: the unit setting reaches the pages that print one") {
+    auto page_ink = [](settings::Units units, int taps, go::Page page) {
         Rig rig;
         REQUIRE(rig.setup() == Status::Ok);
         rig.state().settings.units = units;
         uint32_t t = 100;
-        rig.tap_pad(t);  // radar -> six-pack
+        for (int i = 0; i < taps; i++) rig.tap_pad(t);
         rig.run(t, t + 3000);
-        REQUIRE(rig.product.screen().page() == go::Page::SixPack);
+        REQUIRE(rig.product.screen().page() == page);
         return rig.product.screen().framebuffer().count_black();
     };
 
-    CHECK(sixpack_ink(settings::Units::Metric) != sixpack_ink(settings::Units::Nautical));
+    CHECK(page_ink(settings::Units::Metric, 1, go::Page::SixPack) !=
+          page_ink(settings::Units::Nautical, 1, go::Page::SixPack));
+    CHECK(page_ink(settings::Units::Metric, 0, go::Page::Radar) !=
+          page_ink(settings::Units::Nautical, 0, go::Page::Radar));
 }
 
 // F5. The device said nothing when the receiver finally solved, and it

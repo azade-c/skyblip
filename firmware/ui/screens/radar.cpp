@@ -122,15 +122,20 @@ void flight_clock(Framebuffer& fb, const RadarSnapshot& snap) {
     fb.draw_text(kMargin, kClockY, buf, true, kClockScale);
 }
 
-void range_label(Framebuffer& fb, int32_t range_nm) {
+void range_label(Framebuffer& fb, const RadarSnapshot& snap) {
+    const bool metric = snap.units == settings::Units::Metric;
+    const int32_t km_e1 = (snap.range_nm * kMetresPerNm) / 100;
     char buf[8];
-    buf[fmt_uint(buf, static_cast<uint32_t>(range_nm))] = 0;
+    const int n = metric ? fmt_uint(buf, static_cast<uint32_t>(km_e1), 2, 1)
+                         : fmt_uint(buf, static_cast<uint32_t>(snap.range_nm));
+    buf[n] = 0;
+    const char* unit = metric ? "KM" : "NM";
     const int number_w = text_width(buf, kRangeScale);
-    const int w = number_w + kUnitGap + text_width("NM", 1);
+    const int w = number_w + kUnitGap + text_width(unit, 1);
     const int x = kCx - w / 2;
     clear_behind(fb, x, kRangeY, w, kGlyphH * kRangeScale, kRangePad);
     fb.draw_text(x, kRangeY, buf, true, kRangeScale);
-    fb.draw_text(x + number_w + kUnitGap, kRangeY + kGlyphH * (kRangeScale - 1), "NM", true, 1);
+    fb.draw_text(x + number_w + kUnitGap, kRangeY + kGlyphH * (kRangeScale - 1), unit, true, 1);
 }
 
 void flight_state(Framebuffer& fb, const RadarSnapshot& snap) {
@@ -343,7 +348,7 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
 
     flight_clock(fb, snap);
     flight_state(fb, snap);
-    range_label(fb, snap.range_nm);
+    range_label(fb, snap);
     aircraft(fb, in_ring, snap.have_fix && snap.receiver_listening);
 
     if (snap.max_alarm >= 3) fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);

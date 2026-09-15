@@ -1,6 +1,7 @@
 #include "ui/screens/signal.h"
 
 #include "core/util/format.h"
+#include "core/util/units.h"
 
 namespace skyblip::ui {
 
@@ -52,14 +53,14 @@ void draw_header(Framebuffer& fb, const SignalSnapshot& snap) {
     right_aligned_text(fb, kRssiEnd, kHeaderY, "RSSI");
     right_aligned_text(fb, kErpEnd, kHeaderY, "ERP");
 
-    right_aligned_text(fb, kSlantEnd, kUnitsY, "km");
-    right_aligned_text(fb, kAltEnd, kUnitsY, "m");
+    right_aligned_text(fb, kSlantEnd, kUnitsY, snap.units == settings::Units::Metric ? "km" : "NM");
+    right_aligned_text(fb, kAltEnd, kUnitsY, "ft");
     right_aligned_text(fb, kRssiEnd, kUnitsY, "dBm");
     right_aligned_text(fb, kErpEnd, kUnitsY, "dBm");
     fb.hline(kLeft, kRuleY, kErpEnd - kLeft, true);
 }
 
-void draw_row(Framebuffer& fb, int y, const traffic::LinkRow& row) {
+void draw_row(Framebuffer& fb, int y, const traffic::LinkRow& row, bool metric) {
     char buf[16];
 
     buf[0] = messages::source_letter(row.source);
@@ -70,13 +71,12 @@ void draw_row(Framebuffer& fb, int y, const traffic::LinkRow& row) {
     buf[4] = 0;
     fb.draw_text(kIdX, y, buf, true, 1);
 
-    // Hundreds of metres printed with the point one digit in: 4.3 km, and 0.2
-    // for anything inside the first hundred metres.
-    int n = fmt_uint(buf, static_cast<uint32_t>(row.slant_m / 100), 2, 1);
+    const int32_t range_e1 = metric ? row.slant_m / 100 : to_nm_e1(Metres(row.slant_m)).v;
+    int n = fmt_uint(buf, static_cast<uint32_t>(range_e1), 2, 1);
     buf[n] = 0;
     right_aligned(fb, kSlantEnd, y, buf, n);
 
-    n = fmt_int(buf, row.up_m, 1, 0, false);
+    n = fmt_int(buf, to_feet(Metres(row.up_m)).v, 1, 0, false);
     buf[n] = 0;
     right_aligned(fb, kAltEnd, y, buf, n);
 
@@ -108,7 +108,8 @@ void draw_signal(Framebuffer& fb, const SignalSnapshot& snap) {
     }
 
     const int rows = snap.n_rows < kSignalRows ? snap.n_rows : kSignalRows;
-    for (int i = 0; i < rows; i++) draw_row(fb, kFirstRowY + i * kLineH, snap.rows[i]);
+    const bool metric = snap.units == settings::Units::Metric;
+    for (int i = 0; i < rows; i++) draw_row(fb, kFirstRowY + i * kLineH, snap.rows[i], metric);
 }
 
 }  // namespace skyblip::ui

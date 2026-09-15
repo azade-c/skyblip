@@ -372,6 +372,7 @@ void ScreenService::render(uint32_t now_ms) {
         case Page::Radar: {
             ui::RadarSnapshot snap;
             snap.have_fix = own.fix_valid;
+            snap.units = settings.units;
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
@@ -425,6 +426,7 @@ void ScreenService::render(uint32_t now_ms) {
         case Page::Signal: {
             ui::SignalSnapshot snap;
             snap.have_fix = own.fix_valid;
+            snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
             snap.n_rows =
                 traffic::rank_by_range(context_.state.traffic, own, signal_rows_, ui::kSignalRows);

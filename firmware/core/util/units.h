@@ -21,6 +21,16 @@ struct Feet {
 constexpr Metres to_metres(Feet f) { return Metres((f.v * 2497 + 4096) >> 13); }
 constexpr Feet to_feet(Metres m) { return Feet((m.v * 3360 + 512) >> 10); }
 
+constexpr int32_t kMetresPerNm = 1852;
+
+struct NauticalMilesE1 {
+    int32_t v{0};
+    constexpr NauticalMilesE1() = default;
+    constexpr explicit NauticalMilesE1(int32_t tenths) : v(tenths) {}
+};
+
+constexpr NauticalMilesE1 to_nm_e1(Metres m) { return NauticalMilesE1(m.v * 10 / kMetresPerNm); }
+
 struct QuarterMetresPerSec {
     uint16_t v{0};
     constexpr QuarterMetresPerSec() = default;
