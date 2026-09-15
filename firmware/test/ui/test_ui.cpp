@@ -282,7 +282,7 @@ TEST_CASE("radar: traffic wears its TCAS symbol, hollow, filled, or an advisory 
           ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
 }
 
-TEST_CASE("radar: a leader line runs the minute ahead of the target, not past the ring") {
+TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the glass") {
     // 30 m/s for 60 s is 1800 m, which is 22 px on the 4 NM ring.
     RadarTarget north[1] = {{2 * kMetresPerNm, 0, 0, 0, 0, false, 30, 0}};
     const Framebuffer ahead = radar(one_target(north));
@@ -298,11 +298,47 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, not past th
     RadarTarget parked[1] = {{2 * kMetresPerNm, 0, 0, 0, 0, false, 0, 0}};
     CHECK_FALSE(radar(one_target(parked)).get_pixel(kPlotX, kPlotY - 16));
 
-    // 100 m/s from 3.8 NM out would leave the glass: the ring is where it stops.
+    // 100 m/s from 3.8 NM out runs off the top: the ring is a scale, not a wall.
     RadarTarget fast[1] = {{(38 * kMetresPerNm) / 10, 0, 0, 0, 0, false, 100, 0}};
-    const Framebuffer clipped = radar(one_target(fast));
-    CHECK(clipped.get_pixel(kPlotX, 8));
-    for (int y = 0; y < 6; y++) CHECK_FALSE(clipped.get_pixel(kPlotX, y));
+    const Framebuffer running_out = radar(one_target(fast));
+    CHECK(running_out.get_pixel(kPlotX, 8));
+    CHECK(running_out.get_pixel(kPlotX, 0));
+}
+
+// The ring is the scale the footer reads in, and the glass around it is spare.
+TEST_CASE("radar: traffic past the ring still draws, and the count stays on the ring") {
+    // 4.2 NM abeam is off the 4 NM ring and still on the glass, at 96 px.
+    RadarTarget beside[1] = {{0, (42 * kMetresPerNm) / 10, 0, 1}};
+    RadarSnapshot snap = flying(0);
+    snap.speed_mps = 30;
+    snap.n_targets = 1;
+    snap.targets = beside;
+    const Framebuffer fb = radar(snap);
+
+    CHECK(fb.get_pixel(196, 100));
+    CHECK(fb.get_pixel(192, 100));
+    // Its tag would hang off the edge, so it is dropped rather than half drawn.
+    CHECK_FALSE(reads_in(fb, "00", 175, 85, 200, 100));
+    CHECK(reads_in(fb, "0", 170, 170, 200, 200, 3));
+    CHECK_FALSE(fb.get_pixel(99, 77));
+
+    // The footer owns the bottom band, so traffic outside the ring keeps off it.
+    RadarTarget behind[1] = {{-6500, -4000, -200, 0, 0, false, 30, 20}};
+    RadarSnapshot low = snap;
+    low.targets = behind;
+    RadarSnapshot none = snap;
+    none.n_targets = 0;
+    CHECK(ink_in(radar(low), 20, 150, 90, 199) == ink_in(radar(none), 20, 150, 90, 199));
+    CHECK(reads_in(radar(low), "0:42", 0, 176, 60, 198, 2));
+
+    // Past the glass it is gone altogether, count and all.
+    RadarTarget far_out[1] = {{0, 8 * kMetresPerNm, 0, 1}};
+    RadarSnapshot beyond = snap;
+    beyond.targets = far_out;
+    const Framebuffer empty = radar(beyond);
+    CHECK_FALSE(empty.get_pixel(196, 100));
+    CHECK_FALSE(empty.get_pixel(192, 100));
+    CHECK(reads_in(empty, "0", 170, 170, 200, 200, 3));
 }
 
 TEST_CASE("radar: two dots off the nose mark the next minute and the one after") {

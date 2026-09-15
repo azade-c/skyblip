@@ -58,8 +58,8 @@ constexpr int32_t kFeetPerTagUnit = 100;
 constexpr int16_t kChevronClimbE8 = 20;
 constexpr int32_t kLeaderSeconds = 60;
 constexpr int kMinLeaderPx = 3;
-constexpr int kClipSteps = 64;
 constexpr int kOwnNoseAhead = kSkyshipRowsToNose + 1;
+constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
 constexpr int kMinutesMarked = 2;
 
@@ -156,6 +156,7 @@ struct Plotted {
     int32_t ahead;
     int x;
     int y;
+    bool in_ring;
 };
 
 int64_t range_metres(const RadarSnapshot& snap) {
@@ -170,28 +171,19 @@ bool inside_ring(int32_t right, int32_t ahead) {
     return right * right + ahead * ahead <= kOuterR * kOuterR;
 }
 
+bool on_glass(int x, int y) {
+    return x >= 0 && x < Framebuffer::kW && y >= 0 && y < Framebuffer::kH;
+}
+
 bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, Plotted& out) {
     const int64_t range = range_metres(snap);
     const HeadingUp at = heading_up(t.north_m, t.east_m, track);
     const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
-    if (!inside_ring(dx, dy)) return false;
-    out = {dx, dy, px_of(dx), py_of(dy)};
+    const int x = px_of(dx), y = py_of(dy);
+    if (!on_glass(x, y)) return false;
+    if (!inside_ring(dx, dy) && y + kAdvisoryR >= kFooterTop) return false;
+    out = {dx, dy, x, y, inside_ring(dx, dy)};
     return true;
-}
-
-void shorten_into_ring(const Plotted& from, int32_t& right, int32_t& ahead) {
-    if (inside_ring(from.right + right, from.ahead + ahead)) return;
-    int lo = 0, hi = kClipSteps;
-    while (hi - lo > 1) {
-        const int mid = (lo + hi) / 2;
-        if (inside_ring(from.right + right * mid / kClipSteps,
-                        from.ahead + ahead * mid / kClipSteps))
-            lo = mid;
-        else
-            hi = mid;
-    }
-    right = right * lo / kClipSteps;
-    ahead = ahead * lo / kClipSteps;
 }
 
 void own_minute_marks(Framebuffer& fb, const RadarSnapshot& snap) {
@@ -213,7 +205,6 @@ void leader(Framebuffer& fb, const RadarSnapshot& snap, const RadarTarget& t, in
     const int64_t range = range_metres(snap);
     int32_t right = to_px(v.right, range), ahead = to_px(v.ahead, range);
     if (right * right + ahead * ahead < kMinLeaderPx * kMinLeaderPx) return;
-    shorten_into_ring(p, right, ahead);
     fb.line(p.x, p.y, px_of(p.right + right), py_of(p.ahead + ahead), true);
 }
 
@@ -268,6 +259,12 @@ bool overlap(const Box& a, const Box& b) {
     return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
+Box footer_band() { return {0, kFooterTop, Framebuffer::kW, Framebuffer::kH - kFooterTop}; }
+
+bool fits_on_glass(const Box& b) {
+    return on_glass(b.x, b.y) && on_glass(b.x + b.w - 1, b.y + b.h - 1);
+}
+
 struct Tag {
     char text[8];
     int climbing;
@@ -309,10 +306,12 @@ int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
 
     for (int i = 0; i < n; i++) leader(fb, snap, *in_view[i], track, shown[i]);
 
-    Box tagged[kMaxRadarTargets];
-    int n_tags = 0;
+    Box tagged[kMaxRadarTargets + 1];
+    tagged[0] = footer_band();
+    int n_tags = 1;
     for (int i = 0; i < n; i++) {
         const Tag tag = tag_for(shown[i], *in_view[i]);
+        if (!fits_on_glass(tag.box)) continue;
         bool clash = false;
         for (int j = 0; j < n_tags && !clash; j++) clash = overlap(tag.box, tagged[j]);
         if (clash) continue;
@@ -320,8 +319,12 @@ int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
         tagged[n_tags++] = tag.box;
     }
 
-    for (int i = 0; i < n; i++) traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
-    return n;
+    int in_ring = 0;
+    for (int i = 0; i < n; i++) {
+        traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
+        if (shown[i].in_ring) in_ring++;
+    }
+    return in_ring;
 }
 
 }  // namespace
@@ -335,13 +338,13 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
 
     draw_skyship(fb, kFar, kNear);
 
-    const int in_view = snap.have_fix ? plot(fb, snap, track) : 0;
-    if (in_view > 0) own_minute_marks(fb, snap);
+    const int in_ring = snap.have_fix ? plot(fb, snap, track) : 0;
+    if (in_ring > 0) own_minute_marks(fb, snap);
 
     flight_clock(fb, snap);
     flight_state(fb, snap);
     range_label(fb, snap.range_nm);
-    aircraft(fb, in_view, snap.have_fix && snap.receiver_listening);
+    aircraft(fb, in_ring, snap.have_fix && snap.receiver_listening);
 
     if (snap.max_alarm >= 3) fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);
 }
