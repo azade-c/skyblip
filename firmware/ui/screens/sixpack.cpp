@@ -205,12 +205,13 @@ int32_t rate_deflection_deg(int32_t turn_dps) {
     return clampi((turn_dps * kRateMarkDeg) / kStandardRateDps, -kRateFullDeg, kRateFullDeg);
 }
 
-void inclinometer(Framebuffer& fb, int cx, int cy, int32_t lateral_mg, bool have_lateral) {
+void inclinometer(Framebuffer& fb, int cx, int cy, const SixPackSnapshot& s) {
+    if (!s.inclinometer_fitted) return;
     const int y = cy + kBallY;
     for (int side = -1; side <= 1; side += 2)
         fb.vline(cx + side * kCageHalf, y - kCageHalfH, 2 * kCageHalfH + 1, true);
-    if (!have_lateral) return;
-    const int32_t swing = clampi(lateral_mg, -kSlipFullMg, kSlipFullMg);
+    if (!s.lateral_valid) return;
+    const int32_t swing = clampi(s.lateral_mg, -kSlipFullMg, kSlipFullMg);
     fb.circle(cx + static_cast<int>((swing * kBallTravel) / kSlipFullMg), y, kBallR, true, true);
 }
 
@@ -268,11 +269,11 @@ int32_t bank_deg(int32_t turn_dps, int32_t speed_kt) {
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     fb.clear(true);
 
-    const int32_t kt = s.have_data ? clampi(s.speed_kt, 0, 999) : 0;
-    const int32_t alt_ft = s.have_data ? s.alt_ft : 0;
-    const int32_t vs_fpm = s.have_data ? s.vs_fpm : 0;
-    const int32_t turn_dps = s.have_data ? s.turn_dps : 0;
-    const int32_t track = s.have_data ? s.track_deg % 360 : 0;
+    const int32_t kt = s.data_valid ? clampi(s.speed_kt, 0, 999) : 0;
+    const int32_t alt_ft = s.data_valid ? s.alt_ft : 0;
+    const int32_t vs_fpm = s.data_valid ? s.vs_fpm : 0;
+    const int32_t turn_dps = s.data_valid ? s.turn_dps : 0;
+    const int32_t track = s.data_valid ? s.track_deg % 360 : 0;
     const int32_t bank = bank_deg(turn_dps, kt);
     const int32_t pitch = flight_path_deg(vs_fpm, kt);
 
@@ -285,13 +286,13 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
     needle(fb, kCx[0], kCy[0],
            kAsiZeroDeg + (clampi(speed, 0, speed_full) * kAsiSpanDeg) / speed_full, kNeedle,
            /*thick=*/false, /*cleared=*/true);
-    value_center(fb, kCx[0], 0, s.have_data, speed, true);
+    value_center(fb, kCx[0], 0, s.data_valid, speed, true);
 
-    const char* state = !s.have_data ? "NO FIX" : (s.airborne ? "FLIGHT" : "GROUND");
+    const char* state = !s.data_valid ? "NO FIX" : (s.airborne ? "FLIGHT" : "GROUND");
     dial(fb, kCx[1], 0, state, 0);
     horizon(fb, kCx[1], kCy[0], pitch, bank);
     char clock[8];
-    fmt_flight_clock(clock, s.flight_seconds, s.have_flight_time);
+    fmt_flight_clock(clock, s.flight_seconds, s.flight_time_valid);
     value_text(fb, kCx[1], 0, clock);
 
     dial(fb, kCx[2], 0, "ALT FT", kAltTicks);
@@ -301,21 +302,21 @@ void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& s) {
            /*thick=*/true);
     needle(fb, kCx[2], kCy[0], ((on_scale % kAltHundredsPerTurn) * 360) / kAltHundredsPerTurn,
            kNeedle);
-    value_center(fb, kCx[2], 0, s.have_data, alt_ft, true);
+    value_center(fb, kCx[2], 0, s.data_valid, alt_ft, true);
 
     dial(fb, kCx[0], 1, "TURN D/S", 0);
     turn_coordinator(fb, kCx[0], kCy[1], turn_dps);
-    inclinometer(fb, kCx[0], kCy[1], s.lateral_mg, s.have_lateral);
-    value_center(fb, kCx[0], 1, s.have_data, turn_dps, false);
+    inclinometer(fb, kCx[0], kCy[1], s);
+    value_center(fb, kCx[0], 1, s.data_valid, turn_dps, false);
 
     dial(fb, kCx[1], 1, "TRK", 0);
     heading_card(fb, kCx[1], kCy[1], track);
-    value_center(fb, kCx[1], 1, s.have_data, track == 0 ? 360 : track, true, 3);
+    value_center(fb, kCx[1], 1, s.data_valid, track == 0 ? 360 : track, true, 3);
 
     dial(fb, kCx[2], 1, "VS FPM", 0);
     vsi_face(fb, kCx[2], kCy[1]);
     needle(fb, kCx[2], kCy[1], vsi_deg(vs_fpm), kNeedle, /*thick=*/false, /*cleared=*/true);
-    value_center(fb, kCx[2], 1, s.have_data, vs_fpm, false);
+    value_center(fb, kCx[2], 1, s.data_valid, vs_fpm, false);
 }
 
 }  // namespace skyblip::ui

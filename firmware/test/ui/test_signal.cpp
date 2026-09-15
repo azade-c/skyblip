@@ -57,7 +57,7 @@ constexpr int kAltEnd = 4 + 19 * 6;
 
 SignalSnapshot listing(const traffic::LinkRow* rows, int n, settings::Units units) {
     SignalSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.units = units;
     snap.n_heard = n;
     snap.n_rows = n;
@@ -83,7 +83,7 @@ TEST_CASE("signal: one row per emitter heard, and none for the rest") {
     traffic::LinkRow rows[3] = {row_at(400, -70, 14, true), row_at(4300, -92, 12, true),
                                 row_at(9100, -101, 9, true)};
     SignalSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.n_heard = 3;
     snap.n_rows = 3;
     snap.rows = rows;
@@ -102,7 +102,7 @@ TEST_CASE("signal: an unmodelled emitter shows its range and withholds a verdict
     traffic::LinkRow unmodelled[1] = {row_at(4300, -92, 0, false)};
 
     SignalSnapshot a;
-    a.have_fix = true;
+    a.fix_valid = true;
     a.n_heard = 1;
     a.n_rows = 1;
     a.rows = modelled;
@@ -124,7 +124,7 @@ TEST_CASE("signal: an unmodelled emitter shows its range and withholds a verdict
 TEST_CASE("signal: no fix means no range, and the page says so instead of listing") {
     traffic::LinkRow rows[1] = {row_at(4300, -92, 12, true)};
     SignalSnapshot snap;
-    snap.have_fix = false;
+    snap.fix_valid = false;
     snap.n_heard = 4;
     snap.n_rows = 1;
     snap.rows = rows;
@@ -137,7 +137,7 @@ TEST_CASE("signal: no fix means no range, and the page says so instead of listin
 
 TEST_CASE("signal: the header counts what was heard, not what fits") {
     SignalSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.n_heard = 26;
     snap.n_rows = 0;
     snap.rows = nullptr;
@@ -185,7 +185,7 @@ TEST_CASE("signal: more emitters than rows are cut, never overdrawn") {
         rows[i] = row_at(500 + 100 * i, static_cast<int8_t>(-70 - i), 14, true);
 
     SignalSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.n_heard = kSignalRows + 4;
     snap.n_rows = kSignalRows + 4;
     snap.rows = rows;

@@ -98,7 +98,7 @@ void draw_row(Framebuffer& fb, int y, const traffic::LinkRow& row, bool metric) 
 void draw_signal(Framebuffer& fb, const SignalSnapshot& snap) {
     draw_header(fb, snap);
 
-    if (!snap.have_fix) {
+    if (!snap.fix_valid) {
         fb.draw_text(kLeft, kFirstRowY + kLineH, "NO FIX: NO RANGE", true, 1);
         return;
     }

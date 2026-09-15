@@ -409,7 +409,7 @@ void ScreenService::render(uint32_t now_ms) {
         }
         case Page::SixPack: {
             ui::SixPackSnapshot snap;
-            snap.have_data = own.fix_valid;
+            snap.data_valid = own.fix_valid;
             snap.units = settings.units;
             // 1 m/s = 1.94384 kt, from quarter-m/s.
             snap.speed_kt = (static_cast<int32_t>(own.speed_q) * 194384) / (4 * 100000);
@@ -418,14 +418,14 @@ void ScreenService::render(uint32_t now_ms) {
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.turn_dps = own.turn_dps;
             snap.flight_seconds = context_.state.flight_seconds;
-            snap.have_flight_time = context_.state.flight_time_valid;
+            snap.flight_time_valid = context_.state.flight_time_valid;
             snap.airborne = context_.state.flight_running;
             ui::draw_sixpack(fb_, snap);
             break;
         }
         case Page::Signal: {
             ui::SignalSnapshot snap;
-            snap.have_fix = own.fix_valid;
+            snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
             snap.n_rows =

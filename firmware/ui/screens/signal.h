@@ -17,7 +17,7 @@ namespace skyblip::ui {
 constexpr int kSignalRows = 9;
 
 struct SignalSnapshot {
-    bool have_fix{false};
+    bool fix_valid{false};
     settings::Units units{settings::Units::Nautical};
     int n_heard{0};
     int n_rows{0};

@@ -9,7 +9,7 @@
 namespace skyblip::ui {
 
 struct SixPackSnapshot {
-    bool have_data{false};
+    bool data_valid{false};
     settings::Units units{settings::Units::Nautical};
     int32_t speed_kt{0};
     int32_t alt_ft{0};
@@ -17,10 +17,11 @@ struct SixPackSnapshot {
     uint16_t track_deg{0};
     int16_t turn_dps{0};  // degrees per second, positive = right
     uint32_t flight_seconds{0};
-    bool have_flight_time{false};
+    bool flight_time_valid{false};
     bool airborne{false};
     int16_t lateral_mg{0};  // right-positive, thousandths of g across the wings
-    bool have_lateral{false};
+    bool inclinometer_fitted{false};
+    bool lateral_valid{false};
 };
 
 void draw_sixpack(Framebuffer& fb, const SixPackSnapshot& snap);

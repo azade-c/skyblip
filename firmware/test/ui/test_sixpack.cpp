@@ -69,7 +69,7 @@ bool value_matches(const Framebuffer& fb, Tile t, const char* text) {
 
 SixPackSnapshot flying() {
     SixPackSnapshot s;
-    s.have_data = true;
+    s.data_valid = true;
     s.units = skyblip::settings::Units::Nautical;
     s.speed_kt = 90;
     s.alt_ft = 3450;
@@ -77,7 +77,7 @@ SixPackSnapshot flying() {
     s.track_deg = 270;
     s.turn_dps = 3;
     s.flight_seconds = 7 * 60;
-    s.have_flight_time = true;
+    s.flight_time_valid = true;
     s.airborne = true;
     return s;
 }
@@ -119,7 +119,7 @@ TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withh
 // A frozen clock under a state that no longer holds is the one reading worth naming as stale.
 TEST_CASE("sixpack: a fix lost in flight says so, and keeps the time already flown") {
     SixPackSnapshot lost = flying();
-    lost.have_data = false;
+    lost.data_valid = false;
     Framebuffer fb;
     draw_sixpack(fb, lost);
     CHECK(title_matches(fb, kTiles[1], "NO FIX"));
@@ -128,7 +128,7 @@ TEST_CASE("sixpack: a fix lost in flight says so, and keeps the time already flo
 
 TEST_CASE("sixpack: needles move with the data they show") {
     SixPackSnapshot a;
-    a.have_data = true;
+    a.data_valid = true;
     a.units = skyblip::settings::Units::Nautical;
     a.speed_kt = 40;
     a.alt_ft = 1200;
@@ -158,7 +158,7 @@ TEST_CASE("sixpack: needles move with the data they show") {
 
 TEST_CASE("sixpack: the altimeter reads like a three-pointer, the card like a compass") {
     SixPackSnapshot s;
-    s.have_data = true;
+    s.data_valid = true;
     s.units = skyblip::settings::Units::Nautical;
     s.alt_ft = 2500;  // long hand at 500 ft (down), short hand at 2.5/10 (right)
     Framebuffer fb;
@@ -189,7 +189,7 @@ TEST_CASE("sixpack: the altimeter reads like a three-pointer, the card like a co
 // B4. A dial has one needle and one number, so the km/h pilot has to ask for it.
 TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed dial") {
     SixPackSnapshot nautical;
-    nautical.have_data = true;
+    nautical.data_valid = true;
     nautical.units = skyblip::settings::Units::Nautical;
     nautical.speed_kt = 90;  // 166 km/h
     nautical.alt_ft = 3450;
@@ -266,7 +266,8 @@ TEST_CASE("sixpack: the turn coordinator flies an aeroplane between four marks")
 TEST_CASE("sixpack: the ball sits between its cage lines, and is absent without a reading") {
     const Tile turn = kTiles[3];
     SixPackSnapshot coordinated = flying();
-    coordinated.have_lateral = true;
+    coordinated.inclinometer_fitted = true;
+    coordinated.lateral_valid = true;
     Framebuffer fb;
     draw_sixpack(fb, coordinated);
 
@@ -281,10 +282,18 @@ TEST_CASE("sixpack: the ball sits between its cage lines, and is absent without 
     CHECK(fs.get_pixel(turn.cx + 16, turn.cy + 18));
     CHECK_FALSE(fs.get_pixel(turn.cx - 2, turn.cy + 18));
 
+    SixPackSnapshot warming = coordinated;
+    warming.lateral_valid = false;
     Framebuffer blind;
-    draw_sixpack(blind, flying());
+    draw_sixpack(blind, warming);
     CHECK(blind.get_pixel(turn.cx - 6, turn.cy + 18));
     CHECK_FALSE(blind.get_pixel(turn.cx, turn.cy + 18));
+
+    // A device with no IMU fitted has no inclinometer to draw, not an empty one.
+    Framebuffer plain;
+    draw_sixpack(plain, flying());
+    for (int x = -16; x <= 16; x++)
+        for (int y = 13; y <= 23; y++) CHECK_FALSE(plain.get_pixel(turn.cx + x, turn.cy + y));
 }
 
 // Standard rate is 3 deg/s, the two-minute turn: at it, the wing is on the mark.
@@ -350,7 +359,7 @@ TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in")
     CHECK(value_matches(fl, kTiles[1], "0:07"));
 
     SixPackSnapshot parked = landed;
-    parked.have_flight_time = false;
+    parked.flight_time_valid = false;
     Framebuffer fp;
     draw_sixpack(fp, parked);
     CHECK(title_matches(fp, kTiles[1], "GROUND"));
@@ -396,7 +405,7 @@ TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
     // The clock the pilot reads above it is none of the horizon's business.
     SixPackSnapshot later = level;
     later.flight_seconds = 95 * 60;
-    later.have_flight_time = true;
+    later.flight_time_valid = true;
     Framebuffer f3;
     draw_sixpack(f3, later);
     CHECK(black_in(f3, att, 28) == black_in(f0, att, 28));
