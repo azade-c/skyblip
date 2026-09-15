@@ -44,7 +44,7 @@ uint8_t addr_table_to_idtype(uint8_t t) { return t == 0x05 ? 1 : 2; }
 
 bool relative_ned(const messages::OwnState& own, const messages::AircraftObs& t, int32_t& north_m,
                   int32_t& east_m, int32_t& up_m) {
-    if (!own.fix_valid || !t.valid_pos) return false;
+    if (!own.fix_valid || !t.position_valid) return false;
     int64_t dlat = static_cast<int64_t>(t.lat_1e7) - own.lat_1e7;
     int64_t dlon = static_cast<int64_t>(t.lon_1e7) - own.lon_1e7;
     north_m = static_cast<int32_t>((dlat * 11132) / 1000000);
@@ -81,9 +81,9 @@ int format_pflaa(char* out, size_t cap, const messages::OwnState& own,
     }
     out[n++] = ',';
     out[n++] = ',';
-    if (t.has_speed) n += fmt_uint(out + n, (static_cast<uint32_t>(t.speed_q) + 2) / 4);
+    if (t.speed_valid) n += fmt_uint(out + n, (static_cast<uint32_t>(t.speed_q) + 2) / 4);
     out[n++] = ',';
-    if (t.has_climb) {
+    if (t.climb_valid) {
         int32_t climb_dm = (static_cast<int32_t>(t.climb_e8) * 10 + 4) / 8;
         n += fmt_int(out + n, climb_dm, 1, 1, true);
     } else {

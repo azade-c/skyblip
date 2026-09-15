@@ -253,16 +253,16 @@ void to_obs(const AdslPacket& p, uint32_t rx_utc, uint16_t rx_ms, int8_t rssi_db
     out.lat_1e7 = p.lat_1e7();
     out.lon_1e7 = p.lon_1e7();
     out.alt_m = p.alt_m();
-    out.has_climb = p.has_climb();
-    out.climb_e8 = out.has_climb ? p.climb_e8() : 0;
-    out.has_speed = p.has_speed();
-    out.speed_q = out.has_speed ? p.speed_q() : 0;
+    out.climb_valid = p.has_climb();
+    out.climb_e8 = out.climb_valid ? p.climb_e8() : 0;
+    out.speed_valid = p.has_speed();
+    out.speed_q = out.speed_valid ? p.speed_q() : 0;
     out.track_c9 = p.track_c9();
     out.rx_utc = rx_utc;
     out.rx_ms = rx_ms;
     out.rssi_dbm = rssi_dbm;
     out.source = source;
-    out.valid_pos = true;
+    out.position_valid = true;
 }
 
 // ADS-L 4 SRD860 issue 2 G.1.13, NACp. Code 0 is "unknown or HFOM >= 0.5 NM".

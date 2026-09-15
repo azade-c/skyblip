@@ -138,7 +138,7 @@ TEST_CASE("scenario: uplink RX merges with direct RX (dedup, prefer direct)") {
     messages::AircraftObs up{};
     up.addr = 0x3FBEEF;
     up.addr_table = 5;  // ICAO (from ADS-B via uplink)
-    up.valid_pos = true;
+    up.position_valid = true;
     up.lat_1e7 = own.lat_1e7 + 50000;
     up.lon_1e7 = own.lon_1e7;
     up.alt_m = 1100;

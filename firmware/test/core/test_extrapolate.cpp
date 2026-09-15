@@ -61,8 +61,8 @@ TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
 TEST_CASE("extrapolate: a reported target moves along its reported track") {
     const messages::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
     messages::AircraftObs obs{};
-    obs.valid_pos = true;
-    obs.has_speed = true;
+    obs.position_valid = true;
+    obs.speed_valid = true;
     obs.lat_1e7 = own.lat_1e7;
     obs.lon_1e7 = own.lon_1e7;
     obs.alt_m = 1200;
@@ -75,13 +75,13 @@ TEST_CASE("extrapolate: a reported target moves along its reported track") {
     CHECK(north_m(own.lat_1e7, at.lat_1e7) == doctest::Approx(0.0).epsilon(0.01));
     CHECK(at.alt_m == obs.alt_m);  // no climb reported, no climb invented
 
-    obs.has_climb = true;
+    obs.climb_valid = true;
     obs.climb_e8 = 8 * 2;  // 2 m/s
     CHECK(extrapolate(obs, 1000).alt_m == 1202);
 
     // Relayed traffic often arrives as a position and nothing else: there is no
     // model to run, and the last known position is the only honest answer.
-    obs.has_speed = false;
+    obs.speed_valid = false;
     const Prediction still = extrapolate(obs, 1000);
     CHECK_FALSE(still.valid);
     CHECK(still.lat_1e7 == obs.lat_1e7);

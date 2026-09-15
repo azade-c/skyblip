@@ -36,9 +36,9 @@ struct AircraftObs {
     uint32_t at_ms;
     int8_t rssi_dbm;
     Source source;
-    bool has_climb;
-    bool has_speed;
-    bool valid_pos;
+    bool climb_valid;
+    bool speed_valid;
+    bool position_valid;
 };
 
 struct OwnState {

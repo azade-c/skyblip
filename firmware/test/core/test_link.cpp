@@ -29,7 +29,7 @@ messages::OwnState own_at_equator() {
 
 messages::AircraftObs emitter(int32_t north_m, int8_t rssi, messages::Source src) {
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     t.addr = 0xABCD;
     t.lat_1e7 = lat_offset_for(north_m);
     t.lon_1e7 = 0;
@@ -98,7 +98,7 @@ TEST_CASE("link: too close to model, still worth listing") {
 
 TEST_CASE("link: an emitter without a position cannot be ranged") {
     messages::AircraftObs t = emitter(1000, -77, messages::Source::AdslDirect);
-    t.valid_pos = false;
+    t.position_valid = false;
     LinkRow row;
     CHECK_FALSE(estimate_link(own_at_equator(), t, row));
 
@@ -156,7 +156,7 @@ TEST_CASE("link: ranking skips what it cannot range") {
 
     messages::AircraftObs blind = emitter(1000, -70, messages::Source::AdslDirect);
     blind.addr = 0x201;
-    blind.valid_pos = false;
+    blind.position_valid = false;
     table.update(blind, 100);
 
     LinkRow rows[4];

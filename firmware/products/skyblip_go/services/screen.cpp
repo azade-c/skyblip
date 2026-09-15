@@ -371,13 +371,13 @@ void ScreenService::render(uint32_t now_ms) {
     switch (page_) {
         case Page::Radar: {
             ui::RadarSnapshot snap;
-            snap.have_fix = own.fix_valid;
+            snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
             snap.flight_seconds = context_.state.flight_seconds;
-            snap.have_flight_time = context_.state.flight_time_valid;
+            snap.flight_time_valid = context_.state.flight_time_valid;
             snap.airborne = context_.state.flight_running;
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
@@ -395,9 +395,9 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].up_m = up;
                     targets_[n].alarm_level = t->alarm_level;
                     targets_[n].climb_e8 = obs.climb_e8;
-                    targets_[n].has_climb = obs.has_climb;
+                    targets_[n].climb_valid = obs.climb_valid;
                     targets_[n].speed_mps =
-                        obs.has_speed ? to_mps(QuarterMetresPerSec(obs.speed_q)).v : 0;
+                        obs.speed_valid ? to_mps(QuarterMetresPerSec(obs.speed_q)).v : 0;
                     targets_[n].track_deg = to_degrees(Cordic9(obs.track_c9)).v;
                     n++;
                 }

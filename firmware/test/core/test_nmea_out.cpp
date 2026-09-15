@@ -63,7 +63,7 @@ TEST_CASE("nmea: PGRMZ field 3 is the fix dimension, not a hardcoded constant") 
 TEST_CASE("nmea: relative geometry, target due north is +north, ~0 east") {
     auto own = own_at(481000000, 81000000, 1000);
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     t.lat_1e7 = own.lat_1e7 + 10000000;  // +1 deg lat ~ 111 km north
     t.lon_1e7 = own.lon_1e7;
     t.alt_m = 1200;
@@ -77,13 +77,13 @@ TEST_CASE("nmea: relative geometry, target due north is +north, ~0 east") {
 TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
     auto own = own_at(481000000, 81000000, 1000);
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     t.addr = 0xC5D804;
     t.addr_table = 6;  // FLARM -> IDType 2
     t.aircraft_cat = 4;
-    t.has_speed = true;
+    t.speed_valid = true;
     t.speed_q = 120;
-    t.has_climb = true;
+    t.climb_valid = true;
     t.climb_e8 = 16;
     t.track_c9 = 128;
     t.lat_1e7 = own.lat_1e7 + 100000;  // ~1.1 km north
@@ -101,7 +101,7 @@ TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
 TEST_CASE("nmea: PFLAA returns 0 without own position") {
     messages::OwnState own{};  // no fix
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     char buf[128];
     CHECK(format_pflaa(buf, sizeof(buf), own, t, 0) == 0);
 }
@@ -201,7 +201,7 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     messages::OwnState own = own_at(-899999999, -1799999999, -999);
     own.utc_valid = true;
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     t.addr = 0xFFFFFF;
     t.addr_table = 0x06;
     t.lat_1e7 = 899999999;
@@ -210,8 +210,8 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     t.track_c9 = 511;
     t.speed_q = 65535;
     t.climb_e8 = 32767;
-    t.has_speed = true;
-    t.has_climb = true;
+    t.speed_valid = true;
+    t.climb_valid = true;
     t.aircraft_cat = 11;
     t.flight_state = 2;
 

@@ -131,8 +131,8 @@ Prediction extrapolate(const messages::AircraftObs& obs, int32_t dt_ms) {
     m.speed_q = obs.speed_q;
     m.track_c9 = obs.track_c9;
     m.climb_e8 = obs.climb_e8;
-    m.known = obs.valid_pos && obs.has_speed;
-    m.climbs = obs.has_climb;
+    m.known = obs.position_valid && obs.speed_valid;
+    m.climbs = obs.climb_valid;
     return carry(m, dt_ms);
 }
 

@@ -54,11 +54,11 @@ void unpack_record(const uint8_t* r, messages::AircraftObs& t) {
     t.flight_state = (r[3] >> 6) & 0x03;
     t.aircraft_cat = r[4];
     t.speed_q = r[5];
-    t.has_speed = r[5] != 0;
+    t.speed_valid = r[5] != 0;
     t.lat_1e7 = get_i32(r + 6);
     t.lon_1e7 = get_i32(r + 10);
     t.alt_m = get_i16(r + 14);
-    t.valid_pos = true;
+    t.position_valid = true;
     t.source = messages::Source::AdslUplink;
     t.emergency = 1;
 }

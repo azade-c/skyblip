@@ -41,9 +41,9 @@ messages::AircraftObs make_obs(int32_t lat_1e7, int32_t lon_1e7) {
     obs.speed_q = 45 * 4;  // 45 m/s
     obs.climb_e8 = -44;    // -5.5 m/s
     obs.track_c9 = 256;    // 180 deg
-    obs.has_speed = true;
-    obs.has_climb = true;
-    obs.valid_pos = true;
+    obs.speed_valid = true;
+    obs.climb_valid = true;
+    obs.position_valid = true;
     return obs;
 }
 
@@ -94,9 +94,9 @@ TEST_CASE("alptas: encode then decode preserves the identity and motion fields")
     CHECK(std::abs(int(got.speed_q) - int(obs.speed_q)) <= 2);
     CHECK(std::abs(int(got.climb_e8) - int(obs.climb_e8)) <= 2);
     CHECK(std::abs(int(got.track_c9) - int(obs.track_c9)) <= 2);
-    CHECK(got.has_speed);
-    CHECK(got.has_climb);
-    CHECK(got.valid_pos);
+    CHECK(got.speed_valid);
+    CHECK(got.climb_valid);
+    CHECK(got.position_valid);
     CHECK(got.rx_utc == kUtc);
     CHECK(got.source == messages::Source::Alptas);
 }
@@ -289,7 +289,7 @@ TEST_CASE("alptas: a non-position message type is not decoded as traffic") {
 
 TEST_CASE("alptas: encoding refuses to claim a position it does not have") {
     messages::AircraftObs obs = make_obs(481234567, 87654321);
-    obs.valid_pos = false;
+    obs.position_valid = false;
     uint8_t frame[kAlptasFrameBytes];
     CHECK(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Invalid);
 }

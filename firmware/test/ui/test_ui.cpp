@@ -49,10 +49,10 @@ int ink_in(const Framebuffer& fb, int x0, int y0, int x1, int y1) {
 
 RadarSnapshot flying(uint16_t track_deg) {
     RadarSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.range_nm = kDefaultRangeNm;
     snap.track_deg = track_deg;
-    snap.have_flight_time = true;
+    snap.flight_time_valid = true;
     snap.airborne = true;
     snap.flight_seconds = 42 * 60;
     snap.receiver_listening = true;
@@ -118,7 +118,7 @@ TEST_CASE("radar: renders rings, own symbol and plots targets") {
     {
         RadarTarget pair[2] = {{0, 4000, 0, 1}, {0, -4000, 0, 1}};
         RadarSnapshot s2;
-        s2.have_fix = true;
+        s2.fix_valid = true;
         s2.range_nm = 5;
         s2.n_targets = 2;
         s2.targets = pair;
@@ -138,7 +138,7 @@ TEST_CASE("radar: renders rings, own symbol and plots targets") {
         CHECK(e - 100 == 99 - w);
     }
     RadarSnapshot snap;
-    snap.have_fix = true;
+    snap.fix_valid = true;
     snap.range_nm = 5;
     snap.n_targets = 2;
     snap.targets = targets;
@@ -149,7 +149,7 @@ TEST_CASE("radar: renders rings, own symbol and plots targets") {
     // no-fix path shows text, few pixels but non-empty
     Framebuffer fb2;
     RadarSnapshot ns;
-    ns.have_fix = false;
+    ns.fix_valid = false;
     draw_radar(fb2, ns);
     CHECK(fb2.count_black() > 0);
 }
@@ -604,7 +604,7 @@ TEST_CASE("radar: a radio not yet listening counts no aircraft, it dashes") {
     CHECK(reads_in(fb, "ACT", 140, 175, 190, 200));
 
     RadarSnapshot no_position = flying(0);
-    no_position.have_fix = false;
+    no_position.fix_valid = false;
     CHECK(reads_in(radar(no_position), "-", 170, 170, 200, 200, 3));
 
     CHECK(reads_in(radar(flying(0)), "0", 170, 170, 200, 200, 3));

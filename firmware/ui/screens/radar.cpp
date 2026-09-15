@@ -123,7 +123,7 @@ void clear_behind(Framebuffer& fb, int x, int y, int w, int h, int pad) {
 
 void flight_clock(Framebuffer& fb, const RadarSnapshot& snap) {
     char buf[8];
-    fmt_flight_clock(buf, snap.flight_seconds, snap.have_flight_time);
+    fmt_flight_clock(buf, snap.flight_seconds, snap.flight_time_valid);
     clear_behind(fb, kMargin, kClockY, text_width(buf, kClockScale), kGlyphH * kClockScale,
                  kLabelPad);
     fb.draw_text(kMargin, kClockY, buf, true, kClockScale);
@@ -146,7 +146,7 @@ void range_label(Framebuffer& fb, const RadarSnapshot& snap) {
 }
 
 void flight_state(Framebuffer& fb, const RadarSnapshot& snap) {
-    const char* state = !snap.have_fix ? "NO FIX" : (snap.airborne ? "FLIGHT" : "GROUND");
+    const char* state = !snap.fix_valid ? "NO FIX" : (snap.airborne ? "FLIGHT" : "GROUND");
     clear_behind(fb, kMargin, kStateY, text_width(state, kStateScale), kGlyphH * kStateScale,
                  kLabelPad);
     fb.draw_text(kMargin, kStateY, state, true, kStateScale);
@@ -271,7 +271,7 @@ int32_t hundreds_of_feet(int32_t up_m) {
 }
 
 int chevron_direction(const RadarTarget& t) {
-    if (!t.has_climb) return 0;
+    if (!t.climb_valid) return 0;
     if (t.climb_e8 >= kChevronClimbE8) return 1;
     if (t.climb_e8 <= -kChevronClimbE8) return -1;
     return 0;
@@ -430,12 +430,12 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
 
     draw_skyship(fb, kFar, kNear);
 
-    const int in_ring = snap.have_fix ? plot(fb, snap, track) : 0;
+    const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
 
     flight_clock(fb, snap);
     flight_state(fb, snap);
     range_label(fb, snap);
-    aircraft(fb, in_ring, snap.have_fix && snap.receiver_listening);
+    aircraft(fb, in_ring, snap.fix_valid && snap.receiver_listening);
 
     if (snap.max_alarm >= 3) fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);
 }

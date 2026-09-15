@@ -19,19 +19,19 @@ struct RadarTarget {
     int32_t up_m;
     uint8_t alarm_level;
     int16_t climb_e8{0};
-    bool has_climb{false};
+    bool climb_valid{false};
     int32_t speed_mps{0};
     uint16_t track_deg{0};
 };
 
 struct RadarSnapshot {
-    bool have_fix{false};
+    bool fix_valid{false};
     settings::Units units{settings::Units::Nautical};
     int32_t range_nm{kDefaultRangeNm};
     uint16_t track_deg{0};
     int32_t speed_mps{0};
     uint32_t flight_seconds{0};
-    bool have_flight_time{false};
+    bool flight_time_valid{false};
     bool airborne{false};
     bool receiver_listening{false};
     int n_targets{0};

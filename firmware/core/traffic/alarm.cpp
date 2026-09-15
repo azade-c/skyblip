@@ -31,13 +31,13 @@ int32_t closing_from_vectors(const messages::OwnState& own, const messages::Airc
     int32_t own_n = 0, own_e = 0;
     velocity_ned(own.speed_q, own.track_c9, own_n, own_e);
     int32_t target_n = 0, target_e = 0;
-    if (target.has_speed) velocity_ned(target.speed_q, target.track_c9, target_n, target_e);
+    if (target.speed_valid) velocity_ned(target.speed_q, target.track_c9, target_n, target_e);
 
     const int64_t along =
         static_cast<int64_t>(target_n - own_n) * n_m + static_cast<int64_t>(target_e - own_e) * e_m;
     const int64_t scale = static_cast<int64_t>(dist_m) * kSpeedQPerMps * kTrigOne;
     int32_t closing = static_cast<int32_t>(-along / scale);
-    if (!target.has_speed) closing += kUnknownTargetSpeedMps;
+    if (!target.speed_valid) closing += kUnknownTargetSpeedMps;
     return closing;
 }
 
@@ -92,7 +92,7 @@ AlarmTracker::Decision AlarmTracker::update(const messages::OwnState& own,
     if (key != slot->obs_key) {
         slot->obs_key = key;
         slot->seen_ms = now_ms;
-        if (target.has_speed) sample_track(*slot, target.track_c9, now_ms);
+        if (target.speed_valid) sample_track(*slot, target.track_c9, now_ms);
     }
 
     if (d.assessment.closing_mps >= kClosingFloorMps) {

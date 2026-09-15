@@ -41,8 +41,8 @@ messages::AircraftObs neighbour(const messages::OwnState& own, int north_m, int 
     messages::AircraftObs t{};
     t.addr = 0x314159;
     t.addr_table = 6;
-    t.valid_pos = true;
-    t.has_speed = true;
+    t.position_valid = true;
+    t.speed_valid = true;
     t.speed_q = static_cast<uint16_t>(mps * 4);
     t.track_c9 = c9(track_deg);
     t.alt_m = own.alt_m + up_m;
@@ -66,7 +66,7 @@ static messages::AircraftObs obs(uint32_t addr, uint8_t tbl, uint32_t t,
     o.addr_table = tbl;
     o.rx_utc = t;
     o.source = src;
-    o.valid_pos = true;
+    o.position_valid = true;
     o.lat_1e7 = 481000000;
     o.lon_1e7 = 81000000;
     o.alt_m = 1000;
@@ -196,7 +196,7 @@ TEST_CASE("alarm: level escalates as a target closes head-on") {
 TEST_CASE("alarm: invalid when own has no fix") {
     messages::OwnState own{};
     messages::AircraftObs t{};
-    t.valid_pos = true;
+    t.position_valid = true;
     CHECK_FALSE(assess(own, t, 0).valid);
 }
 
@@ -255,7 +255,7 @@ TEST_CASE("alarm: urgency is what the geometry says, not what the range ring say
 TEST_CASE("alarm: a target that reports no velocity degrades, it does not vanish") {
     const messages::OwnState own = flying(30, 0);
     messages::AircraftObs quiet = neighbour(own, 900, 0, 0, 0, 0);
-    quiet.has_speed = false;
+    quiet.speed_valid = false;
 
     const AlarmAssessment a = assess(own, quiet, 0);
     CHECK(a.closing_mps >= 30 + kUnknownTargetSpeedMps - 1);
@@ -585,7 +585,7 @@ TEST_CASE("traffic: with no fix of our own nothing is refused for being far away
     // so it is not this gate's business.
     int32_t slant_m = 0;
     messages::AircraftObs positionless = far_away;
-    positionless.valid_pos = false;
+    positionless.position_valid = false;
     CHECK(range_check(flying(30, 0), positionless, slant_m) == Plausibility::NoReference);
 }
 

@@ -661,7 +661,7 @@ TEST_CASE("product: the range gate's refusals leave the device over the link") {
     messages::AircraftObs ghost{};
     ghost.addr = 0x00ABCDEF;
     ghost.addr_table = 5;
-    ghost.valid_pos = true;
+    ghost.position_valid = true;
     ghost.lat_1e7 = rig.state().own.lat_1e7 + 50000000;  // five degrees north
     ghost.lon_1e7 = rig.state().own.lon_1e7;
     ghost.source = messages::Source::AdslDirect;

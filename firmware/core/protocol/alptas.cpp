@@ -324,9 +324,9 @@ Status alptas_decode(const uint8_t* frame, uint32_t rx_utc, int32_t ref_lat_1e7,
         static_cast<uint16_t>(div_nearest(static_cast<int32_t>(course_deg) * 512, 360) & 0x1FF);
     out.rx_utc = rx_utc;
     out.source = messages::Source::Alptas;
-    out.has_speed = true;
-    out.has_climb = true;
-    out.valid_pos = true;
+    out.speed_valid = true;
+    out.climb_valid = true;
+    out.position_valid = true;
     return Status::Ok;
 }
 
@@ -337,7 +337,7 @@ Status alptas_encode(uint8_t* frame, const messages::AircraftObs& obs, uint32_t 
     // reconstructs the high bits from where it is itself (Legacy.cpp:1045).
     (void)ref_lat_1e7;
     (void)ref_lon_1e7;
-    if (!obs.valid_pos) return Status::Invalid;
+    if (!obs.position_valid) return Status::Invalid;
 
     __builtin_memset(frame, 0, kAlptasFrameBytes);
     put_field(frame, kFAddr, obs.addr & 0x00FFFFFFu);
@@ -354,9 +354,9 @@ Status alptas_encode(uint8_t* frame, const messages::AircraftObs& obs, uint32_t 
     int32_t lon_coded = div_nearest(obs.lon_1e7, divisor);
     put_field(frame, kFLon, static_cast<uint32_t>(lon_coded) & 0x0FFFFFu);
 
-    int32_t speed_10 = obs.has_speed ? div_nearest(obs.speed_q * 5, 2) : 0;
+    int32_t speed_10 = obs.speed_valid ? div_nearest(obs.speed_q * 5, 2) : 0;
     put_field(frame, kFSpeed, enscale(speed_10, 8, 2, 0));
-    int32_t vs_10 = obs.has_climb ? div_nearest(obs.climb_e8 * 5, 4) : 0;
+    int32_t vs_10 = obs.climb_valid ? div_nearest(obs.climb_e8 * 5, 4) : 0;
     put_field(frame, kFVs, enscale(vs_10, 6, 2, 1));
     put_field(frame, kFTurnRate, enscale(0, 6, 2, 1));
 

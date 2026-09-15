@@ -41,12 +41,12 @@ messages::AircraftObs relayed_aircraft(Rig& rig, uint32_t addr, int32_t north_m,
     obs.aircraft_cat = 4;
     obs.flight_state = 2;
     obs.speed_q = 140;
-    obs.has_speed = true;
+    obs.speed_valid = true;
     obs.lat_1e7 =
         own.lat_1e7 + static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     obs.lon_1e7 = own.lon_1e7 + static_cast<int32_t>(static_cast<int64_t>(east_m) * 1000000 / 7460);
     obs.alt_m = own.alt_m + up_m;
-    obs.valid_pos = true;
+    obs.position_valid = true;
     return obs;
 }
 
@@ -212,7 +212,7 @@ TEST_CASE("uplink: one ground-station frame carries several aircraft onto the ra
         CHECK(got->obs.lat_1e7 == sent.lat_1e7);
         CHECK(got->obs.lon_1e7 == sent.lon_1e7);
         CHECK(got->obs.alt_m == sent.alt_m);
-        CHECK(got->obs.valid_pos);
+        CHECK(got->obs.position_valid);
         CHECK(got->obs.source == messages::Source::AdslUplink);
         CHECK(got->obs.rx_utc == rig.state().own.utc);
     }
@@ -337,7 +337,7 @@ TEST_CASE("uplink: with Feature::UplinkRx off, a ground frame decodes to nothing
     relayed.lat_1e7 = 485000000;
     relayed.lon_1e7 = 85000000;
     relayed.alt_m = 1000;
-    relayed.valid_pos = true;
+    relayed.position_valid = true;
 
     protocol::AdslUplink codec;
     uint8_t frame[protocol::kUplinkFrameBytes] = {0};

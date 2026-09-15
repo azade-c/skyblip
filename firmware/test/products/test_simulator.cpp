@@ -104,7 +104,7 @@ TEST_CASE("simulator: a climbing aircraft broadcasts its rate and gains height a
         if (t != nullptr && t->used) target = t;
     }
     REQUIRE(target != nullptr);
-    CHECK(target->obs.has_climb);
+    CHECK(target->obs.climb_valid);
     // 3 m/s is 24 eighths, and 590 fpm, which is past the chevron's 500.
     CHECK(int(target->obs.climb_e8) == 24);
 

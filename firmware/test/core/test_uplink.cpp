@@ -37,11 +37,11 @@ messages::AircraftObs make_target(uint32_t addr) {
     t.aircraft_cat = 4;
     t.flight_state = 2;
     t.speed_q = 180;
-    t.has_speed = true;
+    t.speed_valid = true;
     t.lat_1e7 = 481234500;
     t.lon_1e7 = 81234500;
     t.alt_m = 1234;
-    t.valid_pos = true;
+    t.position_valid = true;
     return t;
 }
 }  // namespace

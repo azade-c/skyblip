@@ -185,13 +185,13 @@ messages::AircraftObs World::as_relayed(const VirtualAircraft& a,
     obs.aircraft_cat = 4;
     obs.flight_state = 2;
     obs.speed_q = static_cast<uint16_t>(a.speed_mps * 4);
-    obs.has_speed = true;
+    obs.speed_valid = true;
     obs.lat_1e7 = origin_lat_1e7_ + static_cast<int32_t>(a.north_m * 1e7 / kMetresPerDegLat);
     obs.lon_1e7 = origin_lon_1e7_;
     if (coslat > 0.01)
         obs.lon_1e7 += static_cast<int32_t>(a.east_m * 1e7 / (kMetresPerDegLat * coslat));
     obs.alt_m = own.alt_m + static_cast<int32_t>(a.up_m);
-    obs.valid_pos = true;
+    obs.position_valid = true;
     return obs;
 }
 
@@ -281,9 +281,9 @@ size_t alptas_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32
     obs.speed_q = static_cast<uint16_t>(a.speed_mps * 4);
     obs.climb_e8 = climb_e8_of(a);
     obs.track_c9 = static_cast<uint16_t>(a.track_deg * 512 / 360) & 0x1FF;
-    obs.has_speed = true;
-    obs.has_climb = true;
-    obs.valid_pos = true;
+    obs.speed_valid = true;
+    obs.climb_valid = true;
+    obs.position_valid = true;
 
     uint8_t frame[protocol::kAlptasFrameBytes] = {0};
     if (protocol::alptas_encode(frame, obs, utc, lat_1e7, lon_1e7) != Status::Ok) return 0;
