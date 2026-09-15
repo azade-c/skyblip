@@ -9,7 +9,7 @@
   "duration_ms": 12000,
   "aircraft": [
     {"system": "adsl", "north_m": 1500, "east_m": -300, "up_m": 20, "speed_mps": 35, "track_deg": 180, "slot": 0},
-    {"system": "alptas", "north_m": 900, "east_m": 250, "up_m": -40, "speed_mps": 30, "track_deg": 190, "slot": 1}
+    {"system": "alptas", "north_m": 900, "east_m": 250, "up_m": -40, "speed_mps": 30, "track_deg": 190, "slot": 1, "climb_mps_e1": -25}
   ],
   "events": [
     {"at_ms": 4000, "expect_traffic_min": 2},

@@ -49,16 +49,23 @@ constexpr int kSymbolR = 4;
 constexpr int kAdvisoryR = 5;
 constexpr uint8_t kProximateLevel = 1;
 constexpr uint8_t kAdvisoryLevel = 2;
-constexpr int kTagGap = 3;
-constexpr int kTagPad = 1;
-constexpr int kChevronW = 5;
-constexpr int kChevronH = 3;
-constexpr int kChevronGap = 2;
+constexpr int kTagScale = 2;
+constexpr int kTagGlyphH = kGlyphH * kTagScale;
+constexpr int kTagGap = 2;
+constexpr int kTagSideClear = kCellW * kTagScale;
+constexpr int kTagPad = 2;
+constexpr int kChevronW = 10;
+constexpr int kChevronH = 6;
+constexpr int kChevronStroke = 2;
+constexpr int kChevronGap = 4;
 constexpr int32_t kFeetPerTagUnit = 100;
+constexpr int32_t kMaxTagHundreds = 99;
 constexpr int16_t kChevronClimbE8 = 20;
 constexpr int32_t kLeaderSeconds = 60;
 constexpr int kMinLeaderPx = 3;
 constexpr int kOwnNoseAhead = kSkyshipRowsToNose + 1;
+constexpr int kOwnShipSpan = 24;
+constexpr int kOwnShipRows = 16;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
 constexpr int kMinutesMarked = 2;
@@ -200,17 +207,27 @@ void own_minute_marks(Framebuffer& fb, const RadarSnapshot& snap) {
     }
 }
 
-void leader(Framebuffer& fb, const RadarSnapshot& snap, const RadarTarget& t, int16_t track,
-            const Plotted& p) {
-    if (t.speed_mps <= 0) return;
+struct Leader {
+    int32_t right;
+    int32_t ahead;
+    bool run;
+};
+
+Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track) {
+    if (t.speed_mps <= 0) return {0, 0, false};
     const int16_t course = c16(t.track_deg);
     const int64_t run = static_cast<int64_t>(t.speed_mps) * kLeaderSeconds;
     const HeadingUp v = heading_up(static_cast<int32_t>((run * icos(course)) / kQ14One),
                                    static_cast<int32_t>((run * isin(course)) / kQ14One), track);
     const int64_t range = range_metres(snap);
-    int32_t right = to_px(v.right, range), ahead = to_px(v.ahead, range);
-    if (right * right + ahead * ahead < kMinLeaderPx * kMinLeaderPx) return;
-    fb.line(p.x, p.y, px_of(p.right + right), py_of(p.ahead + ahead), true);
+    const int32_t right = to_px(v.right, range), ahead = to_px(v.ahead, range);
+    if (right * right + ahead * ahead < kMinLeaderPx * kMinLeaderPx) return {0, 0, false};
+    return {right, ahead, true};
+}
+
+void draw_leader(Framebuffer& fb, const Plotted& p, const Leader& v) {
+    if (!v.run) return;
+    fb.line(p.x, p.y, px_of(p.right + v.right), py_of(p.ahead + v.ahead), true);
 }
 
 void diamond(Framebuffer& fb, int cx, int cy, int r, bool fill) {
@@ -234,16 +251,23 @@ void traffic_symbol(Framebuffer& fb, const Plotted& p, uint8_t alarm_level) {
 }
 
 void chevron(Framebuffer& fb, int x, int y, bool up) {
-    const int apex = up ? y : y + kChevronH - 1;
-    const int base = up ? y + kChevronH - 1 : y;
-    fb.line(x, base, x + kChevronW / 2, apex, true);
-    fb.line(x + kChevronW / 2, apex, x + kChevronW - 1, base, true);
+    const int half = kChevronW / 2;
+    const int travel = kChevronH - kChevronStroke;
+    for (int s = 0; s < kChevronStroke; s++) {
+        const int apex = up ? y + s : y + kChevronH - 1 - s;
+        const int base = up ? apex + travel : apex - travel;
+        fb.line(x, base, x + half - 1, apex, true);
+        fb.line(x + half, apex, x + kChevronW - 1, base, true);
+    }
 }
 
 int32_t hundreds_of_feet(int32_t up_m) {
     const int32_t ft = to_feet(Metres(up_m)).v;
     const int32_t half = kFeetPerTagUnit / 2;
-    return (ft >= 0 ? ft + half : ft - half) / kFeetPerTagUnit;
+    const int32_t hundreds = (ft >= 0 ? ft + half : ft - half) / kFeetPerTagUnit;
+    if (hundreds > kMaxTagHundreds) return kMaxTagHundreds;
+    if (hundreds < -kMaxTagHundreds) return -kMaxTagHundreds;
+    return hundreds;
 }
 
 int chevron_direction(const RadarTarget& t) {
@@ -266,6 +290,10 @@ bool overlap(const Box& a, const Box& b) {
 
 Box footer_band() { return {0, kFooterTop, Framebuffer::kW, Framebuffer::kH - kFooterTop}; }
 
+Box own_ship_box() {
+    return {kFar - kOwnShipSpan / 2, kNear - kSkyshipRowsToNose, kOwnShipSpan, kOwnShipRows};
+}
+
 bool fits_on_glass(const Box& b) {
     return on_glass(b.x, b.y) && on_glass(b.x + b.w - 1, b.y + b.h - 1);
 }
@@ -276,25 +304,76 @@ struct Tag {
     Box box;
 };
 
+int symbol_radius(const RadarTarget& t) {
+    return t.alarm_level >= kAdvisoryLevel ? kAdvisoryR : kSymbolR;
+}
+
+Box symbol_box(const Plotted& p, const RadarTarget& t) {
+    const int r = symbol_radius(t);
+    return {p.x - r, p.y - r, 2 * r + 1, 2 * r + 1};
+}
+
 Tag tag_for(const Plotted& p, const RadarTarget& t) {
     Tag tag{};
     const int32_t hundreds = hundreds_of_feet(t.up_m);
     tag.text[fmt_int(tag.text, hundreds, 2, 0, hundreds == 0)] = 0;
     tag.climbing = chevron_direction(t);
-    const int w = text_width(tag.text, 1) + (tag.climbing != 0 ? kChevronGap + kChevronW : 0);
-    const int r = t.alarm_level >= kAdvisoryLevel ? kAdvisoryR : kSymbolR;
-    const int y = t.up_m >= 0 ? p.y - r - kTagGap - kGlyphH : p.y + r + kTagGap;
-    tag.box = {p.x - w / 2 - kTagPad, y - kTagPad, w + 2 * kTagPad, kGlyphH + 2 * kTagPad};
+    const int w =
+        text_width(tag.text, kTagScale) + (tag.climbing != 0 ? kChevronGap + kChevronW : 0);
+    const int h = kTagGlyphH + 2 * kTagPad;
+    const int r = symbol_radius(t);
+    const int y = t.up_m >= 0 ? p.y - r - kTagGap - h : p.y + r + 1 + kTagGap;
+    tag.box = {p.x - w / 2 - kTagPad, y, w + 2 * kTagPad, h};
     return tag;
+}
+
+int slid_inside_margin(int x, int w) {
+    if (x < kMargin) return kMargin;
+    if (x + w > Framebuffer::kW - kMargin) return Framebuffer::kW - kMargin - w;
+    return x;
+}
+
+Box side_clearance(const Box& b) {
+    return {b.x - kTagSideClear, b.y, b.w + 2 * kTagSideClear, b.h};
+}
+
+bool place_tag(Tag& tag, const Plotted& p, const Leader& v, const Box* taken, int n_taken) {
+    const int w = tag.box.w;
+    const int centred = tag.box.x, beside = p.x + 1, before = p.x - w;
+    int candidate[] = {centred, beside, before};
+    if (v.run) {
+        candidate[0] = v.right >= 0 ? before : beside;
+        candidate[1] = centred;
+        candidate[2] = v.right >= 0 ? beside : before;
+    }
+    for (const int x : candidate) {
+        tag.box.x = slid_inside_margin(x, w);
+        if (!fits_on_glass(tag.box)) continue;
+        bool clash = false;
+        for (int i = 0; i < n_taken && !clash; i++) clash = overlap(tag.box, taken[i]);
+        if (!clash) return true;
+    }
+    return false;
 }
 
 void draw_tag(Framebuffer& fb, const Tag& tag) {
     fb.rect(tag.box.x, tag.box.y, tag.box.w, tag.box.h, false, true);
     const int x = tag.box.x + kTagPad, y = tag.box.y + kTagPad;
-    fb.draw_text(x, y, tag.text, true, 1);
+    fb.draw_text(x, y, tag.text, true, kTagScale);
     if (tag.climbing != 0)
-        chevron(fb, tag.box.x + tag.box.w - kTagPad - kChevronW, y + (kGlyphH - kChevronH) / 2,
+        chevron(fb, tag.box.x + tag.box.w - kTagPad - kChevronW, y + (kTagGlyphH - kChevronH) / 2,
                 tag.climbing > 0);
+}
+
+void loudest_first(const RadarTarget* const* in_view, int n, int* order) {
+    for (int i = 0; i < n; i++) {
+        int at = i;
+        while (at > 0 && in_view[order[at - 1]]->alarm_level < in_view[i]->alarm_level) {
+            order[at] = order[at - 1];
+            at--;
+        }
+        order[at] = i;
+    }
 }
 
 int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
@@ -309,26 +388,34 @@ int plot(Framebuffer& fb, const RadarSnapshot& snap, int16_t track) {
         n++;
     }
 
-    for (int i = 0; i < n; i++) leader(fb, snap, *in_view[i], track, shown[i]);
-
-    Box tagged[kMaxRadarTargets + 1];
-    tagged[0] = footer_band();
-    int n_tags = 1;
-    for (int i = 0; i < n; i++) {
-        const Tag tag = tag_for(shown[i], *in_view[i]);
-        if (!fits_on_glass(tag.box)) continue;
-        bool clash = false;
-        for (int j = 0; j < n_tags && !clash; j++) clash = overlap(tag.box, tagged[j]);
-        if (clash) continue;
-        draw_tag(fb, tag);
-        tagged[n_tags++] = tag.box;
-    }
-
     int in_ring = 0;
-    for (int i = 0; i < n; i++) {
-        traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
+    for (int i = 0; i < n; i++)
         if (shown[i].in_ring) in_ring++;
+
+    Leader run[kMaxRadarTargets];
+    for (int i = 0; i < n; i++) {
+        run[i] = leader_of(snap, *in_view[i], track);
+        draw_leader(fb, shown[i], run[i]);
     }
+    if (in_ring > 0) own_minute_marks(fb, snap);
+
+    Box taken[2 * kMaxRadarTargets + 2];
+    int n_taken = 0;
+    taken[n_taken++] = footer_band();
+    taken[n_taken++] = own_ship_box();
+    for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
+
+    int order[kMaxRadarTargets];
+    loudest_first(in_view, n, order);
+    for (int i = 0; i < n; i++) {
+        const int at = order[i];
+        Tag tag = tag_for(shown[at], *in_view[at]);
+        if (!place_tag(tag, shown[at], run[at], taken, n_taken)) continue;
+        draw_tag(fb, tag);
+        taken[n_taken++] = side_clearance(tag.box);
+    }
+
+    for (int i = 0; i < n; i++) traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
     return in_ring;
 }
 
@@ -344,7 +431,6 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
     draw_skyship(fb, kFar, kNear);
 
     const int in_ring = snap.have_fix ? plot(fb, snap, track) : 0;
-    if (in_ring > 0) own_minute_marks(fb, snap);
 
     flight_clock(fb, snap);
     flight_state(fb, snap);

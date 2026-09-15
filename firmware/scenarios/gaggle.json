@@ -8,9 +8,9 @@
   "track_deg": 90,
   "duration_ms": 16000,
   "aircraft": [
-    {"north_m": 220, "east_m": -80, "up_m": 20, "speed_mps": 30, "track_deg": 90},
-    {"north_m": -180, "east_m": 60, "up_m": -25, "speed_mps": 30, "track_deg": 90},
-    {"north_m": 60, "east_m": 250, "up_m": 10, "speed_mps": 30, "track_deg": 90}
+    {"north_m": 220, "east_m": -80, "up_m": 20, "speed_mps": 30, "track_deg": 90, "climb_mps_e1": 30},
+    {"north_m": -180, "east_m": 60, "up_m": -25, "speed_mps": 30, "track_deg": 90, "climb_mps_e1": 25},
+    {"north_m": 60, "east_m": 250, "up_m": 10, "speed_mps": 30, "track_deg": 90, "climb_mps_e1": -20}
   ],
   "events": [
     {"at_ms": 8000, "expect_traffic_min": 3}

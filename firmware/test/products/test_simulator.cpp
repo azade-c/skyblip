@@ -89,6 +89,52 @@ TEST_CASE("simulator: a virtual aircraft arrives as a real ADS-L frame and enter
     CHECK(h.product().state().traffic.count() >= 1);  // fused into the table
 }
 
+// The radar's chevron and its counting altitude tag have nothing to read until an aircraft moves.
+TEST_CASE("simulator: a climbing aircraft broadcasts its rate and gains height as it flies") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    run(h, 0, 2000);
+
+    h.world().add_aircraft(2000, 0, 0, 30, 180, -1, -1, protocol::System::AdslDirect, 0, 3);
+    run(h, 2000, 8000);
+
+    const traffic::Target* target = nullptr;
+    for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
+        const traffic::Target* t = h.product().state().traffic.at(i);
+        if (t != nullptr && t->used) target = t;
+    }
+    REQUIRE(target != nullptr);
+    CHECK(target->obs.has_climb);
+    // 3 m/s is 24 eighths, and 590 fpm, which is past the chevron's 500.
+    CHECK(int(target->obs.climb_e8) == 24);
+
+    const int32_t was = target->obs.alt_m;
+    run(h, 8000, 18000);
+    CHECK(target->obs.alt_m > was + 20);
+    CHECK(h.world().aircraft_at(0)->up_m > 40);
+}
+
+// A rate on air that the aeroplane does not fly is a simulator lying to the extrapolator.
+TEST_CASE("simulator: traffic reporting no climb holds its level while own ship climbs past") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().add_aircraft(2000, 0, 0);
+    run(h, 0, 6000);
+
+    const traffic::Target* target = h.product().state().traffic.at(0);
+    REQUIRE(target != nullptr);
+    const int32_t level_at = target->obs.alt_m;
+    const int32_t own_at = h.product().state().own.alt_m;
+
+    h.world().set_climb_e1(50);
+    run(h, 6000, 16000);
+
+    // Own ship gains 50 m; the target holds its level within the second of own-ship lag.
+    CHECK(h.product().state().own.alt_m > own_at + 40);
+    CHECK(target->obs.alt_m < level_at + 10);
+    CHECK(target->obs.alt_m > level_at - 10);
+}
+
 TEST_CASE("simulator: a converging aircraft raises the collision alarm and buzzer") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
@@ -96,7 +142,7 @@ TEST_CASE("simulator: a converging aircraft raises the collision alarm and buzze
     REQUIRE(h.product().state().own.fix_valid);
     CHECK(int(h.alarm_level()) == 0);
 
-    h.world().add_threat();  // ~600 m, converging, co-altitude
+    h.world().add_threat();  // ~600 m, converging, sinking through our level
     run(h, 2000, 6000);
 
     CHECK(h.product().state().traffic.count() >= 1);

@@ -16,7 +16,7 @@ const char* kInlineScenario =
     "{\"name\":\"inline\",\"mode\":\"training\",\"alt_m\":900,\"speed_kt\":50,"
     "\"track_deg\":90,\"duration_ms\":6000,"
     "\"aircraft\":[{\"north_m\":600,\"east_m\":200,\"up_m\":30,\"speed_mps\":40,"
-    "\"track_deg\":200}],"
+    "\"track_deg\":200,\"climb_mps_e1\":-25}],"
     "\"events\":[{\"at_ms\":3000,\"expect_traffic_min\":1},"
     "{\"at_ms\":5000,\"expect_alarm_min\":1},{\"at_ms\":5500,\"fix\":0}]}";
 
@@ -39,6 +39,8 @@ TEST_CASE("scenario: the parser reads ownship, traffic and events") {
     REQUIRE(s.aircraft.size() == 1);
     CHECK(s.aircraft[0].north_m == doctest::Approx(600));
     CHECK(s.aircraft[0].track_deg == doctest::Approx(200));
+    // Tenths of a metre per second on the wire of the file, m/s in the world.
+    CHECK(s.aircraft[0].climb_mps == doctest::Approx(-2.5));
     REQUIRE(s.events.size() == 3);
     CHECK(s.events[0].kind == simulator::EventKind::ExpectTrafficMin);
     CHECK(s.events[1].kind == simulator::EventKind::ExpectAlarmMin);

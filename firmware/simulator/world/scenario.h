@@ -41,6 +41,7 @@ struct ScenarioAircraft {
     // Degrees per second, positive to the right: this aircraft holds a steady
     // turn instead of a straight line, which is what thermalling is.
     double turn_dps{0};
+    double climb_mps{0};
     // Where in the second this aircraft transmits and on which M-band channel.
     // Left alone it behaves like a conforming transmitter. Pinned, it is how a
     // slot-timing bug becomes a committed fixture.

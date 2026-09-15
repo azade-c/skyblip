@@ -317,8 +317,8 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
 
     CHECK(fb.get_pixel(196, 100));
     CHECK(fb.get_pixel(192, 100));
-    // Its tag would hang off the edge, so it is dropped rather than half drawn.
-    CHECK_FALSE(reads_in(fb, "00", 175, 85, 200, 100));
+    // Its tag would hang off the edge, so it slides inboard instead of being cut.
+    CHECK(reads_in(fb, "00", 160, 74, 200, 94, 2));
     CHECK(reads_in(fb, "0", 170, 170, 200, 200, 3));
     CHECK_FALSE(fb.get_pixel(99, 77));
 
@@ -394,21 +394,37 @@ TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
     CHECK_FALSE(radar(beyond).get_pixel(99, 77));
 }
 
+// Symbol edge 4, gap 2, pad 2 and 14 rows of glyph: the digits stand 22 px off the plot.
+constexpr int kTagTop = kPlotY - 22;
+constexpr int kTagBottom = kPlotY + 9;
+
 TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {
     // 300 m = 984 ft, which is ten hundreds of feet to the nearest hundred.
     RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, 1}};
     const Framebuffer higher = radar(one_target(above));
-    CHECK(reads_in(higher, "+10", 80, 36, 120, kPlotY - 4));
-    CHECK_FALSE(reads_in(higher, "+10", 80, kPlotY, 120, 80));
+    CHECK(reads_in(higher, "+10", 70, kTagTop - 2, 130, kTagTop + 16, 2));
+    CHECK_FALSE(reads_in(higher, "+10", 70, kPlotY, 130, 100, 2));
+    // It is set at double height: the small figure is nowhere on the glass.
+    CHECK_FALSE(reads_in(higher, "+10", 0, 0, 200, 170, 1));
 
     RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, 1}};
     const Framebuffer lower = radar(one_target(below));
-    CHECK(reads_in(lower, "-10", 80, kPlotY + 4, 120, 80));
-    CHECK_FALSE(reads_in(lower, "-10", 80, 36, 120, kPlotY - 4));
+    CHECK(reads_in(lower, "-10", 70, kTagBottom - 2, 130, kTagBottom + 16, 2));
+    CHECK_FALSE(reads_in(lower, "-10", 70, 20, 130, kPlotY, 2));
 
     // Level traffic reads 00, unsigned: +0 and -0 are the same separation.
     RadarTarget level[1] = {{2 * kMetresPerNm, 0, 10, 1}};
-    CHECK(reads_in(radar(one_target(level)), "00", 80, 36, 120, kPlotY - 4));
+    CHECK(reads_in(radar(one_target(level)), "00", 70, kTagTop - 2, 130, kTagTop + 16, 2));
+}
+
+// A third digit is 12 px more tag for a separation no pilot manoeuvres against.
+TEST_CASE("radar: the tag stops at 99 hundreds of feet, the way a TCAS tag does") {
+    RadarTarget high[1] = {{2 * kMetresPerNm, 0, 4000, 0}};
+    const Framebuffer fb = radar(one_target(high));
+    CHECK(reads_in(fb, "+99", 60, kTagTop - 4, 140, kTagTop + 16, 2));
+
+    RadarTarget deep[1] = {{2 * kMetresPerNm, 0, -4000, 0}};
+    CHECK(reads_in(radar(one_target(deep)), "-99", 60, kTagBottom - 4, 140, kTagBottom + 16, 2));
 }
 
 TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") {
@@ -419,40 +435,76 @@ TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") 
     snap.targets = pair;
     const Framebuffer fb = radar(snap);
 
-    CHECK(reads_in(fb, "+10", 80, 36, 120, kPlotY - 4));
-    CHECK_FALSE(reads_in(fb, "+20", 80, 36, 120, kPlotY - 4));
+    CHECK(reads_in(fb, "+10", 70, kTagTop - 2, 130, kTagTop + 16, 2));
+    CHECK_FALSE(reads_in(fb, "+20", 0, 0, 200, 170, 2));
     // Both aircraft are still on the glass: the tag goes, the symbol stays.
     CHECK(fb.get_pixel(kPlotX + 2 + 4, kPlotY));
     CHECK(fb.get_pixel(kPlotX - 4, kPlotY));
 }
 
+// Tags are four times the area they were, so which one survives a clash is a decision.
+TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
+    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, 0}, {2 * kMetresPerNm, 200, 600, 2}};
+    RadarSnapshot snap = flying(0);
+    snap.n_targets = 2;
+    snap.targets = pair;
+    const Framebuffer fb = radar(snap);
+
+    CHECK(reads_in(fb, "+20", 60, 20, 140, kPlotY, 2));
+    CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
+}
+
 TEST_CASE("radar: a chevron on the tag says climbing or descending, past 500 fpm") {
     RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, 1, 0, true}};
     const Framebuffer flat = radar(one_target(steady));
-    const int tag_top = kPlotY - 4 - 3 - 7;
 
     // 2.5 m/s is 492 fpm: the arrow is for a rate a pilot has to act on.
     RadarTarget slow[1] = {{2 * kMetresPerNm, 0, 300, 1, 19, true}};
-    CHECK(ink_in(radar(one_target(slow)), 80, tag_top, 120, kPlotY - 4) ==
-          ink_in(flat, 80, tag_top, 120, kPlotY - 4));
+    CHECK(ink_in(radar(one_target(slow)), 60, kTagTop, 140, kTagTop + 14) ==
+          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
 
     RadarTarget climbing[1] = {{2 * kMetresPerNm, 0, 300, 1, 20, true}};
     const Framebuffer up = radar(one_target(climbing));
-    CHECK(ink_in(up, 80, tag_top, 120, kPlotY - 4) > ink_in(flat, 80, tag_top, 120, kPlotY - 4));
+    CHECK(ink_in(up, 60, kTagTop, 140, kTagTop + 14) >
+          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
 
     RadarTarget descending[1] = {{2 * kMetresPerNm, 0, 300, 1, -20, true}};
     const Framebuffer down = radar(one_target(descending));
-    // The apex is one row and the base the other, so the two are mirror images.
-    const int arrow_x = 105;
-    CHECK(ink_in(up, arrow_x, tag_top + 2, 120, tag_top + 3) <
-          ink_in(up, arrow_x, tag_top + 4, 120, tag_top + 5));
-    CHECK(ink_in(down, arrow_x, tag_top + 2, 120, tag_top + 3) >
-          ink_in(down, arrow_x, tag_top + 4, 120, tag_top + 5));
+    // The arrow is 6 rows, centred in the 14 the glyphs are, and its apex is a pixel pair.
+    const int arrow_top = kTagTop + 4, arrow_mid = 118;
+    CHECK(up.get_pixel(arrow_mid, arrow_top));
+    CHECK_FALSE(up.get_pixel(arrow_mid, arrow_top + 5));
+    CHECK(down.get_pixel(arrow_mid, arrow_top + 5));
+    CHECK_FALSE(down.get_pixel(arrow_mid, arrow_top));
 
     // A target that never reported a rate is not credited with one.
     RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, 1, 40, false}};
-    CHECK(ink_in(radar(one_target(silent)), 80, tag_top, 120, kPlotY - 4) ==
-          ink_in(flat, 80, tag_top, 120, kPlotY - 4));
+    CHECK(ink_in(radar(one_target(silent)), 60, kTagTop, 140, kTagTop + 14) ==
+          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
+}
+
+// A tag is now wide enough to bury the aeroplane it is plotted against.
+TEST_CASE("radar: a tag keeps off own ship and off the line its target is flying") {
+    Framebuffer bare;
+    RadarSnapshot empty = flying(0);
+    draw_radar(bare, empty);
+
+    // 1500 m astern plots 19 px below the ship, so its tag wants the wing and goes instead.
+    RadarTarget astern[1] = {{-1500, 0, 300, 1}};
+    const Framebuffer fb = radar(one_target(astern));
+    CHECK(ink_in(fb, 88, 94, 112, 110) == ink_in(bare, 88, 94, 112, 110));
+    CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
+
+    // Clear of the ship it keeps its figure, on the beam rather than over the wing.
+    RadarTarget quarter[1] = {{-1500, 900, 300, 1}};
+    CHECK(reads_in(radar(one_target(quarter)), "+10", 110, 90, 180, 115, 2));
+
+    // Flying straight up the glass, the tag would sit on the whole minute of line.
+    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, 1, 0, false, 30, 0}};
+    const Framebuffer ahead = radar(one_target(running));
+    CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
+    CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
+    CHECK(reads_in(ahead, "+10", 40, kTagTop - 2, kPlotX, kTagTop + 16, 2));
 }
 
 TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glass") {

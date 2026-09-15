@@ -77,7 +77,7 @@ void World::service_pad(uint32_t now_ms) {
 // the target's speed alone while the alarm was told both speeds.
 int World::add_aircraft(double north_m, double east_m, double up_m, double speed_mps,
                         double track_deg, int phase_ms, int slot, protocol::System system,
-                        double turn_dps) {
+                        double turn_dps, double climb_mps) {
     set_origin();
     for (int i = 0; i < kMaxAircraft; i++) {
         if (aircraft_[i].used) continue;
@@ -91,6 +91,7 @@ int World::add_aircraft(double north_m, double east_m, double up_m, double speed
         aircraft_[i].speed_mps = speed_mps;
         aircraft_[i].track_deg = track_deg;
         aircraft_[i].turn_dps = turn_dps;
+        aircraft_[i].climb_mps = climb_mps;
         aircraft_[i].phase_ms = phase_ms;
         aircraft_[i].slot = slot;
         return i;
@@ -143,12 +144,14 @@ void World::service_aircraft(uint32_t now_ms, const messages::OwnState& own) {
     if (now_ms - last_aircraft_ms_ < 100) return;
     const double dt = (now_ms - last_aircraft_ms_) / 1000.0;
     last_aircraft_ms_ = now_ms;
+    const double own_climb_mps = gnss().climb_mps_e1 / 10.0;
 
     for (auto& a : aircraft_) {
         if (!a.used) continue;
         const double rad = (a.track_deg + a.turn_dps * dt * 0.5) * kPi / 180.0;
         a.north_m += a.speed_mps * std::cos(rad) * dt;
         a.east_m += a.speed_mps * std::sin(rad) * dt;
+        a.up_m += (a.climb_mps - own_climb_mps) * dt;
         if (a.turn_dps == 0) continue;
         a.track_deg += a.turn_dps * dt;
         while (a.track_deg >= 360.0) a.track_deg -= 360.0;
@@ -229,6 +232,11 @@ int8_t World::rssi_at(double range_m) {
 
 namespace {
 
+int16_t climb_e8_of(const VirtualAircraft& a) {
+    constexpr double kEighthsPerMps = 8;
+    return static_cast<int16_t>(std::lround(a.climb_mps * kEighthsPerMps));
+}
+
 size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t lat_1e7,
                   int32_t lon_1e7, uint8_t* chips) {
     protocol::AdslPacket p;
@@ -243,7 +251,7 @@ size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t
     p.set_lon_1e7(lon_1e7);
     p.set_alt_m(alt_m);
     p.set_speed_q(static_cast<uint16_t>(a.speed_mps * 4));
-    p.set_climb_e8(static_cast<int16_t>(a.climb_e8));
+    p.set_climb_e8(climb_e8_of(a));
     p.set_track_c9(static_cast<uint16_t>(a.track_deg * 512 / 360) & 0x1FF);
     p.SourceIntegrity = 3;
     p.DesignAssurance = 2;
@@ -271,7 +279,7 @@ size_t alptas_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32
     obs.lon_1e7 = lon_1e7;
     obs.alt_m = alt_m;
     obs.speed_q = static_cast<uint16_t>(a.speed_mps * 4);
-    obs.climb_e8 = static_cast<int16_t>(a.climb_e8);
+    obs.climb_e8 = climb_e8_of(a);
     obs.track_c9 = static_cast<uint16_t>(a.track_deg * 512 / 360) & 0x1FF;
     obs.has_speed = true;
     obs.has_climb = true;
@@ -344,7 +352,7 @@ void World::load(const Scenario& scenario) {
     clear_aircraft();
     for (const ScenarioAircraft& a : scenario.aircraft)
         add_aircraft(a.north_m, a.east_m, a.up_m, a.speed_mps, a.track_deg, a.phase_ms, a.slot,
-                     a.system, a.turn_dps);
+                     a.system, a.turn_dps, a.climb_mps);
 }
 
 void World::apply_events(uint32_t now_ms, const bus::State& state) {

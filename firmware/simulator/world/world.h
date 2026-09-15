@@ -28,7 +28,7 @@ struct VirtualAircraft {
     // Degrees per second, positive to the right: a target holding a steady turn,
     // which is what a glider in a thermal is doing.
     double turn_dps{0};
-    int32_t climb_e8{0};
+    double climb_mps{0};
     // Where in the second this aircraft transmits, and on which M-band channel.
     // Below zero it picks its own instant per second the way a conforming
     // transmitter does. Pinned, it is the knob that proves our dwell map.
@@ -53,9 +53,10 @@ class World {
 
     int add_aircraft(double north_m, double east_m, double up_m, double speed_mps = 30,
                      double track_deg = 270, int phase_ms = -1, int slot = -1,
-                     protocol::System system = protocol::System::AdslDirect, double turn_dps = 0);
+                     protocol::System system = protocol::System::AdslDirect, double turn_dps = 0,
+                     double climb_mps = 0);
     int add_threat(protocol::System system = protocol::System::AdslDirect) {
-        return add_aircraft(600, 200, 30, 40, 200, -1, -1, system);
+        return add_aircraft(600, 200, 30, 40, 200, -1, -1, system, 0, kThreatSinkMps);
     }
     void clear_aircraft();
     int aircraft_count() const;
@@ -122,6 +123,7 @@ class World {
     // A modelled press has to last longer than ui::Button's debounce window or
     // the firmware is right to ignore it.
     static constexpr uint32_t kPressMs = 60;
+    static constexpr double kThreatSinkMps = -3;
 
     // Where the ground station is, so a relayed burst arrives at a level a
     // receiver can plausibly hear. A skyPost is a fixed site with a mast and

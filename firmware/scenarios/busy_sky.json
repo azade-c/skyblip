@@ -1,0 +1,20 @@
+{
+  "name": "a busy sky: traffic climbing, sinking and level around the ring",
+  "mode": "demo",
+  "lat_1e7": 485000000,
+  "lon_1e7": 85000000,
+  "alt_m": 1200,
+  "speed_kt": 55,
+  "track_deg": 0,
+  "duration_ms": 0,
+  "aircraft": [
+    {"north_m": 2600, "east_m": 1400, "up_m": -260, "speed_mps": 30, "track_deg": 200, "climb_mps_e1": 40},
+    {"north_m": -1500, "east_m": 2600, "up_m": 320, "speed_mps": 24, "track_deg": 300, "turn_dps": 15, "climb_mps_e1": 28},
+    {"north_m": 3400, "east_m": -2200, "up_m": 640, "speed_mps": 45, "track_deg": 160, "climb_mps_e1": -35},
+    {"north_m": -2800, "east_m": -1800, "up_m": -80, "speed_mps": 38, "track_deg": 20},
+    {"system": "uplink", "north_m": 1200, "east_m": -3600, "up_m": 900, "speed_mps": 50, "track_deg": 110}
+  ],
+  "events": [
+    {"at_ms": 8000, "expect_traffic_min": 4}
+  ]
+}
