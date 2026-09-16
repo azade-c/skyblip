@@ -18,6 +18,7 @@ struct RadioEvent {
     RadioEventType type{RadioEventType::None};
     uint8_t len{0};
     int8_t rssi_dbm{0};
+    bool rssi_valid{false};
 };
 
 // One dwell's worth of modem: where to tune, how the air is modulated there,
@@ -67,6 +68,8 @@ class Sx1262 {
     int8_t rssi_inst();
 
     RadioEvent poll(uint8_t* rx_buf, uint8_t cap);
+    // INFO: fc 16sep26 DIO1 is a level here, not an edge: a dwell is driven by a deadline
+    bool irq_asserted() { return gpio_.get(dio1_); }
 
     bool service(uint32_t elapsed_ms, uint32_t no_rx_reinit_ms = 30000);
 
@@ -93,6 +96,8 @@ class Sx1262 {
     void configure_tx_modulation();
     void configure_power();
     void configure_irq();
+    int8_t packet_rssi_dbm();
+    uint8_t read_payload(uint8_t* rx_buf, uint8_t cap);
     Status check_device_errors();
     void clear_device_errors();
     void hold_sleep_settle();
@@ -334,8 +339,11 @@ constexpr uint16_t kPreambleChips = 16;
 constexpr uint8_t kPreambleDetect8Chips = 0x04;
 constexpr uint8_t kAddrCompOff = 0x00;
 constexpr uint8_t kFixedLength = 0x00;
-constexpr uint8_t kCrcOff = 0x00;
+// INFO: fc 16sep26 DS 13.4.6 table 13-70: CRC off is 0x01 here, 0x00 is a one-byte CRC
+constexpr uint8_t kCrcOff = 0x01;
+constexpr uint8_t kCrcOneByte = 0x00;
 constexpr uint8_t kWhiteningOff = 0x00;
+constexpr uint8_t kReadChunkBytes = 64;
 }
 
 }

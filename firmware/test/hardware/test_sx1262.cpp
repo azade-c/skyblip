@@ -282,6 +282,54 @@ TEST_CASE("radio: configure programs the sync window and the fixed read length")
     CHECK(chip.payload_bytes == protocol::kRxChipBytes);
 }
 
+// What dates an event: free to read, where the read-out behind it costs milliseconds.
+TEST_CASE("radio: the interrupt line is readable without a word on the bus") {
+    models::Sx1262 chip;
+    Sx1262 r = make(chip);
+    r.begin();
+    r.configure_radio(RadioConfig{});
+    REQUIRE(r.start_receive() == Status::Ok);
+    CHECK_FALSE(r.irq_asserted());
+
+    const uint8_t pkt[4] = {1, 2, 3, 4};
+    chip.queue_rx(pkt, sizeof(pkt));
+    const size_t said_before = chip.cmds_seen.size();
+    CHECK(r.irq_asserted());
+    CHECK(chip.cmds_seen.size() == said_before);
+
+    uint8_t buf[32];
+    CHECK(r.poll(buf, sizeof(buf)).type == RadioEventType::RxDone);
+    CHECK_FALSE(r.irq_asserted());
+}
+
+// DS table 13-70 spells CRC off 0x01, and 0x00, which every other radio means it with, a CRC byte.
+TEST_CASE("radio: the packet the modem is told to expect carries no CRC of the chip's own") {
+    models::Sx1262 chip;
+    Sx1262 r = make(chip);
+    r.begin();
+    RadioConfig cfg{};
+    cfg.sync = protocol::kSharedSync;
+    cfg.sync_bits = protocol::kSharedSyncBits;
+    cfg.payload_bytes = protocol::kRxChipBytes;
+    REQUIRE(r.configure_radio(cfg) == Status::Ok);
+
+    const uint8_t expected[9] = {static_cast<uint8_t>(sx::kPreambleChips >> 8),
+                                 static_cast<uint8_t>(sx::kPreambleChips),
+                                 sx::kPreambleDetect8Chips,
+                                 protocol::kSharedSyncBits,
+                                 sx::kAddrCompOff,
+                                 sx::kFixedLength,
+                                 protocol::kRxChipBytes,
+                                 sx::kCrcOff,
+                                 sx::kWhiteningOff};
+    for (size_t i = 0; i < sizeof(expected); i++) {
+        CAPTURE(i);
+        CHECK(chip.packet_params[i] == expected[i]);
+    }
+    CHECK(sx::kCrcOff == 0x01);
+    CHECK(sx::kCrcOneByte == 0x00);
+}
+
 TEST_CASE("radio: a burst is framed from the chips after the sync window, either system") {
     models::Sx1262 chip;
     Sx1262 r = make(chip);

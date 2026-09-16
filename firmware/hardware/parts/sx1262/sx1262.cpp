@@ -357,6 +357,30 @@ int8_t Sx1262::rssi_inst() {
     return static_cast<int8_t>(-(static_cast<int>(v) / 2));
 }
 
+// INFO: fc 16sep26 DS 13.5.3 GetPacketStatus in GFSK: RxStatus, RssiSync, RssiAvg
+int8_t Sx1262::packet_rssi_dbm() {
+    uint8_t st3[3] = {0, 0, 0};
+    cmd_read(sx::kGetPacketStatus, st3, 3);
+    return static_cast<int8_t>(-(static_cast<int>(st3[2]) / 2));
+}
+
+uint8_t Sx1262::read_payload(uint8_t* rx_buf, uint8_t cap) {
+    uint8_t st[2];
+    cmd_read(sx::kGetRxBufferStatus, st, 2);
+    uint8_t len = st[0];
+    if (len > cap) len = cap;
+    select_when_ready();
+    uint8_t header[3] = {sx::kReadBuffer, st[1], 0};
+    spi_.transfer(header, nullptr, sizeof(header));
+    for (int read = 0; read < len; read += sx::kReadChunkBytes) {
+        const int left = len - read;
+        spi_.transfer(nullptr, rx_buf + read,
+                      static_cast<size_t>(left < sx::kReadChunkBytes ? left : sx::kReadChunkBytes));
+    }
+    spi_.select(false);
+    return len;
+}
+
 RadioEvent Sx1262::poll(uint8_t* rx_buf, uint8_t cap) {
     RadioEvent ev{};
     if (wait_busy_low(10000) != Status::Ok) {
@@ -371,10 +395,6 @@ RadioEvent Sx1262::poll(uint8_t* rx_buf, uint8_t cap) {
     uint8_t clr[2] = {irq[0], irq[1]};
     cmd(sx::kClearIrqStatus, clr, 2);
 
-    if (flags & sx::kIrqCrcErr) {
-        ev.type = RadioEventType::CrcError;
-        return ev;
-    }
     if (flags & sx::kIrqTxDone) {
         ev.type = RadioEventType::TxDone;
         return ev;
@@ -384,27 +404,17 @@ RadioEvent Sx1262::poll(uint8_t* rx_buf, uint8_t cap) {
         if (mode_ == RadioMode::Tx) recover_tx();
         return ev;
     }
+    if (flags & sx::kIrqCrcErr) {
+        ev.type = RadioEventType::CrcError;
+        ev.rssi_dbm = packet_rssi_dbm();
+        ev.rssi_valid = true;
+        return ev;
+    }
     if (flags & sx::kIrqRxDone) {
-        uint8_t st[2];
-        cmd_read(sx::kGetRxBufferStatus, st, 2);
-        uint8_t len = st[0];
-        if (len > cap) len = cap;
-        select_when_ready();
-        uint8_t op = sx::kReadBuffer, offs = st[1], nop = 0;
-        spi_.transfer(&op, nullptr, 1);
-        spi_.transfer(&offs, nullptr, 1);
-        spi_.transfer(&nop, nullptr, 1);
-        for (uint8_t i = 0; i < len; i++) {
-            uint8_t tx = 0;
-            spi_.transfer(&tx, &rx_buf[i], 1);
-        }
-        spi_.select(false);
-        // DS 13.5.3 GetPacketStatus in GFSK: RxStatus, RssiSync, RssiAvg.
-        uint8_t st3[3] = {0, 0, 0};
-        cmd_read(sx::kGetPacketStatus, st3, 3);
-        ev.rssi_dbm = static_cast<int8_t>(-(static_cast<int>(st3[2]) / 2));
+        ev.len = read_payload(rx_buf, cap);
+        ev.rssi_dbm = packet_rssi_dbm();
+        ev.rssi_valid = true;
         ev.type = RadioEventType::RxDone;
-        ev.len = len;
         ms_since_rx_ = 0;
     }
     return ev;

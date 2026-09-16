@@ -198,6 +198,8 @@ class Sx1262 : public io::Spi, public io::Gpio {
     uint8_t sync[8]{};
     uint8_t sync_bits{0};
     uint8_t payload_bytes{0};
+    // INFO: fc 16sep26 DS 13.4.6 SetPacketParams, GFSK, in the datasheet's order
+    uint8_t packet_params[9]{};
     uint16_t irq_flags{0};
     int reset_pulses{0};
     bool reset_low{false};
@@ -462,6 +464,7 @@ class Sx1262 : public io::Spi, public io::Gpio {
             return 0;
         }
         if (opcode_ == parts::sx::kSetPacketParams) {
+            if (seq_ >= 1 && seq_ <= sizeof(packet_params)) packet_params[seq_ - 1] = in;
             if (seq_ == 4) sync_bits = in;
             if (seq_ == 7) payload_bytes = in;
             return 0;
