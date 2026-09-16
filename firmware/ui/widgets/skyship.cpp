@@ -77,6 +77,7 @@ void draw_skyship(Framebuffer& fb, int cx, int cy) {
     static_assert(kGlyphOriginRow == kSkyshipRowsToNose,
                   "the nose a screen clears is this sprite's");
     static_assert(kGlyphW == kSkyshipSpan, "the span a screen measures against is this sprite's");
+    static_assert(kGlyphH == kSkyshipRows, "the rows a screen measures against are this sprite's");
     const int x0 = cx - s.w / 2, y0 = cy - s.origin_row;
     for (int row = 0; row < s.h; row++) {
         uint32_t bits = s.rows[row];

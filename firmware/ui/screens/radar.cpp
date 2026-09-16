@@ -64,8 +64,6 @@ constexpr int16_t kChevronClimbE8 = 20;
 constexpr int32_t kLeaderSeconds = 60;
 constexpr int kMinLeaderPx = 3;
 constexpr int kOwnNoseAhead = kSkyshipRowsToNose + 1;
-constexpr int kOwnShipSpan = 24;
-constexpr int kOwnShipRows = 16;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
 constexpr int kMinutesMarked = 2;
@@ -210,7 +208,7 @@ void own_minute_marks(Framebuffer& fb, const RadarSnapshot& snap) {
 struct Leader {
     int32_t right;
     int32_t ahead;
-    bool run;
+    bool valid;
 };
 
 Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track) {
@@ -226,7 +224,7 @@ Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track)
 }
 
 void draw_leader(Framebuffer& fb, const Plotted& p, const Leader& v) {
-    if (!v.run) return;
+    if (!v.valid) return;
     fb.line(p.x, p.y, px_of(p.right + v.right), py_of(p.ahead + v.ahead), true);
 }
 
@@ -291,7 +289,7 @@ bool overlap(const Box& a, const Box& b) {
 Box footer_band() { return {0, kFooterTop, Framebuffer::kW, Framebuffer::kH - kFooterTop}; }
 
 Box own_ship_box() {
-    return {kFar - kOwnShipSpan / 2, kNear - kSkyshipRowsToNose, kOwnShipSpan, kOwnShipRows};
+    return {kFar - kSkyshipSpan / 2, kNear - kSkyshipRowsToNose, kSkyshipSpan, kSkyshipRows};
 }
 
 bool fits_on_glass(const Box& b) {
@@ -341,7 +339,7 @@ bool place_tag(Tag& tag, const Plotted& p, const Leader& v, const Box* taken, in
     const int w = tag.box.w;
     const int centred = tag.box.x, beside = p.x + 1, before = p.x - w;
     int candidate[] = {centred, beside, before};
-    if (v.run) {
+    if (v.valid) {
         candidate[0] = v.right >= 0 ? before : beside;
         candidate[1] = centred;
         candidate[2] = v.right >= 0 ? beside : before;
