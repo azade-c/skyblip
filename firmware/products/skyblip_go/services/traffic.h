@@ -27,12 +27,14 @@ class TrafficService : public runtime::Service {
 
    private:
     void on_frame(const messages::RfEvent& event, uint32_t now_ms);
-    void on_uplink(const messages::RfEvent& event, uint32_t now_ms);
-    void log(const messages::RfEvent& event, uint32_t now_ms, radio::Event outcome,
+    void on_uplink(const messages::RfEvent& event, const radio::Stamp& stamp, uint32_t now_ms);
+    radio::Stamp stamp_for(const messages::RfEvent& event, uint32_t now_ms) const;
+    static uint32_t keyed_utc(const radio::Stamp& stamp, uint32_t now_s);
+    void log(const messages::RfEvent& event, const radio::Stamp& stamp, radio::Event outcome,
              const messages::AircraftObs* obs = nullptr);
     static radio::Event decode_adsl(protocol::Frame& frame, uint32_t utc,
                                     messages::AircraftObs& obs);
-    radio::Event decode_alptas(const protocol::Frame& frame, uint32_t utc,
+    radio::Event decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
                                messages::AircraftObs& obs) const;
 
     protocol::AdslUplink uplink_codec_{};

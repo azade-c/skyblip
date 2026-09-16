@@ -33,6 +33,7 @@ class OwnshipService : public runtime::Service {
    private:
     void apply_solution(const gnss::GnssSolution& solution, uint32_t now_ms);
     uint32_t solution_instant(const gnss::GnssSolution& solution, uint32_t now_ms) const;
+    void anchor_utc(const gnss::GnssSolution& solution);
     void apply_baro(const messages::BaroSample& sample);
     void update_derived_qnh(const messages::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);

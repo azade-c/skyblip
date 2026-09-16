@@ -23,12 +23,12 @@ void TrafficService::tick(uint32_t now_ms) {
             case messages::RfEventType::RxDone: on_frame(event, now_ms); break;
             case messages::RfEventType::CrcError:
                 context_.state.rx_bad++;
-                log(event, now_ms, radio::Event::BadCrc);
+                log(event, stamp_for(event, now_ms), radio::Event::BadCrc);
                 break;
             // TODO: fc 15sep26 rx_bad is the wrong counter for a transmit failure (skyblip#61)
             case messages::RfEventType::Missed:
                 context_.state.rx_bad++;
-                log(event, now_ms, radio::Event::Lost);
+                log(event, stamp_for(event, now_ms), radio::Event::Lost);
                 break;
             // The executor's own timestamp, carried alongside the counter it
             // already bumps: RadioService owns the deadline this closes
@@ -37,18 +37,29 @@ void TrafficService::tick(uint32_t now_ms) {
             case messages::RfEventType::TxDone:
                 context_.state.tx_ok++;
                 context_.state.last_tx_done_at_us = event.at_us;
-                log(event, now_ms, radio::Event::Transmitted);
+                log(event, stamp_for(event, now_ms), radio::Event::Transmitted);
                 break;
         }
     }
     context_.state.traffic.age_out(context_.state.traffic_now(now_ms));
 }
 
-void TrafficService::log(const messages::RfEvent& event, uint32_t now_ms, radio::Event outcome,
-                         const messages::AircraftObs* obs) {
+radio::Stamp TrafficService::stamp_for(const messages::RfEvent& event, uint32_t now_ms) const {
     const bus::State& state = context_.state;
-    const radio::Stamp stamp = radio::stamp_of(event.at_us, state.clock.pps_edge_us,
-                                               state.clock.pps_locked, state.traffic_now(now_ms));
+    return radio::stamp_of(event.at_us, state.clock.pps_edge_us, state.clock.pps_locked,
+                           state.traffic_now(now_ms));
+}
+
+// INFO: fc 16sep26 §C.5: slot 1 reaches kSlot1Wrap past the second its sender keyed in
+uint32_t TrafficService::keyed_utc(const radio::Stamp& stamp, uint32_t now_s) {
+    if (!stamp.phase_valid) return now_s;
+    const bool in_slot1_tail = stamp.into_ms < timing::kSlot1Wrap;
+    return (in_slot1_tail && stamp.at_s > 0) ? stamp.at_s - 1 : stamp.at_s;
+}
+
+void TrafficService::log(const messages::RfEvent& event, const radio::Stamp& stamp,
+                         radio::Event outcome, const messages::AircraftObs* obs) {
+    const bus::State& state = context_.state;
     radio::Entry entry{};
     entry.event = outcome;
     entry.band = event.band;
@@ -73,27 +84,29 @@ void TrafficService::log(const messages::RfEvent& event, uint32_t now_ms, radio:
 }
 
 void TrafficService::on_frame(const messages::RfEvent& event, uint32_t now_ms) {
+    const radio::Stamp stamp = stamp_for(event, now_ms);
     protocol::Frame frame{};
     const protocol::System system =
         protocol::receive_burst(event.band, event.data.data(), event.len, frame);
     if (system == protocol::System::AdslUplink) {
-        on_uplink(event, now_ms);
+        on_uplink(event, stamp, now_ms);
         return;
     }
     if (system == protocol::System::Unknown) {
         context_.state.rx_bad++;
-        log(event, now_ms, radio::Event::Undecoded);
+        log(event, stamp, radio::Event::Undecoded);
         return;
     }
 
     const uint32_t utc = context_.state.traffic_now(now_ms);
+    const uint32_t keyed = keyed_utc(stamp, utc);
     messages::AircraftObs obs{};
     const bool alptas = system == protocol::System::Alptas;
-    const radio::Event outcome =
-        alptas ? decode_alptas(frame, utc, obs) : decode_adsl(frame, utc, obs);
+    const radio::Event outcome = alptas ? decode_alptas(frame, keyed, stamp.phase_valid, obs)
+                                        : decode_adsl(frame, keyed, obs);
     if (outcome != radio::Event::Received) {
         context_.state.rx_bad++;
-        log(event, now_ms, outcome);
+        log(event, stamp, outcome);
         return;
     }
 
@@ -102,7 +115,7 @@ void TrafficService::on_frame(const messages::RfEvent& event, uint32_t now_ms) {
     obs.rssi_dbm = event.rssi_dbm;
     context_.state.traffic.update(obs, utc);
     context_.state.rx_ok++;
-    log(event, now_ms, radio::Event::Received, &obs);
+    log(event, stamp, radio::Event::Received, &obs);
 }
 
 // One frame from the ground, up to thirteen aircraft in it (§C.4's higher rate
@@ -111,7 +124,8 @@ void TrafficService::on_frame(const messages::RfEvent& event, uint32_t now_ms) {
 // The counters are the uplink's own: a codeword Reed-Solomon refuses is not an
 // M-band framing failure, and counting it as one is what let this whole path go
 // missing without a single number moving.
-void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) {
+void TrafficService::on_uplink(const messages::RfEvent& event, const radio::Stamp& stamp,
+                               uint32_t now_ms) {
     if (!uplink_) return;
     context_.state.uplink_frames++;
 
@@ -120,7 +134,7 @@ void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) 
     if (uplink_codec_.decode(event.data.data(), relayed, protocol::AdslUplink::kMaxTargets,
                              stats) != Status::Ok) {
         context_.state.uplink_bad++;
-        log(event, now_ms, radio::Event::BadCrc);
+        log(event, stamp, radio::Event::BadCrc);
         return;
     }
 
@@ -131,7 +145,7 @@ void TrafficService::on_uplink(const messages::RfEvent& event, uint32_t now_ms) 
     // outranking a direct reception of the same aircraft.
     messages::AircraftObs relay{};
     relay.source = messages::Source::AdslUplink;
-    log(event, now_ms, radio::Event::Received, &relay);
+    log(event, stamp, radio::Event::Received, &relay);
 
     const uint32_t utc = context_.state.traffic_now(now_ms);
     for (int i = 0; i < stats.targets; i++) {
@@ -158,12 +172,8 @@ radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
     return radio::Event::Received;
 }
 
-// ALP-TAS codes position relative to the receiver and keys on the second the
-// frame was sent in, so without a fix of our own there is nothing to decode
-// against. Slot 1 reaches 200 ms past its own second (§C.5), and a burst caught
-// in that tail was keyed to the second before this one, so the previous key is
-// the second and last thing to try.
-radio::Event TrafficService::decode_alptas(const protocol::Frame& frame, uint32_t utc,
+// INFO: fc 16sep26 ALP-TAS keys on the second its sender keyed in, so an undated burst is a guess
+radio::Event TrafficService::decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
                                            messages::AircraftObs& obs) const {
     const messages::OwnState& own = context_.state.own;
     if (!own.fix_valid || !own.utc_valid) return radio::Event::Undecoded;
@@ -172,6 +182,7 @@ radio::Event TrafficService::decode_alptas(const protocol::Frame& frame, uint32_
     const int32_t lon = own.lon_1e7;
     if (protocol::alptas_decode(frame.data, utc, lat, lon, obs) == Status::Ok)
         return radio::Event::Received;
+    if (dated) return radio::Event::Undecoded;
     if (utc > 0 && protocol::alptas_decode(frame.data, utc - 1, lat, lon, obs) == Status::Ok)
         return radio::Event::Received;
     return radio::Event::Undecoded;

@@ -79,7 +79,12 @@ struct ClockState {
     // that pass takes; an absolute instant is not, so the phase is derived from
     // this at the point of use and the slot map keeps its 5 ms guard.
     uint64_t pps_edge_us{0};
+    // INFO: fc 16sep26 the second that opened at utc_edge_us, not the one the last sentence named
+    uint32_t utc_s{0};
+    uint64_t utc_edge_us{0};
 };
+
+void carry_utc_to_edge(ClockState& clock, uint64_t edge_us);
 
 struct SlotPlan {
     SlotState state{SlotState::UplinkRxO};

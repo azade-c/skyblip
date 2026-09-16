@@ -131,6 +131,35 @@ TEST_CASE("timing: PPS lost within holdover, still receiving, no slotted TX") {
     CHECK_FALSE(p.tx_allowed);
 }
 
+// A burst drained between the edge and the sentence naming it was dated a second early.
+TEST_CASE("timing: the dated second moves with the edge, not with the sentence") {
+    ClockState clock{};
+    clock.utc_valid = true;
+    clock.pps_locked = true;
+    clock.utc_s = 45296;
+    clock.utc_edge_us = 12'000'000;
+    clock.pps_edge_us = 12'000'000;
+
+    carry_utc_to_edge(clock, 12'000'000);
+    CHECK(clock.utc_s == 45296);
+
+    carry_utc_to_edge(clock, 13'000'000);
+    CHECK(clock.utc_s == 45297);
+    CHECK(clock.pps_edge_us == 13'000'000);
+
+    // A pass that saw no edge for three seconds catches up on the one it does see.
+    carry_utc_to_edge(clock, 16'000'100);
+    CHECK(clock.utc_s == 45300);
+    CHECK(clock.utc_edge_us == 16'000'100);
+}
+
+TEST_CASE("timing: a clock no solution has dated yet carries no second to advance") {
+    ClockState clock{};
+    carry_utc_to_edge(clock, 13'000'000);
+    CHECK(clock.utc_s == 0);
+    CHECK(clock.pps_edge_us == 13'000'000);
+}
+
 TEST_CASE("timing: past holdover or no UTC, listen only, fail closed") {
     Scheduler s;
     ClockState past{true, false, kPpsHoldoverMs + 1};

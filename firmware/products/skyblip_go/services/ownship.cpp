@@ -59,6 +59,7 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& f, uint32_t now_ms
     own.aircraft_cat = context_.state.settings.aircraft_type;
 
     context_.state.clock.utc_valid = f.utc_valid;
+    anchor_utc(f);
 
     // A barometer, once it has spoken, owns vertical speed. The GNSS reference
     // keeps moving anyway so losing the sensor falls back seamlessly.
@@ -96,6 +97,15 @@ void OwnshipService::update_residual(const messages::OwnState& previous) {
     const uint32_t resid = flight::prediction_residual_m(p, own.lat_1e7, own.lon_1e7, own.alt_m);
     own.pred_resid_m = resid > 0xFFFF ? 0xFFFF : static_cast<uint16_t>(resid);
     own.pred_resid_valid = true;
+}
+
+// INFO: fc 16sep26 a sentence names the second its own edge opened, and only that edge dates it
+void OwnshipService::anchor_utc(const gnss::GnssSolution& f) {
+    timing::ClockState& clock = context_.state.clock;
+    if (!f.utc_valid || !clock.pps_locked) return;
+    if (context_.state.own.fix_ms != static_cast<uint32_t>(clock.pps_edge_us / 1000)) return;
+    clock.utc_s = f.utc;
+    clock.utc_edge_us = clock.pps_edge_us;
 }
 
 // INFO: fc 13sep26 the latched edge dates the solution exactly, the estimate only when it is lost

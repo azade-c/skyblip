@@ -2,6 +2,21 @@
 
 namespace skyblip::timing {
 
+namespace {
+constexpr uint64_t kSecondUs = 1000000;
+constexpr uint64_t kHalfSecondUs = 500000;
+}  // namespace
+
+void carry_utc_to_edge(ClockState& clock, uint64_t edge_us) {
+    clock.pps_edge_us = edge_us;
+    if (clock.utc_s == 0 || edge_us <= clock.utc_edge_us) return;
+    const uint64_t since_us = edge_us - clock.utc_edge_us;
+    const uint32_t seconds = static_cast<uint32_t>((since_us + kHalfSecondUs) / kSecondUs);
+    if (seconds == 0) return;
+    clock.utc_s += seconds;
+    clock.utc_edge_us = edge_us;
+}
+
 SlotState Scheduler::state_at(int phase_ms) {
     // The tail first: before anything else in a second, the radio is still in
     // the slot 1 that opened 800 ms into the previous one.

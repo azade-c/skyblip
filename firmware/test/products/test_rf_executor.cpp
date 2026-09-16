@@ -240,6 +240,43 @@ TEST_CASE("rf: the transmit instant is measured from the latched edge, not from 
     }
 }
 
+// A burst drained after the edge and before the sentence naming it read a second early.
+TEST_CASE("rf: a burst at the end of a second is dated in the second it happened in") {
+    Pass pass;
+    REQUIRE(pass.begin() == Status::Ok);
+
+    const uint64_t edge_us = 12'000'000;
+    pass.state.own.utc = 45296;
+    pass.state.clock.pps_locked = true;
+    pass.state.clock.utc_s = 45296;
+    pass.state.clock.utc_edge_us = edge_us;
+    pass.state.clock.pps_edge_us = edge_us;
+
+    messages::RfEvent burst{};
+    burst.type = messages::RfEventType::CrcError;
+    burst.band = messages::Band::M;
+    burst.freq_hz = timing::kMband1Hz;
+    burst.at_us = edge_us + 954'000;
+    burst.rssi_dbm = -101;
+    burst.rssi_valid = true;
+    pass.bus.rf.push(burst);
+
+    // The next edge is latched, and the receiver has not named its second yet.
+    timing::carry_utc_to_edge(pass.state.clock, edge_us + 1'000'000);
+    const uint64_t drained_us = edge_us + 1'010'000;
+    pass.platform.clock().set_micros(drained_us);
+    pass.traffic_service.tick(static_cast<uint32_t>(drained_us / 1000));
+
+    REQUIRE(pass.state.radio_log.count() == 1);
+    const radio::Entry& row = pass.state.radio_log.newest(0);
+    CHECK(row.at_s == 45296);
+    CHECK(row.into_ms == 954);
+    CHECK(row.channel == 1);
+    // The level a refused burst arrived at is what separates noise from a neighbour.
+    CHECK(row.rssi_valid);
+    CHECK(row.rssi_dbm == -101);
+}
+
 // E1. A site where the carrier never read clear used to be a device that went silent.
 TEST_CASE("rf: a jammed site transmits at its instant, and reports the floor it measured") {
     Pass pass;

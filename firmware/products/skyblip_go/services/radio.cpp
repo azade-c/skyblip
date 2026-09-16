@@ -79,17 +79,17 @@ int RadioService::ms_until(int dwell_phase_ms, int phase_ms) {
 // monotonic one. The dwell is armed before the slot opens, so the second figure
 // is the staleness already accrued plus the whole wait still to come.
 protocol::BurstInstant RadioService::burst_instant(const timing::Transmitter::Attempt& a,
-                                                   uint64_t tx_at_us) const {
+                                                   uint64_t tx_at_us, uint32_t utc) const {
     const uint32_t tx_ms = static_cast<uint32_t>(tx_at_us / 1000);
     protocol::BurstInstant at{};
-    at.utc = slot_utc();
+    at.utc = utc;
     at.into_utc_ms = a.at_ms;
     at.since_fix_ms = static_cast<int32_t>(tx_ms - context_.state.own.fix_ms);
     return at;
 }
 
-uint32_t RadioService::slot_utc() const {
-    const uint32_t utc = context_.state.own.utc;
+uint32_t RadioService::slot_utc(uint32_t now_ms) const {
+    const uint32_t utc = context_.state.traffic_now(now_ms);
     const bool in_slot1_tail = phase_ms() < timing::kSlot1Wrap;
     return (in_slot1_tail && utc > 0) ? utc - 1 : utc;
 }
@@ -138,7 +138,7 @@ timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
     // says the solution behind it has settled.
     if (!timing::own_ship_transmits(own, context_.state.clock))
         return timing::Transmitter::Attempt{};
-    return transmitter_.attempt(plan, slot_utc(), now_ms, flight::airborne(own.flight_state),
+    return transmitter_.attempt(plan, slot_utc(now_ms), now_ms, flight::airborne(own.flight_state),
                                 fix_lag_ms());
 }
 
@@ -188,7 +188,8 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     if (carries_tx) {
         protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
                            context_.state.settings.addr_table, context_.state.own.aircraft_cat,
-                           context_.state.settings.stealth, burst_instant(a, tx_at_us));
+                           context_.state.settings.stealth,
+                           burst_instant(a, tx_at_us, slot_utc(now_ms)));
         outgoing_.scramble();
         outgoing_.set_crc();
         plan.tx = outgoing_chips_;
@@ -211,7 +212,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     arm_count_++;
     tx_armed_ = carries_tx;
     if (carries_tx) {
-        tx_utc_ = slot_utc();
+        tx_utc_ = slot_utc(now_ms);
         tx_end_us_ = plan.end_us;
         context_.state.tx_deadline_us = tx_at_us;
     }
