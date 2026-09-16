@@ -186,7 +186,8 @@ SlotPlan slot_plan(int phase_ms) {
 }
 
 int instant_at(uint32_t addr, uint32_t utc) {
-    return airborne_transmitter(addr).attempt(slot_plan(500), utc, utc * 1000, true, 0).at_ms;
+    const int phase = Transmitter::slot_in(utc, true) == 0 ? 500 : 900;
+    return airborne_transmitter(addr).attempt(slot_plan(phase), utc, utc * 1000, true, 0).at_ms;
 }
 
 bool bursts_overlap(int one_ms, int other_ms) {
@@ -199,7 +200,8 @@ bool bursts_overlap(int one_ms, int other_ms) {
 TEST_CASE("transmit: the instant is inside the direct slot, with room for the burst") {
     Transmitter t = airborne_transmitter();
     int earliest = 1000, latest = 0;
-    for (uint32_t utc = 1000; utc < 6000; utc++) {
+    // Every other second is the lower channel's: §C.2.5's alternation is the clock's.
+    for (uint32_t utc = 1000; utc < 6000; utc += 2) {
         const Transmitter::Attempt a = t.attempt(slot_plan(500), utc, utc * 1000, true, 0);
         REQUIRE(a.go);
         // Not from kSlot0Start: the dwell opens at 400, the direct slot at 450.
@@ -224,9 +226,8 @@ TEST_CASE("transmit: the instant is inside the direct slot, with room for the bu
 // is what paid for the retune - so 800 is its first legal instant.
 TEST_CASE("transmit: the first instant of a dwell is the moment it opens") {
     Transmitter t = airborne_transmitter();
-    t.sent(0, 0);
     int earliest = 2000, latest = 0;
-    for (uint32_t utc = 1; utc < 5000; utc++) {
+    for (uint32_t utc = 1; utc < 5000; utc += 2) {
         const Transmitter::Attempt a = t.attempt(slot_plan(900), utc, utc * 1000, true, 0);
         REQUIRE(a.go);
         if (a.at_ms < earliest) earliest = a.at_ms;
@@ -241,7 +242,7 @@ TEST_CASE("transmit: two devices do not pick the same instant every second") {
     Transmitter a = airborne_transmitter(0x5B7E57);
     Transmitter b = airborne_transmitter(0x123456);
     int same = 0;
-    for (uint32_t utc = 0; utc < 100; utc++) {
+    for (uint32_t utc = 0; utc < 100; utc += 2) {
         if (a.attempt(slot_plan(500), utc, utc * 1000, true, 0).at_ms ==
             b.attempt(slot_plan(500), utc, utc * 1000, true, 0).at_ms)
             same++;
@@ -252,10 +253,10 @@ TEST_CASE("transmit: two devices do not pick the same instant every second") {
 // Two addresses differ by a fixed XOR delta forever: a mixer that carried it would marry the pair.
 TEST_CASE("transmit: a shared instant in one second is a fresh draw in the next") {
     constexpr uint32_t kOwn = 0x5B7E57;
-    constexpr uint32_t kPeer = 0x5B003D;
+    constexpr uint32_t kPeer = 0x5B01FF;
     CHECK(instant_at(kOwn, 1) == instant_at(kPeer, 1));
-    // 631 and 667, seven burst lengths apart, from the pair that shared 782 ms a second earlier.
-    CHECK(instant_at(kPeer, 2) - instant_at(kOwn, 2) == 36);
+    // 631 and 560, fourteen burst lengths apart, from the pair that shared 903 ms a second earlier.
+    CHECK(instant_at(kOwn, 2) - instant_at(kPeer, 2) == 71);
 
     const int shared_ms = instant_at(kOwn, 1);
     const int own_next_ms = instant_at(kOwn, 2);
@@ -275,8 +276,7 @@ TEST_CASE("transmit: a shared instant in one second is a fresh draw in the next"
 // our own burst never does.
 TEST_CASE("transmit: the burst completes inside the direct slot, tail or no tail") {
     Transmitter t = airborne_transmitter();
-    t.sent(0, 0);  // one transmission done, so the next one is the upper channel's
-    for (uint32_t utc = 1; utc < 400; utc++) {
+    for (uint32_t utc = 1; utc < 400; utc += 2) {  // the odd seconds are the upper channel's
         const Transmitter::Attempt a = t.attempt(slot_plan(900), utc, utc * 1000, true, 0);
         REQUIRE(a.go);
         CHECK(a.freq_hz == kMband1Hz);
@@ -298,7 +298,15 @@ TEST_CASE("transmit: consecutive transmissions alternate channel and slot") {
     CHECK(t.attempt(slot_plan(900), 11, 11000, true, 0).freq_hz == kMband1Hz);
 }
 
-// §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground.
+// A burst refused for any reason used to shift the alternation for ever after.
+TEST_CASE("transmit: a missed transmission does not put the channel out of step") {
+    Transmitter t = airborne_transmitter();
+    CHECK(t.attempt(slot_plan(500), 10, 10000, true, 0).freq_hz == kMband0Hz);
+    CHECK(t.attempt(slot_plan(500), 12, 12000, true, 0).freq_hz == kMband0Hz);
+    CHECK(t.attempt(slot_plan(900), 13, 13000, true, 0).freq_hz == kMband1Hz);
+}
+
+// §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground, one second of UTC's own ten.
 TEST_CASE("transmit: one burst per second airborne, one per ten on the ground") {
     Transmitter t = airborne_transmitter();
     t.sent(10, 10500);
@@ -306,9 +314,28 @@ TEST_CASE("transmit: one burst per second airborne, one per ten on the ground") 
     CHECK(t.attempt(slot_plan(900), 11, 11000, true, 0).go);
 
     Transmitter g = airborne_transmitter();
-    g.sent(10, 10500);
-    CHECK_FALSE(g.attempt(slot_plan(900), 15, 15000, false, 0).go);
-    CHECK(g.attempt(slot_plan(900), 21, 20600, false, 0).go);
+    const uint32_t owned = g.ground_second();
+    for (uint32_t utc = owned + 1; utc < owned + 10; utc++) {
+        CAPTURE(utc);
+        CHECK_FALSE(g.attempt(slot_plan(500), utc, utc * 1000, false, 0).go);
+        CHECK_FALSE(g.attempt(slot_plan(900), utc, utc * 1000, false, 0).go);
+    }
+    const int phase = Transmitter::slot_in(owned + 10, false) == 0 ? 500 : 900;
+    CHECK(g.attempt(slot_plan(phase), owned + 10, (owned + 10) * 1000, false, 0).go);
+}
+
+// A device that reboots comes back to the same second of the ten, not to a new one.
+TEST_CASE("transmit: the ground second is the address's, not the boot's") {
+    CHECK(airborne_transmitter(0x5B7E57).ground_second() ==
+          airborne_transmitter(0x5B7E57).ground_second());
+
+    int taken[Transmitter::kGroundPeriodS] = {0};
+    for (uint32_t addr = 0x5B0000; addr < 0x5B1000; addr++)
+        taken[airborne_transmitter(addr).ground_second()]++;
+    for (uint32_t second = 0; second < Transmitter::kGroundPeriodS; second++) {
+        CAPTURE(second);
+        CHECK(taken[second] > 0x1000 / 20);
+    }
 }
 
 // §G.1.16, measured to the top of the transmit second: what it refuses is a missed solution.
@@ -503,11 +530,13 @@ namespace {
 constexpr uint32_t kBeforeWrap = 0xFFFFFC00u;  // 1024 ms short of the wrap
 }
 
-TEST_CASE("transmit: the ground rate holds across the 49.7-day wrap") {
+TEST_CASE("transmit: the ground schedule is UTC's, so the millisecond wrap cannot move it") {
     Transmitter g = airborne_transmitter();
-    g.sent(10, kBeforeWrap);
-    CHECK_FALSE(g.attempt(slot_plan(900), 11, 8000u, false, 0).go);  // 9024 ms elapsed
-    CHECK(g.attempt(slot_plan(900), 12, 9000u, false, 0).go);        // 10024 ms elapsed
+    const uint32_t owned = g.ground_second();
+    const int phase = Transmitter::slot_in(owned, false) == 0 ? 500 : 900;
+    g.sent(owned - 10, kBeforeWrap);
+    CHECK(g.attempt(slot_plan(phase), owned, 1024u, false, 0).go);
+    CHECK_FALSE(g.attempt(slot_plan(phase), owned + 1, 2024u, false, 0).go);
 }
 
 // The regulatory one. EN 300 220-2 V3.3.1 Table 4 band M is 1% of any hour, and

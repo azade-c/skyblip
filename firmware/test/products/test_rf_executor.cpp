@@ -214,7 +214,7 @@ TEST_CASE("rf: the transmit instant is measured from the latched edge, not from 
 
         // A real edge is not on a millisecond boundary either.
         // This second's draw is 535 ms: inside the slot, after the pass that arms it.
-        const uint64_t edge_us = 3000000;
+        const uint64_t edge_us = 2000000;  // an even second, so the draw is the lower channel's
         pass.poll_clock(edge_us + 460450);
         const uint64_t at_service_us = edge_us + 460450 + lag_ms * 1000;
         const uint32_t now_ms = static_cast<uint32_t>(at_service_us / 1000);
@@ -222,7 +222,7 @@ TEST_CASE("rf: the transmit instant is measured from the latched edge, not from 
 
         const timing::SlotPlan plan = timing::Scheduler{}.plan(500, pass.state.clock);
         const timing::Transmitter::Attempt wanted =
-            pass.radio_service.transmitter().attempt(plan, 3, now_ms, true, 0);
+            pass.radio_service.transmitter().attempt(plan, 2, now_ms, true, 0);
         REQUIRE(wanted.go);
         const uint64_t wanted_us = edge_us + static_cast<uint64_t>(wanted.at_ms) * 1000;
 
@@ -643,7 +643,7 @@ TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and coun
     }
     REQUIRE(a.state.radio_log.count() == 0);
 
-    a.state.own.utc++;
+    a.state.own.utc += 2;  // the lower channel's second again
     a.tick_at(400);
 
     REQUIRE(a.state.radio_log.count() == 1);
@@ -651,7 +651,7 @@ TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and coun
     CHECK(a.state.radio_log.newest(0).band == messages::Band::M);
     CHECK(a.state.timing_stats.refused() == 1);
 
-    a.state.own.utc++;
+    a.state.own.utc += 2;
     a.state.own.fix_ms = static_cast<uint32_t>((Armings::kEdgeUs + 1000000) / 1000);
     a.tick_in(1, 205);
     a.tick_in(1, 400);

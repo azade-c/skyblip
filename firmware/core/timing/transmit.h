@@ -17,7 +17,8 @@ class Transmitter {
     // 25 Manchester-encoded bytes = 4.8 ms, rounded up.
     static constexpr uint32_t kAirTimeMs = 5;
     // §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground.
-    static constexpr uint32_t kGroundPeriodMs = 10000;
+    static constexpr uint32_t kGroundPeriodS = 10;
+    static constexpr uint32_t kAirbornePeriodS = 1;
     // INFO: fc 13sep26 G.1.16 nav age, to the top of the transmit second: the burst is extrapolated
     static constexpr int32_t kFixLagMaxMs = 500;
     // Ours, not the spec's: §C.5 gives the direct slot 450..1000 and requires a
@@ -46,11 +47,15 @@ class Transmitter {
 
     uint32_t sent_count() const { return sent_; }
     const AirTime& air_time() const { return air_; }
-    // §C.2.5: traffic alternates between the two M-band channels, so the slot
-    // to transmit in follows the transmission count, not the clock.
-    int next_slot() const { return static_cast<int>(sent_ & 1u); }
+    static uint32_t period_s(bool airborne) { return airborne ? kAirbornePeriodS : kGroundPeriodS; }
+    // INFO: fc 16sep26 §C.2.5 alternates the channel per transmission, and the clock counts them
+    static int slot_in(uint32_t utc, bool airborne) {
+        return static_cast<int>((utc / period_s(airborne)) & 1u);
+    }
+    uint32_t ground_second() const;
 
    private:
+    bool on_schedule(uint32_t utc, bool airborne) const;
     static int first_instant_in(int slot);
     static int last_instant_in(int slot);
     // Uniform over the slot's usable width and decorrelated between devices:
@@ -61,7 +66,6 @@ class Transmitter {
     AirTime air_{};
     uint32_t addr_{0};
     uint32_t sent_{0};
-    uint32_t last_sent_ms_{0};
     uint32_t last_sent_utc_{0};
     bool ever_sent_{false};
 };

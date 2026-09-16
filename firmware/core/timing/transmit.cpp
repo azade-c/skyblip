@@ -41,15 +41,21 @@ int Transmitter::instant_in(int slot, uint32_t utc) const {
            static_cast<int>(mix(addr_ ^ mix(utc)) % static_cast<uint32_t>(last - first + 1));
 }
 
+uint32_t Transmitter::ground_second() const { return mix(addr_) % kGroundPeriodS; }
+
+bool Transmitter::on_schedule(uint32_t utc, bool airborne) const {
+    return utc % period_s(airborne) == (airborne ? 0u : ground_second());
+}
+
 Transmitter::Attempt Transmitter::attempt(const SlotPlan& plan, uint32_t utc, uint32_t now_ms,
                                           bool airborne, int32_t fix_lag_ms) const {
     Attempt a{};
     if (!plan.tx_allowed) return a;
     if (fix_lag_ms > kFixLagMaxMs) return a;
-    if (ever_sent_ && airborne && utc == last_sent_utc_) return a;
-    if (ever_sent_ && !airborne && now_ms - last_sent_ms_ < kGroundPeriodMs) return a;
+    if (ever_sent_ && utc == last_sent_utc_) return a;
+    if (!on_schedule(utc, airborne)) return a;
 
-    const int slot = next_slot();
+    const int slot = slot_in(utc, airborne);
     if (Scheduler::slot_of(plan.start_ms) != slot) return a;
 
     if (!air_.may_spend(now_ms, kAirTimeMs)) {
@@ -68,7 +74,6 @@ void Transmitter::sent(uint32_t utc, uint32_t now_ms) {
     air_.spend(now_ms, kAirTimeMs);
     ever_sent_ = true;
     last_sent_utc_ = utc;
-    last_sent_ms_ = now_ms;
 }
 
 }  // namespace skyblip::timing
