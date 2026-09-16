@@ -143,6 +143,9 @@ void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
     }
 
     if (entry.tx_span_valid) {
+        n = fmt_uint(buf, entry.tx_keyed_us);
+        buf[n] = 0;
+        fb.draw_text(kLenX, y, buf, true, 1);
         n = fmt_uint(buf, entry.tx_span_us);
         buf[n] = 0;
         right_aligned(fb, kRssiEnd, y, buf, n);

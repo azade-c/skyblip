@@ -122,18 +122,34 @@ TEST_CASE("radio log page: the M band's two channels read apart, and the O band 
     CHECK(shows(fb, 4 + 13 * 6, kFirstRowY + kLineH, "M1"));
 }
 
-// Microseconds from the instant the slot aimed the burst at to the one the radio reported.
-TEST_CASE("radio log page: a sent burst reads how long it took to leave") {
+// Microseconds from the instant the slot aimed at: first to the keying, then to the report.
+TEST_CASE("radio log page: a sent burst reads how long it took to key and how long to leave") {
     radio::Log log;
     radio::Entry e = entry_of(radio::Event::Transmitted);
-    e.tx_span_us = 4800;
+    e.tx_keyed_us = 1523;
+    e.tx_span_us = 6344;
     e.tx_span_valid = true;
     log.record(e);
 
     Framebuffer fb;
     draw_radio_log(fb, with(log));
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "SENT"));
-    CHECK(shows(fb, 4 + 26 * 6, kFirstRowY, "4800"));
+    CHECK(shows(fb, 4 + 20 * 6, kFirstRowY, "1523"));
+    CHECK(shows(fb, 4 + 26 * 6, kFirstRowY, "6344"));
+}
+
+// A four-digit column was hiding the only bursts worth looking at.
+TEST_CASE("radio log page: a span past four digits reads as the number it is") {
+    radio::Log log;
+    radio::Entry e = entry_of(radio::Event::Transmitted);
+    e.tx_keyed_us = 6002;
+    e.tx_span_us = 12049;
+    e.tx_span_valid = true;
+    log.record(e);
+
+    Framebuffer fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 25 * 6, kFirstRowY, "12049"));
 }
 
 // The one row that separates an empty sky from a receiver that frames nothing.
