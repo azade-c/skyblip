@@ -57,12 +57,11 @@ void TrafficService::log(const messages::RfEvent& event, uint32_t now_ms, radio:
     entry.into_ms = stamp.into_ms;
     entry.phase_valid = stamp.phase_valid;
     entry.utc = state.own.utc_valid;
-    if (event.type == messages::RfEventType::RxDone) {
-        entry.rssi_dbm = event.rssi_dbm;
-        entry.rssi_valid = true;
-        entry.len = event.len;
-    }
+    entry.rssi_dbm = event.rssi_dbm;
+    entry.rssi_valid = event.rssi_valid;
+    if (event.type == messages::RfEventType::RxDone) entry.len = event.len;
     if (outcome == radio::Event::Transmitted && state.tx_deadline_us != 0) {
+        entry.tx_keyed_us = radio::tx_span_of(event.keyed_at_us, state.tx_deadline_us);
         entry.tx_span_us = radio::tx_span_of(event.at_us, state.tx_deadline_us);
         entry.tx_span_valid = true;
     }

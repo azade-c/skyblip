@@ -50,7 +50,7 @@ class Rf : public hal::Rf {
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
         if (clock_.micros() >= plan.end_us) {
-            if (plan.tx != nullptr) emit(messages::RfEventType::Missed);
+            if (plan.tx != nullptr) emit(messages::RfEventType::Missed, clock_.micros());
             return Status::WouldBlock;
         }
         if (joins_flying_dwell(plan)) return Status::Ok;
@@ -110,7 +110,7 @@ class Rf : public hal::Rf {
             abort_ = false;
             const hal::RfPlan plan = plan_;
             if (clock_.micros() >= plan.end_us) {
-                if (plan.tx != nullptr) emit(messages::RfEventType::Missed);
+                if (plan.tx != nullptr) emit(messages::RfEventType::Missed, clock_.micros());
                 continue;
             }
             sleep_until(plan.start_us);
@@ -189,12 +189,38 @@ class Rf : public hal::Rf {
         return carrier_.dbm;
     }
 
+    // INFO: fc 16sep26 the event is dated where the radio raised it, not where the read-out ended
+    bool collect(bool& completed, bool& fault) {
+        const uint64_t polled_us = irq_at_us_ != 0 ? irq_at_us_ : clock_.micros();
+        irq_at_us_ = 0;
+        const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
+        switch (ev.type) {
+            case parts::RadioEventType::None: return false;
+            case parts::RadioEventType::RxDone: push_rx(ev, polled_us); return true;
+            case parts::RadioEventType::CrcError:
+                emit(messages::RfEventType::CrcError, polled_us, ev);
+                return true;
+            case parts::RadioEventType::TxDone:
+                completed = true;
+                emit(messages::RfEventType::TxDone, polled_us);
+                radio_.start_receive();
+                return true;
+            default:
+                emit(messages::RfEventType::Missed, polled_us);
+                fault = true;
+                return false;
+        }
+    }
+
     void dwell(const hal::RfPlan& plan) {
         const uint8_t* tx = plan.tx;
         uint8_t tx_len = plan.tx_len;
         uint64_t tx_at_us = plan.tx_at_us;
         bool completed = false;
         bool transmitted = false;
+        bool fault = false;
+        keyed_at_us_ = 0;
+        irq_at_us_ = 0;
         while (!abort_ && clock_.micros() < plan.end_us) {
             if (tx == nullptr && burst_ != nullptr) {
                 k_sched_lock();
@@ -206,22 +232,18 @@ class Rf : public hal::Rf {
             if (tx != nullptr && !transmitted && clock_.micros() >= tx_at_us) {
                 transmitted = true;
                 radio_.transmit(tx, tx_len);
+                keyed_at_us_ = clock_.micros();
             }
-            const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
-            switch (ev.type) {
-                case parts::RadioEventType::None: k_usleep(kSpinUs); continue;
-                case parts::RadioEventType::RxDone: push_rx(ev); break;
-                case parts::RadioEventType::CrcError: emit(messages::RfEventType::CrcError); break;
-                case parts::RadioEventType::TxDone:
-                    completed = true;
-                    emit(messages::RfEventType::TxDone);
-                    radio_.start_receive();
-                    break;
-                default: emit(messages::RfEventType::Missed); return;
-            }
+            if (irq_at_us_ == 0 && radio_.irq_asserted()) irq_at_us_ = clock_.micros();
+            if (collect(completed, fault)) continue;
+            if (fault) return;
+            k_usleep(kSpinUs);
         }
+        while (collect(completed, fault)) {
+        }
+        if (fault) return;
         sample_carrier();
-        if (tx != nullptr && !completed) emit(messages::RfEventType::Missed);
+        if (tx != nullptr && !completed) emit(messages::RfEventType::Missed, clock_.micros());
     }
 
     // The frame is already in the event that will carry it. An O-band uplink
@@ -229,24 +251,26 @@ class Rf : public hal::Rf {
     // as on the queue would be the same bytes twice. The band the dwell was
     // armed for travels with it: the O band carries one system and the M band
     // two, and only the arming knows which of them this burst is.
-    void push_rx(const parts::RadioEvent& ev) {
+    void push_rx(const parts::RadioEvent& ev, uint64_t at_us) {
         rx_.type = messages::RfEventType::RxDone;
         rx_.band = band_;
         rx_.freq_hz = freq_hz_;
         rx_.len = ev.len;
         rx_.rssi_dbm = ev.rssi_dbm;
-        rx_.at_us = clock_.micros();
+        rx_.rssi_valid = ev.rssi_valid;
+        rx_.at_us = at_us;
         out_.push(rx_);
     }
 
-    void emit(messages::RfEventType type, uint8_t len = 0, int8_t rssi = 0) {
+    void emit(messages::RfEventType type, uint64_t at_us, const parts::RadioEvent& ev = {}) {
         messages::RfEvent e{};
         e.type = type;
         e.band = band_;
         e.freq_hz = freq_hz_;
-        e.len = len;
-        e.rssi_dbm = rssi;
-        e.at_us = clock_.micros();
+        e.rssi_dbm = ev.rssi_dbm;
+        e.rssi_valid = ev.rssi_valid;
+        e.at_us = at_us;
+        e.keyed_at_us = keyed_at_us_;
         out_.push(e);
     }
 
@@ -265,6 +289,8 @@ class Rf : public hal::Rf {
     K_KERNEL_STACK_MEMBER(stack_, kStackSize);
     const uint8_t* volatile burst_{nullptr};
     uint64_t burst_at_us_{0};
+    uint64_t keyed_at_us_{0};
+    uint64_t irq_at_us_{0};
     uint64_t flying_end_us_{0};
     uint32_t flying_freq_{0};
     hal::RfMode flying_mode_{hal::RfMode::Idle};

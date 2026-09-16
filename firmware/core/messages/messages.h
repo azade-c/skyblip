@@ -159,7 +159,9 @@ struct RfEvent {
     Band band;
     uint8_t len;
     int8_t rssi_dbm;
+    bool rssi_valid;
     uint64_t at_us;
+    uint64_t keyed_at_us;
     uint32_t freq_hz;
     std::array<uint8_t, kRfEventBytes> data;
 };

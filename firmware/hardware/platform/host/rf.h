@@ -82,7 +82,7 @@ class Rf : public hal::Rf {
 
     void finish(uint64_t now_us) {
         sample_carrier();
-        if (plan_.tx != nullptr && !completed_) emit(messages::RfEventType::Missed, 0, 0, now_us);
+        if (plan_.tx != nullptr && !completed_) emit(messages::RfEventType::Missed, now_us);
         armed_ = false;
         started_ = false;
     }
@@ -90,7 +90,7 @@ class Rf : public hal::Rf {
     void take_pending(uint64_t now_us) {
         has_pending_ = false;
         if (now_us >= pending_.end_us) {
-            if (pending_.tx != nullptr) emit(messages::RfEventType::Missed, 0, 0, now_us);
+            if (pending_.tx != nullptr) emit(messages::RfEventType::Missed, now_us);
             return;
         }
         adopt(pending_);
@@ -102,6 +102,7 @@ class Rf : public hal::Rf {
         started_ = false;
         transmitted_ = false;
         completed_ = false;
+        keyed_at_us_ = 0;
     }
 
     void start() {
@@ -134,6 +135,7 @@ class Rf : public hal::Rf {
     void transmit() {
         transmitted_ = true;
         radio_.transmit(plan_.tx, plan_.tx_len);
+        keyed_at_us_ = clock_.micros();
     }
 
     // INFO: fc 15sep26 virtual time stands still in a pass, so the run of reads is the window
@@ -153,14 +155,14 @@ class Rf : public hal::Rf {
                 case parts::RadioEventType::None: return;
                 case parts::RadioEventType::RxDone: push_rx(ev, now_us); break;
                 case parts::RadioEventType::CrcError:
-                    emit(messages::RfEventType::CrcError, 0, 0, now_us);
+                    emit(messages::RfEventType::CrcError, now_us, ev);
                     break;
                 case parts::RadioEventType::TxDone:
                     completed_ = true;
-                    emit(messages::RfEventType::TxDone, 0, 0, now_us);
+                    emit(messages::RfEventType::TxDone, now_us);
                     radio_.start_receive();
                     break;
-                default: emit(messages::RfEventType::Missed, 0, 0, now_us); return;
+                default: emit(messages::RfEventType::Missed, now_us); return;
             }
         }
     }
@@ -176,18 +178,20 @@ class Rf : public hal::Rf {
         rx_.freq_hz = freq_hz_;
         rx_.len = ev.len;
         rx_.rssi_dbm = ev.rssi_dbm;
+        rx_.rssi_valid = ev.rssi_valid;
         rx_.at_us = now_us;
         out_.push(rx_);
     }
 
-    void emit(messages::RfEventType type, uint8_t len, int8_t rssi, uint64_t now_us) {
+    void emit(messages::RfEventType type, uint64_t now_us, const parts::RadioEvent& ev = {}) {
         messages::RfEvent e{};
         e.type = type;
         e.band = band_;
         e.freq_hz = freq_hz_;
-        e.len = len;
-        e.rssi_dbm = rssi;
+        e.rssi_dbm = ev.rssi_dbm;
+        e.rssi_valid = ev.rssi_valid;
         e.at_us = now_us;
+        e.keyed_at_us = keyed_at_us_;
         out_.push(e);
     }
 
@@ -200,6 +204,7 @@ class Rf : public hal::Rf {
     messages::RfEvent rx_{};
     messages::Band band_{messages::Band::M};
     uint32_t freq_hz_{0};
+    uint64_t keyed_at_us_{0};
     uint32_t last_ms_{0};
     uint32_t armed_count_{0};
     int sleeps_{0};

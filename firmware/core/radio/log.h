@@ -16,6 +16,7 @@ struct Entry {
     uint32_t addr{0};
     uint32_t at_s{0};
     uint16_t into_ms{0};
+    uint16_t tx_keyed_us{0};
     uint16_t tx_span_us{0};
     int8_t rssi_dbm{0};
     uint8_t channel{0};
@@ -33,7 +34,8 @@ struct Stamp {
 };
 
 constexpr int64_t kStampReachUs = 2000000;
-constexpr uint16_t kTxSpanLimitUs = 9999;
+// INFO: fc 16sep26 the field's own ceiling: a burst this late is a dwell that already ended
+constexpr uint16_t kTxSpanLimitUs = 65535;
 
 Stamp stamp_of(uint64_t at_us, uint64_t pps_edge_us, bool pps_locked, uint32_t now_s);
 uint16_t tx_span_of(uint64_t done_at_us, uint64_t deadline_us);
