@@ -19,7 +19,7 @@
 
 namespace skyblip::settings {
 
-enum class Units : uint8_t { Metric = 0, Nautical = 1 };
+enum class Units : uint8_t { Nautical = 0, Metric = 1 };
 
 constexpr size_t kCallsignCap = 10;
 

@@ -484,7 +484,10 @@ TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
     // fits in nine. It is written on the line and read back as the millivolts
     // the status reply and the panel already show.
     CHECK(json.find("battery_offset_mv") == std::string::npos);
-    const char* nautical = "{\"units\":1}";
+    const char* metric = "{\"units\":1}";
+    CHECK(apply_json(s, metric, static_cast<int>(strlen(metric))) == Status::Ok);
+    CHECK(s.units == Units::Metric);
+    const char* nautical = "{\"units\":0}";
     CHECK(apply_json(s, nautical, static_cast<int>(strlen(nautical))) == Status::Ok);
     CHECK(s.units == Units::Nautical);
 
