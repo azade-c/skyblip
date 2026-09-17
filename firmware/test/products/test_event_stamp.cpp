@@ -72,9 +72,8 @@ struct Rig {
         event.at_us = at_us;
         event.rssi_dbm = -80;
         uint8_t chips[protocol::kTxChipBytes] = {0};
-        const size_t chip_len = protocol::encode_mband(
-            protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&tx.Version),
-            protocol::AdslPacket::kDataBytes, chips);
+        const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, tx.Data,
+                                                       protocol::AdslPacket::kDataBytes, chips);
         deliver(chips, chip_len, event.data.data(), protocol::kRxChipBytes);
         event.len = protocol::kRxChipBytes;
         bus.rf.push(event);

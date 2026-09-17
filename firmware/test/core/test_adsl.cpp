@@ -87,7 +87,7 @@ TEST_CASE("adsl: single-bit error is corrected via CRC syndrome") {
     p.set_crc();
     uint8_t err[AdslPacket::kDataBytes] = {0};
     // flip a data bit (in the CRC-covered region)
-    reinterpret_cast<uint8_t*>(&p.Version)[7] ^= 0x08;
+    p.Data[7] ^= 0x08;
     CHECK(p.check_crc() != 0);
     int corrected = p.correct(err, 6);
     CHECK(corrected == 1);
@@ -98,7 +98,7 @@ TEST_CASE("adsl: multi-bit errors within flagged (weak) bits are corrected") {
     AdslPacket p = make_reference();
     p.scramble();
     p.set_crc();
-    uint8_t* d = reinterpret_cast<uint8_t*>(&p.Version);
+    uint8_t* d = p.Data;
     uint8_t err[AdslPacket::kDataBytes] = {0};
     // flip 3 bits and mark them weak (as a Manchester decoder would)
     struct BitLoc {
@@ -132,7 +132,7 @@ TEST_CASE("adsl: Monte-Carlo BER, detected vs silent miscorrection accounting") 
         tx.set_crc();
 
         AdslPacket rx = tx;
-        uint8_t* d = reinterpret_cast<uint8_t*>(&rx.Version);
+        uint8_t* d = rx.Data;
         uint8_t err[AdslPacket::kDataBytes] = {0};
 
         // Inject up to 3 bit errors, and flag ~70% of them as weak.
