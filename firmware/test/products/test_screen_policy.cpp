@@ -102,28 +102,20 @@ TEST_CASE("screen policy: a fix arriving is a data change, presented as a partia
     CHECK_FALSE(rig.chip.last_full);
 }
 
-TEST_CASE("screen policy: a page change under an alarm goes straight to the picture") {
+// A radar ghosted over the page under it is worse than 360 ms of black the pilot asked for.
+TEST_CASE("screen policy: the loudest alarm standing still gets the page its black") {
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 
-    rig.alarm(go::ScreenService::kAlarmTakesGlass);
-    rig.screen.next_page();
-    rig.tick(t += 1000);
-    CHECK_FALSE(rig.glass_all_black());
-    CHECK_FALSE(rig.chip.last_full);
-}
-
-// Traffic inside 3 km is an advisory a pilot flies with for hours, not a lost wipe for all of it.
-TEST_CASE("screen policy: an advisory contact leaves the page change its black") {
-    Rig rig;
-    uint32_t t = 0;
-    rig.run_seconds(t, 3);
-
-    rig.alarm(go::ScreenService::kAlarmTakesGlass - 1);
+    rig.alarm(3);
     rig.screen.next_page();
     rig.tick(t += 1000);
     CHECK(rig.glass_all_black());
+    CHECK_FALSE(rig.chip.last_full);
+
+    rig.tick(t += 400);
+    CHECK_FALSE(rig.glass_all_black());
     CHECK_FALSE(rig.chip.last_full);
 }
 
@@ -142,8 +134,7 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     rig.run_seconds(t, 2);
     CHECK(rig.screen.mode() == go::Mode::Settings);
 
-    // A bearing worth turning the head for is. The menu goes, the traffic
-    // picture comes back, and no wash flashes while the alarm stands.
+    // A bearing worth turning the head for is: the menu goes and the traffic picture comes back.
     rig.alarm(go::ScreenService::kAlarmTakesGlass);
     rig.run_seconds(t, 2);
     CHECK(rig.screen.mode() == go::Mode::Traffic);

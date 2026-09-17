@@ -34,7 +34,6 @@ TEST_CASE("screen policy: a screen changing every second still rests between ref
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    rig.alarm(2);
     rig.churn(t, 120);
     rig.run_seconds(t, 2);
 

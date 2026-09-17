@@ -208,11 +208,8 @@ void ScreenService::tick(uint32_t now_ms) {
     if (!context_.roles.display.ready(now_ms)) return;
 
     if (change_ == Change::Asked) {
-        change_ = Change::None;
-        if (!alarm_takes_glass()) {
-            wipe_glass(now_ms);
-            return;
-        }
+        wipe_glass(now_ms);
+        return;
     }
     if (presented_once_ && change_ != Change::Wiped && now_ms - last_present_ms_ < kPresentFloorMs)
         return;
