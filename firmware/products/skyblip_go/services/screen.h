@@ -33,7 +33,7 @@ class ScreenService : public runtime::Service {
     // INFO: cf 02aug26 The level at which the radar carries a bearing worth
     // turning the head for. At or above it the settings page gives the glass
     // back on its own: a menu in front of converging traffic is a bug.
-    static constexpr uint8_t kAlarmTakesGlass = 2;
+    static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Important;
 
     // The one consumer of bus.input, and therefore the one place a press is
     // given a meaning. The companion link's state machine is handed over here
@@ -133,7 +133,7 @@ class ScreenService : public runtime::Service {
     uint32_t last_tick_ms_{0};
     uint32_t last_render_ms_{0};
     uint32_t last_present_ms_{0};
-    uint8_t last_alarm_{0};
+    traffic::Level last_alarm_{traffic::Level::None};
     bool dirty_{true};
     Change change_{Change::Asked};
     bool presented_once_{false};

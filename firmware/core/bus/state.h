@@ -69,11 +69,12 @@ struct State {
     FlightStatus flight{};
     BaroState baro{};
 
-    uint8_t alarm_level{0};
+    traffic::Level alarm_level{traffic::Level::None};
 
     struct AirCounts {
         uint32_t rx_ok{0};
         uint32_t rx_bad{0};
+        uint32_t rx_noise{0};
         uint32_t tx_ok{0};
         // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
         // from the M band's: every frame that arrived in the uplink dwell, the ones

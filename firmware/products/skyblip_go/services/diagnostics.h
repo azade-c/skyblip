@@ -58,7 +58,7 @@ class DiagnosticsDump {
         d.tx_ok = state.air.tx_ok;
 
         d.tracked = static_cast<uint32_t>(state.traffic.count());
-        d.alarm = state.alarm_level;
+        d.alarm = traffic::to_number(state.alarm_level);
 
         d.gnss_fixes = state.flight.gnss_solutions;
         d.fix_valid = state.own.fix_valid;

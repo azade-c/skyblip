@@ -17,8 +17,12 @@
 
 namespace skyblip::traffic {
 
+enum class Level : uint8_t { None, Info, Important, Urgent };
+
+constexpr uint8_t to_number(Level level) { return static_cast<uint8_t>(level); }
+
 struct AlarmAssessment {
-    uint8_t level{0};
+    Level level{Level::None};
     uint16_t rel_bearing_deg{0};
     int32_t rel_dist_m{0};
     int32_t rel_vert_m{0};
@@ -62,7 +66,7 @@ enum class Suppression : uint8_t { None, CoCircling, SteadyRange };
 
 // A suppressed contact stays on the screen at "info". Suppression is about the
 // annunciator, never about hiding an aircraft.
-constexpr uint8_t kSuppressedLevel = 1;
+constexpr Level kSuppressedLevel = Level::Info;
 
 // Thermalling: a glider circles a 20 to 25 s turn, so 14 to 18 deg/s, and a
 // full circle in 45 s is the slowest thing still worth calling a circle. Course
@@ -97,7 +101,7 @@ constexpr uint32_t kRenotifyMs = 2000;
 
 // From "urgent" the annunciator keeps saying it, because at that level the
 // pilot is being asked to do something now. Below it, once per escalation.
-constexpr uint8_t kReminderLevel = 3;
+constexpr Level kReminderLevel = Level::Urgent;
 
 // One per traffic-table slot, so a full sky still has a memory per target.
 constexpr int kTrackedTargets = 48;
@@ -127,7 +131,7 @@ class AlarmTracker {
     // does and falls only once the contact has been calmer for a whole
     // re-notification window - so whatever drives the buzzer reads it here
     // rather than deciding a second time when a level has really gone away.
-    uint8_t announced_level(uint32_t now_ms) const;
+    Level announced_level(uint32_t now_ms) const;
 
     int16_t target_turn_dps(uint8_t addr_table, uint32_t addr) const;
 
@@ -144,7 +148,7 @@ class AlarmTracker {
         int16_t turn_dps{0};
         bool slow_closure{false};
         uint32_t slow_since_ms{0};
-        uint8_t notified_level{0};
+        Level notified_level{Level::None};
         uint32_t notified_ms{0};
         bool falling{false};
         uint32_t falling_since_ms{0};
@@ -153,7 +157,7 @@ class AlarmTracker {
     Slot* slot_for(const model::AircraftObs& target, uint32_t now_ms);
     static void sample_track(Slot& slot, uint16_t track_c9, uint32_t now_ms);
     static bool co_circling(const Slot& slot, int16_t own_turn_dps, const AlarmAssessment& a);
-    static bool notify_for(Slot& slot, uint8_t level, uint32_t now_ms, bool& escalated);
+    static bool notify_for(Slot& slot, Level level, uint32_t now_ms, bool& escalated);
 
     std::array<Slot, kTrackedTargets> slots_{};
 };

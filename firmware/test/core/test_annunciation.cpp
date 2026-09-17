@@ -12,6 +12,7 @@
 
 using namespace skyblip;
 using namespace skyblip::annunciation;
+using skyblip::traffic::Level;
 
 namespace {
 
@@ -84,7 +85,7 @@ struct Buzzer {
     }
 };
 
-Situation standing(uint8_t level) {
+Situation standing(Level level) {
     Situation s{};
     s.level = level;
     return s;
@@ -95,15 +96,15 @@ Situation standing(uint8_t level) {
 TEST_CASE("annunciation: every pattern ends by itself, and the three levels differ by rhythm") {
     // No pattern may be a tone with no end, whatever the level: the pitch may
     // move under a hardware gate, the rhythm is what a pilot learns.
-    for (uint8_t level = 1; level <= 3; level++) {
+    for (const Level level : {Level::Info, Level::Important, Level::Urgent}) {
         const Pattern p = pattern_for(Voice::Traffic, level);
         CHECK(p.tone_ms > 0);
         CHECK(p.repeats >= 1);
         if (p.repeats > 1) CHECK(p.gap_ms > 0);
     }
-    const Pattern info = pattern_for(Voice::Traffic, 1);
-    const Pattern important = pattern_for(Voice::Traffic, 2);
-    const Pattern urgent = pattern_for(Voice::Traffic, 3);
+    const Pattern info = pattern_for(Voice::Traffic, Level::Info);
+    const Pattern important = pattern_for(Voice::Traffic, Level::Important);
+    const Pattern urgent = pattern_for(Voice::Traffic, Level::Urgent);
 
     // Count, then rate, then length: three different things to hear.
     CHECK(info.repeats != important.repeats);
@@ -119,7 +120,7 @@ TEST_CASE("annunciation: every pattern ends by itself, and the three levels diff
 TEST_CASE("annunciation: level 1 is one discreet blip, not a tone") {
     Buzzer buzzer;
     uint32_t t = 1000;
-    buzzer.escalate(standing(1), t, 5000);
+    buzzer.escalate(standing(Level::Info), t, 5000);
 
     CHECK(buzzer.beeps == 1);
     CHECK(buzzer.last_beep_ms == kInfoDiscreetBlipMs);
@@ -133,7 +134,7 @@ TEST_CASE("annunciation: level 1 is one discreet blip, not a tone") {
 TEST_CASE("annunciation: level 2 is a pair of beeps with a beep-length gap") {
     Buzzer buzzer;
     uint32_t t = 1000;
-    buzzer.escalate(standing(2), t, 5000);
+    buzzer.escalate(standing(Level::Important), t, 5000);
 
     CHECK(buzzer.beeps == kImportantPairBeepCount);
     CHECK(buzzer.last_beep_ms == kImportantPairBeepMs);
@@ -145,7 +146,7 @@ TEST_CASE("annunciation: level 2 is a pair of beeps with a beep-length gap") {
 TEST_CASE("annunciation: a standing urgent is a pulse train, and it says so again on cadence") {
     Buzzer buzzer;
     uint32_t t = 1000;
-    buzzer.escalate(standing(3), t, kUrgentStandingReannounceMs);
+    buzzer.escalate(standing(Level::Urgent), t, kUrgentStandingReannounceMs);
 
     CHECK(buzzer.beeps == kUrgentTrainPulseCount);
     CHECK(buzzer.last_beep_ms == kUrgentTrainPulseMs);
@@ -157,9 +158,9 @@ TEST_CASE("annunciation: a standing urgent is a pulse train, and it says so agai
 
     // It stands, nothing escalates, and it is announced again on the tracker's
     // own re-notification cadence - three more trains in six seconds.
-    buzzer.run(standing(3), t, 3 * kUrgentStandingReannounceMs);
+    buzzer.run(standing(Level::Urgent), t, 3 * kUrgentStandingReannounceMs);
     CHECK(buzzer.beeps == 4 * kUrgentTrainPulseCount);
-    CHECK(int(buzzer.policy.announcing_level()) == 3);
+    CHECK(buzzer.policy.announcing_level() == Level::Urgent);
     // A train is 990 ms of the two seconds, so there is a second of quiet in
     // every cycle for a radio call, a vario, or the other pilot shouting.
     CHECK(buzzer.on_ms == 4 * kUrgentTrainPulseCount * kUrgentTrainPulseMs);
@@ -168,7 +169,7 @@ TEST_CASE("annunciation: a standing urgent is a pulse train, and it says so agai
 TEST_CASE("annunciation: an urgent that decays to info changes the tone, it does not hold it") {
     Buzzer buzzer;
     uint32_t t = 1000;
-    buzzer.escalate(standing(3), t, 1500);
+    buzzer.escalate(standing(Level::Urgent), t, 1500);
     REQUIRE(buzzer.beeps == kUrgentTrainPulseCount);
     const int urgent_beeps = buzzer.beeps;
     const uint32_t urgent_on_ms = buzzer.on_ms;
@@ -176,12 +177,12 @@ TEST_CASE("annunciation: an urgent that decays to info changes the tone, it does
     // The tracker's hysteresis has let go: what stands now is info. This is the
     // case that used to leave the buzzer sounding at the urgent pitch for the
     // rest of the climb.
-    buzzer.run(standing(1), t, 5000);
+    buzzer.run(standing(Level::Info), t, 5000);
     CHECK(buzzer.beeps == urgent_beeps + 1);
     CHECK(buzzer.last_beep_ms == kInfoDiscreetBlipMs);
     CHECK(buzzer.on_ms == urgent_on_ms + kInfoDiscreetBlipMs);
     CHECK_FALSE(buzzer.on);
-    CHECK(int(buzzer.policy.announcing_level()) == 1);
+    CHECK(buzzer.policy.announcing_level() == Level::Info);
 }
 
 TEST_CASE("annunciation: the buzzer is released the moment its reason goes") {
@@ -189,26 +190,26 @@ TEST_CASE("annunciation: the buzzer is released the moment its reason goes") {
     SUBCASE("the level falls to nothing: the target has gone") {
         Buzzer buzzer;
         uint32_t t = 1000;
-        buzzer.escalate(standing(3), t, 200);
+        buzzer.escalate(standing(Level::Urgent), t, 200);
         REQUIRE(buzzer.on);
-        buzzer.run(standing(0), t, kStepMs);
+        buzzer.run(standing(Level::None), t, kStepMs);
         CHECK_FALSE(buzzer.on);
         CHECK(buzzer.silences == 2);  // one pulse gap, then the release
-        CHECK(int(buzzer.policy.announcing_level()) == 0);
+        CHECK(buzzer.policy.announcing_level() == Level::None);
 
         // And it stays gone: nothing re-announces an empty sky.
         const int commands = buzzer.tone_commands;
-        buzzer.run(standing(0), t, 10000);
+        buzzer.run(standing(Level::None), t, 10000);
         CHECK(buzzer.tone_commands == commands);
     }
 
     SUBCASE("alarms are switched off in settings, mid-pulse") {
         Buzzer buzzer;
         uint32_t t = 1000;
-        buzzer.escalate(standing(3), t, 40);
+        buzzer.escalate(standing(Level::Urgent), t, 40);
         REQUIRE(buzzer.on);
 
-        Situation off = standing(3);
+        Situation off = standing(Level::Urgent);
         off.enabled = false;
         buzzer.run(off, t, kStepMs);
         CHECK_FALSE(buzzer.on);
@@ -219,17 +220,17 @@ TEST_CASE("annunciation: the buzzer is released the moment its reason goes") {
         CHECK(buzzer.tone_commands == commands);
 
         // And it comes back when the pilot turns it on again.
-        buzzer.run(standing(3), t, 200);
+        buzzer.run(standing(Level::Urgent), t, 200);
         CHECK(buzzer.tone_commands > commands);
     }
 
     SUBCASE("the device is going down, mid-pulse") {
         Buzzer buzzer;
         uint32_t t = 1000;
-        buzzer.escalate(standing(3), t, 40);
+        buzzer.escalate(standing(Level::Urgent), t, 40);
         REQUIRE(buzzer.on);
 
-        Situation down = standing(3);
+        Situation down = standing(Level::Urgent);
         down.running = false;
         buzzer.run(down, t, kStepMs);
         CHECK_FALSE(buzzer.on);
@@ -245,7 +246,7 @@ TEST_CASE("annunciation: the buzzer is released the moment its reason goes") {
         fix.first_fix = true;
         buzzer.apply(buzzer.policy.update(fix, t), t);
         t += kStepMs;
-        buzzer.run(standing(0), t, 5000);
+        buzzer.run(standing(Level::None), t, 5000);
         CHECK(buzzer.beeps == kFirstFixNoteCount);
         CHECK(buzzer.last_beep_ms == kFirstFixHeldNoteMs);
         CHECK_FALSE(buzzer.on);
@@ -285,12 +286,12 @@ TEST_CASE("annunciation: traffic owns the buzzer, the fix tune only borrows it")
     // pilot's answer to "where is the traffic" is not a chirp.
     Buzzer standing_traffic;
     uint32_t t = 1000;
-    standing_traffic.escalate(standing(3), t, 100);
-    Situation both = standing(3);
+    standing_traffic.escalate(standing(Level::Urgent), t, 100);
+    Situation both = standing(Level::Urgent);
     both.first_fix = true;
     standing_traffic.apply(standing_traffic.policy.update(both, t), t);
     CHECK(standing_traffic.policy.voice() == Voice::Traffic);
-    CHECK(int(standing_traffic.policy.announcing_level()) == 3);
+    CHECK(standing_traffic.policy.announcing_level() == Level::Urgent);
 
     // The other way round: a chirp in progress loses the buzzer the instant
     // traffic wants it. The handover is heard as the pattern changing under the
@@ -306,9 +307,9 @@ TEST_CASE("annunciation: traffic owns the buzzer, the fix tune only borrows it")
     REQUIRE(chirping.on);
     REQUIRE(chirping.policy.voice() == Voice::FirstFix);
 
-    chirping.escalate(standing(2), u, 3000);
+    chirping.escalate(standing(Level::Important), u, 3000);
     CHECK(chirping.policy.voice() == Voice::Traffic);
-    CHECK(int(chirping.policy.announcing_level()) == 2);
+    CHECK(chirping.policy.announcing_level() == Level::Important);
     CHECK(chirping.beeps == kImportantPairBeepCount);
     CHECK(chirping.last_beep_ms == kImportantPairBeepMs);
 }
@@ -316,12 +317,12 @@ TEST_CASE("annunciation: traffic owns the buzzer, the fix tune only borrows it")
 TEST_CASE("annunciation: a second escalation to the same level is said again") {
     Buzzer buzzer;
     uint32_t t = 1000;
-    buzzer.escalate(standing(2), t, 2000);
+    buzzer.escalate(standing(Level::Important), t, 2000);
     REQUIRE(buzzer.beeps == kImportantPairBeepCount);
 
     // A different aircraft arriving at the same level is news, and the tracker
     // reports it as an escalation. Without the flag the level alone has not
     // changed and nothing would be said.
-    buzzer.escalate(standing(2), t, 2000);
+    buzzer.escalate(standing(Level::Important), t, 2000);
     CHECK(buzzer.beeps == 2 * kImportantPairBeepCount);
 }

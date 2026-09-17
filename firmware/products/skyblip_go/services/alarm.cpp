@@ -5,8 +5,8 @@
 namespace skyblip::go {
 
 void AlarmService::tick(uint32_t now_ms) {
-    uint8_t worst = 0;
-    uint8_t speak = 0;
+    traffic::Level worst = traffic::Level::None;
+    traffic::Level speak = traffic::Level::None;
     bool escalated = false;
     if (context_.state.own.fix_valid) {
         for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
@@ -47,8 +47,8 @@ void AlarmService::tick(uint32_t now_ms) {
     // false on a re-notification, which is what keeps the two apart.
     if (!situation.enabled || !running_) return;
     if (escalated && speak >= kVibroFromLevel)
-        context_.roles.annunciator.vibrate(speak >= kUrgentLevel ? kVibroUrgentMs
-                                                                 : kVibroImportantMs);
+        context_.roles.annunciator.vibrate(speak >= traffic::Level::Urgent ? kVibroUrgentMs
+                                                                           : kVibroImportantMs);
 }
 
 void AlarmService::park(uint32_t now_ms) {

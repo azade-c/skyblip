@@ -108,7 +108,7 @@ TEST_CASE("screen policy: the loudest alarm standing still gets the page its bla
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 
-    rig.alarm(3);
+    rig.alarm(traffic::Level::Urgent);
     rig.screen.next_page();
     rig.tick(t += 1000);
     CHECK(rig.glass_all_black());
@@ -130,7 +130,7 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     REQUIRE(rig.screen.editor().active());
 
     // An advisory is not worth taking a pilot's page away.
-    rig.alarm(1);
+    rig.alarm(traffic::Level::Info);
     rig.run_seconds(t, 2);
     CHECK(rig.screen.mode() == go::Mode::Settings);
 

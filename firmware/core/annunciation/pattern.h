@@ -25,6 +25,8 @@
 
 #include <cstdint>
 
+#include "core/traffic/alarm.h"
+
 namespace skyblip::annunciation {
 
 // A piezo reaches full amplitude in a couple of milliseconds, so this is an ear
@@ -109,13 +111,13 @@ struct Pattern {
 // is written here and nowhere else.
 enum class Voice : uint8_t { None, FirstFix, Traffic };
 
-Pattern pattern_for(Voice voice, uint8_t level);
+Pattern pattern_for(Voice voice, traffic::Level level);
 
 // Everything the decision depends on, gathered by the service that owns the
 // annunciator and passed in whole.
 struct Situation {
     // The level being announced right now, after the tracker's hysteresis.
-    uint8_t level{0};
+    traffic::Level level{traffic::Level::None};
     // A target got worse on this pass: say it again even at the same level.
     bool escalated{false};
     // The first fix landed on this pass.
@@ -143,12 +145,14 @@ class Policy {
     Voice voice() const { return voice_; }
     // The level being announced, gaps included: a pattern between two pulses is
     // still announcing. 0 when the buzzer has been released.
-    uint8_t announcing_level() const { return voice_ == Voice::Traffic ? level_ : 0; }
+    traffic::Level announcing_level() const {
+        return voice_ == Voice::Traffic ? level_ : traffic::Level::None;
+    }
     bool sounding() const { return commanded_on_; }
     uint8_t said() const { return said_; }
 
    private:
-    void begin(Voice voice, uint8_t level, uint32_t now_ms);
+    void begin(Voice voice, traffic::Level level, uint32_t now_ms);
     void advance(uint32_t now_ms);
     void play_jingle(uint32_t now_ms);
     void release();
@@ -158,7 +162,7 @@ class Policy {
     Voice voice_{Voice::None};
     uint16_t tone_hz_{0};
     uint16_t commanded_hz_{0};
-    uint8_t level_{0};
+    traffic::Level level_{traffic::Level::None};
     uint8_t said_{0};
     uint8_t note_{0};
     uint32_t announced_ms_{0};

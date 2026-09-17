@@ -69,7 +69,7 @@ struct Rig {
         return chip.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH;
     }
 
-    void alarm(uint8_t level) { state.alarm_level = level; }
+    void alarm(traffic::Level level) { state.alarm_level = level; }
 
     void die_temperature(int16_t decicelsius) {
         state.power.die_dc = decicelsius;

@@ -71,7 +71,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     // 3) go over the air: manchester encode 24 data bytes, inject light BER,
     //    manchester decode, CRC-correct, verify, descramble.
     uint8_t coded[48];
-    fec::manchester_encode(reinterpret_cast<const uint8_t*>(&tx.Version),
+    fec::manchester_encode(tx.Data,
                            protocol::AdslPacket::kDataBytes, coded);
     models::RfChannel chan(12345);
     chan.apply_ber(coded, sizeof(coded), 0.002);  // ~0.2% chip errors
@@ -79,7 +79,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     protocol::AdslPacket rx = tx;  // start from a copy; overwrite the data region
     uint8_t err[protocol::AdslPacket::kDataBytes];
     fec::manchester_decode(coded, protocol::AdslPacket::kDataBytes,
-                           reinterpret_cast<uint8_t*>(&rx.Version), err);
+                           rx.Data, err);
     rx.correct(err, 6);
     REQUIRE(rx.check_crc() == 0);  // recovered a valid packet
     rx.descramble();
@@ -101,7 +101,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     CHECK(a.rel_dist_m > 700);
     CHECK(a.rel_dist_m < 900);
     CHECK(a.closing_mps > 40);
-    CHECK(a.level == 3);
+    CHECK(a.level == traffic::Level::Urgent);
 
     // The same aircraft in the same place, flying the way we are: nothing is
     // arriving, and the proximity ring still draws it because 800 m abeam is
@@ -113,18 +113,19 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     chase.track_c9 = own.track_c9;
     const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
     CHECK(following.closing_mps < traffic::kClosingFloorMps);
-    CHECK(following.level == 2);
+    CHECK(following.level == traffic::Level::Important);
 
     table.at(idx)->alarm_level = a.level;
 
     // 6) NMEA out to the EFB link
     platform::host::Link efb;
     char buf[128];
-    int n = protocol::format_pflaa(buf, sizeof(buf), own, obs, a.level);
+    int n = protocol::format_pflaa(buf, sizeof(buf), own, obs, traffic::to_number(a.level));
     REQUIRE(n > 0);
     efb.send(events::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
-    n = protocol::format_pflau(buf, sizeof(buf), own, table.count(), &obs, a.level,
-                               a.rel_bearing_deg, a.rel_vert_m, a.rel_dist_m);
+    n = protocol::format_pflau(buf, sizeof(buf), own, table.count(), &obs,
+                               traffic::to_number(a.level), a.rel_bearing_deg, a.rel_vert_m,
+                               a.rel_dist_m);
     efb.send(events::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
     CHECK(efb.count_on(events::Endpoint::Nmea) == 2);
     CHECK(efb.sent[0].bytes.find("C5D804") != std::string::npos);

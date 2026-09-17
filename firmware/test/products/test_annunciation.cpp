@@ -25,8 +25,8 @@ struct Sky {
 
     platform::host::Annunciator& buzzer() { return simulator.platform().annunciator(); }
     uint32_t tone_commands() { return buzzer().tone_commands(); }
-    uint8_t sounding_level() { return simulator.alarm_level(); }
-    uint8_t announcing_level() { return simulator.announcing_level(); }
+    uint8_t sounding_level() { return simulator.buzzer_level(); }
+    traffic::Level announcing_level() { return simulator.announcing_level(); }
 
     void run(uint32_t from, uint32_t to) {
         for (uint32_t t = from; t <= to; t += kStepMs) simulator.step(t);

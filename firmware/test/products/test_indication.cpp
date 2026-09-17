@@ -249,7 +249,7 @@ TEST_CASE("product: an urgent contact takes the lamp off the charger") {
 
     simulator.world().add_threat();
     run(2000, 6000);
-    REQUIRE(int(simulator.alarm_level()) >= indication::kAlarmTakesLamp);
+    REQUIRE(simulator.product().state().alarm_level >= indication::kAlarmTakesLamp);
     CHECK(simulator.product().alarm().indicator_condition() == indication::Condition::Alarm);
 
     // Red either way, so the colour is not the evidence: the rhythm is. Charging

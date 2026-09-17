@@ -36,6 +36,7 @@
 #include <cstdint>
 
 #include "core/power/cutoff.h"
+#include "core/traffic/alarm.h"
 #include "ports/indicator.h"
 
 namespace skyblip::indication {
@@ -207,7 +208,7 @@ struct Situation {
     // the settings page gives the glass back. NOT the announced level: a lamp
     // that went dark in the gaps of the buzzer's pulse train would be reporting
     // the cadence of the sound rather than the presence of the threat.
-    uint8_t alarm_level{0};
+    traffic::Level alarm_level{traffic::Level::None};
     bool external_power{false};
     // External power in and the cell at the float voltage: the charger has
     // finished. core/power/battery.h owns the distinction; this only reads it.
@@ -223,7 +224,7 @@ struct Situation {
 // one thermal and a red flicker for each of them is both expensive and noise, so
 // this is the same threshold the panel uses to take the glass back and the alarm
 // service uses to reach the haptic.
-constexpr uint8_t kAlarmTakesLamp = 2;
+constexpr traffic::Level kAlarmTakesLamp = traffic::Level::Important;
 
 // The priority order, as code. This is the only function allowed to know it.
 Condition condition_for(const Situation& situation);

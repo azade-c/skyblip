@@ -554,7 +554,7 @@ TEST_CASE("rf: a decoded burst claiming an impossible range never reaches the ra
     // And refused by the table, counted, with nothing on the screen.
     CHECK(h.product().state().traffic.count() == 0);
     CHECK(h.product().state().traffic.implausible_count() > 0);
-    CHECK(h.product().state().alarm_level == 0);
+    CHECK(h.product().state().alarm_level == traffic::Level::None);
 }
 
 // The same air with the same aircraft at a range this radio can actually reach:

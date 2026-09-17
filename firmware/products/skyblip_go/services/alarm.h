@@ -34,7 +34,7 @@ class AlarmService : public runtime::Service {
     bool escalated_since_render() const { return dirty_; }
     void clear_dirty() { dirty_ = false; }
 
-    uint8_t announcing_level() const { return policy_.announcing_level(); }
+    traffic::Level announcing_level() const { return policy_.announcing_level(); }
     bool sounding() const { return policy_.sounding(); }
 
     // What the table decided, and what the lamp is showing this instant. Both,
@@ -47,9 +47,7 @@ class AlarmService : public runtime::Service {
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
 
-    // core/traffic/alarm.h grades contacts 1 info, 2 important, 3 urgent.
-    static constexpr uint8_t kVibroFromLevel = 2;
-    static constexpr uint8_t kUrgentLevel = 3;
+    static constexpr traffic::Level kVibroFromLevel = traffic::Level::Important;
     // Long enough to feel through a glove and a harness strap, short enough not
     // to blur into the next escalation.
     static constexpr uint16_t kVibroImportantMs = 200;

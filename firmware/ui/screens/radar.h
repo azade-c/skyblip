@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "core/settings/settings.h"
+#include "core/traffic/alarm.h"
 #include "core/units/units.h"
 #include "ui/framebuffer.h"
 
@@ -17,7 +18,7 @@ struct RadarTarget {
     int32_t north_m;
     int32_t east_m;
     int32_t up_m;
-    uint8_t alarm_level;
+    traffic::Level alarm_level{traffic::Level::None};
     int16_t climb_e8{0};
     bool climb_valid{false};
     int32_t speed_mps{0};
@@ -36,7 +37,7 @@ struct RadarSnapshot {
     bool receiver_listening{false};
     int n_targets{0};
     const RadarTarget* targets{nullptr};
-    uint8_t max_alarm{0};
+    traffic::Level max_alarm{traffic::Level::None};
 };
 
 void draw_radar(Framebuffer& fb, const RadarSnapshot& snap);
