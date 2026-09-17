@@ -2,6 +2,8 @@
 // page is the only thing standing between a stranger's phone and the secondary
 // slot, so "there is ink on the panel" is not the claim: "the panel says POWER
 // OFF, and says which press allows it" is.
+#include <initializer_list>
+
 #include "core/comms/config.h"
 #include "doctest/doctest.h"
 #include "ui/framebuffer.h"

@@ -6,6 +6,7 @@
 // standing between a mis-framed foreign packet and the traffic table).
 #include <cstdlib>  // std::abs - libc++ pulls it in transitively, libstdc++ does not
 #include <cstring>
+#include <initializer_list>
 
 #include "core/model/aircraft.h"
 #include "core/protocol/alptas.h"

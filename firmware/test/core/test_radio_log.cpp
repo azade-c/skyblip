@@ -1,4 +1,6 @@
 // The station log: newest first, and nothing kept that a screen could not show.
+#include <initializer_list>
+
 #include "core/model/aircraft.h"
 #include "core/radio/log.h"
 #include "doctest/doctest.h"

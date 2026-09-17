@@ -7,6 +7,7 @@
 // it is. A chip id is a serial number, and the space it lands in is shared with
 // every other tracker that mints its identity the same way.
 #include <cstring>
+#include <initializer_list>
 #include <string>
 
 #include "core/fec/crc.h"

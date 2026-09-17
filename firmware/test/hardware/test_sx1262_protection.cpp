@@ -1,4 +1,6 @@
 // What the part asks for so that it survives: the current limit, DS 15, and the silent failures.
+#include <initializer_list>
+
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/parts/sx1262/sx1262.h"

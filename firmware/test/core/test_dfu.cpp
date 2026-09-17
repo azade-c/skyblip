@@ -1,5 +1,6 @@
 // The record a device writes before the swap, and what the image that boots next makes of it.
 #include <cstring>
+#include <initializer_list>
 #include <string>
 
 #include "core/dfu/smp_policy.h"

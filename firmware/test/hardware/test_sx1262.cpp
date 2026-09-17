@@ -1,5 +1,7 @@
 // SX1262 driver recovery tests against models/sx1262.h with fault injection
 // The class of intermittent bug that is hell to reproduce on hardware.
+#include <initializer_list>
+
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
 #include "doctest/doctest.h"

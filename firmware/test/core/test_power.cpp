@@ -3,6 +3,7 @@
 // pin down that the gauge says which curve it read, never walks the wrong way, and
 // ignores the sag of a 22 dBm burst. A percentage that jumps when the radio keys
 // is a gauge a pilot stops believing.
+#include <initializer_list>
 #include <string>
 
 #include "core/events/sensor.h"

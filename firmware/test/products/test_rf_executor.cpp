@@ -6,6 +6,8 @@
 // the services ahead of the radio ran. Nothing here is mocked: the chip model
 // answers over SPI exactly as the part does, including when it answers nothing
 // at all.
+#include <initializer_list>
+
 #include "core/events/rf.h"
 #include "core/model/band.h"
 #include "core/timing/channel.h"
