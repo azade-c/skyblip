@@ -1,0 +1,39 @@
+# skyBlip firmware clang-tidy config: the C++ subset rules (1-ARCHITECTURE §4),
+# no heap after init, no owning raw new/delete, readable names. Run by `make
+# tidy` over exactly the sources the host build compiles, and by the `lint` job.
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  readability-*,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-owning-memory,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -bugprone-easily-swappable-parameters,
+  -readability-function-cognitive-complexity,
+  -readability-braces-around-statements,
+  -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses,
+  -readability-implicit-bool-conversion,
+  -readability-isolate-declaration,
+  -readability-avoid-nested-conditional-operator,
+  -readability-named-parameter,
+  -readability-redundant-member-init,
+  -performance-enum-size,
+  -clang-analyzer-optin.performance.Padding
+
+# The ten above are off because the tree already decided against them: braces
+# would undo the one-line `if` .clang-format is configured to keep, every member
+# is value-initialized whether or not the initializer is redundant, an enum's
+# width is the register's or the wire's, and a struct's field order is the
+# domain's reading order, which is worth more than the padding it costs.
+WarningsAsErrors: '*'
+
+CheckOptions:
+  # The heap is the rule, not FILE*: the simulator and the panel model read and
+  # write files on the host, in balanced fopen/fclose pairs that never ship.
+  cppcoreguidelines-owning-memory.LegacyResourceProducers: '::malloc;::aligned_alloc;::realloc;::calloc'
+  cppcoreguidelines-owning-memory.LegacyResourceConsumers: '::free;::realloc'
+HeaderFilterRegex: '(core|ui|hardware|boards|ports|runtime|products|simulator)/.*'
+FormatStyle: file

@@ -1,6 +1,7 @@
 # Host unit-test + simulator build. Depends on nothing but a C++ compiler.
 #
 #   make test        build + run all host doctest suites
+#   make tidy        clang-tidy the sources the host build compiles
 #   make simulator   terminal simulator
 #   make browser     compile the WASM the browser page drives
 #   make watch       incremental rebuild on save (WATCH=browser|simulator|test)
@@ -61,11 +62,21 @@ WEB_BUILD := $(BUILD)/web
 WEB_OBJ := $(patsubst %.cpp,$(WEB_BUILD)/%.o,$(WEB_SRC))
 WEB_CXXFLAGS := -std=c++17 -O2 -I. -Ivendor -fno-exceptions -fno-rtti -MMD -MP
 
-.PHONY: test all clean simulator browser watch
+.PHONY: test all clean simulator browser watch tidy
 all: test
 
 test: $(BIN)
 	$(BIN)
+
+# Same $(SRC) the host build compiles, so no workflow ever restates the list, and
+# the same flags less the ones that write dependency files. clang-tidy cannot
+# guess the macOS SDK; without a stdlib it exits 1 rather than passing silently.
+TIDY      ?= clang-tidy
+TIDY_SDK  := $(shell xcrun --show-sdk-path 2>/dev/null)
+TIDY_ARGS := $(filter-out -MMD -MP -Werror,$(CXXFLAGS)) $(if $(TIDY_SDK),-isysroot $(TIDY_SDK))
+
+tidy:
+	$(TIDY) --quiet $(SRC) -- $(TIDY_ARGS)
 
 $(BIN): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(OBJ) -o $@ $(LDFLAGS)
