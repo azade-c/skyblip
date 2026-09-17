@@ -12,8 +12,8 @@
 #include "core/settings/settings.h"
 #include "core/timing/durable_write.h"
 #include "core/timing/timing_stats.h"
-#include "hal/dfu.h"
-#include "hal/link.h"
+#include "ports/dfu.h"
+#include "ports/link.h"
 
 namespace skyblip::comms {
 
@@ -43,14 +43,14 @@ constexpr uint8_t kBatteryPushStepPercent = 5;
 // An iOS central commonly settles at ATT_MTU 185, three of which are the
 // notification header, so 182 is the narrowest real phone in the field and every
 // reply that a pilot's app depends on is sized under it at its worst case rather
-// than against a local buffer. hal::kMinimumLinkPayload (20) is lower still and
+// than against a local buffer. ports::kMinimumLinkPayload (20) is lower still and
 // is what BLE guarantees; a link that comes up there gets a counted refusal, not
 // a notification the controller will fail.
 constexpr int kSmallestSupportedPayload = 182;
 
 class ConfigService {
    public:
-    ConfigService(hal::Link& link, settings::Settings& s, hal::Dfu* dfu = nullptr,
+    ConfigService(ports::Link& link, settings::Settings& s, ports::Dfu* dfu = nullptr,
                   const timing::SlotTimingStats* timing_stats = nullptr)
         : link_(link), settings_(s), dfu_(dfu), timing_stats_(timing_stats) {}
 
@@ -240,9 +240,9 @@ class ConfigService {
     bool image_staged() const;
     bool on_ground() const { return flight_ == flight::FlightState::OnGround; }
 
-    hal::Link& link_;
+    ports::Link& link_;
     settings::Settings& settings_;
-    hal::Dfu* dfu_;
+    ports::Dfu* dfu_;
     const timing::SlotTimingStats* timing_stats_;
     const timing::DurableWriteWindow* writes_{nullptr};
     flight::FlightState flight_{flight::FlightState::Unknown};

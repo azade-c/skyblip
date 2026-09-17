@@ -22,16 +22,16 @@
 namespace skyblip::go {
 
 // What this product cannot fly without, and what it can lose and keep flying.
-constexpr hal::Capabilities kRequired = hal::Capability::Rf | hal::Capability::Gnss;
-constexpr hal::Capabilities kOptional = hal::Capability::Display | hal::Capability::Baro |
-                                          hal::Capability::Buzzer | hal::Capability::Vibro |
-                                          hal::Capability::Link | hal::Capability::Storage |
-                                          hal::Capability::Dfu | hal::Capability::Button |
-                                          hal::Capability::Battery | hal::Capability::Indicator;
+constexpr ports::Capabilities kRequired = ports::Capability::Rf | ports::Capability::Gnss;
+constexpr ports::Capabilities kOptional = ports::Capability::Display | ports::Capability::Baro |
+                                          ports::Capability::Buzzer | ports::Capability::Vibro |
+                                          ports::Capability::Link | ports::Capability::Storage |
+                                          ports::Capability::Dfu | ports::Capability::Button |
+                                          ports::Capability::Battery | ports::Capability::Indicator;
 
 struct BootPartSpec {
     const char* name;
-    hal::Capability capability;
+    ports::Capability capability;
 };
 
 // The inventory the self-test page reads out, in the order a bench eye wants
@@ -43,12 +43,12 @@ struct BootPartSpec {
 // what a bench wants to know about it is which colours light, which is a look at
 // the unit rather than a line of text on it.
 constexpr BootPartSpec kBootParts[] = {
-    {"RADIO", hal::Capability::Rf},      {"GNSS", hal::Capability::Gnss},
-    {"PANEL", hal::Capability::Display}, {"BARO", hal::Capability::Baro},
-    {"BUTTON", hal::Capability::Button}, {"BATTERY", hal::Capability::Battery},
-    {"LINK", hal::Capability::Link},     {"STORAGE", hal::Capability::Storage},
-    {"DFU", hal::Capability::Dfu},       {"BUZZER", hal::Capability::Buzzer},
-    {"VIBRO", hal::Capability::Vibro},
+    {"RADIO", ports::Capability::Rf},      {"GNSS", ports::Capability::Gnss},
+    {"PANEL", ports::Capability::Display}, {"BARO", ports::Capability::Baro},
+    {"BUTTON", ports::Capability::Button}, {"BATTERY", ports::Capability::Battery},
+    {"LINK", ports::Capability::Link},     {"STORAGE", ports::Capability::Storage},
+    {"DFU", ports::Capability::Dfu},       {"BUZZER", ports::Capability::Buzzer},
+    {"VIBRO", ports::Capability::Vibro},
 };
 
 constexpr int kBootPartCount = static_cast<int>(sizeof(kBootParts) / sizeof(kBootParts[0]));
@@ -84,10 +84,10 @@ class Product {
         if (boot_path_ == power::BootPath::SleepAgain) return Status::Ok;
 
         flyable_ = board == Status::Ok &&
-                   hal::missing(board_.capabilities(), kRequired) == hal::Capability::None;
+                   ports::missing(board_.capabilities(), kRequired) == ports::Capability::None;
 
         draw_self_test();
-        if (!flyable_) roles_.display.present(boot_fb_, hal::Refresh::Full, 0);
+        if (!flyable_) roles_.display.present(boot_fb_, ports::Refresh::Full, 0);
 
         if (board != Status::Ok) return board;
         if (!flyable_) return Status::Down;
@@ -128,9 +128,9 @@ class Product {
         if (shutdown_.going_down()) screen_.settle_park(now_ms);
     }
 
-    hal::Capabilities capabilities() const { return board_.capabilities(); }
-    hal::Capabilities degraded() const {
-        return hal::missing(board_.capabilities(), kOptional);
+    ports::Capabilities capabilities() const { return board_.capabilities(); }
+    ports::Capabilities degraded() const {
+        return ports::missing(board_.capabilities(), kOptional);
     }
 
     // False when a required capability is missing: the loop refuses to fly, the
@@ -182,19 +182,19 @@ class Product {
    private:
     // Which part answered, for the three footprints LilyGO ships more than one
     // part against. Everything here comes from the bring-up probes
-    // (hal/inventory.h), never from what the image was compiled expecting, which
+    // (ports/inventory.h), never from what the image was compiled expecting, which
     // is the whole point of the page.
-    const char* boot_detail(hal::Capability capability) {
-        const hal::Inventory& found = board_.inventory();
+    const char* boot_detail(ports::Capability capability) {
+        const ports::Inventory& found = board_.inventory();
         switch (capability) {
-            case hal::Capability::Baro:
+            case ports::Capability::Baro:
                 if (found.baro_address == 0) return nullptr;
                 baro_address_[skyblip::fmt_hex(baro_address_, found.baro_address, 2)] = 0;
                 return baro_address_;
-            case hal::Capability::Display: return found.panel;
-            case hal::Capability::Vibro:
-                return found.haptic == hal::HapticKind::WaveformDriver ? "DRV2605"
-                       : found.haptic == hal::HapticKind::PinMotor     ? "PIN"
+            case ports::Capability::Display: return found.panel;
+            case ports::Capability::Vibro:
+                return found.haptic == ports::HapticKind::WaveformDriver ? "DRV2605"
+                       : found.haptic == ports::HapticKind::PinMotor     ? "PIN"
                                                                          : nullptr;
             default: return nullptr;
         }
@@ -202,7 +202,7 @@ class Product {
 
     power::BootCell read_boot_cell() {
         power::BootCell cell{};
-        if (!hal::has(board_.capabilities(), hal::Capability::Battery)) return cell;
+        if (!ports::has(board_.capabilities(), ports::Capability::Battery)) return cell;
         uint16_t raw_mv = 0;
         cell.valid = platform_.read_battery_mv(raw_mv);
         cell.millivolts = power::calibrated_mv(raw_mv, state_.settings.battery_offset_mv);
@@ -217,12 +217,12 @@ class Product {
     }
 
     void draw_self_test() {
-        const hal::Capabilities fitted = board_.capabilities();
+        const ports::Capabilities fitted = board_.capabilities();
         for (int i = 0; i < kBootPartCount; i++) {
             const BootPartSpec& spec = kBootParts[i];
             boot_parts_[i].name = spec.name;
-            boot_parts_[i].state = hal::has(fitted, spec.capability)      ? ui::PartState::Pass
-                                   : hal::has(kRequired, spec.capability) ? ui::PartState::Fail
+            boot_parts_[i].state = ports::has(fitted, spec.capability)      ? ui::PartState::Pass
+                                   : ports::has(kRequired, spec.capability) ? ui::PartState::Fail
                                                                             : ui::PartState::Absent;
             boot_parts_[i].detail = boot_detail(spec.capability);
         }
@@ -281,7 +281,7 @@ class Product {
     ui::BootSnapshot boot_snapshot_{};
     P& platform_;
     Board board_;
-    hal::Roles roles_{board_.roles()};
+    ports::Roles roles_{board_.roles()};
     runtime::Context ctx_{roles_, bus_, state_};
 
     // Declared before the config service, which is handed it: the settings writer

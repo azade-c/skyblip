@@ -207,7 +207,7 @@ TEST_CASE("companion link: a late MTU exchange is the same phone, not a new one"
     uint32_t t = 0;
     taxi(rig, t, 20);
 
-    rig.platform.link().declare_payload_bytes(hal::kMinimumLinkPayload);
+    rig.platform.link().declare_payload_bytes(ports::kMinimumLinkPayload);
     rig.raise_link(5);
     rig.send("{\"cmd\":\"dfu\"}");
     rig.run(t, t + 3000);

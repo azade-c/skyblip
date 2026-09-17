@@ -12,8 +12,8 @@
 #include "hardware/parts/l76k/l76k.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/parts/sx1262/sx1262.h"
-#include "hal/inventory.h"
-#include "hal/roles.h"
+#include "ports/inventory.h"
+#include "ports/roles.h"
 #include "runtime/null.h"
 #include "runtime/tasks.h"
 #include "ui/input/button.h"
@@ -47,12 +47,12 @@ class TEchoPlus {
         // final before roles() is taken, and the round-trip needs nothing the
         // rails have not already provided: DS 13.1.1 puts the part in STDBY_RC on
         // reset, and a register write and read back run on that internal clock.
-        if (radio_.probe() == Status::Ok) capabilities_ = capabilities_ | hal::Capability::Rf;
+        if (radio_.probe() == Status::Ok) capabilities_ = capabilities_ | ports::Capability::Rf;
 
         take_bus_inventory();
         identify_panel();
         establish_haptic();
-        if (platform_.buzzer_pin_held_low()) capabilities_ = without(hal::Capability::Buzzer);
+        if (platform_.buzzer_pin_held_low()) capabilities_ = without(ports::Capability::Buzzer);
     }
 
     // Probing is done: capabilities() is already known. This is bring-up, and a part that
@@ -61,8 +61,8 @@ class TEchoPlus {
     Status begin() {
         const Status s = platform_.begin();
         if (s != Status::Ok) return s;
-        if (hal::has(capabilities_, hal::Capability::Display)) epd_.begin();
-        if (!hal::has(capabilities_, hal::Capability::Rf)) return Status::Ok;
+        if (ports::has(capabilities_, ports::Capability::Display)) epd_.begin();
+        if (!ports::has(capabilities_, ports::Capability::Rf)) return Status::Ok;
         return rf_.begin();
     }
 
@@ -73,45 +73,45 @@ class TEchoPlus {
     // after the services have stopped running.
     void park() { haptic_.park(); }
 
-    hal::Capabilities capabilities() const { return capabilities_; }
+    ports::Capabilities capabilities() const { return capabilities_; }
 
     // What answered, by name and address, behind the capability bits. The
     // self-test page reads it: two BME280 addresses, five shipped e-paper
     // signatures and a haptic that may or may not be a waveform driver are
     // exactly the facts a bench cannot get from a PASS.
-    const hal::Inventory& inventory() const { return inventory_; }
+    const ports::Inventory& inventory() const { return inventory_; }
 
-    hal::Roles roles() {
-        return hal::Roles{
+    ports::Roles roles() {
+        return ports::Roles{
             platform_.clock(),
-            hal::has(capabilities_, hal::Capability::Rf) ? static_cast<hal::Rf&>(rf_)
+            ports::has(capabilities_, ports::Capability::Rf) ? static_cast<ports::Rf&>(rf_)
                                                              : null_.rf,
-            hal::has(capabilities_, hal::Capability::Link)
-                ? static_cast<hal::Link&>(platform_.link())
+            ports::has(capabilities_, ports::Capability::Link)
+                ? static_cast<ports::Link&>(platform_.link())
                 : null_.link,
-            hal::has(capabilities_, hal::Capability::Display)
-                ? static_cast<hal::Display&>(epd_)
+            ports::has(capabilities_, ports::Capability::Display)
+                ? static_cast<ports::Display&>(epd_)
                 : null_.display,
-            hal::has(capabilities_, hal::Capability::Storage)
-                ? static_cast<hal::KvStore&>(platform_.kv())
+            ports::has(capabilities_, ports::Capability::Storage)
+                ? static_cast<ports::KvStore&>(platform_.kv())
                 : null_.kv,
-            hal::has(capabilities_, hal::Capability::Storage)
-                ? static_cast<hal::FlashRegion&>(platform_.log_flash())
+            ports::has(capabilities_, ports::Capability::Storage)
+                ? static_cast<ports::FlashRegion&>(platform_.log_flash())
                 : null_.log_flash,
             // Buzzer OR haptic: they are one role and two parts, and a board with
             // a dead buzzer pin still owes a pilot the pulse it can make.
-            hal::has(capabilities_, hal::Capability::Buzzer) ||
-                    hal::has(capabilities_, hal::Capability::Vibro)
-                ? static_cast<hal::Annunciator&>(platform_.annunciator())
+            ports::has(capabilities_, ports::Capability::Buzzer) ||
+                    ports::has(capabilities_, ports::Capability::Vibro)
+                ? static_cast<ports::Annunciator&>(platform_.annunciator())
                 : null_.annunciator,
-            hal::has(capabilities_, hal::Capability::Dfu)
-                ? static_cast<hal::Dfu&>(platform_.dfu())
+            ports::has(capabilities_, ports::Capability::Dfu)
+                ? static_cast<ports::Dfu&>(platform_.dfu())
                 : null_.dfu,
-            hal::has(capabilities_, hal::Capability::DieTemperature)
-                ? static_cast<hal::DieTemperature&>(platform_.die_temperature())
+            ports::has(capabilities_, ports::Capability::DieTemperature)
+                ? static_cast<ports::DieTemperature&>(platform_.die_temperature())
                 : null_.die_temperature,
-            hal::has(capabilities_, hal::Capability::Indicator)
-                ? static_cast<hal::Indicator&>(platform_.indicator())
+            ports::has(capabilities_, ports::Capability::Indicator)
+                ? static_cast<ports::Indicator&>(platform_.indicator())
                 : null_.indicator,
             capabilities_,
             platform_.device_addr(),
@@ -119,7 +119,7 @@ class TEchoPlus {
     }
 
     void poll_baro_on_pps(const timing::ClockState& clock, uint32_t now_ms) {
-        if (!hal::has(capabilities_, hal::Capability::Baro)) return;
+        if (!ports::has(capabilities_, ports::Capability::Baro)) return;
         if (!baro_due(clock, now_ms)) return;
         last_baro_ms_ = now_ms;
         uint32_t mpa = 0;
@@ -135,7 +135,7 @@ class TEchoPlus {
     }
 
     void poll_battery(uint32_t now_ms) {
-        if (!hal::has(capabilities_, hal::Capability::Battery)) return;
+        if (!ports::has(capabilities_, ports::Capability::Battery)) return;
         if (now_ms - last_battery_ms_ < runtime::kBatteryPeriodMs) return;
         last_battery_ms_ = now_ms;
         uint16_t millivolts = 0;
@@ -166,7 +166,7 @@ class TEchoPlus {
                 bus_.link_rx.push(frame);
         }
 
-        if (hal::has(capabilities_, hal::Capability::Gnss)) {
+        if (ports::has(capabilities_, ports::Capability::Gnss)) {
             gnss_.service(now_ms);
             if (gnss_.poll()) bus_.gnss.push(gnss_.solution());
         }
@@ -203,10 +203,10 @@ class TEchoPlus {
     parts::Drv2605& haptic() { return haptic_; }
 
    private:
-    // hal::missing(a, b) is "b without a", which is what this board needs when a
+    // ports::missing(a, b) is "b without a", which is what this board needs when a
     // probe contradicts what the platform declared.
-    hal::Capabilities without(hal::Capability bit) const {
-        return hal::missing(bit, capabilities_);
+    ports::Capabilities without(ports::Capability bit) const {
+        return ports::missing(bit, capabilities_);
     }
 
     // The fingerprint is taken where the pins are free, which on silicon is the
@@ -247,13 +247,13 @@ class TEchoPlus {
     // does not answer, this reports the haptic absent and the alarm loses it
     // honestly, which is still better than the claim that preceded it.
     void establish_haptic() {
-        capabilities_ = without(hal::Capability::Vibro);
-        inventory_.haptic = hal::HapticKind::None;
+        capabilities_ = without(ports::Capability::Vibro);
+        inventory_.haptic = ports::HapticKind::None;
         if (!inventory_.has_i2c_address(t_echo_plus::kHapticDriverAddress)) return;
         if (haptic_.begin() != Status::Ok) return;
         platform_.annunciator().attach_haptic(haptic_);
-        inventory_.haptic = hal::HapticKind::WaveformDriver;
-        capabilities_ = capabilities_ | hal::Capability::Vibro | hal::Capability::HapticDriver;
+        inventory_.haptic = ports::HapticKind::WaveformDriver;
+        capabilities_ = capabilities_ | ports::Capability::Vibro | ports::Capability::HapticDriver;
     }
 
     P& platform_;
@@ -263,11 +263,11 @@ class TEchoPlus {
     parts::L76k gnss_;
     parts::Drv2605 haptic_;
     typename P::Rf rf_;
-    hal::Inventory inventory_{};
+    ports::Inventory inventory_{};
     ui::Button button_{};
     ui::Pad pad_{};
     runtime::NullRoles null_{};
-    hal::Capabilities capabilities_;
+    ports::Capabilities capabilities_;
     uint32_t last_baro_ms_{0};
     uint32_t last_battery_ms_{0};
 };

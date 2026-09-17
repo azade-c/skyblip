@@ -1,4 +1,4 @@
-// hal/die_temperature.h: capability port: how warm the silicon is.
+// ports/die_temperature.h: capability port: how warm the silicon is.
 //
 // The SX1262 has a temperature sensor and it is not worth reading: OGN says so
 // outright and falls back to the nRF52 die sensor instead (nrf52-ogn-tracker
@@ -15,15 +15,15 @@
 // making. Whole degrees is what a reply is free to print.
 //
 // A board with no sensor is an absent capability, not a null pointer and not a
-// zero reading: read() answers false, hal::Capability says so once, and the
+// zero reading: read() answers false, ports::Capability says so once, and the
 // reply simply has no key. This class IS the absent part - it is not abstract, so
 // a platform without a sensor needs no second type to stand in for one.
-#ifndef SKYBLIP_HAL_DIE_TEMPERATURE_H
-#define SKYBLIP_HAL_DIE_TEMPERATURE_H
+#ifndef SKYBLIP_PORTS_DIE_TEMPERATURE_H
+#define SKYBLIP_PORTS_DIE_TEMPERATURE_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class DieTemperature {
    public:
@@ -38,6 +38,6 @@ class DieTemperature {
     }
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

@@ -181,9 +181,9 @@ Status Link::begin() {
 // correct as long as nothing assumes the result, which payload_bytes() is what
 // stops.
 uint16_t Link::payload_bytes() const {
-    if (!g_conn) return hal::kMinimumLinkPayload;
+    if (!g_conn) return ports::kMinimumLinkPayload;
     const uint16_t payload = payload_from_mtu(bt_gatt_get_mtu(g_conn));
-    return payload < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload : payload;
+    return payload < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : payload;
 }
 
 Status Link::send(Endpoint ep, ConstByteSpan bytes) {

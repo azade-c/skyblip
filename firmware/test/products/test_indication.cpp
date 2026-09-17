@@ -51,13 +51,13 @@ TEST_CASE("product: a running device with no fix winks blue, and green once it h
 
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::NoFix);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Blue);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Blue);
 
     rig.push_fix(/*alt_m=*/500, /*updates=*/1);
     settle(rig, t, 500);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
 }
 
 TEST_CASE("product: a healthy device holds its lamp dark almost all the time") {
@@ -99,7 +99,7 @@ TEST_CASE("product: a cell below the warning level blinks the lamp red") {
     REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Low);
     REQUIRE(step_until_lit(rig, t, 1000) > 0);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
 }
 
 TEST_CASE("product: a divider that reads nothing does not blink like a flat cell") {
@@ -130,11 +130,11 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
     // Held, not winked: external power is paying, and a pilot holding the cable
     // wants an answer that does not need watching for three seconds.
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
     const uint32_t shows = lamp_of(rig).shows();
     settle(rig, t, 5000);
     CHECK(lamp_of(rig).shows() == shows);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
 
     // The charger has stopped pushing current and is holding the float voltage.
     rig.platform.battery().millivolts = power::kChargeCompleteMv + 5;
@@ -142,7 +142,7 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     REQUIRE_FALSE(rig.state().power.battery.charging);
     REQUIRE(rig.state().power.battery.external_power);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charged);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
 }
 
 TEST_CASE("product: a low cell on the cable shows charging, not low") {
@@ -159,7 +159,7 @@ TEST_CASE("product: a low cell on the cable shows charging, not low") {
     rig.platform.battery().external_power = true;
     settle(rig, t, 5000);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
 }
 
 TEST_CASE("product: a device on its way down darkens the lamp and lets go of the pins") {
@@ -193,14 +193,14 @@ TEST_CASE("product: a device on its way down darkens the lamp and lets go of the
 TEST_CASE("product: a unit with no status LED flies and lights nothing") {
     // Absent hardware is a capability, not a null pointer and not a second code
     // path: the table still runs, the condition is still decided, and the port
-    // hal/indicator.h defines - which IS the absent lamp - swallows it.
-    constexpr hal::Capabilities kNoLamp = static_cast<hal::Capabilities>(
+    // ports/indicator.h defines - which IS the absent lamp - swallows it.
+    constexpr ports::Capabilities kNoLamp = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Indicator));
+        ~static_cast<uint32_t>(ports::Capability::Indicator));
     Rig rig{kNoLamp};
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK_FALSE(hal::has(rig.product.capabilities(), hal::Capability::Indicator));
-    CHECK(hal::has(rig.product.degraded(), hal::Capability::Indicator));
+    CHECK_FALSE(ports::has(rig.product.capabilities(), ports::Capability::Indicator));
+    CHECK(ports::has(rig.product.degraded(), ports::Capability::Indicator));
 
     rig.push_fix(/*alt_m=*/500, /*updates=*/1);
     uint32_t t = 0;
@@ -226,7 +226,7 @@ TEST_CASE("product: switching alarms off silences the buzzer and does not darken
 
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == hal::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
     CHECK_FALSE(rig.product.alarm().sounding());
 }
 
@@ -245,7 +245,7 @@ TEST_CASE("product: an urgent contact takes the lamp off the charger") {
 
     run(0, 2000);
     REQUIRE(simulator.product().alarm().indicator_condition() == indication::Condition::Charging);
-    REQUIRE(lamp.lamp() == hal::Lamp::Red);
+    REQUIRE(lamp.lamp() == ports::Lamp::Red);
 
     simulator.world().add_threat();
     run(2000, 6000);

@@ -31,7 +31,7 @@ struct AircraftObs {
     uint16_t speed_q;
     uint16_t track_c9;
     events::Stamp received;
-    // INFO: fc 13sep26 the instant this position was true, on hal::Clock, for the geometry to
+    // INFO: fc 13sep26 the instant this position was true, on ports::Clock, for the geometry to
     // align
     uint32_t at_ms;
     int8_t rssi_dbm;

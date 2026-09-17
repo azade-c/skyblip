@@ -12,7 +12,7 @@
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "doctest/doctest.h"
-#include "hal/link.h"
+#include "ports/link.h"
 
 using namespace skyblip;
 using namespace skyblip::protocol;
@@ -197,7 +197,7 @@ TEST_CASE("nmea: GPRMC/GPGGA emit nothing without both a fix and a UTC time") {
 
 TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest payload") {
     // There is no sender on this endpoint yet. When there is, it goes through
-    // hal::Link::send like the other two, which refuses a frame longer than the
+    // ports::Link::send like the other two, which refuses a frame longer than the
     // negotiated payload - so what these can produce at their widest is a budget
     // worth pinning now rather than discovering on someone's iPhone.
     model::OwnState own = own_at(-899999999, -1799999999, -999);
@@ -226,7 +226,7 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     CHECK(status <= comms::kSmallestSupportedPayload);
     // And neither fits what BLE merely guarantees, which is why a sender here
     // cannot assume a frame is a sentence.
-    CHECK(traffic > hal::kMinimumLinkPayload);
+    CHECK(traffic > ports::kMinimumLinkPayload);
 
     own.speed_q = 65535;
     own.track_c9 = 511;

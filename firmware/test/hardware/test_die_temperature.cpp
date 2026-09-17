@@ -14,12 +14,12 @@
 #include <cstdint>
 
 #include "doctest/doctest.h"
-#include "hal/die_temperature.h"
+#include "ports/die_temperature.h"
 
 using namespace skyblip;
 
 TEST_CASE("die temperature: an absent sensor answers nothing and spoils nothing") {
-    hal::DieTemperature absent;
+    ports::DieTemperature absent;
 
     int16_t decicelsius = 1234;
     CHECK_FALSE(absent.read(decicelsius));

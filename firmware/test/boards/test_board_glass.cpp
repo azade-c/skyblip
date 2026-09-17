@@ -17,7 +17,7 @@ TEST_CASE("board: the host glass is unturned, so the simulator shows the framebu
     fb.clear(true);
     fb.set_pixel(4, 12, true);
     fb.set_pixel(150, 3, true);
-    board.display().present(fb, hal::Refresh::Full, 0);
+    board.display().present(fb, ports::Refresh::Full, 0);
 
     const ui::Framebuffer& glass = platform.chips().epd.framebuffer();
     int mismatches = 0;

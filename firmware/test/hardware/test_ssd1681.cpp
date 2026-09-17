@@ -56,13 +56,13 @@ TEST_CASE("epd: the reset pulse is held low, not glitched") {
 
     ui::Framebuffer fb;
     fb.clear(true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     d.power_off();
     CHECK_FALSE(f.powered);
 
     const uint32_t before = f.reads_while_in_reset;
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK(f.reads_while_in_reset - before >= parts::epd::kResetHoldSpins);
 }
 
@@ -73,7 +73,7 @@ TEST_CASE("epd: present() writes a full framebuffer with correct black/white pol
 
     ui::Framebuffer fb;
     fb.clear(/*white=*/true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
 
     CHECK(f.ram.size() == ui::Framebuffer::kBytes);
     // An all-white framebuffer becomes all 0xFF in panel RAM (inverted).
@@ -93,7 +93,7 @@ TEST_CASE("epd: a black pixel flips the corresponding RAM bit to 0") {
     ui::Framebuffer fb;
     fb.clear(true);
     fb.set_pixel(0, 0, /*black=*/true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
 
     // First RAM byte now has at least one cleared bit (was 0xFF all-white).
     CHECK(f.ram[0] != 0xFF);
@@ -109,7 +109,7 @@ TEST_CASE("epd: an unturned glass takes framebuffer rows as gate lines") {
     fb.set_pixel(0, 0, true);
     fb.set_pixel(199, 0, true);
     fb.set_pixel(3, 8, true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
 
     REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
     CHECK(ram_black(f, 0, 0));
@@ -129,7 +129,7 @@ TEST_CASE("epd: a glass turned 270 degrees takes framebuffer columns as gate lin
     fb.set_pixel(0, 0, true);
     fb.set_pixel(199, 0, true);
     fb.set_pixel(3, 8, true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
 
     REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
     // (x, y) lands on source y of gate line 199 - x.
@@ -147,7 +147,7 @@ TEST_CASE("epd: a turned glass writes the same count of black pixels it was hand
     ui::Framebuffer fb;
     fb.clear(true);
     for (int i = 0; i < 200; i++) fb.set_pixel(i, i / 2, true);
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
 
     int black = 0;
     for (int gate = 0; gate < ui::Framebuffer::kH; gate++)
@@ -164,11 +164,11 @@ TEST_CASE("epd: the first present after begin() is a full refresh, whatever was 
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Partial, 0);
+    d.present(fb, ports::Refresh::Partial, 0);
     CHECK(f.last_full);
 
     settle(d, 0);
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK_FALSE(f.last_full);
 }
 
@@ -199,7 +199,7 @@ TEST_CASE("epd: paint_black leaves the rails up, and the frame behind it takes t
 
     ui::Framebuffer fb;
     fb.clear(true);
-    d.present(fb, hal::Refresh::Partial, 1000);
+    d.present(fb, ports::Refresh::Partial, 1000);
     CHECK_FALSE(f.rails_on);
 }
 
@@ -225,7 +225,7 @@ TEST_CASE("epd: a paint_black leaves the glass known, and the page after it is a
     CHECK(d.ready(parts::Ssd1681::kReadyAfterPartialMs));
     ui::Framebuffer fb;
     fb.clear(true);
-    d.present(fb, hal::Refresh::Partial, 1000);
+    d.present(fb, ports::Refresh::Partial, 1000);
     CHECK_FALSE(f.last_full);
     for (uint8_t b : f.ram_previous) REQUIRE(b == 0x00);  // the black it was left on
 }
@@ -239,15 +239,15 @@ TEST_CASE("epd: the panel says which refresh is in flight, and for how long") {
     fb.clear(true);
     CHECK_FALSE(d.refreshing());
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     CHECK(d.refreshing());
-    CHECK(d.refresh_mode() == hal::Refresh::Full);
+    CHECK(d.refresh_mode() == ports::Refresh::Full);
     settle(d, 0);
     CHECK_FALSE(d.refreshing());
 
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK(d.refreshing());
-    CHECK(d.refresh_mode() == hal::Refresh::Partial);
+    CHECK(d.refresh_mode() == ports::Refresh::Partial);
     CHECK_FALSE(d.ready(5000 + parts::Ssd1681::kReadyAfterPartialMs - 1));
     CHECK(d.refreshing());
     CHECK(d.ready(5000 + parts::Ssd1681::kReadyAfterPartialMs));
@@ -262,13 +262,13 @@ TEST_CASE("epd: present() rewrites the previous-image bank so the panel diffs th
     ui::Framebuffer first;
     first.clear(true);
     first.set_pixel(10, 10, true);
-    d.present(first, hal::Refresh::Full, 0);
+    d.present(first, ports::Refresh::Full, 0);
     settle(d, 0);
 
     ui::Framebuffer second;
     second.clear(true);
     second.set_pixel(20, 20, true);
-    d.present(second, hal::Refresh::Partial, 5000);
+    d.present(second, ports::Refresh::Partial, 5000);
 
     // Bank 0x26 must hold what the glass shows (the first frame) and bank
     // 0x24 the new one, both in panel polarity. A stale or empty 0x26 is the
@@ -291,13 +291,13 @@ TEST_CASE("epd: a full refresh puts the new frame in both banks, not the old one
     ui::Framebuffer first;
     first.clear(true);
     first.set_pixel(10, 10, true);
-    d.present(first, hal::Refresh::Full, 0);
+    d.present(first, ports::Refresh::Full, 0);
     settle(d, 0);
 
     ui::Framebuffer second;
     second.clear(true);
     second.set_pixel(20, 20, true);
-    d.present(second, hal::Refresh::Full, 5000);
+    d.present(second, ports::Refresh::Full, 5000);
     REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
     CHECK(f.ram_previous == f.ram);
 }
@@ -310,12 +310,12 @@ TEST_CASE("epd: the border follows the waveform on a wash and is held at VCOM on
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     CHECK(f.border == 0x05);
     settle(d, 0);
 
     fb.set_pixel(5, 5, true);
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK(f.border == 0x80);
 }
 
@@ -327,17 +327,17 @@ TEST_CASE("epd: every refresh ends with the rails down, the partial as well as t
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     CHECK_FALSE(f.rails_on);
 
     fb.set_pixel(5, 5, true);
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK(d.ready(5000 + parts::Ssd1681::kReadyAfterPartialMs));
     CHECK_FALSE(f.rails_on);
 
     fb.set_pixel(6, 6, true);
-    d.present(fb, hal::Refresh::Partial, 10000);
+    d.present(fb, ports::Refresh::Partial, 10000);
     CHECK(d.ready(10000 + parts::Ssd1681::kReadyAfterPartialMs));
     CHECK_FALSE(f.rails_on);
 }
@@ -350,14 +350,14 @@ TEST_CASE("epd: a run of partials costs one reset, not one per refresh") {
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     const int resets_before = f.reset_pulses;
 
     for (int i = 0; i < 5; i++) {
         fb.set_pixel(10 + i, 10, true);
         const uint32_t t = 5000 + uint32_t(i) * 1000;
-        d.present(fb, hal::Refresh::Partial, t);
+        d.present(fb, ports::Refresh::Partial, t);
         CHECK(d.ready(t + parts::Ssd1681::kReadyAfterPartialMs));
     }
     CHECK(f.reset_pulses == resets_before);
@@ -373,7 +373,7 @@ TEST_CASE("epd: present() is non-blocking and ready() settles the panel without 
     fb.clear(true);
 
     CHECK(d.ready(0));
-    d.present(fb, hal::Refresh::Full, 1000);
+    d.present(fb, ports::Refresh::Full, 1000);
 
     // Not ready before the panel can plausibly have finished, even though the
     // model's BUSY pin is already low.
@@ -393,14 +393,14 @@ TEST_CASE("epd: a present after deep sleep wakes the panel with a reset pulse") 
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     d.power_off();
     CHECK_FALSE(f.powered);
 
     const int resets_before = f.reset_pulses;
     fb.set_pixel(50, 50, true);
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     CHECK(f.reset_pulses == resets_before + 1);
     CHECK(f.powered);
     CHECK(f.present_count == 2);
@@ -413,10 +413,10 @@ TEST_CASE("epd: a hung BUSY line times out, re-initialises, and forces the next 
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
 
-    d.present(fb, hal::Refresh::Partial, 5000);
+    d.present(fb, ports::Refresh::Partial, 5000);
     f.busy_stuck = true;
     CHECK_FALSE(d.ready(5000 + parts::Ssd1681::kReadyAfterPartialMs));
     CHECK_FALSE(d.ready(5000 + parts::Ssd1681::kBusyTimeoutMs - 1));
@@ -427,7 +427,7 @@ TEST_CASE("epd: a hung BUSY line times out, re-initialises, and forces the next 
 
     // The glass is unknown after the recovery: the next present must be full.
     f.busy_stuck = false;
-    d.present(fb, hal::Refresh::Partial, 20000);
+    d.present(fb, ports::Refresh::Partial, 20000);
     CHECK(f.last_full);
 }
 
@@ -439,7 +439,7 @@ TEST_CASE("epd: the panel a hung BUSY left mid-refresh is re-initialised with it
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Partial, 0);
+    d.present(fb, ports::Refresh::Partial, 0);
     f.busy_stuck = true;
     const int sleeps_before = f.deep_sleeps;
     REQUIRE(d.ready(parts::Ssd1681::kBusyTimeoutMs));
@@ -455,13 +455,13 @@ TEST_CASE("epd: a panel that never released BUSY loses its shadow, so the next r
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     f.busy_stuck = true;
     const int resets_before = f.reset_pulses;
     d.power_off();
 
     f.busy_stuck = false;
-    d.present(fb, hal::Refresh::Partial, 60000);
+    d.present(fb, ports::Refresh::Partial, 60000);
     CHECK(f.reset_pulses > resets_before);
     CHECK(f.last_full);
 }
@@ -474,10 +474,10 @@ TEST_CASE("epd: power_off() sleeps the panel whatever waveform ran last") {
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     fb.set_pixel(9, 9, true);
-    d.present(fb, hal::Refresh::Partial, 1000);
+    d.present(fb, ports::Refresh::Partial, 1000);
     d.power_off();
     CHECK_FALSE(f.powered);
     CHECK_FALSE(f.rails_on);
@@ -491,10 +491,10 @@ TEST_CASE("epd: power_off() after the full park frame leaves nothing powered") {
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     fb.clear(true);
-    d.present(fb, hal::Refresh::Full, 1000);
+    d.present(fb, ports::Refresh::Full, 1000);
     d.power_off();
     CHECK_FALSE(f.powered);
     CHECK_FALSE(f.rails_on);
@@ -507,7 +507,7 @@ TEST_CASE("epd: power_off() parks a sleeping panel without touching it twice") {
     ui::Framebuffer fb;
     fb.clear(true);
 
-    d.present(fb, hal::Refresh::Full, 0);
+    d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
     d.power_off();
     const int sleeps_before = f.deep_sleeps;

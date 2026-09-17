@@ -28,7 +28,7 @@
 #include "hardware/platform/zephyr/rf.h"
 #include "hardware/platform/zephyr/system_power.h"
 #include "hardware/platform/zephyr/watchdog.h"
-#include "hal/capabilities.h"
+#include "ports/capabilities.h"
 
 // Two questions only the board port can answer, because on this SoC they have to
 // be asked BEFORE the bus drivers claim the pins at POST_KERNEL: the e-paper's
@@ -140,23 +140,23 @@ class Platform {
     // on the I2C bus, so its presence is the board's to establish, not a pin the
     // platform can declare: P0.08 high with no DRV2605 behind it is a device that
     // reports a vibration motor and cannot vibrate.
-    hal::Capabilities capabilities() const {
-        hal::Capabilities c = hal::Capability::Storage | hal::Capability::Dfu |
-                                hal::Capability::Button | hal::Capability::Link;
-        if (!buzzer_pin_held_low()) c |= hal::Capability::Buzzer;
-        if (device_is_ready(epd_spi_dev_)) c |= hal::Capability::Display;
-        if (device_is_ready(gnss_uart_dev_)) c |= hal::Capability::Gnss;
+    ports::Capabilities capabilities() const {
+        ports::Capabilities c = ports::Capability::Storage | ports::Capability::Dfu |
+                                ports::Capability::Button | ports::Capability::Link;
+        if (!buzzer_pin_held_low()) c |= ports::Capability::Buzzer;
+        if (device_is_ready(epd_spi_dev_)) c |= ports::Capability::Display;
+        if (device_is_ready(gnss_uart_dev_)) c |= ports::Capability::Gnss;
         if (device_is_ready(baro76_dev_) || device_is_ready(baro77_dev_))
-            c |= hal::Capability::Baro;
-        if (device_is_ready(battery_dev_)) c |= hal::Capability::Battery;
+            c |= ports::Capability::Baro;
+        if (device_is_ready(battery_dev_)) c |= ports::Capability::Battery;
         // Only when the driver answered. A build with no CONFIG_TEMP_NRF5, or a
         // devicetree without the node, is a device with no die reading - and
         // saying so once here is what keeps a zero out of the status reply.
-        if (die_temperature_.ready()) c |= hal::Capability::DieTemperature;
+        if (die_temperature_.ready()) c |= ports::Capability::DieTemperature;
         // All three lamps or none. A partially populated LED node would be a
         // board file half-edited, and a table that can show two of its three
         // colours is a vocabulary a pilot cannot read.
-        if (indicator_.ready()) c |= hal::Capability::Indicator;
+        if (indicator_.ready()) c |= ports::Capability::Indicator;
         return c;
     }
 

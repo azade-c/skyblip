@@ -4,7 +4,7 @@
 
 #include <zephyr/drivers/gpio.h>
 
-#include "hal/indicator.h"
+#include "ports/indicator.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -13,7 +13,7 @@ namespace skyblip::platform::zephyr {
 // file with no LED node yields a null port, ready() answers false, the platform
 // grants no capability and the product never attaches this - the same table runs
 // and nothing lights.
-class Indicator : public hal::Indicator {
+class Indicator : public ports::Indicator {
    public:
     Indicator(const struct gpio_dt_spec& green, const struct gpio_dt_spec& red,
               const struct gpio_dt_spec& blue)
@@ -24,13 +24,13 @@ class Indicator : public hal::Indicator {
     }
 
     void begin() {
-        if (ready()) show(hal::Lamp::None);
+        if (ready()) show(ports::Lamp::None);
     }
 
-    void show(hal::Lamp lamp) override {
-        drive(green_, lamp == hal::Lamp::Green);
-        drive(red_, lamp == hal::Lamp::Red);
-        drive(blue_, lamp == hal::Lamp::Blue);
+    void show(ports::Lamp lamp) override {
+        drive(green_, lamp == ports::Lamp::Green);
+        drive(red_, lamp == ports::Lamp::Red);
+        drive(blue_, lamp == ports::Lamp::Blue);
     }
 
     // Dark AND released. These LEDs hang off the gated peripheral rail - SoftRF's
@@ -45,7 +45,7 @@ class Indicator : public hal::Indicator {
     // buffer powered, which is the microamps this whole exercise is about. The
     // next show() reconfigures as an output, so park() is not one-way.
     void park() override {
-        show(hal::Lamp::None);
+        show(ports::Lamp::None);
         release(green_);
         release(red_);
         release(blue_);

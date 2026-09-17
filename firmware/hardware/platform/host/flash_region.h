@@ -4,7 +4,7 @@
 #include <cstring>
 #include <vector>
 
-#include "hal/flash_region.h"
+#include "ports/flash_region.h"
 
 namespace skyblip::platform::host {
 
@@ -16,7 +16,7 @@ namespace skyblip::platform::host {
 // It also knows how to die. cut_power_after(n) programs the next n bytes and
 // then refuses everything, which is the one fault that matters here: a record
 // half-written when the cell went.
-class FlashRegion : public hal::FlashRegion {
+class FlashRegion : public ports::FlashRegion {
    public:
     // 0x14A000 of log_partition in 4 KB sectors, from
     // boards/lilygo/t_echo_plus/t_echo_plus.dts.

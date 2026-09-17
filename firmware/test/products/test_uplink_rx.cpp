@@ -151,7 +151,7 @@ void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 100,
 struct FeatureRig {
     platform::host::Clock clock;
     runtime::NullRoles null;
-    hal::Roles roles{
+    ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator};
     bus::Bus bus{};
@@ -160,7 +160,7 @@ struct FeatureRig {
     go::TrafficService traffic;
 
     explicit FeatureRig(go::Feature declared) : traffic(context, declared) {
-        roles.capabilities = hal::Capability::Rf;
+        roles.capabilities = ports::Capability::Rf;
         state.own.fix_valid = true;
         state.own.utc_valid = true;
         state.own.utc = Rig::kUtcBase;

@@ -39,7 +39,7 @@ struct Spy : runtime::Service {
 
 struct Fixture {
     runtime::NullRoles null;
-    hal::Clock* clock{nullptr};
+    ports::Clock* clock{nullptr};
     bus::Bus bus;
     bus::State state;
 };
@@ -47,13 +47,13 @@ struct Fixture {
 }  // namespace
 
 TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
-    struct : hal::Clock {
+    struct : ports::Clock {
         uint32_t millis() const override { return 0; }
         uint64_t micros() const override { return 0; }
     } clock;
 
     runtime::NullRoles null;
-    hal::Roles roles{clock,
+    ports::Roles roles{clock,
                        null.rf,
                        null.link,
                        null.display,
@@ -63,7 +63,7 @@ TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
-                       hal::Capability::None,
+                       ports::Capability::None,
                        0};
     bus::Bus bus;
     bus::State state;
@@ -88,13 +88,13 @@ TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
 }
 
 TEST_CASE("runtime: setup reports the first failure but still sets up the rest") {
-    struct : hal::Clock {
+    struct : ports::Clock {
         uint32_t millis() const override { return 0; }
         uint64_t micros() const override { return 0; }
     } clock;
 
     runtime::NullRoles null;
-    hal::Roles roles{clock,
+    ports::Roles roles{clock,
                        null.rf,
                        null.link,
                        null.display,
@@ -104,7 +104,7 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
-                       hal::Capability::None,
+                       ports::Capability::None,
                        0};
     bus::Bus bus;
     bus::State state;
@@ -123,7 +123,7 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
 TEST_CASE("runtime: a null role accepts every call and reports nothing works") {
     runtime::NullRoles null;
     CHECK(null.rf.begin() == Status::Down);
-    CHECK(null.rf.arm(hal::RfPlan{}) == Status::Down);
+    CHECK(null.rf.arm(ports::RfPlan{}) == Status::Down);
     CHECK(null.link.send(events::Endpoint::Nmea, ConstByteSpan{}) == Status::Down);
     size_t n = 0;
     uint8_t buf[4];
@@ -197,13 +197,13 @@ TEST_CASE("watchdog: each task carries its own rope") {
 }
 
 TEST_CASE("watchdog: the loop refuses to feed for a service that is not progressing") {
-    struct : hal::Clock {
+    struct : ports::Clock {
         uint32_t millis() const override { return 0; }
         uint64_t micros() const override { return 0; }
     } clock;
 
     runtime::NullRoles null;
-    hal::Roles roles{clock,
+    ports::Roles roles{clock,
                        null.rf,
                        null.link,
                        null.display,
@@ -213,7 +213,7 @@ TEST_CASE("watchdog: the loop refuses to feed for a service that is not progress
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
-                       hal::Capability::None,
+                       ports::Capability::None,
                        0};
     bus::Bus bus;
     bus::State state;
@@ -248,7 +248,7 @@ TEST_CASE("watchdog: the loop refuses to feed for a service that is not progress
     CHECK(wedged.ticks > 0);
 }
 
-// M. The dog's own arithmetic across the 49.7-day wrap of hal::Clock::millis().
+// M. The dog's own arithmetic across the 49.7-day wrap of ports::Clock::millis().
 // This is the one deadline in the tree whose failure mode is the device biting
 // itself: a silence measured as 4.29 billion milliseconds is every task past every
 // deadline at once, so the loop would stop feeding and the aircraft would lose its

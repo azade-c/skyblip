@@ -65,7 +65,7 @@ class AirTime {
     // number restarts at zero when the counter wraps, and 2^32 ms is not a whole
     // number of minutes either, so numbered buckets throw the whole hour away at
     // the wrap and let the hour straddling it spend the band's allowance twice
-    // (hal/clock.h, rule 1).
+    // (ports/clock.h, rule 1).
     uint32_t head_start_ms_{0};
     uint8_t head_{0};
     bool started_{false};

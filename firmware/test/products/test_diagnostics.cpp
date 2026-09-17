@@ -230,7 +230,7 @@ TEST_CASE("diagnostics: the console and the link cannot disagree") {
     CHECK(has(console, ("fixes=" + fixes).c_str()));
 }
 
-// M. The whole product, stepped through the instant hal::Clock::millis() turns
+// M. The whole product, stepped through the instant ports::Clock::millis() turns
 // over. Two things are being pinned. One: the collector's own cadences are
 // unsigned differences, so the wrap costs one late dump and nothing else - a
 // refresh cadence that broke here would freeze every number the dump carries

@@ -6,8 +6,8 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
 
-#include "hal/annunciator.h"
-#include "hal/haptic.h"
+#include "ports/annunciator.h"
+#include "ports/haptic.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -17,7 +17,7 @@ namespace skyblip::platform::zephyr {
 // driver out of standby and moves nothing. Kept as the platform's default
 // haptic, because a pin is always a pin, and because a board that IS fitted with
 // a bare motor needs exactly this and nothing more.
-class PinMotor : public hal::Haptic {
+class PinMotor : public ports::Haptic {
    public:
     explicit PinMotor(const struct gpio_dt_spec& pin) : pin_(pin) {}
 
@@ -31,9 +31,9 @@ class PinMotor : public hal::Haptic {
     struct gpio_dt_spec pin_;
 };
 
-class Annunciator : public hal::Annunciator {
+class Annunciator : public ports::Annunciator {
    public:
-    Annunciator(const struct pwm_dt_spec& buzzer, hal::Haptic& haptic)
+    Annunciator(const struct pwm_dt_spec& buzzer, ports::Haptic& haptic)
         : buzzer_(buzzer), haptic_(&haptic) {}
 
     void begin() {
@@ -42,7 +42,7 @@ class Annunciator : public hal::Annunciator {
         silence();
     }
 
-    // Opens the tone and leaves it open, per hal/annunciator.h: whoever calls
+    // Opens the tone and leaves it open, per ports/annunciator.h: whoever calls
     // this owes it a silence(). The pattern is core/annunciation's.
     void alarm(uint8_t level, uint8_t volume) override {
         if (level == 0) return silence();
@@ -55,7 +55,7 @@ class Annunciator : public hal::Annunciator {
         pwm_set_dt(&buzzer_, period, period / (5 - (volume > 3 ? 3 : volume)));
     }
 
-    // The pulse and the timer that ends it, per hal/annunciator.h. What the pulse
+    // The pulse and the timer that ends it, per ports/annunciator.h. What the pulse
     // reaches - a pin, or a DRV2605 over I2C - is the board's business: it
     // attaches whichever it found.
     // A delayed work item and not a k_timer: a timer's callback runs in interrupt
@@ -73,7 +73,7 @@ class Annunciator : public hal::Annunciator {
     // kernel timer has already done it.
     void service(uint32_t) {}
 
-    void attach_haptic(hal::Haptic& haptic) { haptic_ = &haptic; }
+    void attach_haptic(ports::Haptic& haptic) { haptic_ = &haptic; }
 
    private:
     // INFO: fc 03aug26 The fitted transducer is not identified in LilyGO's own
@@ -104,7 +104,7 @@ class Annunciator : public hal::Annunciator {
     }
 
     struct pwm_dt_spec buzzer_;
-    hal::Haptic* haptic_;
+    ports::Haptic* haptic_;
     PulseEnd haptic_end_{};
 };
 

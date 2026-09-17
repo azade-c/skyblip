@@ -35,7 +35,7 @@
 #include <cstdint>
 
 #include "core/power/cutoff.h"
-#include "hal/indicator.h"
+#include "ports/indicator.h"
 
 namespace skyblip::indication {
 
@@ -57,7 +57,7 @@ constexpr uint16_t kShortestFlashEyeCanCatchMs = 20;
 constexpr uint16_t kHeldOnMs = 1000;
 
 struct Indication {
-    hal::Lamp lamp{hal::Lamp::None};
+    ports::Lamp lamp{ports::Lamp::None};
     uint16_t on_ms{0};
     uint16_t off_ms{0};
 };
@@ -103,29 +103,29 @@ constexpr int kRowCount = static_cast<int>(Condition::kCount);
 // has just been plugged in, and "it is charging" is the more useful of the two
 // answers to the pilot standing there holding the cable.
 inline constexpr Row kTable[kRowCount] = {
-    {Condition::Off, {hal::Lamp::None, 0, 0}, Budget::Dark, "dark: off, or on its way down"},
+    {Condition::Off, {ports::Lamp::None, 0, 0}, Budget::Dark, "dark: off, or on its way down"},
     {Condition::Alarm,
-     {hal::Lamp::Red, 45, 135},
+     {ports::Lamp::Red, 45, 135},
      Budget::Transient,
      "red, fast flicker: traffic alarm, level 2 or 3"},
     {Condition::Charging,
-     {hal::Lamp::Red, kHeldOnMs, 0},
+     {ports::Lamp::Red, kHeldOnMs, 0},
      Budget::Corded,
      "red, held: external power in, cell taking charge"},
     {Condition::Charged,
-     {hal::Lamp::Green, kHeldOnMs, 0},
+     {ports::Lamp::Green, kHeldOnMs, 0},
      Budget::Corded,
      "green, held: external power in, cell full"},
     {Condition::Low,
-     {hal::Lamp::Red, 60, 540},
+     {ports::Lamp::Red, 60, 540},
      Budget::Transient,
      "red, blinking twice a second: cell below the warning level"},
     {Condition::NoFix,
-     {hal::Lamp::Blue, 30, 2970},
+     {ports::Lamp::Blue, 30, 2970},
      Budget::Steady,
      "blue, one wink every 3 s: running, no GNSS fix yet"},
     {Condition::Alive,
-     {hal::Lamp::Green, 30, 2970},
+     {ports::Lamp::Green, 30, 2970},
      Budget::Steady,
      "green, one wink every 3 s: running, fix valid"},
 };
@@ -134,7 +134,7 @@ inline constexpr Row kTable[kRowCount] = {
 // held.
 constexpr uint16_t duty_permille(const Indication& indication) {
     const uint32_t cycle = static_cast<uint32_t>(indication.on_ms) + indication.off_ms;
-    if (indication.lamp == hal::Lamp::None || indication.on_ms == 0 || cycle == 0) return 0;
+    if (indication.lamp == ports::Lamp::None || indication.on_ms == 0 || cycle == 0) return 0;
     return static_cast<uint16_t>(1000u * indication.on_ms / cycle);
 }
 
@@ -170,7 +170,7 @@ constexpr uint16_t shortest_phase_ms() {
     uint16_t shortest = 0xFFFF;
     for (int i = 0; i < kRowCount; i++) {
         const Indication& indication = kTable[i].indication;
-        if (indication.lamp == hal::Lamp::None || indication.off_ms == 0) continue;
+        if (indication.lamp == ports::Lamp::None || indication.off_ms == 0) continue;
         if (indication.on_ms < shortest) shortest = indication.on_ms;
         if (indication.off_ms < shortest) shortest = indication.off_ms;
     }
@@ -191,7 +191,7 @@ static_assert(kShortestPhaseMs >= kShortestFlashEyeCanCatchMs, "a flash a glance
 
 const Indication& indication_for(Condition condition);
 const char* to_string(Condition condition);
-const char* to_string(hal::Lamp lamp);
+const char* to_string(ports::Lamp lamp);
 // The line support reads. Same string the table carries; a second accessor so a
 // caller that has a condition and no table does not go looking for one.
 const char* meaning_of(Condition condition);
@@ -228,7 +228,7 @@ constexpr uint8_t kAlarmTakesLamp = 2;
 Condition condition_for(const Situation& situation);
 
 struct Command {
-    hal::Lamp lamp{hal::Lamp::None};
+    ports::Lamp lamp{ports::Lamp::None};
     // The lamp has to be told something different from what it was last told.
     // An LED re-driven on every pass is a register write a hundred times a
     // second for no light.
@@ -241,13 +241,13 @@ class Policy {
 
     Condition condition() const { return condition_; }
     // What is lit right now, gaps included: None during the off phase of a wink.
-    hal::Lamp lamp() const { return shown_; }
+    ports::Lamp lamp() const { return shown_; }
 
    private:
     void advance(uint32_t now_ms);
 
     Condition condition_{Condition::Off};
-    hal::Lamp shown_{hal::Lamp::None};
+    ports::Lamp shown_{ports::Lamp::None};
     uint32_t phase_ms_{0};
     bool lit_{false};
     bool started_{false};

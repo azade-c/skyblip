@@ -12,7 +12,7 @@
 #include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/link.h"
-#include "hal/dfu.h"
+#include "ports/dfu.h"
 
 using namespace skyblip;
 using namespace skyblip::comms;
@@ -26,22 +26,22 @@ events::RxFrame frame(const char* json) {
     std::memcpy(f.data.data(), json, f.len);
     return f;
 }
-struct SpyDfu : hal::Dfu {
+struct SpyDfu : ports::Dfu {
     int triggered = 0;
     int confirmed = 0;
     int recovery = 0;
     bool staged = true;
-    hal::RecoveryPath recovery_path = hal::RecoveryPath::Rebooted;
+    ports::RecoveryPath recovery_path = ports::RecoveryPath::Rebooted;
     void trigger() override { triggered++; }
     bool confirm() override {
         confirmed++;
         return true;
     }
-    bool staged_version(hal::ImageVersion& out) override {
-        out = hal::ImageVersion{0, 2, 0, 1};
+    bool staged_version(ports::ImageVersion& out) override {
+        out = ports::ImageVersion{0, 2, 0, 1};
         return staged;
     }
-    hal::RecoveryPath enter_recovery() override {
+    ports::RecoveryPath enter_recovery() override {
         recovery++;
         return recovery_path;
     }
@@ -230,8 +230,8 @@ TEST_CASE("comms: the update question names the image state and the versions of 
     CHECK(link.last().bytes.find("\"from\"") == std::string::npos);
 
     dfu::UpdateRecord record;
-    record.from = hal::ImageVersion{0, 1, 0, 12};
-    record.to = hal::ImageVersion{0, 2, 0, 15};
+    record.from = ports::ImageVersion{0, 1, 0, 12};
+    record.to = ports::ImageVersion{0, 2, 0, 15};
     cs.set_image_state(dfu::ImageState::Reverted, record);
     cs.on_rx(frame("{\"cmd\":\"update\"}"));
     CHECK(link.last().bytes.find("\"image\":\"reverted\"") != std::string::npos);
@@ -276,7 +276,7 @@ TEST_CASE("comms: a recovery a reboot cannot carry finishes through power off") 
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     SpyDfu dfu;
-    dfu.recovery_path = hal::RecoveryPath::PowerOffToFinish;
+    dfu.recovery_path = ports::RecoveryPath::PowerOffToFinish;
     ConfigService cs(link, s, &dfu);
     cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"recovery\"}"));
@@ -380,7 +380,7 @@ TEST_CASE("comms: upload window expires") {
 }
 
 // M. The two windows this service holds, across the 49.7-day wrap of
-// hal::Clock::millis(). A ten-minute upload window that never closes is a device
+// ports::Clock::millis(). A ten-minute upload window that never closes is a device
 // that will take firmware from a phone for seven weeks; a thirty-second prompt
 // that expires the instant it is raised cannot be answered at all. Both are
 // unsigned differences from a stamp guarded by a flag, and this is what says so.

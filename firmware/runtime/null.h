@@ -2,25 +2,25 @@
 #define SKYBLIP_RUNTIME_NULL_H
 
 #include "core/events/link.h"
-#include "hal/annunciator.h"
-#include "hal/dfu.h"
-#include "hal/die_temperature.h"
-#include "hal/display.h"
-#include "hal/flash_region.h"
-#include "hal/indicator.h"
-#include "hal/kvstore.h"
-#include "hal/link.h"
-#include "hal/rf.h"
+#include "ports/annunciator.h"
+#include "ports/dfu.h"
+#include "ports/die_temperature.h"
+#include "ports/display.h"
+#include "ports/flash_region.h"
+#include "ports/indicator.h"
+#include "ports/kvstore.h"
+#include "ports/link.h"
+#include "ports/rf.h"
 
 namespace skyblip::runtime {
 
-class NullDisplay : public hal::Display {
+class NullDisplay : public ports::Display {
    public:
-    void present(const ui::Framebuffer&, hal::Refresh, uint32_t) override {}
+    void present(const ui::Framebuffer&, ports::Refresh, uint32_t) override {}
     void power_off() override {}
 };
 
-class NullAnnunciator : public hal::Annunciator {
+class NullAnnunciator : public ports::Annunciator {
    public:
     void alarm(uint8_t, uint8_t) override {}
     void tone(uint16_t, uint8_t) override {}
@@ -28,19 +28,19 @@ class NullAnnunciator : public hal::Annunciator {
     void silence() override {}
 };
 
-class NullLink : public hal::Link {
+class NullLink : public ports::Link {
    public:
     Status send(events::Endpoint, ConstByteSpan) override { return Status::Down; }
 };
 
-class NullKvStore : public hal::KvStore {
+class NullKvStore : public ports::KvStore {
    public:
     Status read(const char*, uint8_t*, size_t, size_t&) override { return Status::NotFound; }
     Status write(const char*, const uint8_t*, size_t) override { return Status::Down; }
     Status erase(const char*) override { return Status::Ok; }
 };
 
-class NullFlashRegion : public hal::FlashRegion {
+class NullFlashRegion : public ports::FlashRegion {
    public:
     bool ready() const override { return false; }
     uint32_t sector_bytes() const override { return 0; }
@@ -50,15 +50,15 @@ class NullFlashRegion : public hal::FlashRegion {
     Status erase_sector(uint32_t) override { return Status::Down; }
 };
 
-class NullDfu : public hal::Dfu {
+class NullDfu : public ports::Dfu {
    public:
     void trigger() override {}
 };
 
-class NullRf : public hal::Rf {
+class NullRf : public ports::Rf {
    public:
     Status begin() override { return Status::Down; }
-    Status arm(const hal::RfPlan&) override { return Status::Down; }
+    Status arm(const ports::RfPlan&) override { return Status::Down; }
     void abort() override {}
 };
 
@@ -70,8 +70,8 @@ struct NullRoles {
     NullFlashRegion log_flash;
     NullDfu dfu;
     NullRf rf;
-    hal::DieTemperature die_temperature;
-    hal::Indicator indicator;
+    ports::DieTemperature die_temperature;
+    ports::Indicator indicator;
 };
 
 }  // namespace skyblip::runtime

@@ -1,5 +1,5 @@
-#ifndef SKYBLIP_HAL_DISPLAY_H
-#define SKYBLIP_HAL_DISPLAY_H
+#ifndef SKYBLIP_PORTS_DISPLAY_H
+#define SKYBLIP_PORTS_DISPLAY_H
 
 #include <cstdint>
 
@@ -7,7 +7,7 @@ namespace skyblip::ui {
 class Framebuffer;
 }
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 // INFO: fc 12sep26 the two the controller has: SSD1681 display mode 1 and mode 2 (0x22 bit 3)
 enum class Refresh : uint8_t { Full, Partial };

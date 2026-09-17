@@ -293,16 +293,16 @@ TEST_CASE("product: the motor is not left running after its pulse") {
 TEST_CASE("product: a unit with no haptic driver flies, sounds, and says what is missing") {
     // The same board with nothing at 0x5A: an empty pad, a dead part, or a plain
     // T-Echo that came down the line as a Plus.
-    constexpr hal::Capabilities kNoHaptic = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoHaptic = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Vibro));
+        ~static_cast<uint32_t>(ports::Capability::Vibro));
     Rig rig{kNoHaptic};
     REQUIRE(rig.setup() == Status::Ok);
 
     // Optional, so the device flies and says so once.
     CHECK(rig.product.flyable());
-    CHECK_FALSE(hal::has(rig.product.capabilities(), hal::Capability::Vibro));
-    CHECK(hal::has(rig.product.degraded(), hal::Capability::Vibro));
+    CHECK_FALSE(ports::has(rig.product.capabilities(), ports::Capability::Vibro));
+    CHECK(ports::has(rig.product.degraded(), ports::Capability::Vibro));
 
     // And the voice it does have still works: the first fix is chirped by the
     // same service that would have pulsed the motor.

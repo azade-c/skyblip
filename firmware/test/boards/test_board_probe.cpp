@@ -28,7 +28,7 @@ TEST_CASE("board: one scan names everything on the sensor bus, driven or not") {
     bus::Bus bus;
     Board board{platform, bus};
 
-    const hal::Inventory& inventory = board.inventory();
+    const ports::Inventory& inventory = board.inventory();
 
     // The barometer, at the address that actually answered rather than at
     // whichever of the two the devicetree happened to declare first.
@@ -55,13 +55,13 @@ TEST_CASE("board: a haptic that answers the bus is a capability, and it is the p
     bus::Bus bus;
     Board board{platform, bus};
 
-    CHECK(hal::has(board.capabilities(), hal::Capability::Vibro));
-    CHECK(board.inventory().haptic == hal::HapticKind::WaveformDriver);
+    CHECK(ports::has(board.capabilities(), ports::Capability::Vibro));
+    CHECK(board.inventory().haptic == ports::HapticKind::WaveformDriver);
     CHECK(board.haptic().ready());
 
     // The pulse reaches the chip's registers, not a pin: the annunciator role the
     // alarm service holds is wired to the part the board found.
-    hal::Roles roles = board.roles();
+    ports::Roles roles = board.roles();
     models::Drv2605& chip = platform.chips().haptic;
     CHECK_FALSE(chip.moving());
 
@@ -69,7 +69,7 @@ TEST_CASE("board: a haptic that answers the bus is a capability, and it is the p
     CHECK(chip.moving());
 
     // And it stops on its own deadline, which is the adapter's promise in
-    // hal/annunciator.h. The board's poll is where the host's deadline is served.
+    // ports/annunciator.h. The board's poll is where the host's deadline is served.
     bus::State state{};
     board.poll(state, 100);
     CHECK(chip.moving());
@@ -85,13 +85,13 @@ TEST_CASE("board: a Plus with no haptic driver does not claim a vibration motor"
     bus::Bus bus;
     Board board{platform, bus};
 
-    CHECK_FALSE(hal::has(board.capabilities(), hal::Capability::Vibro));
-    CHECK(board.inventory().haptic == hal::HapticKind::None);
+    CHECK_FALSE(ports::has(board.capabilities(), ports::Capability::Vibro));
+    CHECK(board.inventory().haptic == ports::HapticKind::None);
     CHECK_FALSE(board.inventory().has_i2c_address(kHapticDriverAddress));
 
     // The call site does not change and does not check: it asks for a pulse and
     // gets whatever this board can make, which here is nothing at all.
-    hal::Roles roles = board.roles();
+    ports::Roles roles = board.roles();
     roles.annunciator.vibrate(200);
     CHECK_FALSE(platform.chips().haptic.moving());
 }
@@ -117,7 +117,7 @@ TEST_CASE("board: a panel nobody has fingerprinted is named, not guessed at") {
     CHECK(std::string(board.inventory().panel) == "UNKNOWN");
     // And the display is still a capability. An identification that could refuse
     // to drive the glass would blank the one page that explains a dead device.
-    CHECK(hal::has(board.capabilities(), hal::Capability::Display));
+    CHECK(ports::has(board.capabilities(), ports::Capability::Display));
 }
 
 TEST_CASE("board: a buzzer pin held low withdraws the buzzer and keeps the haptic") {
@@ -126,13 +126,13 @@ TEST_CASE("board: a buzzer pin held low withdraws the buzzer and keeps the hapti
     bus::Bus bus;
     Board board{platform, bus};
 
-    CHECK_FALSE(hal::has(board.capabilities(), hal::Capability::Buzzer));
+    CHECK_FALSE(ports::has(board.capabilities(), ports::Capability::Buzzer));
     // The haptic is a different part on a different bus and is unaffected...
-    CHECK(hal::has(board.capabilities(), hal::Capability::Vibro));
+    CHECK(ports::has(board.capabilities(), ports::Capability::Vibro));
 
     // ...and it is still reachable, because the annunciator is one role over two
     // parts: a dead buzzer pin must not take the pulse with it.
-    hal::Roles roles = board.roles();
+    ports::Roles roles = board.roles();
     roles.annunciator.vibrate(200);
     CHECK(platform.chips().haptic.moving());
 }
@@ -158,15 +158,15 @@ TEST_CASE("board: the status lamp is a devicetree fact, and a board without one 
     platform::host::Platform fitted;
     bus::Bus bus;
     Board with_a_lamp{fitted, bus};
-    CHECK(hal::has(with_a_lamp.capabilities(), hal::Capability::Indicator));
+    CHECK(ports::has(with_a_lamp.capabilities(), ports::Capability::Indicator));
 
-    constexpr hal::Capabilities kNoLamp = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoLamp = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Indicator));
+        ~static_cast<uint32_t>(ports::Capability::Indicator));
     platform::host::Platform bare{kNoLamp};
     bus::Bus bare_bus;
     Board without{bare, bare_bus};
-    CHECK_FALSE(hal::has(without.capabilities(), hal::Capability::Indicator));
+    CHECK_FALSE(ports::has(without.capabilities(), ports::Capability::Indicator));
     // And it is still a flyable board: the lamp is not required for anything.
-    CHECK(hal::has(without.capabilities(), hal::Capability::Rf | hal::Capability::Gnss));
+    CHECK(ports::has(without.capabilities(), ports::Capability::Rf | ports::Capability::Gnss));
 }

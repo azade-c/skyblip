@@ -13,7 +13,7 @@
 #include <hal/nrf_wdt.h>
 #endif
 
-#include "hal/dfu.h"
+#include "ports/dfu.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -74,7 +74,7 @@ inline bool write_boot_magic(uint8_t magic) {
 using DfuGate = bool (*)();
 void set_dfu_gate(DfuGate gate);
 
-class Dfu : public hal::Dfu {
+class Dfu : public ports::Dfu {
    public:
     void trigger() override {
         boot_request_upgrade(BOOT_UPGRADE_TEST);
@@ -84,22 +84,22 @@ class Dfu : public hal::Dfu {
     bool confirm() override { return boot_write_img_confirmed() == 0; }
     bool confirmed() override { return boot_is_img_confirmed(); }
 
-    bool running_version(hal::ImageVersion& out) override {
+    bool running_version(ports::ImageVersion& out) override {
         return read_version(FIXED_PARTITION_ID(slot0_partition), out);
     }
-    bool staged_version(hal::ImageVersion& out) override {
+    bool staged_version(ports::ImageVersion& out) override {
         return read_version(FIXED_PARTITION_ID(slot1_partition), out);
     }
 
     // INFO: fc 04sep26 the WDT survives a soft reset, not SYSTEM OFF; it would cut the UF2 session
-    hal::RecoveryPath enter_recovery() override {
+    ports::RecoveryPath enter_recovery() override {
         if (watchdog_running()) {
             recovery_armed_ = true;
-            return hal::RecoveryPath::PowerOffToFinish;
+            return ports::RecoveryPath::PowerOffToFinish;
         }
         write_boot_magic(kUf2MassStorageMagic);
         sys_reboot(SYS_REBOOT_WARM);
-        return hal::RecoveryPath::Rebooted;
+        return ports::RecoveryPath::Rebooted;
     }
 
     static uint8_t boot_magic_for_system_off() {
@@ -107,7 +107,7 @@ class Dfu : public hal::Dfu {
     }
 
    private:
-    static bool read_version(uint8_t area_id, hal::ImageVersion& out) {
+    static bool read_version(uint8_t area_id, ports::ImageVersion& out) {
         mcuboot_img_header header{};
         if (boot_read_bank_header(area_id, &header, sizeof(header)) != 0) return false;
         if (header.mcuboot_version != 1) return false;

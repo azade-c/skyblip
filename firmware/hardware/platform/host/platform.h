@@ -15,13 +15,13 @@
 #include "hardware/platform/host/rf.h"
 #include "hardware/platform/host/system_power.h"
 #include "hardware/platform/host/watchdog.h"
-#include "hal/capabilities.h"
-#include "hal/dfu.h"
-#include "hal/die_temperature.h"
+#include "ports/capabilities.h"
+#include "ports/dfu.h"
+#include "ports/die_temperature.h"
 
 namespace skyblip::platform::host {
 
-class Dfu : public hal::Dfu {
+class Dfu : public ports::Dfu {
    public:
     void trigger() override { triggered++; }
     bool confirm() override {
@@ -31,21 +31,21 @@ class Dfu : public hal::Dfu {
         return true;
     }
     bool confirmed() override { return image_confirmed; }
-    bool running_version(hal::ImageVersion& out) override {
+    bool running_version(ports::ImageVersion& out) override {
         if (!has_running) return false;
         out = running;
         return true;
     }
-    bool staged_version(hal::ImageVersion& out) override {
+    bool staged_version(ports::ImageVersion& out) override {
         if (!has_staged) return false;
         out = staged;
         return true;
     }
-    hal::RecoveryPath enter_recovery() override {
+    ports::RecoveryPath enter_recovery() override {
         recoveries++;
         return recovery_path;
     }
-    hal::RecoveryPath recovery_path{hal::RecoveryPath::Rebooted};
+    ports::RecoveryPath recovery_path{ports::RecoveryPath::Rebooted};
 
     int triggered{0};
     int confirms{0};
@@ -54,8 +54,8 @@ class Dfu : public hal::Dfu {
     bool confirm_fails{false};
     bool has_running{false};
     bool has_staged{false};
-    hal::ImageVersion running{};
-    hal::ImageVersion staged{};
+    ports::ImageVersion running{};
+    ports::ImageVersion staged{};
 };
 
 class Baro {
@@ -121,19 +121,19 @@ class Platform {
     using Rf = host::Rf;
     using Link = host::Link;
 
-    static constexpr hal::Capabilities kFullyFitted =
-        hal::Capability::Display | hal::Capability::Gnss | hal::Capability::Baro |
-        hal::Capability::Link | hal::Capability::Storage | hal::Capability::Dfu |
-        hal::Capability::Buzzer | hal::Capability::Vibro | hal::Capability::Button |
-        hal::Capability::Battery | hal::Capability::Indicator;
+    static constexpr ports::Capabilities kFullyFitted =
+        ports::Capability::Display | ports::Capability::Gnss | ports::Capability::Baro |
+        ports::Capability::Link | ports::Capability::Storage | ports::Capability::Dfu |
+        ports::Capability::Buzzer | ports::Capability::Vibro | ports::Capability::Button |
+        ports::Capability::Battery | ports::Capability::Indicator;
 
     // A host board can be fitted with less than everything, which is how the
     // degraded paths get exercised without a soldering iron.
-    explicit Platform(hal::Capabilities fitted = kFullyFitted) : fitted_(fitted) {
+    explicit Platform(ports::Capabilities fitted = kFullyFitted) : fitted_(fitted) {
         chips_.epd.attach_clock(clock_);
-        baro_.present = hal::has(fitted, hal::Capability::Baro);
-        battery_.present = hal::has(fitted, hal::Capability::Battery);
-        log_flash_.set_present(hal::has(fitted, hal::Capability::Storage));
+        baro_.present = ports::has(fitted, ports::Capability::Baro);
+        battery_.present = ports::has(fitted, ports::Capability::Battery);
+        log_flash_.set_present(ports::has(fitted, ports::Capability::Storage));
         wire_i2c();
     }
 
@@ -199,7 +199,7 @@ class Platform {
     // other barometer address, or with a part nobody expected.
     I2cBus& i2c_bus() { return i2c_; }
 
-    hal::Capabilities capabilities() const { return fitted_; }
+    ports::Capabilities capabilities() const { return fitted_; }
 
    private:
     // Which addresses the virtual bus acknowledges, from what the board is fitted
@@ -208,8 +208,8 @@ class Platform {
     // deliberately does not drive answer as well, because they are soldered on and
     // a scan that hid them would be a scan nobody could trust.
     void wire_i2c() {
-        if (hal::has(fitted_, hal::Capability::Baro)) i2c_.answer(kBaroAddress, true);
-        if (hal::has(fitted_, hal::Capability::Vibro))
+        if (ports::has(fitted_, ports::Capability::Baro)) i2c_.answer(kBaroAddress, true);
+        if (ports::has(fitted_, ports::Capability::Vibro))
             i2c_.attach(models::Drv2605::kAddress, chips_.haptic);
         i2c_.answer(kImuAddress, true);
         i2c_.answer(kRtcAddress, true);
@@ -237,7 +237,7 @@ class Platform {
     host::Pps pps_{clock_};
     host::Watchdog watchdog_{};
     host::SystemPower system_power_{};
-    hal::Capabilities fitted_;
+    ports::Capabilities fitted_;
     bool buzzer_pin_held_low_{false};
 };
 

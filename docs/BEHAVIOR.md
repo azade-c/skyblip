@@ -120,7 +120,7 @@ ALP-TAS (FLARM-wire, 2024 protocol) air-frame codec. Two things are worth testin
 
 ### test/core/test_annunciation.cpp
 
-The annunciation policy on its own: given a level, whether it just got worse, and the time, what should the buzzer be doing right now.  The bug this file exists for: hal::Annunciator::alarm() opens a continuous tone that runs until silence(), and the service only silenced it when the worst level reached zero. A level 3 that decayed to level 1 therefore sounded at the urgent pitch for as long as anything at all stayed inside the 3 km info ring. Every case below is either a pattern that ends by itself or a release the service used to miss.
+The annunciation policy on its own: given a level, whether it just got worse, and the time, what should the buzzer be doing right now.  The bug this file exists for: ports::Annunciator::alarm() opens a continuous tone that runs until silence(), and the service only silenced it when the worst level reached zero. A level 3 that decayed to level 1 therefore sounded at the urgent pitch for as long as anything at all stayed inside the 3 km info ring. Every case below is either a pattern that ends by itself or a release the service used to miss.
 
 **annunciation**
 
@@ -234,7 +234,7 @@ core/comms config state machine tested over a link model with scripted JSON mess
   > The ceiling test/core/test_link_payload.cpp holds for the whole dialect, asked again here for the one key that was added to the reply a phone is PUSHED: the widest device state there is, plus the widest temperature the driver will pass (its own gate is -50 to +125 C), inside the 182 bytes an iPhone carries.
 - the update question names the image state and the versions of the attempt
 - the upload and confirmation windows span the 49.7-day wrap
-  > M. The two windows this service holds, across the 49.7-day wrap of hal::Clock::millis(). A ten-minute upload window that never closes is a device that will take firmware from a phone for seven weeks; a thirty-second prompt that expires the instant it is raised cannot be answered at all. Both are unsigned differences from a stamp guarded by a flag, and this is what says so.
+  > M. The two windows this service holds, across the 49.7-day wrap of ports::Clock::millis(). A ten-minute upload window that never closes is a device that will take firmware from a phone for seven weeks; a thirty-second prompt that expires the instant it is raised cannot be answered at all. Both are unsigned differences from a stamp guarded by a flag, and this is what says so.
 - unknown flight-state refuses
   > The latch itself is core/flight/ground.h's; this gate refuses whatever is not a confirmed ground.
 - upload window expires
@@ -340,7 +340,7 @@ core/timing's durable-write policy, alone: a slot plan, a phase, a clock the cas
 - the retune guards between dwells are not free time
   > The two retune guards, 200..204 and 395..399, are the gaps between dwells. They are also where the next dwell gets armed, so they are refused rather than taken for free time: a write there delays the opening of the dwell that follows.
 - the settle, the bound and the stale view span the 49.7-day wrap
-  > M. The whole policy is unsigned differences from the first and last request, so the 49.7-day wrap of hal::Clock::millis() costs it nothing - but "costs it nothing" is a claim, and this is the case that holds it. A pilot stepping a setting through the wrap instant must not have their change deferred for seven weeks, and a dwell view stamped before the wrap must read as 84 ms old after it rather than as a lifetime.
+  > M. The whole policy is unsigned differences from the first and last request, so the 49.7-day wrap of ports::Clock::millis() costs it nothing - but "costs it nothing" is a claim, and this is the case that holds it. A pilot stepping a setting through the wrap instant must not have their change deferred for seven weeks, and a dwell view stamped before the wrap must read as 84 ms old after it rather than as a lifetime.
 - with no dwell armed there is nothing to wait for
   > A product with no radio fitted has no second to respect.
 
@@ -420,7 +420,7 @@ I, row "Fix age as validity". The bug being pinned: `fix.valid` used to mean "th
   > What support reads. A run of refusals for one cause is one event: "the antenna came off twice", not "the antenna came off four thousand times".
 - the jump gate is drawn where moshe-braner draws it
 - the staleness bound spans the 49.7-day wrap
-  > M. The 3500 ms liveness bound across the 49.7-day wrap of hal::Clock::millis(). The failure this would be: a receiver that is talking perfectly well is declared STALE for the seven weeks after the wrap, so the device stops transmitting and stops logging while its GNSS light says everything is fine.
+  > M. The 3500 ms liveness bound across the 49.7-day wrap of ports::Clock::millis(). The failure this would be: a receiver that is talking perfectly well is declared STALE for the seven weeks after the wrap, so the device stops transmitting and stops logging while its GNSS light says everything is fine.
 
 ### test/core/test_flight.cpp
 
@@ -447,7 +447,7 @@ Airborne or not, from the fix stream. This is not a display value: it gates the 
 - only the two ADS-L G.1.4 codes name a state, every other value is unknown
 - the motion figure is speed plus four times the climb, DOP derated
 - the takeoff hold is counted across the 49.7-day wrap
-  > M. The takeoff and landing holds are sums of unsigned differences between consecutive samples, so the 49.7-day wrap of hal::Clock::millis() is one ordinary second to this monitor. What it would cost if it were not: the gap across the wrap reads as 4.29 billion milliseconds, which is past kMaxSampleGapMs, so the sample is thrown away and a takeoff in progress loses its evidence - or worse, a landing declares itself in the air.
+  > M. The takeoff and landing holds are sums of unsigned differences between consecutive samples, so the 49.7-day wrap of ports::Clock::millis() is one ordinary second to this monitor. What it would cost if it were not: the gap across the wrap reads as 4.29 billion milliseconds, which is past kMaxSampleGapMs, so the sample is thrown away and a takeoff in progress loses its evidence - or worse, a landing declares itself in the air.
 
 ### test/core/test_flight_log.cpp
 
@@ -486,7 +486,7 @@ The flight log's pure half: what a record is on flash, when a session runs, wher
 - on the ground the ring is a holding pen and not a queue
 - the file opens before the criterion agreed, so the roll is in it
 - the four-second cadence spans the 49.7-day wrap
-  > M. The four-second record cadence across the 49.7-day wrap of hal::Clock::millis(). A flight log that stops sampling for seven weeks is a flight log with a hole in it that no badge claim survives, and the sampled_ flag beside the stamp is what keeps zero from meaning "never sampled" at the one instant the counter produces it.
+  > M. The four-second record cadence across the 49.7-day wrap of ports::Clock::millis(). A flight log that stops sampling for seven weeks is a flight log with a hole in it that no badge claim survives, and the sampled_ flag beside the stamp is what keeps zero from meaning "never sampled" at the one instant the counter produces it.
 
 ### test/core/test_flight_timer.cpp
 
@@ -709,7 +709,7 @@ One terminal voltage, two meanings: on the cable the charger holds the cell abov
 - the pad on its own switches nothing off
   > A cheek, a raindrop or a bag rests on the pad: it may never switch anything off.
 - the press, the park and the settle span the 49.7-day wrap
-  > M. The whole sequencer across the 49.7-day wrap of hal::Clock::millis(): the long press, the park, and the settle after the button comes up. It is written as unsigned differences from a stamp guarded by a flag, and this is the case that keeps it that way. What the two failures would be: a press that never reaches two seconds, so the device cannot be switched off at all until the counter comes round; or a park that expires the instant it starts, so the rails go while the panel is still refreshing.
+  > M. The whole sequencer across the 49.7-day wrap of ports::Clock::millis(): the long press, the park, and the settle after the button comes up. It is written as unsigned differences from a stamp guarded by a flag, and this is the case that keeps it that way. What the two failures would be: a press that never reaches two seconds, so the device cannot be switched off at all until the counter comes round; or a park that expires the instant it starts, so the rails go while the panel is still refreshing.
 - the wake pin waits for the button to come up
 
 **wake**
@@ -967,7 +967,7 @@ The table is finite and the sky is not, so every entry that arrives asks which o
   > A ground station relays every aircraft it heard, and it heard us. Own-ship on the radar is a permanent collision with the aircraft the device is bolted to.
 - overflow drops oldest non-threat, keeps active alarms
 - the age-out is a difference, whichever side of the wrap the stamps fell
-  > M. Two different clocks meet in this layer and only one of them wraps at 49.7 days. The table ages targets out on a SECONDS base (GNSS UTC when there is a fix, boot seconds when there is not) and the alarm tracker holds its own deadlines on hal::Clock::millis(). Both are unsigned differences, and these are the cases that keep them that way: a target must not be forgotten because the counter turned over, and a contact must not go unannounced for seven weeks.
+  > M. Two different clocks meet in this layer and only one of them wraps at 49.7 days. The table ages targets out on a SECONDS base (GNSS UTC when there is a fix, boot seconds when there is not) and the alarm tracker holds its own deadlines on ports::Clock::millis(). Both are unsigned differences, and these are the cases that keep them that way: a target must not be forgotten because the counter turned over, and a contact must not go unannounced for seven weeks.
 - the direct hold is the alarm layer's patience with a contact
   > The hold is core/traffic/alarm.h's own freshness rule wearing a different unit. If one moves, the other has to, and this is what says so.
 - the plausibility gate is exact at its own boundary
@@ -1354,7 +1354,7 @@ The whole product taking an update; the bootloader is the one thing the host can
 
 ### test/products/test_flash_window.cpp
 
-The settings write through the whole product: a change goes in where a pilot or a phone makes it, and what comes out is counted writes on the host KvStore. Nothing below the services is stubbed, so the dwell the write has to dodge is the one the radio service actually armed.  What is being defended is 1-ARCHITECTURE.md §5.1's "no flash work inside a dwell". The settings page lets a pilot change alarm volume and the altimeter subscale IN FLIGHT, and on the nRF52840 the store behind hal::KvStore is the internal storage_partition: a write there is an NVMC stall on the same core that arms PPS-anchored deadlines. Before the page existed a settings write could only happen on the ground, because a companion "set" is refused airborne.
+The settings write through the whole product: a change goes in where a pilot or a phone makes it, and what comes out is counted writes on the host KvStore. Nothing below the services is stubbed, so the dwell the write has to dodge is the one the radio service actually armed.  What is being defended is 1-ARCHITECTURE.md §5.1's "no flash work inside a dwell". The settings page lets a pilot change alarm volume and the altimeter subscale IN FLIGHT, and on the nRF52840 the store behind ports::KvStore is the internal storage_partition: a write there is an NVMC stall on the same core that arms PPS-anchored deadlines. Before the page existed a settings write could only happen on the ground, because a companion "set" is refused airborne.
 
 **flash window**
 
@@ -1461,10 +1461,10 @@ What a pilot's tablet actually receives from a running skyBlip Go.  The tree for
 - GPRMC/GPGGA give a panel-mounted tablet the position it has no GNSS for
   > The cadence arithmetic this relies on: emit_ownship() is two calls inside run_pass(), the same pass PFLAU and PGRMZ already share, at the pass's fixed 1 Hz. NmeaService::kTargetsPerPass and kPassesPerRefreshBound are derived only from kTargetRefreshBoundMs, kMovingTargetRedrawMs and the table's capacity - none of which this reads or writes - so two more sentences a pass changes what a pass costs in bytes, never how many passes the refresh bound allows or how many targets one may carry.
 - a paired tablet keeps hearing the device across the 49.7-day wrap
-  > M. The pass cadence across the 49.7-day wrap of hal::Clock::millis(). The service defers a pass while a burst is armed and otherwise redraws every second, both of them measured as differences from the last pass, and the flag beside the stamp is what keeps a zero from meaning "never passed". If it were an instant comparison, a paired tablet would go quiet for seven weeks with a device that is tracking perfectly well behind it - and $PFLAU going quiet is what XCSoar reads as the device having failed.
+  > M. The pass cadence across the 49.7-day wrap of ports::Clock::millis(). The service defers a pass while a burst is armed and otherwise redraws every second, both of them measured as differences from the last pass, and the flag beside the stamp is what keeps a zero from meaning "never passed". If it were an instant comparison, a paired tablet would go quiet for seven weeks with a device that is tracking perfectly well behind it - and $PFLAU going quiet is what XCSoar reads as the device having failed.
 - a product that does not declare the companion link says nothing on it
 - a tablet that pairs starts hearing sentences, and they stop when it leaves
-  > THE GUARD. Delete the service from the product's list, or its call to hal::Link::send, and this is the case that goes red. It is written the way a pilot experiences the feature: pair a tablet, see traffic; walk away, see it stop.
+  > THE GUARD. Delete the service from the product's list, or its call to ports::Link::send, and this is the case that goes red. It is written the way a pilot experiences the feature: pair a tablet, see traffic; walk away, see it stop.
 - a unit with no barometer still tells the tablet about its cell
   > $PGRMZ is gated on a barometer because a GNSS altitude under that sentence name would feed a geometric height into an app's altimeter. $LK8EX1 is not, because the cell is not a barometric quantity and this is the only sentence we speak that says anything about power: silence here is a pilot with no way to see a flat unit coming. SoftRF MB sends the same battery-only sentence when no baro chip answered (src/protocol/data/NMEA.cpp:1398-1401).
 - an aircraft heard over the air becomes a $PFLAA a tablet can parse
@@ -1593,7 +1593,7 @@ The acceptance invariant on the host: the real product (board, services, drivers
 - the e-paper refreshes on change, not on cadence
 - the first fix is announced once, then own-ship settles before it flies
 - the free-running dwell phase steps forward through the 49.7-day wrap
-  > M. Where the radio believes it is inside the second, across the 49.7-day wrap of hal::Clock::millis(). With PPS locked the phase is measured from the latched edge, which is a 64-bit microsecond figure and cannot wrap in the life of the device. Without it the phase used to be now_ms % 1000, and that is not a phase at all: 2^32 ms is 4294967.296 seconds, so at the wrap the free-running second stepped 705 ms BACKWARDS and the dwell map was armed out of order for a second - with the anchor already lost, which is the worst moment to add a fault. Both branches read micros() now.  The clock is driven in microseconds here because that is what the silicon does: now_ms is the low 32 bits of the same uptime, so millis() wraps underneath a micros() that keeps counting.
+  > M. Where the radio believes it is inside the second, across the 49.7-day wrap of ports::Clock::millis(). With PPS locked the phase is measured from the latched edge, which is a 64-bit microsecond figure and cannot wrap in the life of the device. Without it the phase used to be now_ms % 1000, and that is not a phase at all: 2^32 ms is 4294967.296 seconds, so at the wrap the free-running second stepped 705 ms BACKWARDS and the dwell map was armed out of order for a second - with the anchor already lost, which is the worst moment to add a fault. Both branches read micros() now.  The clock is driven in microseconds here because that is what the silicon does: now_ms is the low 32 bits of the same uptime, so millis() wraps underneath a micros() that keeps counting.
 - the radio executor is armed against slot deadlines, not polled
 - the range gate's refusals leave the device over the link
   > J. The range gate refuses a reception whose claimed position is further away than this radio could have heard it. Whether that fires once a week or once a second is the first question a support case asks, so the counter leaves the device: read off the table that keeps it, on its own reply.
@@ -1603,7 +1603,7 @@ The acceptance invariant on the host: the real product (board, services, drivers
 - the status reply over the link names why the device came up
   > D5. The panel has the reason at boot and then it is gone; the field diagnosis happens over the link, days later, with the device in a bag.
 - vertical speed is measured across the 49.7-day wrap
-  > M. Vertical speed and turn rate are both differences over a window kept on hal::Clock::millis(), and both keep the instant they last sampled at in a uint32_t whose zero is biased away rather than flagged (ownship.cpp: a stamp of zero would mean "no reference yet", and the counter produces exactly one zero per wrap). The windows themselves are unsigned differences, so this is what a climb through the wrap instant looks like: a climb, measured over its window, not a 4.29-billion-millisecond interval that reads as no climb at all.
+  > M. Vertical speed and turn rate are both differences over a window kept on ports::Clock::millis(), and both keep the instant they last sampled at in a uint32_t whose zero is biased away rather than flagged (ownship.cpp: a stamp of zero would mean "no reference yet", and the counter produces exactly one zero per wrap). The windows themselves are unsigned differences, so this is what a climb through the wrap instant looks like: a climb, measured over its window, not a 4.29-billion-millisecond interval that reads as no climb at all.
 - with no barometer, vertical speed comes from GNSS
 - with the fix gone there is no setting to read, not a stale one
 
@@ -1670,7 +1670,7 @@ What is on the 868 MHz air, and when. Every burst in these tests is a real scram
   > --- J. Transmit loopback ---------------------------------------------------- SoftRF suppresses a transmission whose buffer equals the last frame received and reports "$PSRFE,RF loopback is detected on Tx" (src/driver/RF.cpp:381-396). That guard exists because it happened in the field, and the shape of its firmware is why: one RF driver owns a shared TxBuffer/RxBuffer pair, a received frame is parsed out of the same memory a transmission is composed into, and its relay and bridge paths do put received traffic back on air.  Ours cannot reach that state, and this is the case that says so rather than a paragraph claiming it. The transmit buffer (RadioService::outgoing_) is only ever written by protocol::from_own, whose inputs are own-ship state, the device address and the settings; a received frame's only path is the RfEvent queue into TrafficService and the traffic table, which nothing transmits from. There is no relay feature, no repeater and no second writer. So there is no guard in the driver: a guard against an impossible fault is a test nobody can fail honestly and a comparison in the one place a dwell cannot afford one.  What we do instead is assert the property the guard would protect, over the real air, with both directions live in the same second.
 - on the ground the transmit rate drops to 0.1 Hz
 - own-ship keeps transmitting across the 49.7-day wrap
-  > M. The whole transmit chain stepped through the instant hal::Clock::millis() turns over: the first-fix settling window, the fix-age gate, the once-a-second rate rule, the channel alternation and the rolling duty-cycle hour.  The wrap is a value, not a wait: the clock starts 25 seconds short of it.
+  > M. The whole transmit chain stepped through the instant ports::Clock::millis() turns over: the first-fix settling window, the fix-age gate, the once-a-second rate rule, the channel alternation and the rolling duty-cycle hour.  The wrap is a value, not a wait: the clock starts 25 seconds short of it.
 - own-ship transmits once a second, inside its window, alternating channel
 - the burst is dated when it leaves, and carries the position from then
   > F3. The burst leaves in the direct slot, 450 to 1000 ms into the second, and the ADS-L TimeStamp resolves to a quarter of a second. Encoding the fix's own second left every transmission claiming quarter zero - an instant 450 ms or more before the burst existed - while carrying a position from a third instant. This pins the pair together: the quarter the frame claims is the quarter it went on air in.
@@ -1698,7 +1698,7 @@ The loop is what every shell drives, so setup failure reporting and tick order a
 - a task that stops checking in stops the feed and is named
 - each task carries its own rope
 - silence is a difference, so the wrap is not a stall
-  > M. The dog's own arithmetic across the 49.7-day wrap of hal::Clock::millis(). This is the one deadline in the tree whose failure mode is the device biting itself: a silence measured as 4.29 billion milliseconds is every task past every deadline at once, so the loop would stop feeding and the aircraft would lose its tracker in flight, once every seven weeks, for no reason at all.
+  > M. The dog's own arithmetic across the 49.7-day wrap of ports::Clock::millis(). This is the one deadline in the tree whose failure mode is the device biting itself: a silence measured as 4.29 billion milliseconds is every task past every deadline at once, so the loop would stop feeding and the aircraft would lose its tracker in flight, once every seven weeks, for no reason at all.
 - the dog is fed while every task is inside its deadline
 - the loop refuses to feed for a service that is not progressing
 

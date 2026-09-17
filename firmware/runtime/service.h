@@ -4,12 +4,12 @@
 #include "core/bus/bus.h"
 #include "core/bus/state.h"
 #include "core/util/result.h"
-#include "hal/roles.h"
+#include "ports/roles.h"
 
 namespace skyblip::runtime {
 
 struct Context {
-    hal::Roles& roles;
+    ports::Roles& roles;
     bus::Bus& bus;
     bus::State& state;
 };

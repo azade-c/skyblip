@@ -24,7 +24,7 @@ struct Rig {
     platform::host::Platform platform;
     Go product{platform};
 
-    explicit Rig(hal::Capabilities fitted = platform::host::Platform::kFullyFitted)
+    explicit Rig(ports::Capabilities fitted = platform::host::Platform::kFullyFitted)
         : platform(fitted) {}
 
     Status setup() { return product.setup(); }
@@ -307,9 +307,9 @@ TEST_CASE("product: a cell too flat to run refuses the boot instead of spending 
 
 // A unit that failed its self test runs no services, so nothing else watches it.
 TEST_CASE("product: a device that cannot fly still switches itself off on a flat cell") {
-    constexpr hal::Capabilities kNoGnss = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoGnss = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Gnss));
+        ~static_cast<uint32_t>(ports::Capability::Gnss));
     Rig rig(kNoGnss);
     REQUIRE(rig.setup() == Status::Down);
     REQUIRE_FALSE(rig.product.flyable());

@@ -16,22 +16,22 @@ TEST_CASE("product: setup brings the radio to Rx and reports its capabilities") 
     Rig rig;
     CHECK(rig.setup() == Status::Ok);
     CHECK(rig.state().started);
-    CHECK(hal::has(rig.product.capabilities(), hal::Capability::Rf | hal::Capability::Gnss));
-    CHECK(rig.product.degraded() == hal::Capability::None);
+    CHECK(ports::has(rig.product.capabilities(), ports::Capability::Rf | ports::Capability::Gnss));
+    CHECK(rig.product.degraded() == ports::Capability::None);
     CHECK(rig.state().settings.device_addr == platform::host::Platform::kDeviceAddr);
 }
 
 TEST_CASE("product: a missing optional capability is degraded, a required one refuses") {
-    constexpr hal::Capabilities kNoBaro = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoBaro = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Baro));
+        ~static_cast<uint32_t>(ports::Capability::Baro));
     Rig degraded(kNoBaro);
     CHECK(degraded.setup() == Status::Ok);
-    CHECK(degraded.product.degraded() == hal::Capability::Baro);
+    CHECK(degraded.product.degraded() == ports::Capability::Baro);
 
-    constexpr hal::Capabilities kNoGnss = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoGnss = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Gnss));
+        ~static_cast<uint32_t>(ports::Capability::Gnss));
     Rig refused(kNoGnss);
     CHECK(refused.setup() == Status::Down);
     CHECK_FALSE(refused.state().started);
@@ -237,12 +237,12 @@ TEST_CASE("product: the same cell on USB power reports a lower state of charge")
 }
 
 TEST_CASE("product: a board with no battery sense says so instead of reporting empty") {
-    constexpr hal::Capabilities kNoBattery = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoBattery = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Battery));
+        ~static_cast<uint32_t>(ports::Capability::Battery));
     Rig rig{kNoBattery};
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK(rig.product.degraded() == hal::Capability::Battery);
+    CHECK(rig.product.degraded() == ports::Capability::Battery);
 
     rig.run(0, 12000);
     CHECK_FALSE(rig.state().power.battery.valid);
@@ -524,9 +524,9 @@ std::string status_of(Rig& rig, uint32_t& t) {
 // the radio stack also uses. So it is read from the service pass, ten seconds
 // apart, and never from the radio thread.
 TEST_CASE("product: the die sensor is read on a slow cadence and reaches the tablet") {
-    constexpr hal::Capabilities kWithDie = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kWithDie = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) |
-        static_cast<uint32_t>(hal::Capability::DieTemperature));
+        static_cast<uint32_t>(ports::Capability::DieTemperature));
     Rig rig{kWithDie};
     REQUIRE(rig.setup() == Status::Ok);
     platform::host::DieTemperature& die = rig.platform.die_temperature();
@@ -570,9 +570,9 @@ TEST_CASE("product: the die sensor is read on a slow cadence and reaches the tab
 
 // The research prohibits charging in the 72.4 C soak; nothing here could see it.
 TEST_CASE("product: a cable in the heat is named, counted and left counted") {
-    constexpr hal::Capabilities kWithDie = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kWithDie = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) |
-        static_cast<uint32_t>(hal::Capability::DieTemperature));
+        static_cast<uint32_t>(ports::Capability::DieTemperature));
     Rig rig{kWithDie};
     REQUIRE(rig.setup() == Status::Ok);
     platform::host::DieTemperature& die = rig.platform.die_temperature();
@@ -611,8 +611,8 @@ TEST_CASE("product: a cable in the heat is named, counted and left counted") {
 TEST_CASE("product: a board with no die sensor publishes no temperature at all") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK_FALSE(hal::has(rig.product.capabilities(), hal::Capability::DieTemperature));
-    CHECK(rig.product.degraded() == hal::Capability::None);
+    CHECK_FALSE(ports::has(rig.product.capabilities(), ports::Capability::DieTemperature));
+    CHECK(rig.product.degraded() == ports::Capability::None);
 
     uint32_t t = 0;
     rig.run(t, t + 30000);
@@ -657,7 +657,7 @@ TEST_CASE("product: the range gate's refusals leave the device over the link") {
 }
 
 // M. Vertical speed and turn rate are both differences over a window kept on
-// hal::Clock::millis(), and both keep the instant they last sampled at in a
+// ports::Clock::millis(), and both keep the instant they last sampled at in a
 // uint32_t whose zero is biased away rather than flagged (ownship.cpp: a stamp of
 // zero would mean "no reference yet", and the counter produces exactly one zero
 // per wrap). The windows themselves are unsigned differences, so this is what a
@@ -687,7 +687,7 @@ TEST_CASE("product: vertical speed is measured across the 49.7-day wrap") {
 }
 
 // M. Where the radio believes it is inside the second, across the 49.7-day wrap of
-// hal::Clock::millis(). With PPS locked the phase is measured from the latched
+// ports::Clock::millis(). With PPS locked the phase is measured from the latched
 // edge, which is a 64-bit microsecond figure and cannot wrap in the life of the
 // device. Without it the phase used to be now_ms % 1000, and that is not a phase at
 // all: 2^32 ms is 4294967.296 seconds, so at the wrap the free-running second

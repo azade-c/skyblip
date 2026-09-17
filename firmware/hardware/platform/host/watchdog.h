@@ -1,13 +1,13 @@
 #ifndef SKYBLIP_HARDWARE_PLATFORM_HOST_WATCHDOG_H
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_WATCHDOG_H
 
-#include "hal/watchdog.h"
+#include "ports/watchdog.h"
 
 namespace skyblip::platform::host {
 
 // Counts what the silicon would do, so a test can assert the loop armed the dog
 // after setup and fed it only while it was allowed to.
-class Watchdog : public hal::Watchdog {
+class Watchdog : public ports::Watchdog {
    public:
     Status arm(uint32_t timeout_ms) override {
         timeout_ms_ = timeout_ms;

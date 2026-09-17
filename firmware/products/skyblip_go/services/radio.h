@@ -12,7 +12,7 @@
 
 namespace skyblip::go {
 
-// INFO: fc 15sep26 slot policy only, hal::Rf flies it against absolute deadlines and owns the
+// INFO: fc 15sep26 slot policy only, ports::Rf flies it against absolute deadlines and owns the
 // chip
 class RadioService : public runtime::Service {
    public:
@@ -21,7 +21,7 @@ class RadioService : public runtime::Service {
     Status setup() override;
     void tick(uint32_t now_ms) override;
 
-    hal::RfMode armed_mode() const { return armed_; }
+    ports::RfMode armed_mode() const { return armed_; }
     uint32_t arm_count() const { return arm_count_; }
     const timing::Transmitter& transmitter() const { return transmitter_; }
 
@@ -34,7 +34,7 @@ class RadioService : public runtime::Service {
    private:
     // Both from micros(), which is 64-bit and does not wrap: nothing about where
     // the radio believes it is inside the second reads the 32-bit millisecond
-    // counter (hal/clock.h).
+    // counter (ports/clock.h).
     int phase_ms() const;
     uint64_t pps_epoch_us() const;
     // Slot 1 spans the UTC second, so inside its tail the dwell, the burst it
@@ -47,8 +47,8 @@ class RadioService : public runtime::Service {
     int32_t fix_lag_ms() const;
     protocol::BurstInstant burst_instant(const timing::Transmitter::Attempt& attempt,
                                          uint64_t tx_at_us, uint32_t utc) const;
-    static hal::RfMode mode_for(const timing::SlotPlan& plan);
-    static void listen_for(timing::Band band, hal::RfPlan& plan);
+    static ports::RfMode mode_for(const timing::SlotPlan& plan);
+    static void listen_for(timing::Band band, ports::RfPlan& plan);
     timing::Transmitter::Attempt attempt(const timing::SlotPlan& plan, uint32_t now_ms) const;
     bool transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const;
     void arm_dwell(const timing::SlotPlan& plan, uint32_t now_ms);
@@ -73,7 +73,7 @@ class RadioService : public runtime::Service {
     // is asserted over the air instead, in test/products/test_rf_timing.cpp.
     protocol::AdslPacket outgoing_{};
     uint8_t outgoing_chips_[protocol::kTxPayloadChipBytes]{};
-    hal::RfMode armed_{hal::RfMode::Idle};
+    ports::RfMode armed_{ports::RfMode::Idle};
     uint32_t armed_freq_{0};
     uint32_t arm_count_{0};
     uint64_t tx_end_us_{0};

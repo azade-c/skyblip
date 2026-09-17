@@ -1,14 +1,14 @@
-// hal/watchdog.h: capability port: the hardware watchdog. runtime/ decides
+// ports/watchdog.h: capability port: the hardware watchdog. runtime/ decides
 // WHETHER the dog may be fed (runtime/watchdog.h); this only carries the answer
 // to the silicon.
-#ifndef SKYBLIP_HAL_WATCHDOG_H
-#define SKYBLIP_HAL_WATCHDOG_H
+#ifndef SKYBLIP_PORTS_WATCHDOG_H
+#define SKYBLIP_PORTS_WATCHDOG_H
 
 #include <cstdint>
 
 #include "core/util/result.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class Watchdog {
    public:
@@ -29,6 +29,6 @@ class Watchdog {
     virtual bool armed() const { return false; }
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

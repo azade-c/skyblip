@@ -3,15 +3,15 @@
 
 #include <cstdint>
 
-#include "hal/annunciator.h"
-#include "hal/haptic.h"
+#include "ports/annunciator.h"
+#include "ports/haptic.h"
 
 namespace skyblip::platform::host {
 
 // A vibration motor wired straight to a pin: on while it is driven. The virtual
 // twin of what the silicon platform can do with a GPIO and a timer, and what the
 // T-Echo Plus turns out NOT to be fitted with.
-class PinMotor : public hal::Haptic {
+class PinMotor : public ports::Haptic {
    public:
     void start() override { driving = true; }
     void stop() override { driving = false; }
@@ -19,7 +19,7 @@ class PinMotor : public hal::Haptic {
     bool driving{false};
 };
 
-class Annunciator : public hal::Annunciator {
+class Annunciator : public ports::Annunciator {
    public:
     void alarm(uint8_t level, uint8_t volume) override {
         level_ = level;
@@ -38,7 +38,7 @@ class Annunciator : public hal::Annunciator {
     }
 
     // The pulse and its end, both here: whatever the haptic is, the length of the
-    // pulse is the adapter's to own (hal/annunciator.h). The host has no timer,
+    // pulse is the adapter's to own (ports/annunciator.h). The host has no timer,
     // so the end is the caller's next tick asking for the time - which is what
     // service() is, driven by the board's poll.
     void vibrate(uint16_t ms) override {
@@ -73,7 +73,7 @@ class Annunciator : public hal::Annunciator {
         started_ = false;
     }
 
-    void attach_haptic(hal::Haptic& haptic) { haptic_ = &haptic; }
+    void attach_haptic(ports::Haptic& haptic) { haptic_ = &haptic; }
 
     uint8_t level() const { return level_; }
     uint16_t hz() const { return hz_; }
@@ -97,7 +97,7 @@ class Annunciator : public hal::Annunciator {
     uint16_t vibro_ms_{0};
     uint32_t tone_commands_{0}, silences_{0}, vibro_pulses_{0};
     PinMotor pin_motor_{};
-    hal::Haptic* haptic_{&pin_motor_};
+    ports::Haptic* haptic_{&pin_motor_};
     uint32_t start_ms_{0};
     uint32_t pulse_ends_ms_{0};
     bool pulsing_{false};

@@ -97,7 +97,7 @@ class NmeaService : public runtime::Service {
     char sentence_[kSentenceBytesCap]{};
     uint32_t last_pass_ms_{0};
     uint32_t link_drops_{0};
-    int payload_{hal::kMinimumLinkPayload};
+    int payload_{ports::kMinimumLinkPayload};
     int frame_len_{0};
     // Where the rotation resumes. It advances only past a target that actually
     // went out, so a pass cut short by a refusing link resends its tail first.

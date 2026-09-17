@@ -328,7 +328,7 @@ TEST_CASE("diagnostics: a link too narrow for one field is refused, not answered
     const Diagnostics d = widest_device();
     DiagnosticsReport report(d, "diag");
     CHECK(report.fits(kSmallestSupportedPayload));
-    // hal::kMinimumLinkPayload, which is all BLE guarantees: not one worst-case
+    // ports::kMinimumLinkPayload, which is all BLE guarantees: not one worst-case
     // field plus the four keys that name the frame.
     CHECK_FALSE(report.fits(20));
 

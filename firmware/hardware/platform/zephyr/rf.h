@@ -9,8 +9,8 @@
 #include "core/model/band.h"
 #include "core/timing/channel.h"
 #include "hardware/parts/sx1262/sx1262.h"
-#include "hal/clock.h"
-#include "hal/rf.h"
+#include "ports/clock.h"
+#include "ports/rf.h"
 #include "runtime/tasks.h"
 
 namespace skyblip::platform::zephyr {
@@ -19,7 +19,7 @@ namespace skyblip::platform::zephyr {
 // thread, waking on an armed absolute deadline. Nothing on this thread writes
 // flash or touches the BLE stack: a deferred internal-flash write blocks for
 // milliseconds, which is more than the whole guard budget.
-class Rf : public hal::Rf {
+class Rf : public ports::Rf {
    public:
     static constexpr int kStackSize = 2048;
     static constexpr int kSpinUs = 200;
@@ -28,7 +28,7 @@ class Rf : public hal::Rf {
     // that an idle device is not woken for nothing.
     static constexpr int kHealthTickMs = 250;
 
-    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
+    Rf(parts::Sx1262& radio, ports::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
         : radio_(radio), clock_(clock), out_(out) {
         k_sem_init(&armed_, 0, 1);
     }
@@ -45,7 +45,7 @@ class Rf : public hal::Rf {
         return Status::Ok;
     }
 
-    Status arm(const hal::RfPlan& plan) override {
+    Status arm(const ports::RfPlan& plan) override {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
@@ -73,7 +73,7 @@ class Rf : public hal::Rf {
         k_sem_give(&armed_);
     }
 
-    hal::RfCarrier carrier() const override { return carrier_; }
+    ports::RfCarrier carrier() const override { return carrier_; }
 
     // The board calls this from the service pass, and there is deliberately
     // nothing here: the radio belongs to the thread below, and reinitialising it
@@ -86,7 +86,7 @@ class Rf : public hal::Rf {
     static void entry(void* self, void*, void*) { static_cast<Rf*>(self)->run(); }
 
     // INFO: fc 15sep26 the dwell loop owns the burst fields, so the publish is ordered by the flag
-    bool joins_flying_dwell(const hal::RfPlan& plan) {
+    bool joins_flying_dwell(const ports::RfPlan& plan) {
         if (!flying_ || plan.tx == nullptr || burst_ != nullptr) return false;
         if (plan.mode != flying_mode_ || plan.freq_hz != flying_freq_) return false;
         if (plan.tx_at_us < clock_.micros() || plan.tx_at_us >= flying_end_us_) return false;
@@ -110,7 +110,7 @@ class Rf : public hal::Rf {
                 continue;
             }
             abort_ = false;
-            const hal::RfPlan plan = plan_;
+            const ports::RfPlan plan = plan_;
             if (clock_.micros() >= plan.end_us) {
                 if (plan.tx != nullptr) emit(events::RfEventType::Missed, clock_.micros());
                 continue;
@@ -150,9 +150,9 @@ class Rf : public hal::Rf {
         while (clock_.micros() < deadline_us) k_busy_wait(10);
     }
 
-    void start(const hal::RfPlan& plan) {
+    void start(const ports::RfPlan& plan) {
         radio_.wake();
-        band_ = plan.mode == hal::RfMode::RxOband ? model::Band::O : model::Band::M;
+        band_ = plan.mode == ports::RfMode::RxOband ? model::Band::O : model::Band::M;
         freq_hz_ = plan.freq_hz;
         if (plan.freq_hz != 0) radio_.configure_radio(dwell_config(plan));
         radio_.start_receive();
@@ -161,7 +161,7 @@ class Rf : public hal::Rf {
     // The whole modem, not just the synthesiser: the two bands are two
     // modulations (ADS-L 4 SRD-860 issue 2 §C.2 against §C.4) and the plan
     // carries both halves.
-    static parts::RadioConfig dwell_config(const hal::RfPlan& plan) {
+    static parts::RadioConfig dwell_config(const ports::RfPlan& plan) {
         parts::RadioConfig cfg{};
         cfg.freq_hz = plan.freq_hz;
         if (plan.bitrate != 0) cfg.bitrate = plan.bitrate;
@@ -214,7 +214,7 @@ class Rf : public hal::Rf {
         }
     }
 
-    void dwell(const hal::RfPlan& plan) {
+    void dwell(const ports::RfPlan& plan) {
         const uint8_t* tx = plan.tx;
         uint8_t tx_len = plan.tx_len;
         uint64_t tx_at_us = plan.tx_at_us;
@@ -277,10 +277,10 @@ class Rf : public hal::Rf {
     }
 
     parts::Sx1262& radio_;
-    hal::Clock& clock_;
+    ports::Clock& clock_;
     bus::Queue<events::RfEvent, 8>& out_;
-    hal::RfPlan plan_{};
-    hal::RfCarrier carrier_{};
+    ports::RfPlan plan_{};
+    ports::RfCarrier carrier_{};
     events::RfEvent rx_{};
     model::Band band_{model::Band::M};
     uint32_t freq_hz_{0};
@@ -295,7 +295,7 @@ class Rf : public hal::Rf {
     uint64_t irq_at_us_{0};
     uint64_t flying_end_us_{0};
     uint32_t flying_freq_{0};
-    hal::RfMode flying_mode_{hal::RfMode::Idle};
+    ports::RfMode flying_mode_{ports::RfMode::Idle};
     uint8_t burst_len_{0};
     volatile bool flying_{false};
     volatile bool abort_{false};

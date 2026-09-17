@@ -41,7 +41,7 @@ void ScreenService::handle_input(uint32_t now_ms) {
         // nothing already in flight can be spent on an authorisation. With no
         // panel fitted there is nothing to read and presence is all there is.
         const bool readable = prompt_on_glass_ ||
-                              !hal::has(context_.roles.capabilities, hal::Capability::Display);
+                              !ports::has(context_.roles.capabilities, ports::Capability::Display);
         const bool quiet = settled_for_a_double_press(now_ms, prompt_since_ms_) &&
                            (!pressed_once_ || settled_for_a_double_press(now_ms, last_press_ms_));
         if (readable && quiet) gesture_.arm(now_ms);
@@ -195,7 +195,7 @@ void ScreenService::tick(uint32_t now_ms) {
 
     if (mode_ == Mode::Settings && alarm_takes_glass()) leave_settings();
 
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Display)) return;
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Display)) return;
     settle_park(now_ms);
     if (!powered_) return;
 
@@ -225,7 +225,7 @@ void ScreenService::tick(uint32_t now_ms) {
                          std::memcmp(fb_.data(), presented_.data(), ui::Framebuffer::kBytes) != 0;
     if (!changed) return;
 
-    context_.roles.display.present(fb_, hal::Refresh::Partial, now_ms);
+    context_.roles.display.present(fb_, ports::Refresh::Partial, now_ms);
     note_presented(now_ms);
 }
 
@@ -305,7 +305,7 @@ void ScreenService::settle_park(uint32_t now_ms) {
     if (park_ == ParkStep::Frame) {
         park_ = ParkStep::Sleep;
         draw_park_frame(park_frame_);
-        context_.roles.display.present(fb_, hal::Refresh::Full, now_ms);
+        context_.roles.display.present(fb_, ports::Refresh::Full, now_ms);
         return;
     }
     park_ = ParkStep::None;

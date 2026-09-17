@@ -3,7 +3,7 @@
 // One decision, in one place. The traffic tracker says which level stands and
 // whether it just got worse; this says how that sounds - on times, off times,
 // how many, and how often it is said again - and it is the only thing allowed
-// to hand the buzzer from one voice to another. hal::Annunciator::alarm() opens
+// to hand the buzzer from one voice to another. ports::Annunciator::alarm() opens
 // a continuous tone that runs until silence(), so a level with no off time is a
 // level that never stops: every pattern here ends by itself.
 //

@@ -10,7 +10,7 @@ namespace skyblip::go {
 // keeps a device that has no sensor from calling into a driver once every ten
 // seconds to be told so.
 void PowerService::sample_die_temperature(uint32_t now_ms) {
-    if (!hal::has(context_.roles.capabilities, hal::Capability::DieTemperature)) return;
+    if (!ports::has(context_.roles.capabilities, ports::Capability::DieTemperature)) return;
     // Unsigned subtraction, so the 49.7-day wrap of the millisecond counter costs
     // one late reading and not a service that never reads again.
     if (die_sampled_ && now_ms - die_read_ms_ < kDiePeriodMs) return;

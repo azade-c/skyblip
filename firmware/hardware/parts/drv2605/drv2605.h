@@ -16,11 +16,11 @@
 
 #include "core/util/result.h"
 #include "hardware/io/io.h"
-#include "hal/haptic.h"
+#include "ports/haptic.h"
 
 namespace skyblip::parts {
 
-class Drv2605 : public hal::Haptic {
+class Drv2605 : public ports::Haptic {
    public:
     // SoftRF platform/nRF52.h:136 (DRV2605_ADDRESS), and the datasheet's only
     // address: the part has no address-select pin.
@@ -42,7 +42,7 @@ class Drv2605 : public hal::Haptic {
     // pin: the address has to answer and the part has to name itself.
     Status begin();
 
-    // hal::Haptic. Real-time playback, not a ROM effect: the drive value is a
+    // ports::Haptic. Real-time playback, not a ROM effect: the drive value is a
     // register that holds until it is cleared, so the pulse is exactly as long
     // as the caller's timer, and no entry in the effect ROM has to be trusted to
     // last a particular number of milliseconds. The ROM route (setWaveform +

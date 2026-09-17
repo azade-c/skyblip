@@ -4,11 +4,11 @@
 
 #include <zephyr/kernel.h>
 
-#include "hal/clock.h"
+#include "ports/clock.h"
 
 namespace skyblip::platform::zephyr {
 
-class Clock : public hal::Clock {
+class Clock : public ports::Clock {
    public:
     uint32_t millis() const override { return static_cast<uint32_t>(k_uptime_get()); }
     uint64_t micros() const override { return k_ticks_to_us_floor64(k_uptime_ticks()); }

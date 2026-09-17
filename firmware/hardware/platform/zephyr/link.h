@@ -3,11 +3,11 @@
 #if defined(__ZEPHYR__)
 
 #include "core/events/link.h"
-#include "hal/link.h"
+#include "ports/link.h"
 
 namespace skyblip::platform::zephyr {
 
-class Link : public hal::Link {
+class Link : public ports::Link {
    public:
     Status begin();  // bt_enable() + start connectable advertising
 

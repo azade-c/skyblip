@@ -52,7 +52,7 @@ def has_driver(part):
 def strays():
     """Test files that crept back in beside the code they test."""
     found = []
-    for layer in ("core", "ui", "hal", "hardware", "boards", "runtime", "products",
+    for layer in ("core", "ui", "ports", "hardware", "boards", "runtime", "products",
                   "simulator"):
         for dirpath, _, files in os.walk(os.path.join(FW, layer)):
             for f in files:

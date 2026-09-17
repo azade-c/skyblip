@@ -1,0 +1,15 @@
+# ports
+
+The roles a product needs filled, declared in the core's own vocabulary. `hardware/` is where a part or a platform fills one.
+
+This is not a hardware abstraction layer, which is why it stopped being called one. A HAL wraps a chip: GPIO, SPI, timers. These types wrap nothing. `Rf::arm()` takes a dwell with a sync word, a chip rate and an instant the burst has to key at, because that is what ADS-L 4 SRD-860 §C.5 requires of a slot, not because an SX1262 has a register that shape. `Link` speaks in endpoints and sessions. `Annunciator` is asked for an alarm, not for a PWM duty cycle. The vocabulary belongs to `core/`, and a port is where the core states what it needs.
+
+Register code belongs in `hardware/parts/` and `hardware/platform/`. Zephyr headers belong there too: nothing above this line includes a framework, which is what buys the host suite and the WASM simulator.
+
+## Absent is a role, not a null
+
+Every field of `Roles` is a reference. A board with no lamp, no die sensor and no radio still fills all ten, because a port whose methods do nothing is a smaller thing than a pointer every caller has to check. Some ports are their own absent part: `Indicator` and `DieTemperature` are concrete, and the base class is what a board without one is handed. The rest have a null in `runtime/null.h`.
+
+What is missing is stated once, in `capabilities.h`, and read by the code that has something to say about it: the self-test page prints the row, a service skips the work. Never by dereferencing.
+
+`capabilities.h` is what the board found, `inventory.h` is which part it was. The first is what code branches on; the second is what a bench reads when two footprints ship with different silicon in them.

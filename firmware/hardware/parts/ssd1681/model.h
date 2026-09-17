@@ -7,7 +7,7 @@
 
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
-#include "hal/clock.h"
+#include "ports/clock.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::models {
@@ -22,7 +22,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     // INFO: fc 09mar26 the tail GxEPD2 counts for the power-down, and a rails-up sequence skips it
     static constexpr uint32_t kPowerDownMs = 140;
 
-    void attach_clock(const hal::Clock& clock) { clock_ = &clock; }
+    void attach_clock(const ports::Clock& clock) { clock_ = &clock; }
 
     bool refreshing() const {
         if (clock_ == nullptr || refresh_span_ms_ == 0) return false;
@@ -162,7 +162,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
         for (size_t i = 0; i < ui::Framebuffer::kBytes; i++) out[i] = static_cast<uint8_t>(~ram[i]);
     }
 
-    const hal::Clock* clock_{nullptr};
+    const ports::Clock* clock_{nullptr};
     uint32_t refresh_since_ms_{0};
     uint32_t refresh_span_ms_{0};
     ui::Framebuffer panel_{};

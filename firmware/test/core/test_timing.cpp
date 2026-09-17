@@ -524,7 +524,7 @@ TEST_CASE("transmit: the design rate never reaches the limit, so nothing is ever
     CHECK_FALSE(a.over_budget);
 }
 
-// M. hal::Clock::millis() wraps every 49.7 days and this device flies through
+// M. ports::Clock::millis() wraps every 49.7 days and this device flies through
 // that instant. The wrap is a value, not a wait: every case below sets the clock
 // a few hundred milliseconds short of 0xFFFFFFFF and steps past it.
 namespace {

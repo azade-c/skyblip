@@ -81,7 +81,7 @@ void NmeaService::tick(uint32_t now_ms) {
 // cannot be the one a full sky pushes off the end.
 void NmeaService::run_pass(uint32_t now_ms) {
     const int negotiated = static_cast<int>(context_.roles.link.payload_bytes());
-    payload_ = negotiated < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload
+    payload_ = negotiated < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload
                : negotiated > kFrameBytesCap           ? kFrameBytesCap
                                                        : negotiated;
     frame_len_ = 0;

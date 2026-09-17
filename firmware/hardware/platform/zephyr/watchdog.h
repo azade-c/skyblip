@@ -7,7 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/task_wdt/task_wdt.h>
 
-#include "hal/watchdog.h"
+#include "ports/watchdog.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -16,7 +16,7 @@ namespace skyblip::platform::zephyr {
 // subsystem sizes that fallback from CONFIG_TASK_WDT_MIN_TIMEOUT plus
 // CONFIG_TASK_WDT_HW_FALLBACK_DELAY, which prj.conf sets above this channel's
 // period so the channel is always the first thing to expire.
-class Watchdog : public hal::Watchdog {
+class Watchdog : public ports::Watchdog {
    public:
     Status arm(uint32_t timeout_ms) override {
         if (armed_) return Status::Ok;

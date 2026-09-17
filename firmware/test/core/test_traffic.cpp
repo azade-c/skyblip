@@ -693,7 +693,7 @@ TEST_CASE("traffic: a relayed target is judged against the two hops it travelled
 // M. Two different clocks meet in this layer and only one of them wraps at
 // 49.7 days. The table ages targets out on a SECONDS base (GNSS UTC when there is
 // a fix, boot seconds when there is not) and the alarm tracker holds its own
-// deadlines on hal::Clock::millis(). Both are unsigned differences, and these are
+// deadlines on ports::Clock::millis(). Both are unsigned differences, and these are
 // the cases that keep them that way: a target must not be forgotten because the
 // counter turned over, and a contact must not go unannounced for seven weeks.
 TEST_CASE("traffic: the age-out is a difference, whichever side of the wrap the stamps fell") {

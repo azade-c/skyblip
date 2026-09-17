@@ -572,7 +572,7 @@ TEST_CASE("rf: a burst from a range the link budget allows is traffic as before"
     CHECK(h.product().state().traffic.implausible_count() == 0);
 }
 
-// M. The whole transmit chain stepped through the instant hal::Clock::millis()
+// M. The whole transmit chain stepped through the instant ports::Clock::millis()
 // turns over: the first-fix settling window, the fix-age gate, the once-a-second
 // rate rule, the channel alternation and the rolling duty-cycle hour.
 //

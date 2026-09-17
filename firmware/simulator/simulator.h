@@ -61,7 +61,7 @@ class Simulator {
     bool backlight() { return platform_.chips().epd.backlight; }
     int present_count() { return platform_.chips().epd.present_count; }
     bool panel_refreshing() { return panel_driver().refreshing(); }
-    bool panel_refresh_is_full() { return panel_driver().refresh_mode() == hal::Refresh::Full; }
+    bool panel_refresh_is_full() { return panel_driver().refresh_mode() == ports::Refresh::Full; }
     // What the buzzer is doing at this instant: 0 in the gaps of a pattern too,
     // because a pattern is what an alarm sounds like.
     uint8_t alarm_level() { return platform_.annunciator().level(); }

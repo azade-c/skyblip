@@ -1,4 +1,4 @@
-// hal/indicator.h: capability port: the only thing on this device that can be
+// ports/indicator.h: capability port: the only thing on this device that can be
 // seen from outside while it is running.
 //
 // E-paper holds its last image with the rails down, which is why the wordmark is
@@ -20,15 +20,15 @@
 //
 // This class IS the absent part. It is not abstract, so a board with no lamp
 // fitted, or a devicetree with no LED node, is handed exactly this and lights
-// nothing while running the same table. Same shape as hal/die_temperature.h and
+// nothing while running the same table. Same shape as ports/die_temperature.h and
 // for the same reason: there is nothing to model, so a null part in runtime/
 // would be a second file saying the same nothing.
-#ifndef SKYBLIP_HAL_INDICATOR_H
-#define SKYBLIP_HAL_INDICATOR_H
+#ifndef SKYBLIP_PORTS_INDICATOR_H
+#define SKYBLIP_PORTS_INDICATOR_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 // Which lamp is lit. One at a time and primaries only: two LEDs lit together to
 // make a colour cost twice the current for a hue nobody can name through a
@@ -49,6 +49,6 @@ class Indicator {
     virtual void park() {}
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

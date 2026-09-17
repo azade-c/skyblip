@@ -35,7 +35,7 @@ constexpr uint16_t kIntoMs = 437;
 struct Rig {
     platform::host::Clock clock;
     runtime::NullRoles null;
-    hal::Roles roles{
+    ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator};
     bus::Bus bus{};
@@ -44,7 +44,7 @@ struct Rig {
     go::TrafficService traffic{context, go::kFeatures};
 
     Rig() {
-        roles.capabilities = hal::Capability::Rf;
+        roles.capabilities = ports::Capability::Rf;
         state.own.fix_valid = true;
         state.own.utc_valid = true;
         state.own.utc = kUtc;

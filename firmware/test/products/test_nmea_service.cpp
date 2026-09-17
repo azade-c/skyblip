@@ -138,7 +138,7 @@ void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 100,
 }  // namespace
 
 // THE GUARD. Delete the service from the product's list, or its call to
-// hal::Link::send, and this is the case that goes red. It is written the way a
+// ports::Link::send, and this is the case that goes red. It is written the way a
 // pilot experiences the feature: pair a tablet, see traffic; walk away, see it
 // stop.
 TEST_CASE("nmea: a tablet that pairs starts hearing sentences, and they stop when it leaves") {
@@ -242,7 +242,7 @@ TEST_CASE(
     // The phone that never exchanges an MTU: 23 bytes of ATT, 20 of payload.
     // A $PFLAA does not fit in one of those, so a sender that framed one
     // sentence per notification would send this pilot nothing at all.
-    rig.platform.link().declare_payload_bytes(hal::kMinimumLinkPayload);
+    rig.platform.link().declare_payload_bytes(ports::kMinimumLinkPayload);
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 1);
@@ -253,7 +253,7 @@ TEST_CASE(
     for (const auto& frame : rig.platform.link().sent) {
         if (frame.endpoint != events::Endpoint::Nmea) continue;
         frames++;
-        CHECK(frame.bytes.size() <= hal::kMinimumLinkPayload);
+        CHECK(frame.bytes.size() <= ports::kMinimumLinkPayload);
     }
     CHECK(frames > 0);
     // The controller's refusal never happened: nothing oversized was offered.
@@ -489,7 +489,7 @@ struct FeatureRig {
     platform::host::Clock clock;
     platform::host::Link link;
     runtime::NullRoles null;
-    hal::Roles roles{
+    ports::Roles roles{
         clock,          null.rf,          link,     null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
     bus::Bus bus{};
@@ -499,7 +499,7 @@ struct FeatureRig {
     comms::ConfigService config{link, settings};
     go::NmeaService nmea;
 
-    FeatureRig(go::Feature declared, hal::Capabilities fitted = hal::Capability::Link)
+    FeatureRig(go::Feature declared, ports::Capabilities fitted = ports::Capability::Link)
         : nmea(context, declared, config) {
         roles.capabilities = fitted;
         state.own.fix_valid = true;
@@ -530,13 +530,13 @@ TEST_CASE("nmea: a product that does not declare the companion link says nothing
 }
 
 TEST_CASE("nmea: the companion link is not claimed on a board with no link fitted") {
-    FeatureRig unfitted(go::Feature::CompanionLink, hal::Capability::None);
+    FeatureRig unfitted(go::Feature::CompanionLink, ports::Capability::None);
     for (uint32_t t = 0; t <= 5000; t += 100) unfitted.nmea.tick(t);
     CHECK_FALSE(unfitted.nmea.enabled());
     CHECK(unfitted.frames() == 0);
 }
 
-// M. The pass cadence across the 49.7-day wrap of hal::Clock::millis(). The
+// M. The pass cadence across the 49.7-day wrap of ports::Clock::millis(). The
 // service defers a pass while a burst is armed and otherwise redraws every second,
 // both of them measured as differences from the last pass, and the flag beside the
 // stamp is what keeps a zero from meaning "never passed". If it were an instant

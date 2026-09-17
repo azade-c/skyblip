@@ -31,15 +31,15 @@ uint32_t get_u32(const uint8_t* in) {
     return static_cast<uint32_t>(get_u16(in)) | (static_cast<uint32_t>(get_u16(in + 2)) << 16);
 }
 
-void put_version(uint8_t* out, const hal::ImageVersion& v) {
+void put_version(uint8_t* out, const ports::ImageVersion& v) {
     out[0] = v.major;
     out[1] = v.minor;
     put_u16(out + 2, v.revision);
     put_u32(out + 4, v.build);
 }
 
-hal::ImageVersion get_version(const uint8_t* in) {
-    hal::ImageVersion v;
+ports::ImageVersion get_version(const uint8_t* in) {
+    ports::ImageVersion v;
     v.major = in[0];
     v.minor = in[1];
     v.revision = get_u16(in + 2);
@@ -63,13 +63,13 @@ bool from_blob(const uint8_t* blob, size_t len, UpdateRecord& out) {
     return true;
 }
 
-Outcome outcome(const UpdateRecord& record, const hal::ImageVersion& running) {
+Outcome outcome(const UpdateRecord& record, const ports::ImageVersion& running) {
     if (running == record.to) return Outcome::Landed;
     if (running == record.from) return Outcome::Reverted;
     return Outcome::Unrelated;
 }
 
-int format_version(const hal::ImageVersion& version, char* out, size_t cap) {
+int format_version(const ports::ImageVersion& version, char* out, size_t cap) {
     if (cap < kVersionTextCap) {
         if (cap > 0) out[0] = 0;
         return 0;

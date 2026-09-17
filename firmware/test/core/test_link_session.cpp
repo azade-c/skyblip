@@ -41,10 +41,10 @@ TEST_CASE("link session: a connect and a disconnect arrive as one ordered pair")
 // the link came up with is not the figure it will carry.
 TEST_CASE("link session: a late MTU exchange refreshes the session it belongs to") {
     LinkSession session;
-    session.connected(7, hal::kMinimumLinkPayload);
+    session.connected(7, ports::kMinimumLinkPayload);
     LinkEvent event{};
     REQUIRE(session.pop(event));
-    CHECK(event.payload_bytes == hal::kMinimumLinkPayload);
+    CHECK(event.payload_bytes == ports::kMinimumLinkPayload);
 
     session.payload_changed(182);
     REQUIRE(session.pop(event));
@@ -71,8 +71,8 @@ TEST_CASE("link session: a payload below what BLE guarantees is floored, never c
     session.connected(1, 0);
     LinkEvent event{};
     REQUIRE(session.pop(event));
-    CHECK(event.payload_bytes == hal::kMinimumLinkPayload);
-    CHECK(session.payload_bytes() == hal::kMinimumLinkPayload);
+    CHECK(event.payload_bytes == ports::kMinimumLinkPayload);
+    CHECK(session.payload_bytes() == ports::kMinimumLinkPayload);
 
     session.payload_changed(4);
     CHECK_FALSE(session.pop(event));

@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-#include "hal/capabilities.h"
+#include "ports/capabilities.h"
 
 namespace skyblip::go {
 
@@ -24,25 +24,25 @@ enum class Feature : uint32_t {
 constexpr Feature kFeatures = static_cast<Feature>(static_cast<uint32_t>(Feature::UplinkRx) |
                                                    static_cast<uint32_t>(Feature::CompanionLink));
 
-// Named apart from hal::has so a service reading both cannot pick the wrong one.
+// Named apart from ports::has so a service reading both cannot pick the wrong one.
 constexpr bool has_feature(Feature declared, Feature one) {
     return (static_cast<uint32_t>(declared) & static_cast<uint32_t>(one)) != 0;
 }
 
 struct FeatureSpec {
     Feature feature;
-    hal::Capabilities needs;
+    ports::Capabilities needs;
 };
 
 constexpr FeatureSpec kFeatureSpecs[] = {
-    {Feature::UplinkRx, hal::Capability::Rf},
-    {Feature::CompanionLink, hal::Capability::Link},
+    {Feature::UplinkRx, ports::Capability::Rf},
+    {Feature::CompanionLink, ports::Capability::Link},
 };
 
-constexpr Feature supported(Feature declared, hal::Capabilities capabilities) {
+constexpr Feature supported(Feature declared, ports::Capabilities capabilities) {
     uint32_t kept = static_cast<uint32_t>(declared);
     for (const FeatureSpec& spec : kFeatureSpecs)
-        if (!hal::has(capabilities, spec.needs)) kept &= ~static_cast<uint32_t>(spec.feature);
+        if (!ports::has(capabilities, spec.needs)) kept &= ~static_cast<uint32_t>(spec.feature);
     return static_cast<Feature>(kept);
 }
 

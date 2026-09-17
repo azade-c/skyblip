@@ -5,7 +5,7 @@
 //
 // What is being defended is 1-ARCHITECTURE.md §5.1's "no flash work inside a
 // dwell". The settings page lets a pilot change alarm volume and the altimeter
-// subscale IN FLIGHT, and on the nRF52840 the store behind hal::KvStore is the
+// subscale IN FLIGHT, and on the nRF52840 the store behind ports::KvStore is the
 // internal storage_partition: a write there is an NVMC stall on the same core that
 // arms PPS-anchored deadlines. Before the page existed a settings write could only
 // happen on the ground, because a companion "set" is refused airborne.

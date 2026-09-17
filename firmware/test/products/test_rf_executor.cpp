@@ -33,7 +33,7 @@ struct Pass {
     bus::State state{};
     platform::host::Rf rf{radio, platform.clock(), bus.rf};
     runtime::NullRoles null{};
-    hal::Roles roles{platform.clock(),
+    ports::Roles roles{platform.clock(),
                        rf,
                        null.link,
                        null.display,
@@ -43,7 +43,7 @@ struct Pass {
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
-                       hal::Capability::Rf,
+                       ports::Capability::Rf,
                        0x5B7E57};
     runtime::Context context{roles, bus, state};
     go::RadioService radio_service{context};
@@ -111,8 +111,8 @@ TEST_CASE("rf: the burst keys at its drawn instant, on a held channel as on a qu
     REQUIRE(rf.begin() == Status::Ok);
 
     const uint8_t frame[protocol::AdslPacket::kTxBytes] = {0x72, 0x4B};
-    hal::RfPlan plan{};
-    plan.mode = hal::RfMode::RxMband;
+    ports::RfPlan plan{};
+    plan.mode = ports::RfMode::RxMband;
     plan.freq_hz = timing::kMband0Hz;
     plan.start_us = 450000;
     plan.end_us = 795000;
@@ -199,19 +199,19 @@ TEST_CASE("rf: the SetTx timeout is the transmit watchdog, and the next dwell is
 TEST_CASE("rf: a radio that will not answer over SPI is an absent capability, not a quiet one") {
     platform::host::Platform fitted_platform;
     go::Product<platform::host::Platform> fitted{fitted_platform};
-    CHECK(hal::has(fitted.capabilities(), hal::Capability::Rf));
+    CHECK(ports::has(fitted.capabilities(), ports::Capability::Rf));
     CHECK(fitted.setup() == Status::Ok);
     CHECK(fitted.flyable());
 
     platform::host::Platform dead_platform;
     dead_platform.chips().radio.miso_dead = true;
     go::Product<platform::host::Platform> dead{dead_platform};
-    CHECK_FALSE(hal::has(dead.capabilities(), hal::Capability::Rf));
+    CHECK_FALSE(ports::has(dead.capabilities(), ports::Capability::Rf));
     // The radio is required, so the loop refuses to fly - and the self-test page
     // that names the part is painted before anything refuses.
     CHECK(dead.setup() == Status::Down);
     CHECK_FALSE(dead.flyable());
-    CHECK(hal::has(hal::missing(dead.capabilities(), go::kRequired), hal::Capability::Rf));
+    CHECK(ports::has(ports::missing(dead.capabilities(), go::kRequired), ports::Capability::Rf));
 }
 
 // B3. The phase used to be whatever the board sampled at the top of the pass,
@@ -360,8 +360,8 @@ TEST_CASE("rf: a receiver that hears nothing is reinitialised by the executor th
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
-    hal::RfPlan plan{};
-    plan.mode = hal::RfMode::RxMband;
+    ports::RfPlan plan{};
+    plan.mode = ports::RfMode::RxMband;
     plan.freq_hz = timing::kMband0Hz;
     plan.start_us = 0;
     plan.end_us = 400000;
@@ -399,8 +399,8 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
-    hal::RfPlan flying{};
-    flying.mode = hal::RfMode::RxMband;
+    ports::RfPlan flying{};
+    flying.mode = ports::RfMode::RxMband;
     flying.freq_hz = timing::kMband0Hz;
     flying.start_us = 400000;
     flying.end_us = 799000;
@@ -412,7 +412,7 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     REQUIRE(tuned_khz(chip) == timing::kMband0Hz / 1000);
 
     const uint8_t frame[protocol::AdslPacket::kTxBytes] = {0x72, 0x4B};
-    hal::RfPlan queued = flying;
+    ports::RfPlan queued = flying;
     queued.freq_hz = timing::kMband1Hz;
     queued.start_us = 455000;
     queued.tx = frame;
@@ -437,7 +437,7 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     // The same queueing with nothing to transmit is a receive dwell that did not
     // happen, not a burst that was lost: the log would name it a failed
     // transmission and send a reader after a fault that is not there.
-    hal::RfPlan next_dwell = flying;
+    ports::RfPlan next_dwell = flying;
     next_dwell.start_us = 1400000;
     next_dwell.end_us = 1799000;
     REQUIRE(rf.arm(next_dwell) == Status::Ok);
@@ -445,7 +445,7 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
         clock.set_millis(t);
         rf.service(t);
     }
-    hal::RfPlan listening = next_dwell;
+    ports::RfPlan listening = next_dwell;
     listening.start_us = 1455000;
     listening.end_us = 1600000;
     REQUIRE(rf.arm(listening) == Status::Ok);
@@ -464,22 +464,22 @@ namespace {
 // The policy alone, with every plan it hands the executor kept for reading.
 struct Armings {
     platform::host::Clock clock{};
-    struct Recorder : hal::Rf {
+    struct Recorder : ports::Rf {
         Status begin() override { return Status::Ok; }
-        Status arm(const hal::RfPlan& plan) override {
+        Status arm(const ports::RfPlan& plan) override {
             last = plan;
             arms++;
             return refuse ? Status::OutOfRange : Status::Ok;
         }
         void abort() override {}
-        hal::RfPlan last{};
+        ports::RfPlan last{};
         uint32_t arms{0};
         bool refuse{false};
     } rf{};
     bus::Bus bus{};
     bus::State state{};
     runtime::NullRoles null{};
-    hal::Roles roles{clock,
+    ports::Roles roles{clock,
                        rf,
                        null.link,
                        null.display,
@@ -489,7 +489,7 @@ struct Armings {
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
-                       hal::Capability::Rf,
+                       ports::Capability::Rf,
                        0x5B7E57};
     runtime::Context context{roles, bus, state};
     go::RadioService radio{context};
@@ -585,8 +585,8 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
-    hal::RfPlan dwell{};
-    dwell.mode = hal::RfMode::RxMband;
+    ports::RfPlan dwell{};
+    dwell.mode = ports::RfMode::RxMband;
     dwell.freq_hz = timing::kMband0Hz;
     dwell.start_us = 400000;
     dwell.end_us = 799000;
@@ -597,7 +597,7 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     }
 
     const uint8_t frame[protocol::AdslPacket::kTxBytes] = {0x72, 0x4B};
-    hal::RfPlan burst = dwell;
+    ports::RfPlan burst = dwell;
     burst.start_us = 455000;
     burst.tx = frame;
     burst.tx_len = sizeof(frame);

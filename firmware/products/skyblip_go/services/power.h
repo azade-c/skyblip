@@ -4,8 +4,8 @@
 #include "core/power/battery.h"
 #include "core/power/charging.h"
 #include "core/power/cutoff.h"
-#include "hal/capabilities.h"
-#include "hal/die_temperature.h"
+#include "ports/capabilities.h"
+#include "ports/die_temperature.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -24,7 +24,7 @@ class PowerService : public runtime::Service {
     bool cutoff() const { return cutoff_.cutoff(); }
     uint32_t implausible_samples() const { return cutoff_.implausible(); }
 
-    // The power-failure comparator fired. Polled off hal::SystemPower by the
+    // The power-failure comparator fired. Polled off ports::SystemPower by the
     // product and handed here, because this service owns the cutoff monitor and
     // the monitor is where the rule lives (core/power/cutoff.h).
     void on_supply_warning() { cutoff_.on_supply_warning(); }

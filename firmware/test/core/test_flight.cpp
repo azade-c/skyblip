@@ -168,7 +168,7 @@ TEST_CASE("flight: the motion figure is speed plus four times the climb, DOP der
 }
 
 // M. The takeoff and landing holds are sums of unsigned differences between
-// consecutive samples, so the 49.7-day wrap of hal::Clock::millis() is one
+// consecutive samples, so the 49.7-day wrap of ports::Clock::millis() is one
 // ordinary second to this monitor. What it would cost if it were not: the gap
 // across the wrap reads as 4.29 billion milliseconds, which is past
 // kMaxSampleGapMs, so the sample is thrown away and a takeoff in progress loses

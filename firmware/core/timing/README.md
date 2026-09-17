@@ -1,6 +1,6 @@
 # core/timing
 
-One radio, one second. `slot.h` cuts the second into dwells, `transmit.h` decides whether own-ship speaks in one of them and at which instant, `channel.h` holds what the channel sounds like and what we have already spent on it. Nothing here touches hardware: `hal::Rf` flies the plan against absolute deadlines.
+One radio, one second. `slot.h` cuts the second into dwells, `transmit.h` decides whether own-ship speaks in one of them and at which instant, `channel.h` holds what the channel sounds like and what we have already spent on it. Nothing here touches hardware: `ports::Rf` flies the plan against absolute deadlines.
 
 ## The burst is placed, and nothing on air moves it
 
@@ -54,7 +54,7 @@ At the design rate of one 5 ms burst per second we sit at half the allowance, so
 
 ## The dwell is armed at its edge, the burst when it is due
 
-`hal::Rf::arm()` queues a plan behind the dwell already flying, on silicon because the executor is a thread that reads its plan once, and on the host because it models the same rule. A plan queued that way is read when the flying dwell ends, by which time its own window has closed, so it is dropped.
+`ports::Rf::arm()` queues a plan behind the dwell already flying, on silicon because the executor is a thread that reads its plan once, and on the host because it models the same rule. A plan queued that way is read when the flying dwell ends, by which time its own window has closed, so it is dropped.
 
 A burst cannot wait for that. Whether one may go out is decided on the fix, the rate and the slot, and those clear when they clear: a solution that lands after 400 ms would cost the whole second if the dwell were armed at its edge and never looked at again. So a second plan for the channel the dwell is already flying, carrying a burst that fits inside the window it is already in, is not the next dwell: it is this dwell's burst, and `arm()` hands it to the dwell in flight instead of queueing it. On silicon that crosses a thread boundary, published under the scheduler lock and read by the dwell loop; on the host it is the same rule in one thread, which is why the suite can hold it.
 

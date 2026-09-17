@@ -15,7 +15,7 @@
 #include "hardware/parts/sx1262/sx1262.h"
 #include "hardware/platform/zephyr/dfu.h"
 #include "hardware/platform/zephyr/supply_monitor.h"
-#include "hal/system_power.h"
+#include "ports/system_power.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -38,7 +38,7 @@ constexpr uint32_t kFlashEnterDpdUs = 200;
 // and the whole point of re-issuing SetSleep is that this one lands.
 constexpr uint32_t kRadioCommandSettleUs = 1000;
 
-class SystemPower : public hal::SystemPower, private power::PowerDownSink {
+class SystemPower : public ports::SystemPower, private power::PowerDownSink {
    public:
     explicit SystemPower(const struct gpio_dt_spec& wake) : wake_(wake) {}
 
@@ -69,7 +69,7 @@ class SystemPower : public hal::SystemPower, private power::PowerDownSink {
         // on the next boot. See kSkipBootloaderMagic for what that buys and what
         // it costs the double-click gesture on exactly one boot. A board with no
         // retention area says so by returning false, and there is nothing to do
-        // about it here - it is the same board on which hal::Dfu::enter_recovery
+        // about it here - it is the same board on which ports::Dfu::enter_recovery
         // cannot work either, and that is the path that reports it.
         (void)write_boot_magic(Dfu::boot_magic_for_system_off());
         power::power_down(*this, button_wake);

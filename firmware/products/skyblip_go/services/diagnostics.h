@@ -69,7 +69,7 @@ class DiagnosticsDump {
         // unit talking at a rate the devicetree did not ask for, or one whose fixes
         // are being refused for a named reason, is the support case this part
         // generates. The part is reached through the board because it is a part and
-        // not a role - there is no hal:: seam that could carry a firmware string.
+        // not a role - there is no ports:: seam that could carry a firmware string.
         const auto& gnss = product.board().gnss();
         d.gnss_baud = gnss.baud_rate();
         d.gnss_identified = gnss.identified();

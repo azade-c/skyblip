@@ -11,7 +11,7 @@ The station log: every burst this radio sent or heard, in the order it happened,
 | `Transmitted` | own-ship's burst left the antenna |
 | `Lost` | own-ship's burst was armed and never completed: the dwell ran out, or the radio's transmit timeout did |
 | `Held` | the hour's air-time budget refused it (`timing::Transmitter::Attempt::over_budget`) |
-| `Unarmed` | `hal::Rf` refused the plan that carried it, so nothing was ever armed |
+| `Unarmed` | `ports::Rf` refused the plan that carried it, so nothing was ever armed |
 | `Received` | a burst arrived, framed, and named an aircraft |
 | `BadCrc` | an integrity check refused it: the chip's own CRC, an ADS-L CRC no forward correction could rescue, an ALP-TAS CRC, or a Reed-Solomon codeword the uplink could not correct |
 | `Undecoded` | the bits survived their check and still named no aircraft: no known system behind the sync window, or an ALP-TAS frame with no fix of our own to decode it against |

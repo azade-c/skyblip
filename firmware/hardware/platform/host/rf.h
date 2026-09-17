@@ -6,8 +6,8 @@
 #include "core/model/band.h"
 #include "core/timing/channel.h"
 #include "hardware/parts/sx1262/sx1262.h"
-#include "hal/clock.h"
-#include "hal/rf.h"
+#include "ports/clock.h"
+#include "ports/rf.h"
 #include "runtime/tasks.h"
 
 namespace skyblip::platform::host {
@@ -15,9 +15,9 @@ namespace skyblip::platform::host {
 // The radio executor on virtual time: the same arm/abort contract the silicon
 // executor implements, driven by whatever clock the caller advances. Slot
 // deadlines are therefore testable to the microsecond with no hardware.
-class Rf : public hal::Rf {
+class Rf : public ports::Rf {
    public:
-    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
+    Rf(parts::Sx1262& radio, ports::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
         : radio_(radio), clock_(clock), out_(out) {}
 
     Status begin() override {
@@ -26,7 +26,7 @@ class Rf : public hal::Rf {
         return radio_.configure_radio(parts::RadioConfig{});
     }
 
-    Status arm(const hal::RfPlan& plan) override {
+    Status arm(const ports::RfPlan& plan) override {
         if (plan.end_us <= plan.start_us) return Status::OutOfRange;
         if (plan.tx != nullptr && (plan.tx_at_us < plan.start_us || plan.tx_at_us >= plan.end_us))
             return Status::OutOfRange;
@@ -55,7 +55,7 @@ class Rf : public hal::Rf {
 
     int sleeps() const { return sleeps_; }
 
-    hal::RfCarrier carrier() const override { return carrier_; }
+    ports::RfCarrier carrier() const override { return carrier_; }
 
     void service(uint32_t now_ms) {
         const uint64_t now_us = clock_.micros();
@@ -76,7 +76,7 @@ class Rf : public hal::Rf {
     uint32_t armed_count() const { return armed_count_; }
 
    private:
-    bool joins_flying_dwell(const hal::RfPlan& plan) const {
+    bool joins_flying_dwell(const ports::RfPlan& plan) const {
         return plan.tx != nullptr && plan_.tx == nullptr && plan.mode == plan_.mode &&
                plan.freq_hz == plan_.freq_hz && plan.tx_at_us >= clock_.micros() &&
                plan.tx_at_us < plan_.end_us;
@@ -98,7 +98,7 @@ class Rf : public hal::Rf {
         adopt(pending_);
     }
 
-    void adopt(const hal::RfPlan& plan) {
+    void adopt(const ports::RfPlan& plan) {
         plan_ = plan;
         armed_ = true;
         started_ = false;
@@ -111,7 +111,7 @@ class Rf : public hal::Rf {
         started_ = true;
         armed_count_++;
         radio_.wake();
-        band_ = plan_.mode == hal::RfMode::RxOband ? model::Band::O : model::Band::M;
+        band_ = plan_.mode == ports::RfMode::RxOband ? model::Band::O : model::Band::M;
         freq_hz_ = plan_.freq_hz;
         if (plan_.freq_hz != 0) radio_.configure_radio(dwell_config(plan_));
         radio_.start_receive();
@@ -120,7 +120,7 @@ class Rf : public hal::Rf {
     // The whole modem, not just the synthesiser: the two bands are two
     // modulations (ADS-L 4 SRD-860 issue 2 §C.2 against §C.4) and the plan
     // carries both halves.
-    static parts::RadioConfig dwell_config(const hal::RfPlan& plan) {
+    static parts::RadioConfig dwell_config(const ports::RfPlan& plan) {
         parts::RadioConfig cfg{};
         cfg.freq_hz = plan.freq_hz;
         if (plan.bitrate != 0) cfg.bitrate = plan.bitrate;
@@ -198,11 +198,11 @@ class Rf : public hal::Rf {
     }
 
     parts::Sx1262& radio_;
-    hal::Clock& clock_;
+    ports::Clock& clock_;
     bus::Queue<events::RfEvent, 8>& out_;
-    hal::RfPlan plan_{};
-    hal::RfPlan pending_{};
-    hal::RfCarrier carrier_{};
+    ports::RfPlan plan_{};
+    ports::RfPlan pending_{};
+    ports::RfCarrier carrier_{};
     events::RfEvent rx_{};
     model::Band band_{model::Band::M};
     uint32_t freq_hz_{0};

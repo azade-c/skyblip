@@ -1,12 +1,12 @@
-// hal/link.h: capability port: OUTBOUND bytes to a companion link (BLE/USB/TCP)
-#ifndef SKYBLIP_HAL_LINK_H
-#define SKYBLIP_HAL_LINK_H
+// ports/link.h: capability port: OUTBOUND bytes to a companion link (BLE/USB/TCP)
+#ifndef SKYBLIP_PORTS_LINK_H
+#define SKYBLIP_PORTS_LINK_H
 
 #include "core/events/link.h"
 #include "core/util/result.h"
 #include "core/util/span.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 // INFO: fc 04aug26 What BLE guarantees and not one byte more: the 23-byte
 // default ATT_MTU less the three bytes of notification header (opcode + value

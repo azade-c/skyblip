@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "hal/die_temperature.h"
+#include "ports/die_temperature.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -21,7 +21,7 @@ namespace skyblip::platform::zephyr {
 // The measurement itself is one shot, tens of microseconds, and blocking: it is
 // deliberately not read anywhere near a dwell. Nothing here is on the radio
 // thread.
-class DieTemperature : public hal::DieTemperature {
+class DieTemperature : public ports::DieTemperature {
    public:
     bool ready() const { return dev_ != nullptr && device_is_ready(dev_); }
 
@@ -47,7 +47,7 @@ class DieTemperature : public hal::DieTemperature {
 #else
     // A build without the sensor driver is a build with an absent capability, and
     // it still links: that is the whole point of the null answer in
-    // hal/die_temperature.h.
+    // ports/die_temperature.h.
     const struct device* dev_{nullptr};
 #endif
 };

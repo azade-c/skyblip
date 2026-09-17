@@ -22,7 +22,7 @@ struct Rig {
     platform::host::Platform platform;
     Go product{platform};
 
-    explicit Rig(hal::Capabilities fitted = platform::host::Platform::kFullyFitted)
+    explicit Rig(ports::Capabilities fitted = platform::host::Platform::kFullyFitted)
         : platform(fitted) {}
 
     Status setup() { return product.setup(); }
@@ -79,8 +79,8 @@ struct Rig {
     }
 
     // The same passes, counted instead of bounded: `t <= to` above cannot cross
-    // the 49.7-day wrap of hal::Clock::millis(), because that is a comparison of
-    // two instants (hal/clock.h). A case that wants the device stepped THROUGH the
+    // the 49.7-day wrap of ports::Clock::millis(), because that is a comparison of
+    // two instants (ports/clock.h). A case that wants the device stepped THROUGH the
     // wrap advances by an elapsed span instead. Steps t forward by span + step.
     void run_span(uint32_t& t, uint32_t span_ms, uint32_t step = 50) {
         for (uint32_t stepped = 0; stepped <= span_ms; stepped += step) {
@@ -188,9 +188,9 @@ struct Rig {
 
 // A board with no fitted barometer: the samples in these cases are pushed by
 // hand, so the board must not also be pumping its own.
-constexpr hal::Capabilities kBaroByHand =
-    static_cast<hal::Capabilities>(static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-                                     ~static_cast<uint32_t>(hal::Capability::Baro));
+constexpr ports::Capabilities kBaroByHand =
+    static_cast<ports::Capabilities>(static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
+                                     ~static_cast<uint32_t>(ports::Capability::Baro));
 
 }  // namespace skyblip
 

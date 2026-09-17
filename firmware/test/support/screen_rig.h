@@ -21,7 +21,7 @@ struct Rig {
     parts::Ssd1681 epd{chip, chip, chip.dc, chip.rst, chip.busy};
     platform::host::Clock clock;
     runtime::NullRoles null;
-    hal::Roles roles{
+    ports::Roles roles{
         clock,   null.rf,        null.link,        epd,  // epd fills Display
         null.kv, null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
     bus::Bus bus{};
@@ -33,7 +33,7 @@ struct Rig {
 
     Rig() {
         chip.attach_clock(clock);
-        roles.capabilities = hal::Capability::Display;
+        roles.capabilities = ports::Capability::Display;
         // With a fix the radar page draws rings and the range label, so churn()
         // below produces real pixel changes.
         state.own.fix_valid = true;

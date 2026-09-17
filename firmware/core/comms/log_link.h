@@ -32,7 +32,7 @@ struct LogRequest {
 
 // INFO: fc 04aug26 The widest frame this dialect can be asked to build, which is
 // a buffer bound and not a promise: what actually goes out is cut to the payload
-// hal::Link::payload_bytes() reports. Room for the largest chunk a link that
+// ports::Link::payload_bytes() reports. Room for the largest chunk a link that
 // negotiated ATT_MTU 498 can carry.
 constexpr int kLogReplyCap = 512;
 

@@ -2,14 +2,14 @@
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_SYSTEM_POWER_H
 
 #include "core/power/shutdown.h"
-#include "hal/system_power.h"
+#include "ports/system_power.h"
 
 namespace skyblip::platform::host {
 
 // The rails a test can watch go down, and a cause register it can load with
 // whatever the field would have handed us. The order they go down in is the
 // same core::power sequence the silicon walks, recorded rather than performed.
-class SystemPower : public hal::SystemPower, private power::PowerDownSink {
+class SystemPower : public ports::SystemPower, private power::PowerDownSink {
    public:
     power::ResetCause reset_causes() const override { return causes; }
 

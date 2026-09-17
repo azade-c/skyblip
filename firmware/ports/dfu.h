@@ -1,9 +1,9 @@
-#ifndef SKYBLIP_HAL_DFU_H
-#define SKYBLIP_HAL_DFU_H
+#ifndef SKYBLIP_PORTS_DFU_H
+#define SKYBLIP_PORTS_DFU_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 enum class RecoveryPath { Rebooted, PowerOffToFinish };
 
@@ -36,6 +36,6 @@ class Dfu {
     virtual RecoveryPath enter_recovery() { return RecoveryPath::Rebooted; }
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

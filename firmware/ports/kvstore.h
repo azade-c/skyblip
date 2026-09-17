@@ -1,13 +1,13 @@
-// hal/kvstore.h: capability port: durable key/value blob storage (config
-#ifndef SKYBLIP_HAL_KVSTORE_H
-#define SKYBLIP_HAL_KVSTORE_H
+// ports/kvstore.h: capability port: durable key/value blob storage (config
+#ifndef SKYBLIP_PORTS_KVSTORE_H
+#define SKYBLIP_PORTS_KVSTORE_H
 
 #include <cstddef>
 #include <cstdint>
 
 #include "core/util/result.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class KvStore {
    public:

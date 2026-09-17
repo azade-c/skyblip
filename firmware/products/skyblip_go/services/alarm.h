@@ -4,7 +4,7 @@
 #include "core/annunciation/pattern.h"
 #include "core/indication/lamp.h"
 #include "core/traffic/alarm.h"
-#include "hal/indicator.h"
+#include "ports/indicator.h"
 #include "runtime/service.h"
 #include "runtime/tasks.h"
 
@@ -41,7 +41,7 @@ class AlarmService : public runtime::Service {
     // because they differ in the gaps of a wink and a test has to be able to say
     // which of the two it means.
     indication::Condition indicator_condition() const { return lamp_.condition(); }
-    hal::Lamp lamp() const { return lamp_.lamp(); }
+    ports::Lamp lamp() const { return lamp_.lamp(); }
 
    private:
     void drive(const annunciation::Situation& situation, uint32_t now_ms);

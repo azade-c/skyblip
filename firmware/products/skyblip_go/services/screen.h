@@ -103,7 +103,7 @@ class ScreenService : public runtime::Service {
     bool alarm_takes_glass() const { return context_.state.alarm_level >= kAlarmTakesGlass; }
 
     bool receiver_listening() const {
-        return hal::has(context_.roles.capabilities, hal::Capability::Rf) &&
+        return ports::has(context_.roles.capabilities, ports::Capability::Rf) &&
                context_.state.clock.pps_locked;
     }
 

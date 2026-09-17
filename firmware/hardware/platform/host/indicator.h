@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "hal/indicator.h"
+#include "ports/indicator.h"
 
 namespace skyblip::platform::host {
 
@@ -11,23 +11,23 @@ namespace skyblip::platform::host {
 // lamp, because the difference between a wink and an LED re-driven on every pass
 // of the loop is exactly that count - and the second one is a device that spends
 // a register write a hundred times a second on no light.
-class Indicator : public hal::Indicator {
+class Indicator : public ports::Indicator {
    public:
-    void show(hal::Lamp lamp) override {
+    void show(ports::Lamp lamp) override {
         lamp_ = lamp;
         shows_++;
-        if (lamp != hal::Lamp::None) lightings_++;
+        if (lamp != ports::Lamp::None) lightings_++;
         parked_ = false;
     }
 
     void park() override {
-        lamp_ = hal::Lamp::None;
+        lamp_ = ports::Lamp::None;
         parked_ = true;
         parks_++;
     }
 
-    hal::Lamp lamp() const { return lamp_; }
-    bool lit() const { return lamp_ != hal::Lamp::None; }
+    ports::Lamp lamp() const { return lamp_; }
+    bool lit() const { return lamp_ != ports::Lamp::None; }
     // True once park() has run and until the next show(). The silicon adapter has
     // let go of the pins at that point; here it is the fact a test asserts.
     bool parked() const { return parked_; }
@@ -36,7 +36,7 @@ class Indicator : public hal::Indicator {
     uint32_t parks() const { return parks_; }
 
    private:
-    hal::Lamp lamp_{hal::Lamp::None};
+    ports::Lamp lamp_{ports::Lamp::None};
     uint32_t shows_{0};
     uint32_t lightings_{0};
     uint32_t parks_{0};

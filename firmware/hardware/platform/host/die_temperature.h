@@ -3,11 +3,11 @@
 
 #include <cstdint>
 
-#include "hal/die_temperature.h"
+#include "ports/die_temperature.h"
 
 namespace skyblip::platform::host {
 
-class DieTemperature : public hal::DieTemperature {
+class DieTemperature : public ports::DieTemperature {
    public:
     bool read(int16_t& decicelsius) override {
         reads_++;

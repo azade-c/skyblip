@@ -10,7 +10,7 @@
 #include "core/flight/log_session.h"
 #include "core/model/ownship.h"
 #include "doctest/doctest.h"
-#include "hal/link.h"
+#include "ports/link.h"
 
 using namespace skyblip;
 
@@ -192,7 +192,7 @@ TEST_CASE("log session: a record every four seconds and no more") {
 }
 
 // M. The four-second record cadence across the 49.7-day wrap of
-// hal::Clock::millis(). A flight log that stops sampling for seven weeks is a
+// ports::Clock::millis(). A flight log that stops sampling for seven weeks is a
 // flight log with a hole in it that no badge claim survives, and the sampled_ flag
 // beside the stamp is what keeps zero from meaning "never sampled" at the one
 // instant the counter produces it.
@@ -370,7 +370,7 @@ TEST_CASE("log link: how many records ride in a chunk follows the payload, not a
     // Nothing fits in what BLE merely guarantees; an iPhone carries three; the
     // 247-byte MTU the old fixed five was aimed at still carries five; and a
     // phone that negotiates the whole L2CAP MTU is not short-changed.
-    CHECK(comms::log_records_per_chunk(hal::kMinimumLinkPayload) == 0);
+    CHECK(comms::log_records_per_chunk(ports::kMinimumLinkPayload) == 0);
     CHECK(comms::log_records_per_chunk(comms::kSmallestSupportedPayload) == 3);
     CHECK(comms::log_records_per_chunk(244) == 5);
     CHECK(comms::log_records_per_chunk(495) == comms::kLogRecordsPerChunkMax);
@@ -398,7 +398,7 @@ TEST_CASE("log link: a reply that will not fit the frame is refused, never short
     // a session line with no record count. A tablet must not be handed either.
     uint8_t raw[comms::kLogChunkRawBytes] = {0};
     char buf[comms::kLogReplyCap];
-    const int tiny = hal::kMinimumLinkPayload + 1;
+    const int tiny = ports::kMinimumLinkPayload + 1;
     CHECK(comms::format_log_chunk(buf, tiny, 1785628800u, 0, raw, 1, false) == 0);
     CHECK(comms::format_log_session(buf, tiny, 0, 3, 1785628800u, 1700, false) == 0);
     CHECK(comms::format_log_count(buf, tiny, 3, false) == 0);

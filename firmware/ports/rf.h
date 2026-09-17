@@ -1,11 +1,11 @@
-#ifndef SKYBLIP_HAL_RF_H
-#define SKYBLIP_HAL_RF_H
+#ifndef SKYBLIP_PORTS_RF_H
+#define SKYBLIP_PORTS_RF_H
 
 #include <cstdint>
 
 #include "core/util/result.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 enum class RfMode : uint8_t { Idle, RxMband, RxOband };
 
@@ -75,6 +75,6 @@ class Rf {
     virtual void sleep() {}
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

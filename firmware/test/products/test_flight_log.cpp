@@ -6,7 +6,7 @@
 #include "core/events/link.h"
 #include "core/flight/log_record.h"
 #include "doctest/doctest.h"
-#include "hal/link.h"
+#include "ports/link.h"
 #include "test/support/product_rig.h"
 
 using namespace skyblip;
@@ -367,7 +367,7 @@ TEST_CASE(
     // And a link that never got past what BLE guarantees is told nothing at all
     // rather than handed a chunk with no data in it: not one record fits twenty
     // bytes, the refusal is counted, and nothing reaches the port.
-    rig.platform.link().declare_payload_bytes(hal::kMinimumLinkPayload);
+    rig.platform.link().declare_payload_bytes(ports::kMinimumLinkPayload);
     const uint32_t drops_before = rig.product.flight_log().link_drops();
     rig.platform.link().clear();
     char command[96];
@@ -457,12 +457,12 @@ TEST_CASE("flight log: erasing every flight takes the button, not just the phone
 }
 
 TEST_CASE("flight log: with no storage the device flies and logs nothing") {
-    constexpr hal::Capabilities kNoStorage = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoStorage = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Storage));
+        ~static_cast<uint32_t>(ports::Capability::Storage));
     Rig rig{kNoStorage};
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK(rig.product.degraded() == hal::Capability::Storage);
+    CHECK(rig.product.degraded() == ports::Capability::Storage);
     CHECK_FALSE(rig.product.flight_log().available());
 
     uint32_t t = 0;

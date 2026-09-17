@@ -5,7 +5,7 @@
 namespace skyblip::go {
 
 Status RadioService::setup() {
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Rf)) return Status::Down;
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Rf)) return Status::Down;
     transmitter_.configure(context_.roles.device_addr);
     arm_dwell(scheduler_.plan(0, context_.state.clock), 0);
     return Status::Ok;
@@ -17,7 +17,7 @@ void RadioService::tick(uint32_t now_ms) {
     take_carrier_samples();
     collect_outcome(now_ms);
 
-    const hal::RfMode want = mode_for(plan);
+    const ports::RfMode want = mode_for(plan);
     const bool same_dwell = want == armed_ && plan.freq_hz == armed_freq_;
     if (!same_dwell || transmit_due(plan, now_ms)) arm_dwell(plan, now_ms);
     publish_dwell(now_ms);
@@ -31,7 +31,7 @@ void RadioService::publish_dwell(uint32_t now_ms) {
     timing::DwellPhase& dwell = context_.state.rf.dwell;
     dwell.at_ms = now_ms;
     dwell.phase_ms = phase_ms();
-    dwell.armed = armed_ != hal::RfMode::Idle;
+    dwell.armed = armed_ != ports::RfMode::Idle;
     dwell.burst_armed = tx_armed_;
 }
 
@@ -41,7 +41,7 @@ void RadioService::publish_dwell(uint32_t now_ms) {
 //
 // Both branches read micros(), which is 64-bit and does not wrap. The free-running
 // fallback used to be now_ms % 1000, and that is not a phase: 2^32 ms is not a
-// whole number of seconds, so at the 49.7-day wrap of hal::Clock::millis() the
+// whole number of seconds, so at the 49.7-day wrap of ports::Clock::millis() the
 // second stepped 705 ms BACKWARDS and one dwell was armed out of order. It only
 // showed with the anchor already lost, which is the worst time to add a fault.
 int RadioService::phase_ms() const {
@@ -53,7 +53,7 @@ int RadioService::phase_ms() const {
 }
 
 void RadioService::take_carrier_samples() {
-    const hal::RfCarrier carrier = context_.roles.rf.carrier();
+    const ports::RfCarrier carrier = context_.roles.rf.carrier();
     if (carrier.samples == seen_carrier_samples_) return;
     seen_carrier_samples_ = carrier.samples;
     noise_.sample(carrier.dbm);
@@ -96,8 +96,8 @@ uint32_t RadioService::slot_utc(uint32_t now_ms) const {
     return (in_slot1_tail && utc > 0) ? utc - 1 : utc;
 }
 
-hal::RfMode RadioService::mode_for(const timing::SlotPlan& plan) {
-    return plan.band == timing::Band::O ? hal::RfMode::RxOband : hal::RfMode::RxMband;
+ports::RfMode RadioService::mode_for(const timing::SlotPlan& plan) {
+    return plan.band == timing::Band::O ? ports::RfMode::RxOband : ports::RfMode::RxMband;
 }
 
 // The M band carries two systems past one sync window. The O band carries the
@@ -105,7 +105,7 @@ hal::RfMode RadioService::mode_for(const timing::SlotPlan& plan) {
 // here: what to listen for, and the modulation to listen with - §C.4 runs at
 // twice §C.2's chip rate through a Gaussian filter and a wider receiver, so a
 // dwell that only moved the synthesiser was tuned to the O band and deaf on it.
-void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
+void RadioService::listen_for(timing::Band band, ports::RfPlan& plan) {
     if (band == timing::Band::O) {
         plan.sync = protocol::kUplinkSync;
         plan.sync_bits = protocol::kUplinkSyncBits;
@@ -125,7 +125,7 @@ void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
     plan.gaussian_bt_e2 = protocol::kMbandGaussianBtE2;
 }
 
-// INFO: fc 15sep26 the gates a burst waits on clear inside the dwell, hal::Rf::arm() joins it
+// INFO: fc 15sep26 the gates a burst waits on clear inside the dwell, ports::Rf::arm() joins it
 // there
 bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const {
     if (tx_armed_) return false;
@@ -155,7 +155,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     const int phase = phase_ms();
     const uint64_t now_us = context_.roles.clock.micros();
 
-    hal::RfPlan plan{};
+    ports::RfPlan plan{};
     plan.mode = mode_for(slot);
     plan.freq_hz = slot.freq_hz;
     // The one setting on this device that is a property of the unit's own
@@ -203,7 +203,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     }
 
     if (context_.roles.rf.arm(plan) != Status::Ok) {
-        // A dwell refused before it could even start: hal::Rf's own "a plan
+        // A dwell refused before it could even start: ports::Rf's own "a plan
         // that cannot complete before its end is refused here rather than
         // truncated on air", read out on the bench.
         context_.state.rf.timing_stats.record_missed();

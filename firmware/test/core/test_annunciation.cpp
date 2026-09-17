@@ -1,7 +1,7 @@
 // The annunciation policy on its own: given a level, whether it just got worse,
 // and the time, what should the buzzer be doing right now.
 //
-// The bug this file exists for: hal::Annunciator::alarm() opens a continuous
+// The bug this file exists for: ports::Annunciator::alarm() opens a continuous
 // tone that runs until silence(), and the service only silenced it when the
 // worst level reached zero. A level 3 that decayed to level 1 therefore sounded
 // at the urgent pitch for as long as anything at all stayed inside the 3 km

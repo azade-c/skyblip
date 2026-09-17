@@ -55,7 +55,7 @@ void World::service_button(uint32_t now_ms) {
         press_since_ms_ = now_ms;
         pressing_ = true;
     }
-    // A start instant and a flag, not an end instant: hal/clock.h's rule, and the
+    // A start instant and a flag, not an end instant: ports/clock.h's rule, and the
     // same shape as the wrap bug section M found in the transmitter. A simulator
     // that models a button with arithmetic nobody may copy is worse than useless.
     platform_.board_gpio().button_down =

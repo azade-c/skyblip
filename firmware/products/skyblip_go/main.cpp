@@ -60,7 +60,7 @@ int main(void) {
         // The self-test page is already on the glass and names the part that
         // did not answer. Staying up with it beats returning from main.
         LOG_ERR("self test %s: missing=%u", to_string(started),
-                static_cast<unsigned>(hal::missing(g_product.capabilities(), go::kRequired)));
+                static_cast<unsigned>(ports::missing(g_product.capabilities(), go::kRequired)));
     }
 
     // Armed last, after every part is up: bring-up is slower than any

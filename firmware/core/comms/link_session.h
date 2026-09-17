@@ -12,7 +12,7 @@
 
 #include "core/events/link.h"
 #include "core/util/fifo.h"
-#include "hal/link.h"
+#include "ports/link.h"
 
 namespace skyblip::comms {
 
@@ -37,7 +37,7 @@ class LinkSession {
     // INFO: le 04aug26 The MTU exchange lands after the connection is up, so the
     // figure the link came up with is not the figure it will carry: this raises a
     // second Up on the SAME session id, which is how a reader tells a refreshed
-    // payload from a new central. hal::Link::payload_bytes() stays the authority
+    // payload from a new central. ports::Link::payload_bytes() stays the authority
     // for a frame being formatted now; this is the same number, on the bus, at
     // the moment it changed.
     void payload_changed(uint16_t payload_bytes) {
@@ -69,7 +69,7 @@ class LinkSession {
 
    private:
     static uint16_t floor_payload(uint16_t bytes) {
-        return bytes < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload : bytes;
+        return bytes < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : bytes;
     }
 
     void raise(events::LinkEventType type, uint16_t session_id, uint16_t payload_bytes) {
@@ -82,7 +82,7 @@ class LinkSession {
 
     Fifo<events::LinkEvent, kEventCapacity> events_{};
     uint16_t session_{0};
-    uint16_t payload_bytes_{hal::kMinimumLinkPayload};
+    uint16_t payload_bytes_{ports::kMinimumLinkPayload};
     uint32_t dropped_{0};
     bool up_{false};
 };

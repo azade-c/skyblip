@@ -1,4 +1,4 @@
-// hal/clock.h: capability port: a monotonic clock core/ can read.
+// ports/clock.h: capability port: a monotonic clock core/ can read.
 //
 // millis() WRAPS. It is a 32-bit millisecond counter, so it counts to 49.7 days
 // and then continues from zero, and this device is expected to fly through that
@@ -24,19 +24,19 @@
 // is maintained from this tick: the widest deadline in the tree is the rolling
 // duty-cycle hour (core/timing/channel.h) and the rest are seconds. micros() is
 // already 64-bit and does not wrap in any life this device has, which is why
-// hal/rf.h arms slot deadlines on it and slot timing is not exposed to any of
+// ports/rf.h arms slot deadlines on it and slot timing is not exposed to any of
 // the above.
 //
 // An uptime a person reads is the same rule's last line: now_ms / 1000 counts 49
 // days and then starts again at zero, which is honest and says so. A negative age
 // or a four-billion-millisecond gap is not, and it is what breaking rules 2 and 4
 // produces.
-#ifndef SKYBLIP_HAL_CLOCK_H
-#define SKYBLIP_HAL_CLOCK_H
+#ifndef SKYBLIP_PORTS_CLOCK_H
+#define SKYBLIP_PORTS_CLOCK_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class Clock {
    public:

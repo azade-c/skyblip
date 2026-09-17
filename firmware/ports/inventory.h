@@ -1,18 +1,18 @@
-// hal/inventory.h: what the board found when it asked its own hardware, as
+// ports/inventory.h: what the board found when it asked its own hardware, as
 // opposed to what it was compiled expecting to find.
 //
-// hal/capabilities.h carries the verdicts - present, absent, required. This
+// ports/capabilities.h carries the verdicts - present, absent, required. This
 // carries the identities behind them, because LilyGO ships more than one part
 // against the same footprint and the self-test page is the only place a bench
 // can see which one it is holding: which of the two BME280 addresses answered,
 // which e-paper lot the glass is from, whether the haptic is a waveform driver
 // or a motor on a pin. Names and addresses only: nothing here decides anything.
-#ifndef SKYBLIP_HAL_INVENTORY_H
-#define SKYBLIP_HAL_INVENTORY_H
+#ifndef SKYBLIP_PORTS_INVENTORY_H
+#define SKYBLIP_PORTS_INVENTORY_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 // The haptic actually established at bring-up. Absent is a capability
 // (Capability::Vibro); this says which kind of hardware the pulse goes to, so a
@@ -56,6 +56,6 @@ struct Inventory {
     }
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

@@ -99,13 +99,13 @@ TEST_CASE("link: a link that has not been told what it carries promises what BLE
     // 23 bytes of default ATT_MTU less the three of notification header. Both
     // upstream SoftRF forks stop here and never send more; we only do better
     // when a central has agreed to.
-    CHECK(hal::kMinimumLinkPayload == 20);
+    CHECK(ports::kMinimumLinkPayload == 20);
     runtime::NullLink absent;
-    CHECK(absent.payload_bytes() == hal::kMinimumLinkPayload);
+    CHECK(absent.payload_bytes() == ports::kMinimumLinkPayload);
 
     platform::host::Link link;
     link.declare_payload_bytes(4);
-    CHECK(link.payload_bytes() == hal::kMinimumLinkPayload);
+    CHECK(link.payload_bytes() == ports::kMinimumLinkPayload);
 
     // And a frame longer than that is refused rather than shortened, which is
     // what a controller does with an oversized notification.
@@ -169,7 +169,7 @@ TEST_CASE("comms: the config reply fits it too, as one flat object instead of an
 
 TEST_CASE("comms: a link that came up at the BLE minimum is answered with a count, not a frame") {
     platform::host::Link link;
-    link.declare_payload_bytes(hal::kMinimumLinkPayload);
+    link.declare_payload_bytes(ports::kMinimumLinkPayload);
     settings::Settings s = widest_settings();
     ConfigService cs(link, s);
     cs.set_flight_state(flight::FlightState::OnGround);
@@ -268,7 +268,7 @@ TEST_CASE("comms: a status push the controller could not take is retried, not lo
 
 TEST_CASE("comms: a push that will never fit is counted once and not retried forever") {
     platform::host::Link link;
-    link.declare_payload_bytes(hal::kMinimumLinkPayload);
+    link.declare_payload_bytes(ports::kMinimumLinkPayload);
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
     cs.set_flight_state(flight::FlightState::OnGround);

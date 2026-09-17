@@ -144,7 +144,7 @@ void ConfigService::ack(bool ok, const char* reason) {
 }
 
 bool ConfigService::image_staged() const {
-    hal::ImageVersion staged;
+    ports::ImageVersion staged;
     return dfu_ != nullptr && dfu_->staged_version(staged);
 }
 
@@ -338,7 +338,7 @@ void ConfigService::confirm() {
         pending_ = Pending::None;
         upload_window_open_ = false;
         ack(true, "recovery");
-        if (dfu_ && dfu_->enter_recovery() == hal::RecoveryPath::PowerOffToFinish)
+        if (dfu_ && dfu_->enter_recovery() == ports::RecoveryPath::PowerOffToFinish)
             power_off_requested_ = true;
     } else if (pending_ == Pending::PowerOff) {
         pending_ = Pending::None;

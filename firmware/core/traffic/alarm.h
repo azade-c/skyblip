@@ -53,7 +53,7 @@ constexpr int32_t kUnknownTargetSpeedMps = 30;
 // No collision in any time a pilot can act on.
 constexpr int32_t kNoImpactS = 32767;
 
-// INFO: fc 13sep26 now_ms is the instant both sides are carried to, on hal::Clock
+// INFO: fc 13sep26 now_ms is the instant both sides are carried to, on ports::Clock
 AlarmAssessment assess(const model::OwnState& own, const model::AircraftObs& target,
                        uint32_t now_ms);
 

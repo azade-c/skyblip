@@ -114,7 +114,7 @@ void ConfigLinkService::load() {
     if (loaded_) return;
     load_image_state();
     context_.state.settings = settings::defaults(context_.roles.device_addr);
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Storage)) {
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) {
         loaded_ = true;
         return;
     }
@@ -133,7 +133,7 @@ void ConfigLinkService::load() {
 }
 
 void ConfigLinkService::persist() {
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Storage)) return;
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) return;
     uint8_t blob[kBlobCap];
     settings::to_blob(context_.state.settings, blob, sizeof(blob));
     const size_t len = settings::blob_size();
@@ -146,10 +146,10 @@ void ConfigLinkService::persist() {
 void ConfigLinkService::load_image_state() {
     if (image_state_loaded_) return;
     image_state_loaded_ = true;
-    const hal::Capabilities fitted = context_.roles.capabilities;
-    const bool has_dfu = hal::has(fitted, hal::Capability::Dfu);
+    const ports::Capabilities fitted = context_.roles.capabilities;
+    const bool has_dfu = ports::has(fitted, ports::Capability::Dfu);
     update_recorded_ = false;
-    if (hal::has(fitted, hal::Capability::Storage)) {
+    if (ports::has(fitted, ports::Capability::Storage)) {
         uint8_t blob[dfu::kUpdateRecordBytes];
         size_t n = 0;
         update_recorded_ = is_ok(context_.roles.kv.read(kUpdateKey, blob, sizeof(blob), n)) &&
@@ -158,7 +158,7 @@ void ConfigLinkService::load_image_state() {
     image_confirmed_ = !has_dfu || context_.roles.dfu.confirmed();
     image_state_ = image_confirmed_ ? dfu::ImageState::Confirmed : dfu::ImageState::Probation;
 
-    hal::ImageVersion running;
+    ports::ImageVersion running;
     if (update_recorded_) {
         if (!has_dfu || !context_.roles.dfu.running_version(running)) {
             forget_update();
@@ -178,9 +178,9 @@ void ConfigLinkService::load_image_state() {
 }
 
 void ConfigLinkService::record_update() {
-    const hal::Capabilities fitted = context_.roles.capabilities;
-    if (!hal::has(fitted, hal::Capability::Storage) ||
-        !hal::has(fitted, hal::Capability::Dfu))
+    const ports::Capabilities fitted = context_.roles.capabilities;
+    if (!ports::has(fitted, ports::Capability::Storage) ||
+        !ports::has(fitted, ports::Capability::Dfu))
         return;
     dfu::UpdateRecord record;
     if (!context_.roles.dfu.running_version(record.from)) return;
@@ -206,7 +206,7 @@ void ConfigLinkService::publish_image_state() {
 bool ConfigLinkService::hardware_proven() const {
     const bus::State& state = context_.state;
     if (!state.started || state.flight.gnss_solutions == 0) return false;
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Display)) return true;
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Display)) return true;
     return state.panel_presented;
 }
 

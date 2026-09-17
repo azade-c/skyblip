@@ -49,7 +49,7 @@ class SlotTimingStats {
 
     // The signed microseconds between an armed deadline and the instant the
     // outcome it was armed for actually landed. Both arguments are absolute
-    // instants on the clock hal::Rf deadlines are armed against, so this needs
+    // instants on the clock ports::Rf deadlines are armed against, so this needs
     // no phase and no knowledge of which second, or which half of slot 1's
     // wrap, either one fell in.
     void record_dwell_phase(int64_t error_us);

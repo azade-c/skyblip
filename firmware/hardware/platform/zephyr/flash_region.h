@@ -6,7 +6,7 @@
 #include <zephyr/storage/flash_map.h>
 
 #include "core/flight/log_record.h"
-#include "hal/flash_region.h"
+#include "ports/flash_region.h"
 
 namespace skyblip::platform::zephyr {
 
@@ -16,7 +16,7 @@ namespace skyblip::platform::zephyr {
 // erases and writes halt the CPU while the flash controller owns the bus. A
 // program here costs a DMA burst out of SPIM1 and then the part is busy on its
 // own time, so a dwell armed against a PPS deadline is never waiting on it.
-class FlashRegion : public hal::FlashRegion {
+class FlashRegion : public ports::FlashRegion {
    public:
     Status begin() {
         if (flash_area_open(PARTITION_ID(log_partition), &area_) != 0) return Status::Down;

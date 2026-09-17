@@ -13,14 +13,14 @@ struct Rig {
     platform::host::Clock clock;
     runtime::NullRoles null;
     platform::host::DieTemperature sensor{};
-    hal::Roles roles{clock,          null.rf,          null.link, null.display, null.kv,
+    ports::Roles roles{clock,          null.rf,          null.link, null.display, null.kv,
                        null.log_flash, null.annunciator, null.dfu,  sensor,       null.indicator};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
     go::PowerService power{context};
 
-    Rig() { roles.capabilities = hal::Capability::DieTemperature; }
+    Rig() { roles.capabilities = ports::Capability::DieTemperature; }
 };
 
 constexpr uint32_t kPeriod = go::PowerService::kDieStaleMs / 3;
@@ -42,7 +42,7 @@ TEST_CASE("thermal: a reading the sensor gave is published where the panel gate 
 
 TEST_CASE("thermal: a board with no sensor publishes no reading, never a zero") {
     Rig rig;
-    rig.roles.capabilities = hal::Capabilities{};
+    rig.roles.capabilities = ports::Capabilities{};
     rig.power.tick(1000);
 
     CHECK_FALSE(rig.state.power.die_valid);

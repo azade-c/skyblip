@@ -7,11 +7,11 @@
 #include "core/bus/bus.h"
 #include "core/comms/link_session.h"
 #include "core/events/link.h"
-#include "hal/link.h"
+#include "ports/link.h"
 
 namespace skyblip::platform::host {
 
-class Link : public hal::Link {
+class Link : public ports::Link {
    public:
     struct Frame {
         events::Endpoint endpoint;
@@ -43,7 +43,7 @@ class Link : public hal::Link {
     // up it is the MTU exchange landing late, which is what an iOS central does,
     // and it reaches the bus the same way silicon's att_mtu_updated does.
     void declare_payload_bytes(uint16_t bytes) {
-        payload_bytes_ = bytes < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload : bytes;
+        payload_bytes_ = bytes < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : bytes;
         session_.payload_changed(payload_bytes_);
     }
 

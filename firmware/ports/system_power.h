@@ -1,13 +1,13 @@
-// hal/system_power.h: capability port: why the device came up, and how it goes
+// ports/system_power.h: capability port: why the device came up, and how it goes
 // away again. What the causes mean and when to use system_off() is decided in
 // core/power; this is the call.
-#ifndef SKYBLIP_HAL_SYSTEM_POWER_H
-#define SKYBLIP_HAL_SYSTEM_POWER_H
+#ifndef SKYBLIP_PORTS_SYSTEM_POWER_H
+#define SKYBLIP_PORTS_SYSTEM_POWER_H
 
 #include "core/power/reset_reason.h"
 #include "core/power/shutdown.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class SystemPower {
    public:
@@ -30,7 +30,7 @@ class SystemPower {
     // no service branches on a pointer or a flag. It lives on this port rather
     // than on a role of its own because it is the same peripheral: on the
     // nRF52840 RESETREAS, SYSTEMOFF and POFCON are three registers of POWER, and
-    // hal::Roles is assembled by the board, which has no way to probe a
+    // ports::Roles is assembled by the board, which has no way to probe a
     // comparator that has no pin.
     virtual bool supply_monitor_armed() const { return false; }
 
@@ -40,6 +40,6 @@ class SystemPower {
     virtual bool take_supply_warning() { return false; }
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

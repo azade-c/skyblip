@@ -55,10 +55,10 @@ const uint8_t* Ssd1681::previous_bank(const ui::Framebuffer& fb, bool full) cons
     return full ? fb.data() : shadow_;
 }
 
-void Ssd1681::present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now_ms) {
+void Ssd1681::present(const ui::Framebuffer& fb, ports::Refresh mode, uint32_t now_ms) {
     ensure_awake();
 
-    const bool full = mode == hal::Refresh::Full || !glass_known_;
+    const bool full = mode == ports::Refresh::Full || !glass_known_;
 
     set_window(0, 0, kW - 1, kH - 1);
     cmd(kBorderWaveform);

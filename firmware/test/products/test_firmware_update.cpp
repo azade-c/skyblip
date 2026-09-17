@@ -9,8 +9,8 @@ using namespace skyblip;
 
 namespace {
 
-constexpr hal::ImageVersion kRunning{0, 1, 0, 12};
-constexpr hal::ImageVersion kStaged{0, 2, 0, 15};
+constexpr ports::ImageVersion kRunning{0, 1, 0, 12};
+constexpr ports::ImageVersion kStaged{0, 2, 0, 15};
 
 void on_ground(Rig& rig, uint32_t& t) {
     rig.push_fix(/*alt_m=*/0, /*updates=*/1);
@@ -76,7 +76,7 @@ bool attempt_recorded(Rig& rig) {
 // The device after the bootloader has run: same flash, a fresh boot.
 struct Rebooted {
     Rig rig;
-    Rebooted(Rig& before, hal::ImageVersion running, bool confirmed) {
+    Rebooted(Rig& before, ports::ImageVersion running, bool confirmed) {
         rig.platform.kv() = before.platform.kv();
         rig.platform.dfu().has_running = true;
         rig.platform.dfu().running = running;
@@ -127,9 +127,9 @@ TEST_CASE("product: an image that was installed confirmed is never confirmed aga
 }
 
 TEST_CASE("product: a board with no panel does not wait for one to confirm") {
-    constexpr hal::Capabilities kNoPanel = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoPanel = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Display));
+        ~static_cast<uint32_t>(ports::Capability::Display));
     Rig rig(kNoPanel);
     rig.platform.dfu().image_confirmed = false;
     REQUIRE(rig.setup() == Status::Ok);
@@ -267,7 +267,7 @@ TEST_CASE("product: an image nobody staged over the air clears a stale attempt")
     REQUIRE(attempt_recorded(before));
 
     // a .uf2 dropped on the bootloader volume is neither side of the attempt
-    Rebooted flashed(before, hal::ImageVersion{0, 3, 0, 1}, /*confirmed=*/true);
+    Rebooted flashed(before, ports::ImageVersion{0, 3, 0, 1}, /*confirmed=*/true);
     REQUIRE(flashed.rig.setup() == Status::Ok);
     CHECK(config(flashed.rig).image_state() == dfu::ImageState::Confirmed);
     CHECK_FALSE(attempt_recorded(flashed.rig));

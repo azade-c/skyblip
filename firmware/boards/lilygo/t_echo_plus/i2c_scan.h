@@ -18,7 +18,7 @@
 #include <cstdint>
 
 #include "hardware/io/io.h"
-#include "hal/inventory.h"
+#include "ports/inventory.h"
 
 namespace skyblip::boards::t_echo_plus {
 
@@ -48,8 +48,8 @@ constexpr uint32_t kImuSettlingMs = 90;
 
 // Every address on the bus, in one pass. 112 probes at 100 kHz is about 20 ms of
 // bus time, once, at boot.
-inline hal::Inventory scan_i2c(io::I2c& bus) {
-    hal::Inventory inventory{};
+inline ports::Inventory scan_i2c(io::I2c& bus) {
+    ports::Inventory inventory{};
     for (uint8_t address = kI2cFirstAddress; address <= kI2cLastAddress; address++) {
         if (!bus.write(address, nullptr, 0)) continue;
         inventory.add_i2c_address(address);

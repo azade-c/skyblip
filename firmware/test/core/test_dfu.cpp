@@ -12,8 +12,8 @@ using namespace skyblip::dfu;
 namespace {
 UpdateRecord attempt() {
     UpdateRecord r;
-    r.from = hal::ImageVersion{0, 1, 0, 12};
-    r.to = hal::ImageVersion{0, 2, 0, 15};
+    r.from = ports::ImageVersion{0, 1, 0, 12};
+    r.to = ports::ImageVersion{0, 2, 0, 15};
     return r;
 }
 }  // namespace
@@ -41,13 +41,13 @@ TEST_CASE("dfu: the image that boots after the swap is classified by what it is 
     const UpdateRecord r = attempt();
     CHECK(outcome(r, r.to) == Outcome::Landed);
     CHECK(outcome(r, r.from) == Outcome::Reverted);
-    CHECK(outcome(r, hal::ImageVersion{0, 3, 0, 1}) == Outcome::Unrelated);
-    CHECK(outcome(r, hal::ImageVersion{0, 2, 0, 16}) == Outcome::Unrelated);
+    CHECK(outcome(r, ports::ImageVersion{0, 3, 0, 1}) == Outcome::Unrelated);
+    CHECK(outcome(r, ports::ImageVersion{0, 2, 0, 16}) == Outcome::Unrelated);
 }
 
 TEST_CASE("dfu: two builds of one release are two images") {
     const UpdateRecord r = attempt();
-    hal::ImageVersion other_build = r.to;
+    ports::ImageVersion other_build = r.to;
     other_build.build++;
     CHECK(r.to != other_build);
     CHECK(outcome(r, other_build) == Outcome::Unrelated);
@@ -55,15 +55,15 @@ TEST_CASE("dfu: two builds of one release are two images") {
 
 TEST_CASE("dfu: a version reads as imgtool stamps it, and the widest one fits the cap") {
     char text[kVersionTextCap];
-    CHECK(format_version(hal::ImageVersion{0, 1, 0, 12}, text, sizeof(text)) == 8);
+    CHECK(format_version(ports::ImageVersion{0, 1, 0, 12}, text, sizeof(text)) == 8);
     CHECK(std::string(text) == "0.1.0+12");
     const int widest =
-        format_version(hal::ImageVersion{255, 255, 65535, 4294967295u}, text, sizeof(text));
+        format_version(ports::ImageVersion{255, 255, 65535, 4294967295u}, text, sizeof(text));
     CHECK(std::string(text) == "255.255.65535+4294967295");
     CHECK(widest == static_cast<int>(kVersionTextCap) - 1);
 
     char tight[8];
-    CHECK(format_version(hal::ImageVersion{0, 1, 0, 12}, tight, sizeof(tight)) == 0);
+    CHECK(format_version(ports::ImageVersion{0, 1, 0, 12}, tight, sizeof(tight)) == 0);
     CHECK(tight[0] == 0);
 }
 

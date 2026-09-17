@@ -1,19 +1,19 @@
-#ifndef SKYBLIP_HAL_ROLES_H
-#define SKYBLIP_HAL_ROLES_H
+#ifndef SKYBLIP_PORTS_ROLES_H
+#define SKYBLIP_PORTS_ROLES_H
 
-#include "hal/annunciator.h"
-#include "hal/capabilities.h"
-#include "hal/clock.h"
-#include "hal/dfu.h"
-#include "hal/die_temperature.h"
-#include "hal/display.h"
-#include "hal/flash_region.h"
-#include "hal/indicator.h"
-#include "hal/kvstore.h"
-#include "hal/link.h"
-#include "hal/rf.h"
+#include "ports/annunciator.h"
+#include "ports/capabilities.h"
+#include "ports/clock.h"
+#include "ports/dfu.h"
+#include "ports/die_temperature.h"
+#include "ports/display.h"
+#include "ports/flash_region.h"
+#include "ports/indicator.h"
+#include "ports/kvstore.h"
+#include "ports/link.h"
+#include "ports/rf.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 // Every role is a reference: an absent capability is filled by its null part, so
 // no caller branches on a pointer. What is absent is stated once, in capabilities.
@@ -32,6 +32,6 @@ struct Roles {
     uint32_t device_addr{0};
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

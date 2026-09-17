@@ -1,4 +1,4 @@
-// hal/annunciator.h: capability port: buzzer + vibration motor (T-Echo Plus).
+// ports/annunciator.h: capability port: buzzer + vibration motor (T-Echo Plus).
 //
 // alarm() opens a CONTINUOUS tone and it runs until silence(): there is no
 // cadence in the port, no timer behind it and no duration argument, because a
@@ -8,15 +8,15 @@
 // falls, the target goes, the pilot switches alarms off or the device goes down.
 // vibrate() is the exception: it is a single pulse of a stated length and the
 // implementation owns its end, because a motor left on is a flat battery. What
-// the pulse reaches is hal/haptic.h - a motor on a pin on one board, a DRV2605
+// the pulse reaches is ports/haptic.h - a motor on a pin on one board, a DRV2605
 // over I2C on another - and which of those is fitted is a capability, not
 // something any caller of this port ever sees.
-#ifndef SKYBLIP_HAL_ANNUNCIATOR_H
-#define SKYBLIP_HAL_ANNUNCIATOR_H
+#ifndef SKYBLIP_PORTS_ANNUNCIATOR_H
+#define SKYBLIP_PORTS_ANNUNCIATOR_H
 
 #include <cstdint>
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class Annunciator {
    public:

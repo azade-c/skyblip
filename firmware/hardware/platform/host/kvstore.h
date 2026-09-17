@@ -3,11 +3,11 @@
 
 #include <string>
 
-#include "hal/kvstore.h"
+#include "ports/kvstore.h"
 
 namespace skyblip::platform::host {
 
-class KvStore : public hal::KvStore {
+class KvStore : public ports::KvStore {
    public:
     Status read(const char* key, uint8_t* buf, size_t cap, size_t& out_len) override {
         for (auto& e : e_)

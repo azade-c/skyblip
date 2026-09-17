@@ -172,9 +172,9 @@ TEST_CASE("product: a device that can fly keeps the self test off the glass at b
 }
 
 TEST_CASE("product: the self-test page reaches the panel before anything refuses") {
-    constexpr hal::Capabilities kNoGnss = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoGnss = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Gnss));
+        ~static_cast<uint32_t>(ports::Capability::Gnss));
     Rig rig{kNoGnss};
     CHECK(rig.setup() == Status::Down);
     CHECK_FALSE(rig.product.flyable());
@@ -194,9 +194,9 @@ TEST_CASE("product: the self-test page reaches the panel before anything refuses
 }
 
 TEST_CASE("product: the self-test page names the part, not just the failure") {
-    constexpr hal::Capabilities kNoGnss = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoGnss = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Gnss));
+        ~static_cast<uint32_t>(ports::Capability::Gnss));
     Rig missing{kNoGnss};
     missing.setup();
 
@@ -308,9 +308,9 @@ TEST_CASE("product: the status page marks a low cell when the monitor says so, n
 
 // The charger cannot be gated here, so the row is the only warning there is.
 TEST_CASE("product: the status page marks a cell charging too hot to be charged") {
-    constexpr hal::Capabilities kWithDie = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kWithDie = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) |
-        static_cast<uint32_t>(hal::Capability::DieTemperature));
+        static_cast<uint32_t>(ports::Capability::DieTemperature));
 
     auto charging_at = [](int16_t decicelsius) {
         Rig rig{kWithDie};
@@ -348,9 +348,9 @@ TEST_CASE("product: the self-test page carries what the probes found, not what w
     const ui::BootPart* radio = nullptr;
     for (int i = 0; i < go::kBootPartCount; i++) {
         const ui::BootPart& row = rig.product.boot_rows()[i];
-        if (go::kBootParts[i].capability == hal::Capability::Baro) baro = &row;
-        if (go::kBootParts[i].capability == hal::Capability::Vibro) haptic = &row;
-        if (go::kBootParts[i].capability == hal::Capability::Rf) radio = &row;
+        if (go::kBootParts[i].capability == ports::Capability::Baro) baro = &row;
+        if (go::kBootParts[i].capability == ports::Capability::Vibro) haptic = &row;
+        if (go::kBootParts[i].capability == ports::Capability::Rf) radio = &row;
     }
     REQUIRE(baro != nullptr);
     REQUIRE(haptic != nullptr);
@@ -371,14 +371,14 @@ TEST_CASE("product: the self-test page carries what the probes found, not what w
 // A barometer that did not answer must not print a stale or a zero address: the
 // row already says ABSENT, and "00" would read as a part at address zero.
 TEST_CASE("product: a footprint nothing answered prints no address") {
-    constexpr hal::Capabilities kNoBaro = static_cast<hal::Capabilities>(
+    constexpr ports::Capabilities kNoBaro = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(hal::Capability::Baro));
+        ~static_cast<uint32_t>(ports::Capability::Baro));
     Rig rig{kNoBaro};
     REQUIRE(rig.setup() == Status::Ok);
 
     for (int i = 0; i < go::kBootPartCount; i++) {
-        if (go::kBootParts[i].capability != hal::Capability::Baro) continue;
+        if (go::kBootParts[i].capability != ports::Capability::Baro) continue;
         const ui::BootPart& row = rig.product.boot_rows()[i];
         CHECK(row.state == ui::PartState::Absent);
         CHECK(row.detail == nullptr);

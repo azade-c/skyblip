@@ -1,20 +1,20 @@
-// hal/flash_region.h: capability port: a contiguous region of NOR flash, with
+// ports/flash_region.h: capability port: a contiguous region of NOR flash, with
 // its erase granularity exposed rather than hidden.
 //
-// hal/kvstore.h is the other storage port and it is not this one. A key/value
+// ports/kvstore.h is the other storage port and it is not this one. A key/value
 // store owns its own layout, garbage-collects when it feels like it, and is
 // mounted on the 32 KB internal partition where a write stalls the CPU. A flight
 // log is an append-only stream on a 1.29 MB external partition where a write
 // does not. The two have nothing in common but the word storage, so they are two
 // ports and not one with a mode flag.
-#ifndef SKYBLIP_HAL_FLASH_REGION_H
-#define SKYBLIP_HAL_FLASH_REGION_H
+#ifndef SKYBLIP_PORTS_FLASH_REGION_H
+#define SKYBLIP_PORTS_FLASH_REGION_H
 
 #include <cstdint>
 
 #include "core/util/result.h"
 
-namespace skyblip::hal {
+namespace skyblip::ports {
 
 class FlashRegion {
    public:
@@ -36,6 +36,6 @@ class FlashRegion {
     virtual Status erase_sector(uint32_t index) = 0;
 };
 
-}  // namespace skyblip::hal
+}  // namespace skyblip::ports
 
 #endif

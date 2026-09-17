@@ -3,7 +3,7 @@
 
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
-#include "hal/display.h"
+#include "ports/display.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::parts {
@@ -11,7 +11,7 @@ namespace skyblip::parts {
 // INFO: fc 12sep26 the SSD1681 mirrors (0x01, 0x11) but cannot transpose, so the driver turns
 enum class GlassRotation : uint8_t { Deg0, Deg270 };
 
-class Ssd1681 : public hal::Display {
+class Ssd1681 : public ports::Display {
    public:
     Ssd1681(io::Spi& spi, io::Gpio& gpio, int dc, int rst, int busy, int backlight = -1,
             GlassRotation rotation = GlassRotation::Deg0)
@@ -34,7 +34,7 @@ class Ssd1681 : public hal::Display {
     Panel panel() const { return panel_; }
     const char* panel_name() const { return parts::panel_name(panel_); }
 
-    void present(const ui::Framebuffer& fb, hal::Refresh mode, uint32_t now_ms) override;
+    void present(const ui::Framebuffer& fb, ports::Refresh mode, uint32_t now_ms) override;
     void paint_black(uint32_t now_ms) override;
     bool ready(uint32_t now_ms) override;
     void power_off() override;
@@ -42,8 +42,8 @@ class Ssd1681 : public hal::Display {
     void set_backlight(bool on) override;
 
     bool refreshing() const { return refreshing_; }
-    hal::Refresh refresh_mode() const {
-        return partial_refresh_ ? hal::Refresh::Partial : hal::Refresh::Full;
+    ports::Refresh refresh_mode() const {
+        return partial_refresh_ ? ports::Refresh::Partial : ports::Refresh::Full;
     }
 
     // INFO: fc 01aug25 D67 settles 460 ms partial / 2.5 s full, GxEPD2 | 12sep26 +140 ms power-down

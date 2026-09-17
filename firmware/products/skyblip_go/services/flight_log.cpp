@@ -6,7 +6,7 @@
 namespace skyblip::go {
 
 Status FlightLogService::setup() {
-    available_ = hal::has(context_.roles.capabilities, hal::Capability::Storage) &&
+    available_ = ports::has(context_.roles.capabilities, ports::Capability::Storage) &&
                  context_.roles.log_flash.ready();
     if (!available_) return Status::Ok;
 

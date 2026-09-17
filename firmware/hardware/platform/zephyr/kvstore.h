@@ -9,11 +9,11 @@
 #include <zephyr/kvss/nvs.h>
 #include <zephyr/storage/flash_map.h>
 
-#include "hal/kvstore.h"
+#include "ports/kvstore.h"
 
 namespace skyblip::platform::zephyr {
 
-class KvStore : public hal::KvStore {
+class KvStore : public ports::KvStore {
    public:
     // Mount NVS on the DT-defined `storage_partition`. Returns Ok on success.
     Status begin() {
