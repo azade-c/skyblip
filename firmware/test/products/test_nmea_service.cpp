@@ -491,7 +491,8 @@ struct FeatureRig {
     runtime::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          link,     null.display,         null.kv,
-        null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
+        null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator,
+        null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};

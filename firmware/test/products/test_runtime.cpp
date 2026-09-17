@@ -63,6 +63,7 @@ TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
+                       null.gnss,
                        ports::Capability::None,
                        0};
     bus::Bus bus;
@@ -104,6 +105,7 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
+                       null.gnss,
                        ports::Capability::None,
                        0};
     bus::Bus bus;
@@ -213,6 +215,7 @@ TEST_CASE("watchdog: the loop refuses to feed for a service that is not progress
                        null.dfu,
                        null.die_temperature,
                        null.indicator,
+                       null.gnss,
                        ports::Capability::None,
                        0};
     bus::Bus bus;
