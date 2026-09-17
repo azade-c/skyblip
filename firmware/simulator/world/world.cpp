@@ -262,9 +262,8 @@ size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t
     p.VelAccuracy = 2;
     p.scramble();
     p.set_crc();
-    return protocol::encode_mband(protocol::kAdslSyncWord,
-                                  p.Data,
-                                  protocol::kAdslFrameBytes, chips);
+    return protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes,
+                                  chips);
 }
 
 // An ALP-TAS aircraft carries a FLARM-taxonomy address, so the address type says

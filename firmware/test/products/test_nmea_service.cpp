@@ -118,9 +118,8 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     packet.set_crc();
 
     uint8_t chips[protocol::kTxChipBytes];
-    const size_t chip_len = protocol::encode_mband(
-        protocol::kAdslSyncWord, packet.Data,
-        protocol::kAdslFrameBytes, chips);
+    const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, packet.Data,
+                                                   protocol::kAdslFrameBytes, chips);
 
     events::RfEvent event{};
     event.type = events::RfEventType::RxDone;
