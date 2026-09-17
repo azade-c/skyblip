@@ -102,7 +102,7 @@ class ScreenService : public runtime::Service {
         return to_feet_per_minute(MillimetresPerSec(context_.state.own.climb_mm_s)).v;
     }
 
-    bool alarm_standing() const { return context_.state.alarm_level != 0; }
+    bool alarm_takes_glass() const { return context_.state.alarm_level >= kAlarmTakesGlass; }
 
     bool receiver_listening() const {
         return hal::has(context_.roles.capabilities, hal::Capability::Rf) &&

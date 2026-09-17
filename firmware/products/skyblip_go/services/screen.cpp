@@ -190,7 +190,7 @@ void ScreenService::tick(uint32_t now_ms) {
         dirty_ = true;
     }
 
-    if (mode_ == Mode::Settings && context_.state.alarm_level >= kAlarmTakesGlass) leave_settings();
+    if (mode_ == Mode::Settings && alarm_takes_glass()) leave_settings();
 
     if (!hal::has(context_.roles.capabilities, hal::Capability::Display)) return;
     settle_park(now_ms);
@@ -206,7 +206,7 @@ void ScreenService::tick(uint32_t now_ms) {
 
     if (change_ == Change::Asked) {
         change_ = Change::None;
-        if (!alarm_standing()) {
+        if (!alarm_takes_glass()) {
             wipe_glass(now_ms);
             return;
         }

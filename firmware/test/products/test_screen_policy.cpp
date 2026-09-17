@@ -106,10 +106,23 @@ TEST_CASE("screen policy: a page change under an alarm goes straight to the pict
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 
-    rig.alarm(2);
+    rig.alarm(go::ScreenService::kAlarmTakesGlass);
     rig.screen.next_page();
     rig.tick(t += 1000);
     CHECK_FALSE(rig.glass_all_black());
+    CHECK_FALSE(rig.chip.last_full);
+}
+
+// Traffic inside 3 km is an advisory a pilot flies with for hours, not a lost wipe for all of it.
+TEST_CASE("screen policy: an advisory contact leaves the page change its black") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+
+    rig.alarm(go::ScreenService::kAlarmTakesGlass - 1);
+    rig.screen.next_page();
+    rig.tick(t += 1000);
+    CHECK(rig.glass_all_black());
     CHECK_FALSE(rig.chip.last_full);
 }
 
