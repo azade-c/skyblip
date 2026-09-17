@@ -21,10 +21,10 @@ int nmea_finish(char* s, int body_len) {
     return n;
 }
 
-uint8_t adsl_cat_to_alptas(uint8_t c) {
+uint8_t adsl_cat_to_alptas(uint8_t adsl_cat) {
     static const uint8_t kMap[18] = {0x0, 0x8, 0x8, 0x3, 0x1, 0xB, 0xC, 0x7, 0x4,
                                      0x8, 0x3, 0xD, 0xD, 0xD, 0x0, 0x0, 0x0, 0x0};
-    return c < 18 ? kMap[c] : 0;
+    return adsl_cat < 18 ? kMap[adsl_cat] : 0;
 }
 
 // INFO: fc 03aug26 ADS-L 4 SRD860 issue 2's address table is 0-4 self-minted/
@@ -42,7 +42,7 @@ uint8_t adsl_cat_to_alptas(uint8_t c) {
 // which is a lie about provenance too - just a cheaper one than claiming ICAO,
 // because nothing downstream correlates a FLARM ID against an aircraft
 // register the way it might an ICAO one.
-uint8_t addr_table_to_idtype(uint8_t t) { return t == 0x05 ? 1 : 2; }
+uint8_t addr_table_to_idtype(uint8_t addr_table) { return addr_table == 0x05 ? 1 : 2; }
 
 bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32_t& north_m,
                   int32_t& east_m, int32_t& up_m) {

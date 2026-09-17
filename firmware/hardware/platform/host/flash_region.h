@@ -24,7 +24,8 @@ class FlashRegion : public ports::FlashRegion {
     static constexpr uint32_t kSectorCount = 330;
 
     explicit FlashRegion(uint32_t sector_count = kSectorCount)
-        : sector_count_(sector_count), bytes_(sector_count * kSectorBytes, 0xFF) {}
+        : sector_count_(sector_count),
+          bytes_(static_cast<size_t>(sector_count) * kSectorBytes, 0xFF) {}
 
     bool ready() const override { return present_; }
     void set_present(bool on) { present_ = on; }
@@ -61,7 +62,7 @@ class FlashRegion : public ports::FlashRegion {
         if (!present_) return Status::Down;
         if (index >= sector_count_) return Status::OutOfRange;
         if (dead_) return Status::Down;
-        std::memset(bytes_.data() + index * kSectorBytes, 0xFF, kSectorBytes);
+        std::memset(bytes_.data() + static_cast<size_t>(index) * kSectorBytes, 0xFF, kSectorBytes);
         erases++;
         return Status::Ok;
     }

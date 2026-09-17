@@ -12,7 +12,7 @@ class Framebuffer {
     static constexpr int kW = 200;
     static constexpr int kH = 200;
     static constexpr int kStride = (kW + 7) / 8;
-    static constexpr size_t kBytes = kStride * kH;
+    static constexpr size_t kBytes = static_cast<size_t>(kStride) * kH;
 
     void clear(bool white = true);
     void set_pixel(int x, int y, bool black);

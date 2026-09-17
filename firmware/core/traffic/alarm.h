@@ -54,7 +54,7 @@ constexpr int32_t kUnknownTargetSpeedMps = 30;
 constexpr int32_t kNoImpactS = 32767;
 
 // INFO: fc 13sep26 now_ms is the instant both sides are carried to, on ports::Clock
-AlarmAssessment assess(const model::OwnState& own, const model::AircraftObs& target,
+AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs& reported,
                        uint32_t now_ms);
 
 // Why a contact that the geometry graded higher is being held down.

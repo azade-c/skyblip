@@ -170,7 +170,7 @@ struct Plotted {
 };
 
 int64_t range_metres(const RadarSnapshot& snap) {
-    return (snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
+    return static_cast<int64_t>(snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
 }
 
 int32_t to_px(int32_t metres, int64_t range) {

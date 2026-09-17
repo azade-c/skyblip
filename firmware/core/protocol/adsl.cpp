@@ -1,5 +1,7 @@
 #include "core/protocol/adsl.h"
 
+#include <algorithm>
+
 #include "core/fec/crc.h"
 #include "core/fec/scramble.h"
 #include "core/flight/extrapolate.h"
@@ -29,7 +31,7 @@ int32_t AdslPacket::alt_m() const {
 }
 void AdslPacket::set_alt_m(int32_t alt) {
     alt += kAltOffsetM;
-    if (alt < 0) alt = 0;  // G.1.7: below -320 m encodes the limit, 0x0000
+    alt = std::max(alt, 0);  // G.1.7: below -320 m encodes the limit, 0x0000
     uint32_t w = uns_vr_encode<uint32_t, 12>(static_cast<uint32_t>(alt));
     // Same collision as ground speed: saturation lands on 0x3FFF, the code for
     // "no 3D fix". G.1.7 wants the limit (0x3FFE, 61104 m) instead - the
@@ -40,9 +42,9 @@ void AdslPacket::set_alt_m(int32_t alt) {
 }
 
 int16_t AdslPacket::climb_e8() const {
-    int16_t w = Position[9] & 0x7F;
-    w <<= 2;
-    w |= Position[8] >> 6;
+    int16_t w = static_cast<int16_t>(Position[9] & 0x7F);
+    w = static_cast<int16_t>(w << 2);
+    w = static_cast<int16_t>(w | (Position[8] >> 6));
     return sign_vr_decode<int16_t, 6>(w);
 }
 void AdslPacket::set_climb_e8(int16_t c) {
@@ -67,8 +69,8 @@ bool AdslPacket::has_climb() const {
 
 uint16_t AdslPacket::track_c9() const {
     int16_t w = Position[10];
-    w <<= 1;
-    w |= Position[9] >> 7;
+    w = static_cast<int16_t>(w << 1);
+    w = static_cast<int16_t>(w | (Position[9] >> 7));
     return static_cast<uint16_t>(w & 0x1FF);
 }
 void AdslPacket::set_track_c9(uint16_t w) {
@@ -99,14 +101,12 @@ void AdslPacket::descramble() {
 }
 
 void AdslPacket::set_crc() {
-    uint32_t w = fec::adsl_pi_calc(reinterpret_cast<const uint8_t*>(&Version), kCrcCoverBytes);
+    uint32_t w = fec::adsl_pi_calc(Data, kCrcCoverBytes);
     CRC[0] = static_cast<uint8_t>(w >> 16);
     CRC[1] = static_cast<uint8_t>(w >> 8);
     CRC[2] = static_cast<uint8_t>(w);
 }
-uint32_t AdslPacket::check_crc() const {
-    return fec::adsl_pi_check(reinterpret_cast<const uint8_t*>(&Version), kDataBytes);
-}
+uint32_t AdslPacket::check_crc() const { return fec::adsl_pi_check(Data, kDataBytes); }
 
 namespace {
 constexpr uint16_t kBits = AdslPacket::kDataBytes * 8;
@@ -190,8 +190,8 @@ uint8_t find_crc_syndrome(uint32_t syndr) {
 }
 }
 
-int AdslPacket::correct(uint8_t* err, int max_bad_bits) {
-    uint8_t* data = reinterpret_cast<uint8_t*>(&Version);
+int AdslPacket::correct(const uint8_t* err, int max_bad_bits) {
+    uint8_t* data = Data;
     uint32_t crc = fec::adsl_pi_check(data, kDataBytes);
     if (crc == 0) return 0;
     uint8_t single = find_crc_syndrome(crc);
@@ -201,7 +201,7 @@ int AdslPacket::correct(uint8_t* err, int max_bad_bits) {
     }
 
     static constexpr int kCap = 16;
-    if (max_bad_bits > kCap) max_bad_bits = kCap;
+    max_bad_bits = std::min(max_bad_bits, kCap);
     uint8_t idx[kCap];
     uint8_t mask[kCap];
     uint32_t syn[kCap];

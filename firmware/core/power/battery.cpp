@@ -1,5 +1,7 @@
 #include "core/power/battery.h"
 
+#include <algorithm>
+
 #include "core/events/sensor.h"
 
 namespace skyblip::power {
@@ -96,14 +98,13 @@ void Gauge::apply(const events::BatterySample& sample) {
     // once the charge current stops: both are direction changes, so the gauge
     // re-seats on the new curve instead of holding the old number.
     const bool reseat = !state_.valid || charging != was_charging;
-    if (reseat)
+    const bool topped_off = sample.external_power && !charging;
+    if (reseat || topped_off)
         state_.percent = percent;
     else if (charging)
-        state_.percent = percent > state_.percent ? percent : state_.percent;
-    else if (!sample.external_power)
-        state_.percent = percent < state_.percent ? percent : state_.percent;
+        state_.percent = std::max(percent, state_.percent);
     else
-        state_.percent = percent;
+        state_.percent = std::min(percent, state_.percent);
 
     state_.millivolts = millivolts;
     state_.external_power = sample.external_power;

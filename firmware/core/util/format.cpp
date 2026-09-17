@@ -1,5 +1,7 @@
 #include "core/util/format.h"
 
+#include <algorithm>
+
 namespace skyblip {
 
 int fmt_string(char* out, const char* s) {
@@ -85,7 +87,7 @@ int fmt_flight_clock(char* out, uint32_t seconds, bool have_time) {
         return dashes;
     }
     uint32_t minutes = seconds / 60;
-    if (minutes > kMaxMinutes) minutes = kMaxMinutes;
+    minutes = std::min(minutes, kMaxMinutes);
     int n = fmt_uint(out, minutes / 60);
     out[n++] = ':';
     n += fmt_uint(out + n, minutes % 60, 2);

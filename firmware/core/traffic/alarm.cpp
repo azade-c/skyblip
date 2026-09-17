@@ -1,5 +1,7 @@
 #include "core/traffic/alarm.h"
 
+#include <algorithm>
+
 #include "core/flight/extrapolate.h"
 #include "core/flight/turn.h"
 #include "core/model/aircraft.h"
@@ -205,7 +207,7 @@ uint8_t AlarmTracker::announced_level(uint32_t now_ms) const {
     uint8_t level = 0;
     for (const Slot& s : slots_) {
         if (!s.used || now_ms - s.seen_ms > kAlertMaxAgeMs) continue;
-        if (s.notified_level > level) level = s.notified_level;
+        level = std::max(s.notified_level, level);
     }
     return level;
 }

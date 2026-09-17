@@ -1,5 +1,7 @@
 #include "core/timing/durable_write.h"
 
+#include <algorithm>
+
 namespace skyblip::timing {
 
 namespace {
@@ -35,8 +37,7 @@ bool DurableWriteWindow::free_at(const SlotPlan& plan, int phase_ms, uint32_t co
     // which is an instant core/timing::Transmitter is allowed to have chosen.
     if (at_ms < kDirectStart && done_ms + kJitterGuardMs > kDirectStart) return false;
     const int next_edge_ms = at_ms < kSecondMs ? kSecondMs : 2 * kSecondMs;
-    if (done_ms + kJitterGuardMs > next_edge_ms) return false;
-    return true;
+    return done_ms + kJitterGuardMs <= next_edge_ms;
 }
 
 void DurableWriteWindow::request(uint32_t now_ms) {
@@ -48,8 +49,7 @@ void DurableWriteWindow::request(uint32_t now_ms) {
     last_request_ms_ = now_ms;
 }
 
-bool DurableWriteWindow::placeable(const SlotPlan& plan, const DwellPhase& dwell,
-                                   uint32_t now_ms) const {
+bool DurableWriteWindow::placeable(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms) {
     // Nothing is armed: a product with no radio fitted, or one before the first
     // dwell. There is no second to respect.
     if (!dwell.armed) return true;
@@ -75,7 +75,7 @@ DurableWriteVerdict DurableWriteWindow::decide(const SlotPlan& plan, const Dwell
 
 void DurableWriteWindow::placed(uint32_t now_ms, bool forced) {
     const uint32_t waited_ms = now_ms - first_request_ms_;
-    if (waited_ms > worst_wait_ms_) worst_wait_ms_ = waited_ms;
+    worst_wait_ms_ = std::max(waited_ms, worst_wait_ms_);
     writes_++;
     if (forced) forced_++;
     pending_ = false;

@@ -7,12 +7,12 @@ namespace skyblip::go {
 Status RadioService::setup() {
     if (!ports::has(context_.roles.capabilities, ports::Capability::Rf)) return Status::Down;
     transmitter_.configure(context_.roles.device_addr);
-    arm_dwell(scheduler_.plan(0, context_.state.clock), 0);
+    arm_dwell(timing::Scheduler::plan(0, context_.state.clock), 0);
     return Status::Ok;
 }
 
 void RadioService::tick(uint32_t now_ms) {
-    const timing::SlotPlan plan = scheduler_.plan(phase_ms(), context_.state.clock);
+    const timing::SlotPlan plan = timing::Scheduler::plan(phase_ms(), context_.state.clock);
     context_.state.rf.plan = plan;
     take_carrier_samples();
     collect_outcome(now_ms);
@@ -197,8 +197,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         outgoing_.set_crc();
         plan.tx = outgoing_chips_;
         plan.tx_len = static_cast<uint8_t>(protocol::mband_payload(
-            protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&outgoing_.Version),
-            protocol::kAdslFrameBytes, outgoing_chips_));
+            protocol::kAdslSyncWord, outgoing_.Data, protocol::kAdslFrameBytes, outgoing_chips_));
         plan.tx_at_us = tx_at_us;
     }
 

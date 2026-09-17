@@ -61,7 +61,7 @@ class Dfu : public ports::Dfu {
 class Baro {
    public:
     bool ready() const { return present; }
-    bool read_pressure_mpa(uint32_t& out_mpa) {
+    bool read_pressure_mpa(uint32_t& out_mpa) const {
         if (!present) return false;
         out_mpa = chip.pressure_mpa();
         return true;
@@ -76,7 +76,7 @@ class Baro {
 class Battery {
    public:
     bool ready() const { return present; }
-    bool read_mv(uint16_t& out_mv) {
+    bool read_mv(uint16_t& out_mv) const {
         if (!present) return false;
         out_mv = millivolts;
         return true;
@@ -137,7 +137,7 @@ class Platform {
         wire_i2c();
     }
 
-    Status begin() { return Status::Ok; }
+    static Status begin() { return Status::Ok; }
     void wire(const io::PinMap& map) { gpio_.wire(map); }
 
     io::Spi& spi(io::BusId id) {
@@ -151,7 +151,7 @@ class Platform {
     // driver walk its candidates against a silence that is the rig's, not a
     // receiver's. Autobaud is proven where the model IS the wire,
     // test/hardware/test_l76k.cpp.
-    io::UartRate& uart_rate(io::BusId) { return io::kFixedUartRate; }
+    static io::UartRate& uart_rate(io::BusId) { return io::kFixedUartRate; }
     io::Gpio& gpio() { return gpio_; }
     io::I2c& i2c(io::BusId) { return i2c_; }
 
@@ -168,16 +168,16 @@ class Platform {
     host::Pps& pps() { return pps_; }
     host::Watchdog& watchdog() { return watchdog_; }
     host::SystemPower& system_power() { return system_power_; }
-    bool button_down() { return gpio_.button_down; }
-    bool pad_down() { return gpio_.pad_down; }
+    bool button_down() const { return gpio_.button_down; }
+    bool pad_down() const { return gpio_.pad_down; }
 
-    parts::GlassRotation glass_rotation() const { return parts::GlassRotation::Deg0; }
+    static parts::GlassRotation glass_rotation() { return parts::GlassRotation::Deg0; }
 
     // The panel fingerprint, as the silicon platform's board port takes it: 11
     // bytes of register 0x2D then 10 of 0x2E. The virtual glass carries which lot
     // it is from, so a host test flies a panel that cannot be powered off after a
     // partial update without a soldering iron.
-    bool read_panel_signature(parts::PanelSignature& out) {
+    bool read_panel_signature(parts::PanelSignature& out) const {
         out = chips_.epd.signature;
         return out.read;
     }
@@ -190,9 +190,9 @@ class Platform {
     void set_buzzer_pin_held_low(bool held) { buzzer_pin_held_low_ = held; }
     bool read_pressure_mpa(uint32_t& out_mpa) { return baro_.read_pressure_mpa(out_mpa); }
     bool read_battery_mv(uint16_t& out_mv) { return battery_.read_mv(out_mv); }
-    bool external_power() { return battery_.external_power; }
+    bool external_power() const { return battery_.external_power; }
     static constexpr uint32_t kDeviceAddr = 0x5B5AFEu;
-    uint32_t device_addr() const { return kDeviceAddr; }
+    static uint32_t device_addr() { return kDeviceAddr; }
     Chips& chips() { return chips_; }
     Gpio& board_gpio() { return gpio_; }
     // The bus itself, so a test can fit a unit that came off the line with the

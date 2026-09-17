@@ -1,5 +1,7 @@
 #include "products/skyblip_go/services/alarm.h"
 
+#include <algorithm>
+
 namespace skyblip::go {
 
 void AlarmService::tick(uint32_t now_ms) {
@@ -13,9 +15,9 @@ void AlarmService::tick(uint32_t now_ms) {
             const traffic::AlarmTracker::Decision d =
                 tracker_.update(context_.state.own, t->obs, now_ms);
             t->alarm_level = d.assessment.level;
-            if (d.assessment.level > worst) worst = d.assessment.level;
+            worst = std::max(d.assessment.level, worst);
             if (!d.notify) continue;
-            if (d.assessment.level > speak) speak = d.assessment.level;
+            speak = std::max(d.assessment.level, speak);
             escalated = escalated || d.escalated;
         }
     }

@@ -32,6 +32,7 @@
 #ifndef SKYBLIP_CORE_INDICATION_LAMP_H
 #define SKYBLIP_CORE_INDICATION_LAMP_H
 
+#include <algorithm>
 #include <cstdint>
 
 #include "core/power/cutoff.h"
@@ -171,8 +172,8 @@ constexpr uint16_t shortest_phase_ms() {
     for (int i = 0; i < kRowCount; i++) {
         const Indication& indication = kTable[i].indication;
         if (indication.lamp == ports::Lamp::None || indication.off_ms == 0) continue;
-        if (indication.on_ms < shortest) shortest = indication.on_ms;
-        if (indication.off_ms < shortest) shortest = indication.off_ms;
+        shortest = std::min(indication.on_ms, shortest);
+        shortest = std::min(indication.off_ms, shortest);
     }
     return shortest;
 }

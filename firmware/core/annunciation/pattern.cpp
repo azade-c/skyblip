@@ -72,7 +72,10 @@ void Policy::play_jingle(uint32_t now_ms) {
             phase_on_ = false;
             continue;
         }
-        if (note.gap_ms == 0 || note_ + 1 >= kFirstFixNoteCount) return release();
+        if (note.gap_ms == 0 || note_ + 1 >= kFirstFixNoteCount) {
+            release();
+            return;
+        }
         if (now_ms - phase_ms_ < note.gap_ms) return;
         phase_ms_ += note.gap_ms;
         note_++;
@@ -84,7 +87,10 @@ void Policy::play_jingle(uint32_t now_ms) {
 
 void Policy::advance(uint32_t now_ms) {
     if (voice_ == Voice::None) return;
-    if (voice_ == Voice::FirstFix) return play_jingle(now_ms);
+    if (voice_ == Voice::FirstFix) {
+        play_jingle(now_ms);
+        return;
+    }
 
     while (true) {
         if (phase_on_) {

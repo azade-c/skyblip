@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_HARDWARE_MODEL_SSD1681_H
 #define SKYBLIP_HARDWARE_MODEL_SSD1681_H
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
@@ -94,9 +95,7 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     }
 
     bool saw_cmd(uint8_t c) const {
-        for (uint8_t x : cmds)
-            if (x == c) return true;
-        return false;
+        return std::any_of(cmds.begin(), cmds.end(), [c](uint8_t x) { return x == c; });
     }
 
     // What the panel would be showing: RAM read back through the driver's own

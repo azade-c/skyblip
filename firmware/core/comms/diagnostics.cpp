@@ -1,5 +1,7 @@
 #include "core/comms/diagnostics.h"
 
+#include <algorithm>
+
 #include "core/comms/frame_budget.h"
 #include "core/util/json_min.h"
 
@@ -230,9 +232,9 @@ bool DiagnosticsReport::fits(int payload) const {
     int widest_group = 0;
     for (int i = 0; i < count_; i++) {
         const int bytes = field_bytes(fields_[i]);
-        if (bytes > widest_field) widest_field = bytes;
+        widest_field = std::max(bytes, widest_field);
         const int group = frame::text_field_bytes("group", group_name(fields_[i].group));
-        if (group > widest_group) widest_group = group;
+        widest_group = std::max(group, widest_group);
     }
     frame::Budget budget(payload);
     return budget.take(frame::text_field_bytes("cmd", cmd_)) && budget.take(widest_group) &&
@@ -244,7 +246,7 @@ int DiagnosticsReport::next_frame(int payload, char* buf, int cap) {
     if (exhausted()) return 0;
 
     int room = payload + 1;
-    if (room > cap) room = cap;
+    room = std::min(room, cap);
 
     const Group group = fields_[at_].group;
     frame::Budget budget(room - 1);

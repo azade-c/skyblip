@@ -116,9 +116,9 @@ void Framebuffer::circle(int cx, int cy, int r, bool black, bool fill) {
             set_pixel(cx - y, cy - x, black);
         }
         y++;
-        if (err < 0)
+        if (err < 0) {
             err += 2 * y + 1;
-        else {
+        } else {
             x--;
             err += 2 * (y - x) + 1;
         }

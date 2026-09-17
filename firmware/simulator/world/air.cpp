@@ -1,5 +1,6 @@
 #include "simulator/world/air.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -36,6 +37,20 @@ void Air::emit(uint64_t at_us, uint32_t freq_hz, const uint8_t* chips, uint16_t 
     }
 }
 
+bool Air::detected_by(models::Sx1262& radio, Burst& b) {
+    if (b.collided) {
+        collisions_++;
+        log(b, AirEvent::Collision);
+        radio.receive_air(b.chips, b.len, /*crc_error=*/true, b.rssi_dbm, b.bitrate);
+        return true;
+    }
+    if (!radio.receive_air(b.chips, b.len, /*crc_error=*/false, b.rssi_dbm, b.bitrate))
+        return false;
+    heard_++;
+    log(b, AirEvent::Rx);
+    return true;
+}
+
 void Air::step(uint64_t now_us, models::Sx1262& radio) {
     take_own_transmission(now_us, radio);
     if (tx_in_flight_ && now_us >= tx_done_at_us_) {
@@ -64,19 +79,7 @@ void Air::step(uint64_t now_us, models::Sx1262& radio) {
         if (!b.used || !b.started || now_us < b.at_us + b.air_time_us) continue;
         if (b.mine) {
             log(b, AirEvent::Tx);
-        } else if (!b.heard) {
-            deaf_++;
-            log(b, AirEvent::Deaf);
-        } else if (b.collided) {
-            collisions_++;
-            log(b, AirEvent::Collision);
-            radio.receive_air(b.chips, b.len, /*crc_error=*/true, b.rssi_dbm, b.bitrate);
-        } else if (radio.receive_air(b.chips, b.len, /*crc_error=*/false, b.rssi_dbm, b.bitrate)) {
-            heard_++;
-            log(b, AirEvent::Rx);
-        } else {
-            // Tuned, listening, and still nothing: the detector was armed for a
-            // sync word this burst does not carry.
+        } else if (!b.heard || !detected_by(radio, b)) {
             deaf_++;
             log(b, AirEvent::Deaf);
         }
@@ -106,7 +109,7 @@ void Air::set_carrier(uint64_t now_us, models::Sx1262& radio) {
         if (!b.used || b.mine) continue;
         if (now_us < b.at_us || now_us >= b.at_us + b.air_time_us) continue;
         if (!tuned_to(radio.freq_hz, b.freq_hz)) continue;
-        if (b.rssi_dbm > level) level = b.rssi_dbm;
+        level = std::max(b.rssi_dbm, level);
     }
     radio.rssi_dbm = level;
 }

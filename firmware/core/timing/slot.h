@@ -102,7 +102,7 @@ struct SlotPlan {
 
 class Scheduler {
    public:
-    SlotPlan plan(int phase_ms, const ClockState& clock) const;
+    static SlotPlan plan(int phase_ms, const ClockState& clock);
 
     static SlotState state_at(int phase_ms);
     static Band band_at(int phase_ms);

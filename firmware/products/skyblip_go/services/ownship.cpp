@@ -37,36 +37,36 @@ void OwnshipService::tick(uint32_t now_ms) {
     context_.state.own.fix_acquired = settle_.take_acquired();
 }
 
-void OwnshipService::apply_solution(const gnss::GnssSolution& f, uint32_t now_ms) {
+void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t now_ms) {
     model::OwnState& own = context_.state.own;
     const model::OwnState previous = own;
     context_.state.flight.gnss_solutions++;
-    settle_.update(f.is_fix, now_ms);
+    settle_.update(solution.is_fix, now_ms);
 
-    own.fix_valid = f.is_fix;
-    own.utc_valid = f.utc_valid;
-    own.lat_1e7 = f.lat_1e7;
-    own.lon_1e7 = f.lon_1e7;
-    own.alt_m = f.alt_m;
-    own.alt_msl_m = f.alt_msl_m;
-    own.geoid_separation_measured = f.geoid_separation_measured;
-    own.speed_q = f.speed_q;
-    own.track_c9 = f.track_c9;
-    own.hdop_e2 = f.hdop_e2;
-    own.vdop_e2 = f.vdop_e2;
-    own.utc = f.utc;
-    own.fix_ms = solution_instant(f, now_ms);
-    own.sats = f.sats;
+    own.fix_valid = solution.is_fix;
+    own.utc_valid = solution.utc_valid;
+    own.lat_1e7 = solution.lat_1e7;
+    own.lon_1e7 = solution.lon_1e7;
+    own.alt_m = solution.alt_m;
+    own.alt_msl_m = solution.alt_msl_m;
+    own.geoid_separation_measured = solution.geoid_separation_measured;
+    own.speed_q = solution.speed_q;
+    own.track_c9 = solution.track_c9;
+    own.hdop_e2 = solution.hdop_e2;
+    own.vdop_e2 = solution.vdop_e2;
+    own.utc = solution.utc;
+    own.fix_ms = solution_instant(solution, now_ms);
+    own.sats = solution.sats;
     own.aircraft_cat = context_.state.settings.aircraft_type;
 
-    context_.state.clock.utc_valid = f.utc_valid;
-    anchor_utc(f);
+    context_.state.clock.utc_valid = solution.utc_valid;
+    anchor_utc(solution);
 
     // A barometer, once it has spoken, owns vertical speed. The GNSS reference
     // keeps moving anyway so losing the sensor falls back seamlessly.
     int32_t mm_s = 0;
-    const bool have =
-        vs_from_alt_mm(f.alt_m * 1000, now_ms, kVsWindowMs, vs_ref_alt_mm_, vs_ref_ms_, mm_s);
+    const bool have = vs_from_alt_mm(solution.alt_m * 1000, now_ms, kVsWindowMs, vs_ref_alt_mm_,
+                                     vs_ref_ms_, mm_s);
     if (have && !baro_active()) adopt_climb(mm_s);
 
     const flight::FlightState declared = flight_state_from(own, now_ms);
@@ -101,19 +101,20 @@ void OwnshipService::update_residual(const model::OwnState& previous) {
 }
 
 // INFO: fc 16sep26 a sentence names the second its own edge opened, and only that edge dates it
-void OwnshipService::anchor_utc(const gnss::GnssSolution& f) {
+void OwnshipService::anchor_utc(const gnss::GnssSolution& solution) {
     timing::ClockState& clock = context_.state.clock;
-    if (!f.utc_valid || !clock.pps_locked) return;
+    if (!solution.utc_valid || !clock.pps_locked) return;
     if (context_.state.own.fix_ms != static_cast<uint32_t>(clock.pps_edge_us / 1000)) return;
-    clock.utc_s = f.utc;
+    clock.utc_s = solution.utc;
     clock.utc_edge_us = clock.pps_edge_us;
 }
 
 // INFO: fc 13sep26 the latched edge dates the solution exactly, the estimate only when it is lost
-uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& f, uint32_t now_ms) const {
+uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& solution,
+                                          uint32_t now_ms) const {
     const timing::ClockState& clock = context_.state.clock;
-    return gnss::solution_instant_ms(f, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000),
-                                     clock.pps_locked);
+    return gnss::solution_instant_ms(
+        solution, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000), clock.pps_locked);
 }
 
 void OwnshipService::apply_baro(const events::BaroSample& sample) {
@@ -170,8 +171,7 @@ void OwnshipService::update_turn_rate(uint32_t now_ms) {
 }
 
 bool OwnshipService::vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,
-                                    int32_t& ref_alt_mm, uint32_t& ref_ms,
-                                    int32_t& out_mm_s) const {
+                                    int32_t& ref_alt_mm, uint32_t& ref_ms, int32_t& out_mm_s) {
     if (ref_ms == 0) {
         ref_ms = now_ms == 0 ? 1 : now_ms;
         ref_alt_mm = alt_mm;

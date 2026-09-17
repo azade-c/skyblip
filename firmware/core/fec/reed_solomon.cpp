@@ -46,17 +46,17 @@ void ReedSolomon255::calc_syndromes(const uint8_t* cw, uint8_t* synd, bool& all_
     }
 }
 
-bool ReedSolomon255::syndromes_zero(const uint8_t cw[kN]) const {
+bool ReedSolomon255::syndromes_zero(const uint8_t codeword[kN]) const {
     uint8_t synd[kParity];
     bool z;
-    calc_syndromes(cw, synd, z);
+    calc_syndromes(codeword, synd, z);
     return z;
 }
 
-int ReedSolomon255::decode(uint8_t cw[kN]) const {
+int ReedSolomon255::decode(uint8_t codeword[kN]) const {
     uint8_t synd[kParity];
     bool all_zero;
-    calc_syndromes(cw, synd, all_zero);
+    calc_syndromes(codeword, synd, all_zero);
     if (all_zero) return 0;
 
     uint8_t lambda[kParity + 1] = {1};
@@ -139,10 +139,10 @@ int ReedSolomon255::decode(uint8_t cw[kN]) const {
         uint8_t mag = mul(xk, mul(omega_v, inv(lambda_der)));
         int idx = kN - 1 - pos;
         if (idx < 0 || idx >= kN) return -1;
-        cw[idx] ^= mag;
+        codeword[idx] ^= mag;
     }
 
-    if (!syndromes_zero(cw)) return -1;
+    if (!syndromes_zero(codeword)) return -1;
     return found;
 }
 

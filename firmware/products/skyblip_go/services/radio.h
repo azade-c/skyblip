@@ -51,13 +51,12 @@ class RadioService : public runtime::Service {
     static void listen_for(timing::Band band, ports::RfPlan& plan);
     timing::Transmitter::Attempt attempt(const timing::SlotPlan& plan, uint32_t now_ms) const;
     bool transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const;
-    void arm_dwell(const timing::SlotPlan& plan, uint32_t now_ms);
+    void arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms);
     void log_refusal(radio::Event outcome, const timing::SlotPlan& slot, uint32_t now_ms);
     void publish_dwell(uint32_t now_ms);
     void collect_outcome(uint32_t now_ms);
     void take_carrier_samples();
 
-    timing::Scheduler scheduler_{};
     timing::Transmitter transmitter_{};
     timing::NoiseFloor noise_{};
     // The transmit buffer, and the only writer it has: protocol::from_own, out of

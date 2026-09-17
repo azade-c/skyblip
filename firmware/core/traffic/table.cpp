@@ -8,7 +8,7 @@ namespace {
 uint32_t obs_time(const model::AircraftObs& o) { return o.received.at_s; }
 int source_rank(model::Source s) {
     switch (s) {
-        case model::Source::AdslDirect: return 3;
+        case model::Source::AdslDirect:
         case model::Source::Alptas: return 3;
         case model::Source::AdslUplink: return 1;
         default: return 0;

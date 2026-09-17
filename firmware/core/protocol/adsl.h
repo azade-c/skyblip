@@ -19,30 +19,35 @@ struct __attribute__((packed)) AdslPacket {
 
     uint8_t SYNC[2];
     uint8_t Length;
-    uint8_t Version;  // Version[4]/Signature[1]/Key[2]/Reserved[1]
     union {
-        uint32_t Word[5];
-        uint8_t Byte[20];
+        uint8_t Data[kDataBytes];  // Version..CRC, what the CRC and the FEC address
         struct __attribute__((packed)) {
-            uint8_t Type;        // 0x02 = iConspicuity; bit7 = unicast
-            uint8_t Address[4];  // Address[30]/Reserved[1]/RelayForward[1]
-            // Meta[2]: Time[6]/FlightState[2]/Cat[5]/Emergency[3]
-            uint8_t TimeStamp : 6;    // [0.25 s]
-            uint8_t FlightState : 2;  // 0=unknown,1=ground,2=airborne
-            uint8_t AcftCat : 5;      // ADS-L category
-            uint8_t Emergency : 3;    // 1 = OK
-            uint8_t Position[11];     // Lat[24]/Lon[24]/Speed[8]/Alt[14]/Climb[9]/Track[9]
-            // Integrity[2]: SIL[2]/SDA[2]/NIC[4]/NACp[3]/GVA[2]/NACv[2]/Reserved[1]
-            uint8_t SourceIntegrity : 2;
-            uint8_t DesignAssurance : 2;
-            uint8_t NavigIntegrity : 4;
-            uint8_t HorizAccuracy : 3;
-            uint8_t VertAccuracy : 2;
-            uint8_t VelAccuracy : 2;
-            uint8_t Reserved : 1;
+            uint8_t Version;  // Version[4]/Signature[1]/Key[2]/Reserved[1]
+            union {
+                uint32_t Word[5];
+                uint8_t Byte[20];
+                struct __attribute__((packed)) {
+                    uint8_t Type;        // 0x02 = iConspicuity; bit7 = unicast
+                    uint8_t Address[4];  // Address[30]/Reserved[1]/RelayForward[1]
+                    // Meta[2]: Time[6]/FlightState[2]/Cat[5]/Emergency[3]
+                    uint8_t TimeStamp : 6;    // [0.25 s]
+                    uint8_t FlightState : 2;  // 0=unknown,1=ground,2=airborne
+                    uint8_t AcftCat : 5;      // ADS-L category
+                    uint8_t Emergency : 3;    // 1 = OK
+                    uint8_t Position[11];     // Lat[24]/Lon[24]/Speed[8]/Alt[14]/Climb[9]/Track[9]
+                    // Integrity[2]: SIL[2]/SDA[2]/NIC[4]/NACp[3]/GVA[2]/NACv[2]/Reserved[1]
+                    uint8_t SourceIntegrity : 2;
+                    uint8_t DesignAssurance : 2;
+                    uint8_t NavigIntegrity : 4;
+                    uint8_t HorizAccuracy : 3;
+                    uint8_t VertAccuracy : 2;
+                    uint8_t VelAccuracy : 2;
+                    uint8_t Reserved : 1;
+                };
+            };
+            uint8_t CRC[3];
         };
     };
-    uint8_t CRC[3];
     uint8_t SpareByte;
 
     void init(uint8_t type = 0x02) {
@@ -97,20 +102,20 @@ struct __attribute__((packed)) AdslPacket {
     void set_relay(uint8_t r = 1) { Address[3] = (Address[3] & 0x7F) | (r << 7); }
 
     static int32_t cordic_to_1e7(int32_t c) {
-        return (static_cast<int64_t>(c) * 900007296 + (1 << 29)) >> 30;
+        return static_cast<int32_t>((static_cast<int64_t>(c) * 900007296 + (1 << 29)) >> 30);
     }
     static int32_t e7_to_cordic(int32_t c) {
-        return (static_cast<int64_t>(c) * 5003959 + (1 << 21)) >> 22;
+        return static_cast<int32_t>((static_cast<int64_t>(c) * 5003959 + (1 << 21)) >> 22);
     }
 
     int32_t lat_cordic() const {
-        int32_t v = get3(Position);
+        int32_t v = static_cast<int32_t>(get3(Position));
         v <<= 8;
         v >>= 1;
         return v;
     }
     int32_t lon_cordic() const {
-        int32_t v = get3(Position + 3);
+        int32_t v = static_cast<int32_t>(get3(Position + 3));
         v <<= 8;
         return v;
     }
@@ -185,7 +190,7 @@ struct __attribute__((packed)) AdslPacket {
     void set_crc();
     uint32_t check_crc() const;
 
-    int correct(uint8_t* err, int max_bad_bits = 6);
+    int correct(const uint8_t* err, int max_bad_bits = 6);
 };
 
 static_assert(sizeof(AdslPacket) == 28, "AdslPacket wire size must be 28 bytes");
