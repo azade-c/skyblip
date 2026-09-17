@@ -38,7 +38,7 @@ build:
 serve:
 	@if command -v npx >/dev/null 2>&1; then \
 	  echo "serving http://$(HOST):$(PORT) (auto-reload)"; \
-	  npx --yes live-server $(BUILD) --port=$(PORT) --no-browser; \
+	  npx --yes live-server@1.2.2 $(BUILD) --port=$(PORT) --no-browser; \
 	else \
 	  echo "serving http://$(HOST):$(PORT) (manual refresh; install node for auto-reload)"; \
 	  python3 -m http.server -d $(BUILD) $(PORT); \
@@ -55,7 +55,7 @@ watch:
 	else \
 	  last=""; \
 	  while true; do \
-	    cur=$$(find index.html $(FIRMWARE)/core $(FIRMWARE)/ui $(FIRMWARE)/hal $(FIRMWARE)/hardware \
+	    cur=$$(find index.html $(FIRMWARE)/core $(FIRMWARE)/ui $(FIRMWARE)/hardware \
 	           $(FIRMWARE)/runtime $(FIRMWARE)/products $(FIRMWARE)/simulator \
 	           \( -name '*.cpp' -o -name '*.h' -o -name '*.html' \) \
 	           -exec ls -l {} + 2>/dev/null | cksum); \
