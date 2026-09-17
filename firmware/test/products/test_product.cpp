@@ -5,6 +5,8 @@
 #include <string>
 
 #include "core/annunciation/pattern.h"
+#include "core/events/link.h"
+#include "core/model/aircraft.h"
 #include "doctest/doctest.h"
 #include "test/support/product_rig.h"
 
@@ -51,7 +53,7 @@ TEST_CASE("product: step() runs the service cycle deterministically under a mode
     uint8_t pkt[6] = {1, 2, 3, 4, 5, 6};
     rig.platform.chips().radio.queue_rx(pkt, sizeof(pkt));
     rig.run(3000, 4200);
-    CHECK(rig.state().rx_bad >= 1);  // too short to be ADS-L: counted, never shown
+    CHECK(rig.state().air.rx_bad >= 1);  // too short to be ADS-L: counted, never shown
     CHECK(rig.state().traffic.count() == 0);
 }
 
@@ -107,13 +109,13 @@ TEST_CASE("product: the barometer read against GNSS is the altimeter setting") {
     const int32_t on_std_cm = alt_msl_m * 100 + flight::pressure_to_alt_cm(airmass_pa);
 
     uint32_t t = 0;
-    CHECK(rig.state().derived_qnh_pa == 0);
+    CHECK(rig.state().baro.derived_qnh_pa == 0);
     for (int i = 0; i < 10; i++) {
         rig.second(t, 100, alt_msl_m);
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
-    CHECK((rig.state().derived_qnh_pa + 50) / 100 == 1019);
+    CHECK((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
 }
 
 TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors apart") {
@@ -129,7 +131,7 @@ TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
-    REQUIRE((rig.state().derived_qnh_pa + 50) / 100 == 1019);
+    REQUIRE((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
 
     // The barometer diving 5 m/s with the fix standing still is time skew, not weather.
     for (int i = 1; i <= 10; i++) {
@@ -137,7 +139,7 @@ TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors
         rig.push_baro(on_std_cm - i * 500, t);
         rig.run(t, t);
     }
-    CHECK((rig.state().derived_qnh_pa + 50) / 100 == 1019);
+    CHECK((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
 }
 
 TEST_CASE("product: with the fix gone there is no setting to read, not a stale one") {
@@ -153,7 +155,7 @@ TEST_CASE("product: with the fix gone there is no setting to read, not a stale o
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
-    REQUIRE(rig.state().derived_qnh_pa != 0);
+    REQUIRE(rig.state().baro.derived_qnh_pa != 0);
 
     gnss::GnssSolution lost{};
     rig.product.bus().gnss.push(lost);
@@ -161,7 +163,7 @@ TEST_CASE("product: with the fix gone there is no setting to read, not a stale o
     t += 100;
     rig.push_baro(on_std_cm, t);
     rig.run(t, t);
-    CHECK(rig.state().derived_qnh_pa == 0);
+    CHECK(rig.state().baro.derived_qnh_pa == 0);
 }
 
 TEST_CASE("product: a baro sample inside the window is ignored, not extrapolated") {
@@ -209,15 +211,15 @@ TEST_CASE("product: once the barometer speaks, GNSS stops setting vertical speed
 TEST_CASE("product: the board reads the cell and the gauge publishes it") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK_FALSE(rig.state().battery.valid);
+    CHECK_FALSE(rig.state().power.battery.valid);
 
     rig.platform.battery().millivolts = 3800;
     rig.run(0, 12000);
-    CHECK(rig.state().battery.valid);
-    CHECK(rig.state().battery.millivolts == 3800);
-    CHECK(rig.state().battery.percent == power::percent_from_mv(3800, false));
-    CHECK_FALSE(rig.state().battery.charging);
-    CHECK_FALSE(rig.state().battery.external_power);
+    CHECK(rig.state().power.battery.valid);
+    CHECK(rig.state().power.battery.millivolts == 3800);
+    CHECK(rig.state().power.battery.percent == power::percent_from_mv(3800, false));
+    CHECK_FALSE(rig.state().power.battery.charging);
+    CHECK_FALSE(rig.state().power.battery.external_power);
 }
 
 TEST_CASE("product: the same cell on USB power reports a lower state of charge") {
@@ -225,13 +227,13 @@ TEST_CASE("product: the same cell on USB power reports a lower state of charge")
     REQUIRE(rig.setup() == Status::Ok);
     rig.platform.battery().millivolts = 4000;
     rig.run(0, 12000);
-    const uint8_t resting = rig.state().battery.percent;
+    const uint8_t resting = rig.state().power.battery.percent;
 
     rig.platform.battery().external_power = true;
     rig.run(12000, 24000);
-    CHECK(rig.state().battery.charging);
-    CHECK(rig.state().battery.millivolts == 4000);
-    CHECK(rig.state().battery.percent < resting);
+    CHECK(rig.state().power.battery.charging);
+    CHECK(rig.state().power.battery.millivolts == 4000);
+    CHECK(rig.state().power.battery.percent < resting);
 }
 
 TEST_CASE("product: a board with no battery sense says so instead of reporting empty") {
@@ -243,8 +245,8 @@ TEST_CASE("product: a board with no battery sense says so instead of reporting e
     CHECK(rig.product.degraded() == hal::Capability::Battery);
 
     rig.run(0, 12000);
-    CHECK_FALSE(rig.state().battery.valid);
-    CHECK(rig.state().battery.percent == 0);
+    CHECK_FALSE(rig.state().power.battery.valid);
+    CHECK(rig.state().power.battery.percent == 0);
 }
 
 TEST_CASE("product: settings changed over the link are persisted") {
@@ -257,8 +259,8 @@ TEST_CASE("product: settings changed over the link are persisted") {
     rig.run(0, 100);
 
     const char* json = "{\"cmd\":\"set\",\"alarm_volume\":2}";
-    messages::RxFrame frame{};
-    frame.endpoint = messages::Endpoint::Config;
+    events::RxFrame frame{};
+    frame.endpoint = events::Endpoint::Config;
     frame.len = static_cast<uint16_t>(__builtin_strlen(json));
     for (uint16_t i = 0; i < frame.len; i++) frame.data[i] = static_cast<uint8_t>(json[i]);
     rig.platform.link().push_rx(frame);
@@ -303,7 +305,7 @@ TEST_CASE("product: the status reply over the link names why the device came up"
 
     rig.send("{\"cmd\":\"status\"}");
     rig.run(0, 200);
-    REQUIRE(rig.platform.link().count_on(messages::Endpoint::Config) == 1);
+    REQUIRE(rig.platform.link().count_on(events::Endpoint::Config) == 1);
     CHECK(rig.platform.link().last().bytes.find("WATCHDOG") != std::string::npos);
 
     // A device that came up because someone pressed the button says that, and
@@ -467,11 +469,11 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
     // cell puts below it.
     trimmed.platform.battery().millivolts = 3540;
     trimmed.run(0, 12000);
-    CHECK(trimmed.state().battery.millivolts == 3480);
-    CHECK(trimmed.state().battery.percent == power::percent_from_mv(3480, false));
+    CHECK(trimmed.state().power.battery.millivolts == 3480);
+    CHECK(trimmed.state().power.battery.percent == power::percent_from_mv(3480, false));
     // The reader that matters: the same trimmed millivolts reached the rule that
     // decides when the device warns and when it goes down.
-    CHECK(trimmed.state().power_level == power::PowerLevel::Low);
+    CHECK(trimmed.state().power.level == power::PowerLevel::Low);
 
     // The same board, the same divider, no trim: the gauge and the cutoff rule
     // agree with each other and both are wrong by the same 60 mV.
@@ -479,8 +481,8 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
     REQUIRE(raw.setup() == Status::Ok);
     raw.platform.battery().millivolts = 3540;
     raw.run(0, 12000);
-    CHECK(raw.state().battery.millivolts == 3540);
-    CHECK(raw.state().power_level == power::PowerLevel::Normal);
+    CHECK(raw.state().power.battery.millivolts == 3540);
+    CHECK(raw.state().power.level == power::PowerLevel::Normal);
 }
 
 // Taken before any service runs, so it is the reader that could have been raw.
@@ -506,22 +508,6 @@ TEST_CASE("product: the boot lockout reads the trimmed cell, not the raw divider
 
 namespace {
 
-// A die sensor a case can drive: how many measurements were asked for, what it
-// answered, and whether it answered at all.
-class CountingDie : public hal::DieTemperature {
-   public:
-    bool read(int16_t& decicelsius) override {
-        reads++;
-        if (!answers) return false;
-        decicelsius = value;
-        return true;
-    }
-
-    int reads{0};
-    int16_t value{0};
-    bool answers{true};
-};
-
 std::string status_of(Rig& rig, uint32_t& t) {
     rig.platform.link().clear();
     rig.send("{\"cmd\":\"status\"}");
@@ -543,11 +529,8 @@ TEST_CASE("product: the die sensor is read on a slow cadence and reaches the tab
         static_cast<uint32_t>(hal::Capability::DieTemperature));
     Rig rig{kWithDie};
     REQUIRE(rig.setup() == Status::Ok);
-    // After setup, because setup is where the product wires the platform's own
-    // port in: this replaces it with one a case can watch.
-    CountingDie die;
-    die.value = 412;
-    rig.product.power().attach_die_temperature(die);
+    platform::host::DieTemperature& die = rig.platform.die_temperature();
+    die.hold(412);
 
     uint32_t t = 0;
     rig.run(t, t + 100);
@@ -555,7 +538,7 @@ TEST_CASE("product: the die sensor is read on a slow cadence and reaches the tab
     // Read on the first pass rather than ten seconds into the boot: the first
     // status a phone is pushed should carry a temperature, and the self-test page
     // is the moment a bench eye is looking.
-    CHECK(die.reads == 1);
+    CHECK(die.reads() == 1);
     CHECK(rig.product.power().die_temperature_valid());
     CHECK(rig.product.power().die_temperature_dc() == 412);
     CHECK(status_of(rig, t).find("\"die_temp_c\":41") != std::string::npos);
@@ -563,25 +546,25 @@ TEST_CASE("product: the die sensor is read on a slow cadence and reaches the tab
     // Five seconds of passes: still one measurement.
     rig.run(t, t + 5000);
     t += 5050;
-    CHECK(die.reads == 1);
+    CHECK(die.reads() == 1);
 
     // Past ten seconds from the first: a second one.
     rig.run(t, t + 6000);
     t += 6050;
-    CHECK(die.reads == 2);
+    CHECK(die.reads() == 2);
     // And nothing has read it hundreds of times, which is what a per-pass reader
     // would have done by now.
     rig.run(t, t + 30000);
     t += 30050;
-    CHECK(die.reads <= 6);
+    CHECK(die.reads() <= 6);
 
     // A refused measurement leaves the last good reading standing rather than
     // publishing a zero: the number is minutes old by design anyway.
-    const int before = die.reads;
-    die.answers = false;
+    const int before = die.reads();
+    die.refuse();
     rig.run(t, t + 30000);
     t += 30050;
-    CHECK(die.reads > before);
+    CHECK(die.reads() > before);
     CHECK(status_of(rig, t).find("\"die_temp_c\":41") != std::string::npos);
 }
 
@@ -592,33 +575,32 @@ TEST_CASE("product: a cable in the heat is named, counted and left counted") {
         static_cast<uint32_t>(hal::Capability::DieTemperature));
     Rig rig{kWithDie};
     REQUIRE(rig.setup() == Status::Ok);
-    CountingDie die;
-    die.value = 250;
-    rig.product.power().attach_die_temperature(die);
+    platform::host::DieTemperature& die = rig.platform.die_temperature();
+    die.hold(250);
 
     uint32_t t = 0;
     rig.run(t, t + 2000);
     t += 2050;
-    CHECK(rig.state().charge == power::ChargeCondition::Unknown);
+    CHECK(rig.state().power.charge == power::ChargeCondition::Unknown);
     CHECK(rig.product.power().charge_warnings() == 0);
 
     rig.platform.battery().external_power = true;
     rig.run(t, t + 2000);
     t += 2050;
-    CHECK(rig.state().charge == power::ChargeCondition::Ok);
+    CHECK(rig.state().power.charge == power::ChargeCondition::Ok);
     CHECK(rig.product.power().charge_warnings() == 0);
 
-    die.value = 724;
+    die.hold(724);
     rig.run(t, t + 15000);
     t += 15050;
-    CHECK(rig.state().charge == power::ChargeCondition::TooHot);
+    CHECK(rig.state().power.charge == power::ChargeCondition::TooHot);
     // One event, however many passes read the same sensor.
     CHECK(rig.product.power().charge_warnings() == 1);
 
     rig.platform.battery().external_power = false;
     rig.run(t, t + 2000);
     t += 2050;
-    CHECK(rig.state().charge == power::ChargeCondition::Unknown);
+    CHECK(rig.state().power.charge == power::ChargeCondition::Unknown);
     CHECK(rig.product.power().charge_warnings() == 1);
 }
 
@@ -658,13 +640,13 @@ TEST_CASE("product: the range gate's refusals leave the device over the link") {
 
     // A contact on the other side of the country, claimed by a frame that passed
     // its CRC. Pushed at the table's own door, which is where the gate lives.
-    messages::AircraftObs ghost{};
+    model::AircraftObs ghost{};
     ghost.addr = 0x00ABCDEF;
     ghost.addr_table = 5;
     ghost.position_valid = true;
     ghost.lat_1e7 = rig.state().own.lat_1e7 + 50000000;  // five degrees north
     ghost.lon_1e7 = rig.state().own.lon_1e7;
-    ghost.source = messages::Source::AdslDirect;
+    ghost.source = model::Source::AdslDirect;
     REQUIRE(rig.state().traffic.update(ghost, 0) < 0);
     REQUIRE(rig.state().traffic.implausible_count() == 1);
 
@@ -727,7 +709,7 @@ TEST_CASE("product: the free-running dwell phase steps forward through the 49.7-
     rig.run_span_from_us(us, 0);
     REQUIRE_FALSE(rig.state().clock.pps_locked);
 
-    int previous = rig.state().dwell.phase_ms;
+    int previous = rig.state().rf.dwell.phase_ms;
     bool wrapped = false;
     for (int step = 0; step < 20; step++) {
         const uint32_t millis_before = rig.platform.clock().millis();
@@ -735,8 +717,8 @@ TEST_CASE("product: the free-running dwell phase steps forward through the 49.7-
         if (rig.platform.clock().millis() < millis_before) wrapped = true;
         // 50 ms of clock is 50 ms of phase, all the way round the second and all
         // the way through the counter turning over.
-        CHECK(rig.state().dwell.phase_ms == (previous + 50) % 1000);
-        previous = rig.state().dwell.phase_ms;
+        CHECK(rig.state().rf.dwell.phase_ms == (previous + 50) % 1000);
+        previous = rig.state().rf.dwell.phase_ms;
     }
     CHECK(wrapped);
 }

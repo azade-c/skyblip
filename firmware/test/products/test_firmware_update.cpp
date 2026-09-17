@@ -193,7 +193,7 @@ TEST_CASE("product: apply is refused below the low-battery warning and nothing p
     rig.platform.battery().millivolts = 3400;
     rig.run(t, t + 8000);
     t += 8000;
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
 
     rig.send("{\"cmd\":\"apply\"}");
     rig.run(t, t + 200);

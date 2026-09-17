@@ -4,6 +4,7 @@
 #include "boards/lilygo/t_echo_plus/board.h"
 #include "core/bus/bus.h"
 #include "core/bus/state.h"
+#include "core/events/sensor.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/platform.h"
 #include "runtime/tasks.h"
@@ -21,7 +22,7 @@ std::vector<uint32_t> sample_instants(platform::host::Platform& platform, Board&
     for (uint32_t t = from_ms; t < to_ms; t += runtime::kServiceStepMs) {
         platform.clock().set_millis(t);
         board.poll(state, t);
-        messages::BaroSample sample{};
+        events::BaroSample sample{};
         while (bus.baro.pop(sample)) at.push_back(sample.at_ms);
     }
     return at;

@@ -5,7 +5,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 
 namespace skyblip::protocol {
 
@@ -189,8 +190,8 @@ struct __attribute__((packed)) AdslPacket {
 
 static_assert(sizeof(AdslPacket) == 28, "AdslPacket wire size must be 28 bytes");
 
-void to_obs(const AdslPacket& p, uint32_t rx_utc, uint16_t rx_ms, int8_t rssi_dbm,
-            messages::Source source, messages::AircraftObs& out);
+void to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
+            model::Source source, model::AircraftObs& out);
 // The TimeStamp field is quarter seconds inside a 15 s cycle, so the instant a
 // burst claims is expressible to 250 ms - and the position it carries has to
 // belong to that instant rather than to whenever the receiver last spoke.
@@ -205,9 +206,9 @@ struct BurstInstant {
     int32_t since_fix_ms;
 };
 
-void from_own(AdslPacket& p, const messages::OwnState& own, uint32_t addr, uint8_t addr_table,
+void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, bool stealth);
-void from_own(AdslPacket& p, const messages::OwnState& own, uint32_t addr, uint8_t addr_table,
+void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, bool stealth, const BurstInstant& at);
 
 }

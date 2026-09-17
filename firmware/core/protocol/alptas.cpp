@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/fec/crc.h"
+#include "core/model/aircraft.h"
 #include "core/protocol/nmea_out.h"
 
 namespace skyblip::protocol {
@@ -275,7 +276,7 @@ uint8_t adsl_table_to_alptas_addr_type(uint8_t addr_table) {
 }
 
 Status alptas_decode(const uint8_t* frame, uint32_t rx_utc, int32_t ref_lat_1e7,
-                     int32_t ref_lon_1e7, messages::AircraftObs& out) {
+                     int32_t ref_lon_1e7, model::AircraftObs& out) {
     if (!alptas_crc_ok(frame)) return Status::Crc;
 
     uint8_t data[kAlptasDataBytes];
@@ -308,7 +309,7 @@ Status alptas_decode(const uint8_t* frame, uint32_t rx_utc, int32_t ref_lat_1e7,
     int32_t speed_10 = descale(get_field(data, kFSpeed), 8, 2, 0);
     int32_t vs_10 = descale(get_field(data, kFVs), 6, 2, 1);
 
-    out = messages::AircraftObs{};
+    out = model::AircraftObs{};
     out.addr = get_field(data, kFAddr);
     out.addr_table = alptas_addr_type_to_table(static_cast<uint8_t>(get_field(data, kFAddrType)));
     out.aircraft_cat =
@@ -322,15 +323,15 @@ Status alptas_decode(const uint8_t* frame, uint32_t rx_utc, int32_t ref_lat_1e7,
     out.climb_e8 = static_cast<int16_t>(div_nearest(vs_10 * 4, 5));
     out.track_c9 =
         static_cast<uint16_t>(div_nearest(static_cast<int32_t>(course_deg) * 512, 360) & 0x1FF);
-    out.rx_utc = rx_utc;
-    out.source = messages::Source::Alptas;
+    out.received.at_s = rx_utc;
+    out.source = model::Source::Alptas;
     out.speed_valid = true;
     out.climb_valid = true;
     out.position_valid = true;
     return Status::Ok;
 }
 
-Status alptas_encode(uint8_t* frame, const messages::AircraftObs& obs, uint32_t utc,
+Status alptas_encode(uint8_t* frame, const model::AircraftObs& obs, uint32_t utc,
                      int32_t ref_lat_1e7, int32_t ref_lon_1e7) {
     // INFO: fc 09mar26 the reference position is a decode-side input only: the
     // wire carries position modulo 2^20 quanta, absolute, and the receiver

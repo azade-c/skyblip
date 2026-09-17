@@ -2,10 +2,12 @@
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_RF_H
 
 #include "core/bus/bus.h"
+#include "core/events/rf.h"
+#include "core/model/band.h"
 #include "core/timing/channel.h"
+#include "hardware/parts/sx1262/sx1262.h"
 #include "hal/clock.h"
 #include "hal/rf.h"
-#include "hardware/parts/sx1262/sx1262.h"
 #include "runtime/tasks.h"
 
 namespace skyblip::platform::host {
@@ -15,7 +17,7 @@ namespace skyblip::platform::host {
 // deadlines are therefore testable to the microsecond with no hardware.
 class Rf : public hal::Rf {
    public:
-    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<messages::RfEvent, 8>& out)
+    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
         : radio_(radio), clock_(clock), out_(out) {}
 
     Status begin() override {
@@ -82,7 +84,7 @@ class Rf : public hal::Rf {
 
     void finish(uint64_t now_us) {
         sample_carrier();
-        if (plan_.tx != nullptr && !completed_) emit(messages::RfEventType::Missed, now_us);
+        if (plan_.tx != nullptr && !completed_) emit(events::RfEventType::Missed, now_us);
         armed_ = false;
         started_ = false;
     }
@@ -90,7 +92,7 @@ class Rf : public hal::Rf {
     void take_pending(uint64_t now_us) {
         has_pending_ = false;
         if (now_us >= pending_.end_us) {
-            if (pending_.tx != nullptr) emit(messages::RfEventType::Missed, now_us);
+            if (pending_.tx != nullptr) emit(events::RfEventType::Missed, now_us);
             return;
         }
         adopt(pending_);
@@ -109,7 +111,7 @@ class Rf : public hal::Rf {
         started_ = true;
         armed_count_++;
         radio_.wake();
-        band_ = plan_.mode == hal::RfMode::RxOband ? messages::Band::O : messages::Band::M;
+        band_ = plan_.mode == hal::RfMode::RxOband ? model::Band::O : model::Band::M;
         freq_hz_ = plan_.freq_hz;
         if (plan_.freq_hz != 0) radio_.configure_radio(dwell_config(plan_));
         radio_.start_receive();
@@ -150,19 +152,19 @@ class Rf : public hal::Rf {
 
     void drain(uint64_t now_us) {
         for (;;) {
-            const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
+            const parts::RadioEvent ev = radio_.poll(rx_.data.data(), events::kRfEventBytes);
             switch (ev.type) {
                 case parts::RadioEventType::None: return;
                 case parts::RadioEventType::RxDone: push_rx(ev, now_us); break;
                 case parts::RadioEventType::CrcError:
-                    emit(messages::RfEventType::CrcError, now_us, ev);
+                    emit(events::RfEventType::CrcError, now_us, ev);
                     break;
                 case parts::RadioEventType::TxDone:
                     completed_ = true;
-                    emit(messages::RfEventType::TxDone, now_us);
+                    emit(events::RfEventType::TxDone, now_us);
                     radio_.start_receive();
                     break;
-                default: emit(messages::RfEventType::Missed, now_us); return;
+                default: emit(events::RfEventType::Missed, now_us); return;
             }
         }
     }
@@ -173,7 +175,7 @@ class Rf : public hal::Rf {
     // travels with it: the O band carries one system and the M band two, and
     // only the arming knows which of them this burst is.
     void push_rx(const parts::RadioEvent& ev, uint64_t now_us) {
-        rx_.type = messages::RfEventType::RxDone;
+        rx_.type = events::RfEventType::RxDone;
         rx_.band = band_;
         rx_.freq_hz = freq_hz_;
         rx_.len = ev.len;
@@ -183,8 +185,8 @@ class Rf : public hal::Rf {
         out_.push(rx_);
     }
 
-    void emit(messages::RfEventType type, uint64_t now_us, const parts::RadioEvent& ev = {}) {
-        messages::RfEvent e{};
+    void emit(events::RfEventType type, uint64_t now_us, const parts::RadioEvent& ev = {}) {
+        events::RfEvent e{};
         e.type = type;
         e.band = band_;
         e.freq_hz = freq_hz_;
@@ -197,12 +199,12 @@ class Rf : public hal::Rf {
 
     parts::Sx1262& radio_;
     hal::Clock& clock_;
-    bus::Queue<messages::RfEvent, 8>& out_;
+    bus::Queue<events::RfEvent, 8>& out_;
     hal::RfPlan plan_{};
     hal::RfPlan pending_{};
     hal::RfCarrier carrier_{};
-    messages::RfEvent rx_{};
-    messages::Band band_{messages::Band::M};
+    events::RfEvent rx_{};
+    model::Band band_{model::Band::M};
     uint32_t freq_hz_{0};
     uint64_t keyed_at_us_{0};
     uint32_t last_ms_{0};

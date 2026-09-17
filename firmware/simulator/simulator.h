@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_SIMULATOR_SIM_H
 #define SKYBLIP_SIMULATOR_SIM_H
 
+#include "core/events/link.h"
 #include "hardware/platform/host/platform.h"
 #include "products/skyblip_go/product.h"
 #include "simulator/world/world.h"
@@ -52,9 +53,7 @@ class Simulator {
     // What the device made of the phone the world connected: true only once the
     // event has travelled platform -> board -> bus -> config service.
     bool companion_connected() { return product_.config().config().link_up(); }
-    int companion_frames(messages::Endpoint endpoint) {
-        return platform_.link().count_on(endpoint);
-    }
+    int companion_frames(events::Endpoint endpoint) { return platform_.link().count_on(endpoint); }
 
     const ui::Framebuffer& panel() { return platform_.chips().epd.framebuffer(); }
     // Firmware intent: the panel itself deep-sleeps between refreshes.

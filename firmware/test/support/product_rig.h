@@ -7,6 +7,8 @@
 
 #include <cstring>
 
+#include "core/events/link.h"
+#include "core/events/sensor.h"
 #include "core/flight/atmosphere.h"
 #include "hardware/platform/host/platform.h"
 #include "products/skyblip_go/product.h"
@@ -111,7 +113,7 @@ struct Rig {
 
     void push_baro(int32_t alt_cm, uint32_t at_ms) {
         product.bus().baro.push(
-            messages::BaroSample{flight::alt_mm_to_pressure_mpa(alt_cm * 10), at_ms});
+            events::BaroSample{flight::alt_mm_to_pressure_mpa(alt_cm * 10), at_ms});
     }
 
     // Held across steps, then released across steps: ui::Button only reports a
@@ -163,8 +165,8 @@ struct Rig {
 
     // The companion app's side of the link, arriving where the board polls it.
     void send(const char* json) {
-        messages::RxFrame frame{};
-        frame.endpoint = messages::Endpoint::Config;
+        events::RxFrame frame{};
+        frame.endpoint = events::Endpoint::Config;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
         platform.link().push_rx(frame);
@@ -173,8 +175,8 @@ struct Rig {
     // The same app on the log endpoint, which is a separate characteristic and
     // a separate queue.
     void send_log(const char* json) {
-        messages::RxFrame frame{};
-        frame.endpoint = messages::Endpoint::Log;
+        events::RxFrame frame{};
+        frame.endpoint = events::Endpoint::Log;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
         platform.link().push_rx(frame);
@@ -188,7 +190,7 @@ struct Rig {
 // hand, so the board must not also be pumping its own.
 constexpr hal::Capabilities kBaroByHand =
     static_cast<hal::Capabilities>(static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-                                   ~static_cast<uint32_t>(hal::Capability::Baro));
+                                     ~static_cast<uint32_t>(hal::Capability::Baro));
 
 }  // namespace skyblip
 

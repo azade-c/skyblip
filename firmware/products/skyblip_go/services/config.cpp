@@ -2,23 +2,24 @@
 
 #include <cstring>
 
+#include "core/events/link.h"
+
 namespace skyblip::go {
 
 Status ConfigLinkService::setup() {
     load();
-    context_.state.own.aircraft_cat = context_.state.settings.aircraft_type;
     return Status::Ok;
 }
 
 void ConfigLinkService::tick(uint32_t now_ms) {
     drain_link_events();
     // INFO: cf 02aug26 nobody calling this leaves the gate at Unknown, which refuses everything
-    config_.set_flight_state(context_.state.confirmed_flight_state);
+    config_.set_flight_state(context_.state.flight.confirmed_state);
 
     // INFO: cf 02aug26 core/power decided what the divider reading means and
     // what a low cell is; this hands the already-decided numbers to the link
     // rather than keeping a second opinion, same as the flight gate above it.
-    config_.set_battery_state(context_.state.battery, context_.state.power_level);
+    config_.set_battery_state(context_.state.power.battery, context_.state.power.level);
     // And the half no voltage can report: the SoC's own power-failure comparator
     // has fired. It is what turns a "set" from a phone into a refusal at the
     // door, so it travels the same way the level does - decided in core/power,
@@ -32,7 +33,7 @@ void ConfigLinkService::tick(uint32_t now_ms) {
     // recounted here (core/traffic/table.h).
     config_.set_range_refused(context_.state.traffic.implausible_count());
 
-    messages::RxFrame frame{};
+    events::RxFrame frame{};
     while (context_.bus.link_rx.pop(frame)) config_.on_rx(frame);
 
     config_.tick(now_ms);
@@ -47,12 +48,12 @@ void ConfigLinkService::tick(uint32_t now_ms) {
 // board raised them from the platform; the host suite was green because every
 // case called on_link_up() by hand.
 void ConfigLinkService::drain_link_events() {
-    messages::LinkEvent event{};
+    events::LinkEvent event{};
     while (context_.bus.link_events.pop(event)) {
-        if (event.type == messages::LinkEventType::Up)
-            config_.on_link_up(messages::LinkUp{event.session_id, event.payload_bytes});
+        if (event.type == events::LinkEventType::Up)
+            config_.on_link_up(events::LinkUp{event.session_id, event.payload_bytes});
         else
-            config_.on_link_down(messages::LinkDown{event.session_id});
+            config_.on_link_down(events::LinkDown{event.session_id});
     }
 }
 
@@ -88,7 +89,7 @@ void ConfigLinkService::drain_settings(uint32_t now_ms) {
     if (hold_for_power()) return;
     take_request(now_ms);
     const timing::DurableWriteVerdict verdict =
-        writes_.decide(context_.state.plan, context_.state.dwell, now_ms);
+        writes_.decide(context_.state.rf.plan, context_.state.rf.dwell, now_ms);
     if (verdict != timing::DurableWriteVerdict::Place &&
         verdict != timing::DurableWriteVerdict::Forced)
         return;
@@ -178,7 +179,8 @@ void ConfigLinkService::load_image_state() {
 
 void ConfigLinkService::record_update() {
     const hal::Capabilities fitted = context_.roles.capabilities;
-    if (!hal::has(fitted, hal::Capability::Storage) || !hal::has(fitted, hal::Capability::Dfu))
+    if (!hal::has(fitted, hal::Capability::Storage) ||
+        !hal::has(fitted, hal::Capability::Dfu))
         return;
     dfu::UpdateRecord record;
     if (!context_.roles.dfu.running_version(record.from)) return;
@@ -203,7 +205,7 @@ void ConfigLinkService::publish_image_state() {
 // INFO: fc 07sep26 a solution need not be a fix: an RMC with status V still proves the UART
 bool ConfigLinkService::hardware_proven() const {
     const bus::State& state = context_.state;
-    if (!state.started || state.gnss_solutions == 0) return false;
+    if (!state.started || state.flight.gnss_solutions == 0) return false;
     if (!hal::has(context_.roles.capabilities, hal::Capability::Display)) return true;
     return state.panel_presented;
 }

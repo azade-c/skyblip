@@ -4,8 +4,8 @@
 #include "core/comms/diagnostics.h"
 #include "core/comms/timing_report.h"
 #include "core/dfu/update.h"
+#include "core/events/link.h"
 #include "core/flight/state.h"
-#include "core/messages/messages.h"
 #include "core/power/battery.h"
 #include "core/power/cutoff.h"
 #include "core/power/reset_reason.h"
@@ -78,9 +78,9 @@ class ConfigService {
     bool upload_allowed() const { return upload_window_open_ && on_ground(); }
     void close_upload_window() { upload_window_open_ = false; }
 
-    void on_link_up(const messages::LinkUp& up);
-    void on_link_down(const messages::LinkDown& down);
-    void on_rx(const messages::RxFrame& frame);
+    void on_link_up(const events::LinkUp& up);
+    void on_link_down(const events::LinkDown& down);
+    void on_rx(const events::RxFrame& frame);
 
     // Whether anyone is listening. Exported because it is the one fact about
     // this service that no reply reveals until the gauge happens to move, and a

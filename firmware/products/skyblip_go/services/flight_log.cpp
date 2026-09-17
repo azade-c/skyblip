@@ -1,5 +1,6 @@
 #include "products/skyblip_go/services/flight_log.h"
 
+#include "core/events/link.h"
 #include "core/util/span.h"
 
 namespace skyblip::go {
@@ -208,7 +209,7 @@ void FlightLogService::drain() {
     // would drop entries waiting for a phase it has no reason to wait for. The two
     // policies agree on the one instant that is genuinely shared, the direct slot,
     // and both read it from the same plan.tx_allowed that core/timing published.
-    if (context_.state.plan.tx_allowed) return;
+    if (context_.state.rf.plan.tx_allowed) return;
     flight::LogRecord record{};
     while (session_.take(record)) {
         if (!append(record)) break;
@@ -218,8 +219,8 @@ void FlightLogService::drain() {
 void FlightLogService::tick(uint32_t now_ms) {
     serve_link();
 
-    if (config_ != nullptr && config_->log_erase_requested()) {
-        config_->clear_log_erase_request();
+    if (config_.log_erase_requested()) {
+        config_.clear_log_erase_request();
         begin_erase();
     }
     if (erase_remaining_ > 0) {
@@ -266,7 +267,7 @@ void FlightLogService::step_erase() {
 }
 
 bool FlightLogService::on_ground() const {
-    return context_.state.confirmed_flight_state == flight::FlightState::OnGround;
+    return context_.state.flight.confirmed_state == flight::FlightState::OnGround;
 }
 
 const FlightLogService::SessionInfo* FlightLogService::find(uint32_t session_id) const {
@@ -290,7 +291,7 @@ void FlightLogService::reply(const char* json, int len) {
         return;
     }
     if (!is_ok(context_.roles.link.send(
-            messages::Endpoint::Log,
+            events::Endpoint::Log,
             ConstByteSpan(reinterpret_cast<const uint8_t*>(json), static_cast<size_t>(len)))))
         link_drops_++;
 }
@@ -300,7 +301,7 @@ void FlightLogService::ack(bool ok, const char* reason) {
 }
 
 void FlightLogService::serve_link() {
-    messages::RxFrame frame{};
+    events::RxFrame frame{};
     while (context_.bus.log_rx.pop(frame)) handle(comms::parse_log_request(frame));
 }
 
@@ -334,12 +335,7 @@ void FlightLogService::handle(const comms::LogRequest& request) {
             answer_list(request.has_index, request.index);
             break;
         case comms::LogCommand::Read: answer_read(request.session, request.from); break;
-        case comms::LogCommand::Erase:
-            if (config_ != nullptr)
-                config_->request_log_erase();
-            else
-                ack(false, "no_prompt");
-            break;
+        case comms::LogCommand::Erase: config_.request_log_erase(); break;
         case comms::LogCommand::None: ack(false, "unknown_cmd"); break;
     }
 }

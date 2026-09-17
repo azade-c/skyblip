@@ -5,8 +5,10 @@
 #include "hal/capabilities.h"
 #include "hal/clock.h"
 #include "hal/dfu.h"
+#include "hal/die_temperature.h"
 #include "hal/display.h"
 #include "hal/flash_region.h"
+#include "hal/indicator.h"
 #include "hal/kvstore.h"
 #include "hal/link.h"
 #include "hal/rf.h"
@@ -24,6 +26,8 @@ struct Roles {
     FlashRegion& log_flash;
     Annunciator& annunciator;
     Dfu& dfu;
+    DieTemperature& die_temperature;
+    Indicator& indicator;
     Capabilities capabilities{Capability::None};
     uint32_t device_addr{0};
 };

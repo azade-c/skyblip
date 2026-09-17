@@ -5,10 +5,12 @@
 #include <zephyr/kernel.h>
 
 #include "core/bus/bus.h"
+#include "core/events/rf.h"
+#include "core/model/band.h"
 #include "core/timing/channel.h"
+#include "hardware/parts/sx1262/sx1262.h"
 #include "hal/clock.h"
 #include "hal/rf.h"
-#include "hardware/parts/sx1262/sx1262.h"
 #include "runtime/tasks.h"
 
 namespace skyblip::platform::zephyr {
@@ -26,7 +28,7 @@ class Rf : public hal::Rf {
     // that an idle device is not woken for nothing.
     static constexpr int kHealthTickMs = 250;
 
-    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<messages::RfEvent, 8>& out)
+    Rf(parts::Sx1262& radio, hal::Clock& clock, bus::Queue<events::RfEvent, 8>& out)
         : radio_(radio), clock_(clock), out_(out) {
         k_sem_init(&armed_, 0, 1);
     }
@@ -50,7 +52,7 @@ class Rf : public hal::Rf {
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
         if (clock_.micros() >= plan.end_us) {
-            if (plan.tx != nullptr) emit(messages::RfEventType::Missed, clock_.micros());
+            if (plan.tx != nullptr) emit(events::RfEventType::Missed, clock_.micros());
             return Status::WouldBlock;
         }
         if (joins_flying_dwell(plan)) return Status::Ok;
@@ -110,7 +112,7 @@ class Rf : public hal::Rf {
             abort_ = false;
             const hal::RfPlan plan = plan_;
             if (clock_.micros() >= plan.end_us) {
-                if (plan.tx != nullptr) emit(messages::RfEventType::Missed, clock_.micros());
+                if (plan.tx != nullptr) emit(events::RfEventType::Missed, clock_.micros());
                 continue;
             }
             sleep_until(plan.start_us);
@@ -150,7 +152,7 @@ class Rf : public hal::Rf {
 
     void start(const hal::RfPlan& plan) {
         radio_.wake();
-        band_ = plan.mode == hal::RfMode::RxOband ? messages::Band::O : messages::Band::M;
+        band_ = plan.mode == hal::RfMode::RxOband ? model::Band::O : model::Band::M;
         freq_hz_ = plan.freq_hz;
         if (plan.freq_hz != 0) radio_.configure_radio(dwell_config(plan));
         radio_.start_receive();
@@ -193,20 +195,20 @@ class Rf : public hal::Rf {
     bool collect(bool& completed, bool& fault) {
         const uint64_t polled_us = irq_at_us_ != 0 ? irq_at_us_ : clock_.micros();
         irq_at_us_ = 0;
-        const parts::RadioEvent ev = radio_.poll(rx_.data.data(), messages::kRfEventBytes);
+        const parts::RadioEvent ev = radio_.poll(rx_.data.data(), events::kRfEventBytes);
         switch (ev.type) {
             case parts::RadioEventType::None: return false;
             case parts::RadioEventType::RxDone: push_rx(ev, polled_us); return true;
             case parts::RadioEventType::CrcError:
-                emit(messages::RfEventType::CrcError, polled_us, ev);
+                emit(events::RfEventType::CrcError, polled_us, ev);
                 return true;
             case parts::RadioEventType::TxDone:
                 completed = true;
-                emit(messages::RfEventType::TxDone, polled_us);
+                emit(events::RfEventType::TxDone, polled_us);
                 radio_.start_receive();
                 return true;
             default:
-                emit(messages::RfEventType::Missed, polled_us);
+                emit(events::RfEventType::Missed, polled_us);
                 fault = true;
                 return false;
         }
@@ -243,7 +245,7 @@ class Rf : public hal::Rf {
         }
         if (fault) return;
         sample_carrier();
-        if (tx != nullptr && !completed) emit(messages::RfEventType::Missed, clock_.micros());
+        if (tx != nullptr && !completed) emit(events::RfEventType::Missed, clock_.micros());
     }
 
     // The frame is already in the event that will carry it. An O-band uplink
@@ -252,7 +254,7 @@ class Rf : public hal::Rf {
     // armed for travels with it: the O band carries one system and the M band
     // two, and only the arming knows which of them this burst is.
     void push_rx(const parts::RadioEvent& ev, uint64_t at_us) {
-        rx_.type = messages::RfEventType::RxDone;
+        rx_.type = events::RfEventType::RxDone;
         rx_.band = band_;
         rx_.freq_hz = freq_hz_;
         rx_.len = ev.len;
@@ -262,8 +264,8 @@ class Rf : public hal::Rf {
         out_.push(rx_);
     }
 
-    void emit(messages::RfEventType type, uint64_t at_us, const parts::RadioEvent& ev = {}) {
-        messages::RfEvent e{};
+    void emit(events::RfEventType type, uint64_t at_us, const parts::RadioEvent& ev = {}) {
+        events::RfEvent e{};
         e.type = type;
         e.band = band_;
         e.freq_hz = freq_hz_;
@@ -276,11 +278,11 @@ class Rf : public hal::Rf {
 
     parts::Sx1262& radio_;
     hal::Clock& clock_;
-    bus::Queue<messages::RfEvent, 8>& out_;
+    bus::Queue<events::RfEvent, 8>& out_;
     hal::RfPlan plan_{};
     hal::RfCarrier carrier_{};
-    messages::RfEvent rx_{};
-    messages::Band band_{messages::Band::M};
+    events::RfEvent rx_{};
+    model::Band band_{model::Band::M};
     uint32_t freq_hz_{0};
     uint64_t health_us_{0};
     struct k_sem armed_{};

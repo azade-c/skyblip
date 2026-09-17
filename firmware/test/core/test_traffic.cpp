@@ -7,6 +7,8 @@
 #include <cmath>
 
 #include "core/flight/extrapolate.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/traffic/alarm.h"
 #include "core/traffic/link.h"
 #include "core/traffic/sanity.h"
@@ -21,8 +23,8 @@ namespace {
 
 uint16_t c9(int deg) { return static_cast<uint16_t>(((deg % 360 + 360) % 360) * 512 / 360); }
 
-messages::OwnState flying(int mps, int track_deg, int16_t turn_dps = 0, uint32_t at_ms = 0) {
-    messages::OwnState o{};
+model::OwnState flying(int mps, int track_deg, int16_t turn_dps = 0, uint32_t at_ms = 0) {
+    model::OwnState o{};
     o.turn_dps = turn_dps;
     o.fix_ms = at_ms;
     o.fix_valid = true;
@@ -36,9 +38,9 @@ messages::OwnState flying(int mps, int track_deg, int16_t turn_dps = 0, uint32_t
 
 // Placed by offset from own-ship, so a case reads as the picture out of the
 // canopy rather than as two coordinates.
-messages::AircraftObs neighbour(const messages::OwnState& own, int north_m, int east_m, int up_m,
-                                int mps, int track_deg, uint32_t at_ms = 0) {
-    messages::AircraftObs t{};
+model::AircraftObs neighbour(const model::OwnState& own, int north_m, int east_m, int up_m, int mps,
+                             int track_deg, uint32_t at_ms = 0) {
+    model::AircraftObs t{};
     t.addr = 0x314159;
     t.addr_table = 6;
     t.position_valid = true;
@@ -51,20 +53,20 @@ messages::AircraftObs neighbour(const messages::OwnState& own, int north_m, int 
         static_cast<int16_t>((static_cast<int64_t>(own.lat_1e7) * 65536) / 3600000000LL);
     const int64_t east_scaled = (static_cast<int64_t>(east_m) << 14) / icos(ang);
     t.lon_1e7 = own.lon_1e7 + static_cast<int32_t>(east_scaled * 1000000 / 11132);
-    t.rx_utc = at_ms / 1000;
-    t.rx_ms = static_cast<uint16_t>(at_ms % 1000);
+    t.received.at_s = at_ms / 1000;
+    t.received.into_ms = static_cast<uint16_t>(at_ms % 1000);
     t.at_ms = at_ms;
     return t;
 }
 
 }  // namespace
 
-static messages::AircraftObs obs(uint32_t addr, uint8_t tbl, uint32_t t,
-                                 messages::Source src = messages::Source::AdslDirect) {
-    messages::AircraftObs o{};
+static model::AircraftObs obs(uint32_t addr, uint8_t tbl, uint32_t t,
+                              model::Source src = model::Source::AdslDirect) {
+    model::AircraftObs o{};
     o.addr = addr;
     o.addr_table = tbl;
-    o.rx_utc = t;
+    o.received.at_s = t;
     o.source = src;
     o.position_valid = true;
     o.lat_1e7 = 481000000;
@@ -85,15 +87,15 @@ TEST_CASE("traffic: insert, find, count") {
 
 TEST_CASE("traffic: dedup merges the same target, fresher and direct win") {
     TrafficTable tbl;
-    tbl.update(obs(0x111, 6, 100, messages::Source::AdslUplink), 100);
+    tbl.update(obs(0x111, 6, 100, model::Source::AdslUplink), 100);
     // direct, same time -> should replace uplink (direct preferred)
-    tbl.update(obs(0x111, 6, 100, messages::Source::AdslDirect), 100);
+    tbl.update(obs(0x111, 6, 100, model::Source::AdslDirect), 100);
     CHECK(tbl.count() == 1);
     int idx = tbl.find(6, 0x111);
-    CHECK(tbl.at(idx)->obs.source == messages::Source::AdslDirect);
+    CHECK(tbl.at(idx)->obs.source == model::Source::AdslDirect);
     // older observation must not overwrite a fresher one
-    tbl.update(obs(0x111, 6, 90, messages::Source::AdslUplink), 100);
-    CHECK(tbl.at(idx)->obs.rx_utc == 100);
+    tbl.update(obs(0x111, 6, 90, model::Source::AdslUplink), 100);
+    CHECK(tbl.at(idx)->obs.received.at_s == 100);
 }
 
 // A ground relay is a rebroadcast, so it is always the newer report and always
@@ -101,32 +103,32 @@ TEST_CASE("traffic: dedup merges the same target, fresher and direct win") {
 // perfectly well backwards once a second, for as long as both paths last.
 TEST_CASE("traffic: a relay does not displace a direct reception that is still fresh") {
     TrafficTable tbl;
-    tbl.update(obs(0x111, 6, 100, messages::Source::AdslDirect), 100);
+    tbl.update(obs(0x111, 6, 100, model::Source::AdslDirect), 100);
     const int idx = tbl.find(6, 0x111);
     REQUIRE(idx >= 0);
 
     for (uint32_t later = 101; later <= 100 + kDirectHoldSec; later++) {
-        tbl.update(obs(0x111, 6, later, messages::Source::AdslUplink), later);
+        tbl.update(obs(0x111, 6, later, model::Source::AdslUplink), later);
         CHECK(tbl.count() == 1);
-        CHECK(tbl.at(idx)->obs.source == messages::Source::AdslDirect);
-        CHECK(tbl.at(idx)->obs.rx_utc == 100);
+        CHECK(tbl.at(idx)->obs.source == model::Source::AdslDirect);
+        CHECK(tbl.at(idx)->obs.received.at_s == 100);
     }
 
     // And the hold is a hold, not a block: past it the direct track is as stale
     // as the alarm layer's own patience with a contact, and the relay is the
     // only thing still reporting this aircraft.
     const uint32_t past = 100 + kDirectHoldSec + 1;
-    tbl.update(obs(0x111, 6, past, messages::Source::AdslUplink), past);
+    tbl.update(obs(0x111, 6, past, model::Source::AdslUplink), past);
     CHECK(tbl.count() == 1);
-    CHECK(tbl.at(idx)->obs.source == messages::Source::AdslUplink);
-    CHECK(tbl.at(idx)->obs.rx_utc == past);
+    CHECK(tbl.at(idx)->obs.source == model::Source::AdslUplink);
+    CHECK(tbl.at(idx)->obs.received.at_s == past);
 
     // A relay never blocks a target of its own, and a direct reception takes it
     // straight back.
-    tbl.update(obs(0x222, 6, past, messages::Source::AdslUplink), past);
+    tbl.update(obs(0x222, 6, past, model::Source::AdslUplink), past);
     CHECK(tbl.count() == 2);
-    tbl.update(obs(0x111, 6, past, messages::Source::AdslDirect), past);
-    CHECK(tbl.at(idx)->obs.source == messages::Source::AdslDirect);
+    tbl.update(obs(0x111, 6, past, model::Source::AdslDirect), past);
+    CHECK(tbl.at(idx)->obs.source == model::Source::AdslDirect);
 }
 
 // The hold is core/traffic/alarm.h's own freshness rule wearing a different
@@ -140,10 +142,10 @@ TEST_CASE("traffic: the direct hold is the alarm layer's patience with a contact
 TEST_CASE("traffic: our own address is not traffic, whoever reports it") {
     TrafficTable tbl;
     tbl.set_own_address(0xC5D804);
-    CHECK(tbl.update(obs(0xC5D804, 6, 100, messages::Source::AdslUplink), 100) < 0);
-    CHECK(tbl.update(obs(0xC5D804, 6, 100, messages::Source::AdslDirect), 100) < 0);
+    CHECK(tbl.update(obs(0xC5D804, 6, 100, model::Source::AdslUplink), 100) < 0);
+    CHECK(tbl.update(obs(0xC5D804, 6, 100, model::Source::AdslDirect), 100) < 0);
     CHECK(tbl.count() == 0);
-    CHECK(tbl.update(obs(0xC5D805, 6, 100, messages::Source::AdslUplink), 100) >= 0);
+    CHECK(tbl.update(obs(0xC5D805, 6, 100, model::Source::AdslUplink), 100) >= 0);
     CHECK(tbl.count() == 1);
 }
 
@@ -172,7 +174,7 @@ TEST_CASE("traffic: overflow drops oldest non-threat, keeps active alarms") {
 }
 
 TEST_CASE("alarm: level escalates as a target closes head-on") {
-    messages::OwnState own{};
+    model::OwnState own{};
     own.fix_valid = true;
     own.lat_1e7 = 481000000;
     own.lon_1e7 = 81000000;
@@ -194,16 +196,16 @@ TEST_CASE("alarm: level escalates as a target closes head-on") {
 }
 
 TEST_CASE("alarm: invalid when own has no fix") {
-    messages::OwnState own{};
-    messages::AircraftObs t{};
+    model::OwnState own{};
+    model::AircraftObs t{};
     t.position_valid = true;
     CHECK_FALSE(assess(own, t, 0).valid);
 }
 
 // The pinned bug: a fix and a report from different instants were subtracted as if they were one.
 TEST_CASE("alarm: both sides are carried to the instant the geometry is read at") {
-    const messages::OwnState own = flying(30, 0, 0, 10'000);
-    const messages::AircraftObs head_on = neighbour(own, 1000, 0, 0, 30, 180, 10'000);
+    const model::OwnState own = flying(30, 0, 0, 10'000);
+    const model::AircraftObs head_on = neighbour(own, 1000, 0, 0, 30, 180, 10'000);
 
     CHECK(assess(own, head_on, 10'000).rel_dist_m == doctest::Approx(1000).epsilon(0.02));
 
@@ -220,7 +222,7 @@ TEST_CASE("alarm: both sides are carried to the instant the geometry is read at"
 // gliders drifting downwind in one thermal were a permanent level 3 that way,
 // and a device that cries wolf every second gets switched off in the cockpit.
 TEST_CASE("alarm: closing speed is the relative velocity on the line of sight") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
 
     // Ahead of us, going the same way at the same speed: the gap is not moving.
     const AlarmAssessment formation = assess(own, neighbour(own, 800, 0, 0, 30, 0), 0);
@@ -242,7 +244,7 @@ TEST_CASE("alarm: closing speed is the relative velocity on the line of sight") 
 // A target inside the urgent ring that is running away is not urgent, and the
 // one crossing our nose 2 km out at 80 m/s of closure is.
 TEST_CASE("alarm: urgency is what the geometry says, not what the range ring says") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 0), 0).level < 3);
     CHECK(assess(own, neighbour(own, -300, 0, 0, 40, 180), 0).level == 1);
     CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 180), 0).level == 3);
@@ -253,8 +255,8 @@ TEST_CASE("alarm: urgency is what the geometry says, not what the range ring say
 // Zero would make it the safest thing in the sky, which is a lie the alarm is
 // not allowed to tell: what is unknown is charged at what these aircraft fly.
 TEST_CASE("alarm: a target that reports no velocity degrades, it does not vanish") {
-    const messages::OwnState own = flying(30, 0);
-    messages::AircraftObs quiet = neighbour(own, 900, 0, 0, 0, 0);
+    const model::OwnState own = flying(30, 0);
+    model::AircraftObs quiet = neighbour(own, 900, 0, 0, 0, 0);
     quiet.speed_valid = false;
 
     const AlarmAssessment a = assess(own, quiet, 0);
@@ -267,7 +269,7 @@ TEST_CASE("alarm: a target that reports no velocity degrades, it does not vanish
 // notification per address (oss/SoftRF-lyusupov .../src/TrafficHelper.cpp:236-260).
 TEST_CASE("alarm: a target is announced once per level, and again when it gets worse") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
 
     uint32_t t = 1000;
     AlarmTracker::Decision d = tracker.update(own, neighbour(own, 2800, 0, 0, 20, 180), t);
@@ -294,7 +296,7 @@ TEST_CASE("alarm: a target is announced once per level, and again when it gets w
 // pilot to do something now. It repeats on SoftRF's cadence, not every tick.
 TEST_CASE("alarm: an urgent contact says so again, at the re-notification cadence") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
 
     uint32_t t = 1000;
     AlarmTracker::Decision d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t);
@@ -314,8 +316,8 @@ TEST_CASE("alarm: an urgent contact says so again, at the re-notification cadenc
 // landed or switched off. SoftRF alerts only inside ALERT_EXPIRATION_TIME.
 TEST_CASE("alarm: a target that has gone quiet stops driving the annunciator") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
-    const messages::AircraftObs frozen = neighbour(own, 400, 0, 0, 30, 180, 1000);
+    const model::OwnState own = flying(30, 0);
+    const model::AircraftObs frozen = neighbour(own, 400, 0, 0, 30, 180, 1000);
 
     uint32_t t = 1000;
     REQUIRE(tracker.update(own, frozen, t).notify);
@@ -334,7 +336,7 @@ TEST_CASE("alarm: a target that has gone quiet stops driving the annunciator") {
 // a tone nobody remembers to stop.
 TEST_CASE("alarm: the announced level rises with the contact and falls only when it has") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
 
     uint32_t t = 1000;
     REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).assessment.level == 3);
@@ -375,7 +377,7 @@ TEST_CASE("alarm: two gliders circling the same thermal stop shouting at each ot
     for (int i = 0; i < 6; i++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(i) * 1000;
         const int track_deg = 90 + 15 * i;
-        const messages::OwnState own = flying(25, track_deg, own_turn);
+        const model::OwnState own = flying(25, track_deg, own_turn);
         const double bearing = (track_deg - 90) * 3.14159265358979 / 180.0;
         const int north_m = static_cast<int>(150 * std::cos(bearing));
         const int east_m = static_cast<int>(150 * std::sin(bearing));
@@ -400,8 +402,8 @@ TEST_CASE("alarm: a head-on inside the thermal still alarms") {
 
     for (int i = 0; i < 6; i++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(i) * 1000;
-        const messages::OwnState own = flying(25, 90 + 15 * i, 14);
-        messages::AircraftObs intruder = neighbour(own, 400, 0, 0, 30, 180, t);
+        const model::OwnState own = flying(25, 90 + 15 * i, 14);
+        model::AircraftObs intruder = neighbour(own, 400, 0, 0, 30, 180, t);
         intruder.addr = 0x777777;
         d = tracker.update(own, intruder, t);
     }
@@ -415,7 +417,7 @@ TEST_CASE("alarm: a head-on inside the thermal still alarms") {
 // very next fix, because that is the whole exposure this trade buys.
 TEST_CASE("alarm: a neighbour holding station is quietened, and turning in undoes it") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     AlarmTracker::Decision d{};
 
     uint32_t t = 1000;
@@ -481,8 +483,8 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
             std::sqrt((target_east - own_east) * (target_east - own_east) +
                       (target_north - own_north) * (target_north - own_north));
 
-        const messages::OwnState own = flying(23, turn_dps * second, turn_dps, t);
-        const messages::AircraftObs target =
+        const model::OwnState own = flying(23, turn_dps * second, turn_dps, t);
+        const model::AircraftObs target =
             neighbour(own, static_cast<int>(target_north - own_north),
                       static_cast<int>(target_east - own_east), 0, 23, 34 + turn_dps * second, t);
         const uint8_t raw_level = assess(own, target, t).level;
@@ -513,19 +515,19 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
 // decodes to a perfectly well-formed aircraft somewhere it cannot be.
 
 TEST_CASE("traffic: a target further away than the radio can hear is a mis-decode") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     TrafficTable tbl;
     tbl.set_own_reference(own);
 
     // Ten kilometres out is a real contact on this band: it is well inside the
     // budget and it is what the radar's outer ring is for.
-    messages::AircraftObs near_by = neighbour(own, 10000, 0, 0, 30, 180);
+    model::AircraftObs near_by = neighbour(own, 10000, 0, 0, 30, 180);
     near_by.addr = 0x4A0001;
     CHECK(tbl.update(near_by, 100) >= 0);
 
     // A hundred kilometres is not. Nothing at 14 dBm e.r.p. on 868 MHz reaches
     // this receiver from there, so the frame that said so was wrong.
-    messages::AircraftObs ghost = neighbour(own, 100000, 0, 0, 30, 180);
+    model::AircraftObs ghost = neighbour(own, 100000, 0, 0, 30, 180);
     ghost.addr = 0x4A0002;
     CHECK(tbl.update(ghost, 100) < 0);
     CHECK(tbl.count() == 1);
@@ -533,7 +535,7 @@ TEST_CASE("traffic: a target further away than the radio can hear is a mis-decod
 
     // Straight up counts too: the altitude field miscorrects as readily as the
     // latitude one, and the slant range is the path the signal took.
-    messages::AircraftObs high = neighbour(own, 0, 0, 60000, 0, 0);
+    model::AircraftObs high = neighbour(own, 0, 0, 60000, 0, 0);
     high.addr = 0x4A0003;
     CHECK(tbl.update(high, 100) < 0);
     CHECK(tbl.count() == 1);
@@ -541,7 +543,7 @@ TEST_CASE("traffic: a target further away than the radio can hear is a mis-decod
 }
 
 TEST_CASE("traffic: the plausibility gate is exact at its own boundary") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     TrafficTable tbl;
     tbl.set_own_reference(own);
     int32_t slant_m = 0;
@@ -549,11 +551,11 @@ TEST_CASE("traffic: the plausibility gate is exact at its own boundary") {
     // On the limit is believed, past it is not. The integer geometry rounds, so
     // the boundary is approached from both sides with a metre of margin rather
     // than asserted on the exact metre.
-    messages::AircraftObs on_limit = neighbour(own, kMaxPlausibleRangeM - 1, 0, 0, 30, 180);
+    model::AircraftObs on_limit = neighbour(own, kMaxPlausibleRangeM - 1, 0, 0, 30, 180);
     CHECK(range_check(own, on_limit, slant_m) == Plausibility::Believable);
     CHECK(slant_m <= kMaxPlausibleRangeM);
 
-    messages::AircraftObs past_limit = neighbour(own, kMaxPlausibleRangeM + 100, 0, 0, 30, 180);
+    model::AircraftObs past_limit = neighbour(own, kMaxPlausibleRangeM + 100, 0, 0, 30, 180);
     CHECK(range_check(own, past_limit, slant_m) == Plausibility::TooFar);
     CHECK(slant_m > kMaxPlausibleRangeM);
 
@@ -572,19 +574,19 @@ TEST_CASE("traffic: the plausibility gate is exact at its own boundary") {
 // than refusing everything: a device that has just booted still collects the
 // traffic it hears, and the screen already knows it cannot place it.
 TEST_CASE("traffic: with no fix of our own nothing is refused for being far away") {
-    messages::OwnState own = flying(30, 0);
+    model::OwnState own = flying(30, 0);
     own.fix_valid = false;
     TrafficTable tbl;
     tbl.set_own_reference(own);
 
-    messages::AircraftObs far_away = neighbour(flying(30, 0), 100000, 0, 0, 30, 180);
+    model::AircraftObs far_away = neighbour(flying(30, 0), 100000, 0, 0, 30, 180);
     CHECK(tbl.update(far_away, 100) >= 0);
     CHECK(tbl.implausible_count() == 0);
 
     // Same for a report that carries no position at all: it is not a range claim,
     // so it is not this gate's business.
     int32_t slant_m = 0;
-    messages::AircraftObs positionless = far_away;
+    model::AircraftObs positionless = far_away;
     positionless.position_valid = false;
     CHECK(range_check(flying(30, 0), positionless, slant_m) == Plausibility::NoReference);
 }
@@ -593,7 +595,7 @@ TEST_CASE("traffic: with no fix of our own nothing is refused for being far away
 // as no fix: the gate is a refinement on the door, never a new way to be blind.
 TEST_CASE("traffic: a table with no reference set behaves exactly as it did before") {
     TrafficTable tbl;
-    messages::AircraftObs far_away = neighbour(flying(30, 0), 250000, 0, 0, 30, 180);
+    model::AircraftObs far_away = neighbour(flying(30, 0), 250000, 0, 0, 30, 180);
     CHECK(tbl.update(far_away, 100) >= 0);
     CHECK(tbl.count() == 1);
     CHECK(tbl.implausible_count() == 0);
@@ -603,19 +605,19 @@ TEST_CASE("traffic: a table with no reference set behaves exactly as it did befo
 // per-frame: one ground-station frame carries up to thirteen aircraft, and one
 // ghost among them says nothing about the other twelve.
 TEST_CASE("traffic: a ghost in a relayed frame does not take the good targets with it") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     TrafficTable tbl;
     tbl.set_own_reference(own);
 
-    messages::AircraftObs good = neighbour(own, 2000, 500, 100, 30, 90);
+    model::AircraftObs good = neighbour(own, 2000, 500, 100, 30, 90);
     good.addr = 0x4B0001;
-    good.source = messages::Source::AdslUplink;
-    messages::AircraftObs ghost = neighbour(own, 400000, -200000, 0, 30, 270);
+    good.source = model::Source::AdslUplink;
+    model::AircraftObs ghost = neighbour(own, 400000, -200000, 0, 30, 270);
     ghost.addr = 0x4B0002;
-    ghost.source = messages::Source::AdslUplink;
-    messages::AircraftObs also_good = neighbour(own, -1500, 800, -200, 25, 180);
+    ghost.source = model::Source::AdslUplink;
+    model::AircraftObs also_good = neighbour(own, -1500, 800, -200, 25, 180);
     also_good.addr = 0x4B0003;
-    also_good.source = messages::Source::AdslUplink;
+    also_good.source = model::Source::AdslUplink;
 
     CHECK(tbl.update(good, 100) >= 0);
     CHECK(tbl.update(ghost, 100) < 0);
@@ -631,24 +633,24 @@ TEST_CASE("traffic: a ghost in a relayed frame does not take the good targets wi
 // aircraft holds is what the alarm layer is tracking, so a miscorrected frame
 // carrying a known address must not move it, blank it or age it.
 TEST_CASE("traffic: a mis-decode of a tracked aircraft does not move the aircraft") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     TrafficTable tbl;
     tbl.set_own_reference(own);
 
-    messages::AircraftObs real_contact = neighbour(own, 1200, 0, 0, 30, 180, 100000);
+    model::AircraftObs real_contact = neighbour(own, 1200, 0, 0, 30, 180, 100000);
     real_contact.addr = 0x4C0001;
     const int idx = tbl.update(real_contact, 100);
     REQUIRE(idx >= 0);
     tbl.at(idx)->alarm_level = 2;
 
-    messages::AircraftObs same_aircraft_wrong_place = neighbour(own, 120000, 0, 0, 30, 180, 101000);
+    model::AircraftObs same_aircraft_wrong_place = neighbour(own, 120000, 0, 0, 30, 180, 101000);
     same_aircraft_wrong_place.addr = 0x4C0001;
     CHECK(tbl.update(same_aircraft_wrong_place, 101) < 0);
 
     CHECK(tbl.count() == 1);
     CHECK(tbl.find(6, 0x4C0001) == idx);
     CHECK(tbl.at(idx)->obs.lat_1e7 == real_contact.lat_1e7);
-    CHECK(tbl.at(idx)->obs.rx_utc == real_contact.rx_utc);
+    CHECK(tbl.at(idx)->obs.received.at_s == real_contact.received.at_s);
     CHECK(int(tbl.at(idx)->alarm_level) == 2);
 }
 
@@ -657,32 +659,32 @@ TEST_CASE("traffic: a mis-decode of a tracked aircraft does not move the aircraf
 // uplink. The same position from the same aircraft is a ghost on the direct path
 // and a legitimate contact on the relayed one.
 TEST_CASE("traffic: a relayed target is judged against the two hops it travelled") {
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     TrafficTable tbl;
     tbl.set_own_reference(own);
     int32_t slant_m = 0;
 
-    messages::AircraftObs distant = neighbour(own, 45000, 0, 0, 30, 180);
+    model::AircraftObs distant = neighbour(own, 45000, 0, 0, 30, 180);
     distant.addr = 0x4D0001;
-    distant.source = messages::Source::AdslDirect;
+    distant.source = model::Source::AdslDirect;
     CHECK(range_check(own, distant, slant_m) == Plausibility::TooFar);
     CHECK(tbl.update(distant, 100) < 0);
 
-    distant.source = messages::Source::AdslUplink;
+    distant.source = model::Source::AdslUplink;
     CHECK(range_check(own, distant, slant_m) == Plausibility::Believable);
     CHECK(tbl.update(distant, 100) >= 0);
     CHECK(tbl.count() == 1);
 
     // ALP-TAS is a direct reception like our own protocol: one hop, one ceiling.
-    CHECK(plausible_range_m(messages::Source::Alptas) == kMaxPlausibleRangeM);
-    CHECK(plausible_range_m(messages::Source::AdslDirect) == kMaxPlausibleRangeM);
-    CHECK(plausible_range_m(messages::Source::AdslUplink) == kMaxRelayedRangeM);
+    CHECK(plausible_range_m(model::Source::Alptas) == kMaxPlausibleRangeM);
+    CHECK(plausible_range_m(model::Source::AdslDirect) == kMaxPlausibleRangeM);
+    CHECK(plausible_range_m(model::Source::AdslUplink) == kMaxRelayedRangeM);
 
     // Past the two-hop budget a relay is refused too: a ground station cannot
     // hand us an aircraft it could not have heard either.
-    messages::AircraftObs relayed_ghost = neighbour(own, 200000, 0, 0, 30, 180);
+    model::AircraftObs relayed_ghost = neighbour(own, 200000, 0, 0, 30, 180);
     relayed_ghost.addr = 0x4D0002;
-    relayed_ghost.source = messages::Source::AdslUplink;
+    relayed_ghost.source = model::Source::AdslUplink;
     CHECK(tbl.update(relayed_ghost, 100) < 0);
     CHECK(tbl.count() == 1);
     CHECK(tbl.implausible_count() == 2);
@@ -720,12 +722,12 @@ TEST_CASE("traffic: the age-out is a difference, whichever side of the wrap the 
 
 TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap") {
     AlarmTracker tracker;
-    const messages::OwnState own = flying(30, 0);
+    const model::OwnState own = flying(30, 0);
     const uint32_t before = 0xFFFFF000u;  // 4096 ms short of the wrap
 
     // A head-on closing through the wrap instant: announced once, reminded at the
     // re-notification cadence, and the announced level stands while it is fresh.
-    messages::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, 1000);
+    model::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, 1000);
     REQUIRE(tracker.update(own, target, before).notify);
     CHECK(tracker.announced_level(before) == 3);
 
@@ -733,7 +735,7 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     // level still stands - an announced_level that read 0 here would be a buzzer
     // that stopped mid-alarm at the wrap.
     const uint32_t after = before + 3000u;
-    target.rx_utc = 2;                                 // a new observation of the same aircraft
+    target.received.at_s = 2;                          // a new observation of the same aircraft
     CHECK(tracker.update(own, target, after).notify);  // the urgent reminder
     CHECK(tracker.announced_level(after) == 3);
 

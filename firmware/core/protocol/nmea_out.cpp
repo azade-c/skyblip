@@ -1,8 +1,10 @@
 #include "core/protocol/nmea_out.h"
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
+#include "core/units/units.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
-#include "core/util/units.h"
 
 namespace skyblip::protocol {
 
@@ -42,7 +44,7 @@ uint8_t adsl_cat_to_alptas(uint8_t c) {
 // register the way it might an ICAO one.
 uint8_t addr_table_to_idtype(uint8_t t) { return t == 0x05 ? 1 : 2; }
 
-bool relative_ned(const messages::OwnState& own, const messages::AircraftObs& t, int32_t& north_m,
+bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32_t& north_m,
                   int32_t& east_m, int32_t& up_m) {
     if (!own.fix_valid || !t.position_valid) return false;
     int64_t dlat = static_cast<int64_t>(t.lat_1e7) - own.lat_1e7;
@@ -56,8 +58,8 @@ bool relative_ned(const messages::OwnState& own, const messages::AircraftObs& t,
     return true;
 }
 
-int format_pflaa(char* out, size_t cap, const messages::OwnState& own,
-                 const messages::AircraftObs& t, uint8_t alarm_level) {
+int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model::AircraftObs& t,
+                 uint8_t alarm_level) {
     (void)cap;
     int32_t n_m, e_m, u_m;
     if (!relative_ned(own, t, n_m, e_m, u_m)) return 0;
@@ -94,8 +96,8 @@ int format_pflaa(char* out, size_t cap, const messages::OwnState& own,
     return nmea_finish(out, n);
 }
 
-int format_pflau(char* out, size_t cap, const messages::OwnState& own, int n_targets,
-                 const messages::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
+int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_targets,
+                 const model::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
                  int32_t rel_vert_m, int32_t rel_dist_m) {
     (void)cap;
     int n = 0;
@@ -219,7 +221,7 @@ int put_hhmmss(char* out, uint32_t utc) {
 
 }  // namespace
 
-int format_gprmc(char* out, size_t cap, const messages::OwnState& own) {
+int format_gprmc(char* out, size_t cap, const model::OwnState& own) {
     (void)cap;
     if (!own.fix_valid || !own.utc_valid) return 0;
     int year, month, day, hh, mm, ss;
@@ -248,7 +250,7 @@ int format_gprmc(char* out, size_t cap, const messages::OwnState& own) {
     return nmea_finish(out, n);
 }
 
-int format_gpgga(char* out, size_t cap, const messages::OwnState& own) {
+int format_gpgga(char* out, size_t cap, const model::OwnState& own) {
     (void)cap;
     if (!own.fix_valid || !own.utc_valid) return 0;
     int n = 0;

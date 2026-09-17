@@ -5,9 +5,9 @@
 #include <cstdio>
 #include <vector>
 
-#include "hal/clock.h"
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
+#include "hal/clock.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::models {

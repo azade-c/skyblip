@@ -1,5 +1,7 @@
 #include "ui/screens/radio_log.h"
 
+#include "core/model/aircraft.h"
+#include "core/model/band.h"
 #include "core/util/format.h"
 
 namespace skyblip::ui {
@@ -36,7 +38,7 @@ bool own_burst(radio::Event event) {
            event == radio::Event::Held || event == radio::Event::Unarmed;
 }
 
-bool names_one_emitter(messages::Source source) { return source != messages::Source::AdslUplink; }
+bool names_one_emitter(model::Source source) { return source != model::Source::AdslUplink; }
 
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
@@ -65,7 +67,7 @@ int fmt_stamp(char* out, const radio::Entry& entry) {
 }
 
 int fmt_dwell(char* out, const radio::Entry& entry) {
-    if (entry.band == messages::Band::O) return fmt_string(out, "O");
+    if (entry.band == model::Band::O) return fmt_string(out, "O");
     int n = fmt_string(out, "M");
     return n + fmt_uint(out + n, entry.channel);
 }
@@ -132,7 +134,7 @@ void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
             fb.draw_text(kLenX, y, buf, true, 1);
         }
     } else {
-        buf[0] = messages::source_letter(entry.source);
+        buf[0] = model::source_letter(entry.source);
         buf[1] = 0;
         fb.draw_text(kVerdictX, y, buf, true, 1);
         if (names_one_emitter(entry.source)) {

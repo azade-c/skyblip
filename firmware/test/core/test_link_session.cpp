@@ -4,12 +4,13 @@
 // proved once, here, instead of living inside a Bluetooth callback nothing can
 // reach from a host suite.
 #include "core/comms/link_session.h"
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 
 using namespace skyblip;
 using comms::LinkSession;
-using messages::LinkEvent;
-using messages::LinkEventType;
+using events::LinkEvent;
+using events::LinkEventType;
 
 TEST_CASE("link session: a connect and a disconnect arrive as one ordered pair") {
     LinkSession session;

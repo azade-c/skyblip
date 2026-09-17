@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "core/events/link.h"
 #include "core/util/json_min.h"
 
 namespace skyblip::comms {
@@ -48,9 +49,9 @@ int base64_encode(const uint8_t* in, int len, char* out, int cap) {
     return n;
 }
 
-LogRequest parse_log_request(const messages::RxFrame& frame) {
+LogRequest parse_log_request(const events::RxFrame& frame) {
     LogRequest request{};
-    if (frame.endpoint != messages::Endpoint::Log) return request;
+    if (frame.endpoint != events::Endpoint::Log) return request;
 
     json::Reader reader(reinterpret_cast<const char*>(frame.data.data()), frame.len);
     char command[16] = {0};

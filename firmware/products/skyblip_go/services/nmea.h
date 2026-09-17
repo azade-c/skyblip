@@ -1,6 +1,6 @@
 // products/skyblip_go/services/nmea.h: the traffic picture and ownship position
 // a paired tablet draws, in the sentences every EFB already speaks, and the
-// single writer of messages::Endpoint::Nmea.
+// single writer of events::Endpoint::Nmea.
 //
 // core/protocol/nmea_out.h has formatted $PFLAA/$PFLAU/$PGRMZ since the first
 // week of the project and nothing in the product ever called it: the
@@ -12,6 +12,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_NMEA_H
 
 #include "core/comms/config.h"
+#include "core/events/link.h"
 #include "core/traffic/alarm.h"
 #include "core/traffic/table.h"
 #include "products/skyblip_go/features.h"
@@ -69,15 +70,11 @@ class NmeaService : public runtime::Service {
     // sentences, and checked at the point of use rather than assumed.
     static constexpr int kSentenceBytesCap = 128;
 
-    NmeaService(runtime::Context& context, Feature declared)
-        : runtime::Service(context), enabled_(has_feature(declared, Feature::CompanionLink)) {}
+    NmeaService(runtime::Context& context, Feature declared, const comms::ConfigService& config)
+        : runtime::Service(context), config_(config), declared_(declared) {}
 
+    Status setup() override;
     void tick(uint32_t now_ms) override;
-
-    // Who knows whether a central is there: comms::ConfigService is the single
-    // reader of bus.link_events, so this service asks it rather than draining a
-    // queue that would then be short an event for whoever drains it second.
-    void attach_config(const comms::ConfigService& config) { config_ = &config; }
 
     // Frames the link would not take. Silence towards a phone is a fault worth a
     // number, the way core/comms counts its own (ConfigService::link_drops).
@@ -95,7 +92,7 @@ class NmeaService : public runtime::Service {
     void write(const char* bytes, int len);
     void flush();
 
-    const comms::ConfigService* config_{nullptr};
+    const comms::ConfigService& config_;
     char frame_[kFrameBytesCap]{};
     char sentence_[kSentenceBytesCap]{};
     uint32_t last_pass_ms_{0};
@@ -107,7 +104,8 @@ class NmeaService : public runtime::Service {
     int cursor_{0};
     bool stalled_{false};
     bool passed_once_{false};
-    const bool enabled_;
+    const Feature declared_;
+    bool enabled_{false};
 };
 
 }  // namespace skyblip::go

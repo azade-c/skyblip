@@ -1,5 +1,7 @@
 #include "core/power/cutoff.h"
 
+#include "core/events/sensor.h"
+
 namespace skyblip::power {
 
 const char* to_string(PowerLevel level) {
@@ -34,7 +36,7 @@ void CutoffMonitor::on_supply_warning() {
     supply_warned_ = true;
 }
 
-PowerLevel CutoffMonitor::apply(const messages::BatterySample& sample) {
+PowerLevel CutoffMonitor::apply(const events::BatterySample& sample) {
     if (level_ == PowerLevel::Cutoff) return level_;
 
     if (sample.millivolts <= kImplausibleFloorMv) {

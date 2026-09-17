@@ -1,5 +1,7 @@
 #include "products/skyblip_go/services/radio.h"
 
+#include "core/model/ownship.h"
+
 namespace skyblip::go {
 
 Status RadioService::setup() {
@@ -11,7 +13,7 @@ Status RadioService::setup() {
 
 void RadioService::tick(uint32_t now_ms) {
     const timing::SlotPlan plan = scheduler_.plan(phase_ms(), context_.state.clock);
-    context_.state.plan = plan;
+    context_.state.rf.plan = plan;
     take_carrier_samples();
     collect_outcome(now_ms);
 
@@ -26,7 +28,7 @@ void RadioService::tick(uint32_t now_ms) {
 // copy of the slot arithmetic, and it needs to know a burst is in flight - which
 // only the arming code and the outcome collector between them can say.
 void RadioService::publish_dwell(uint32_t now_ms) {
-    timing::DwellPhase& dwell = context_.state.dwell;
+    timing::DwellPhase& dwell = context_.state.rf.dwell;
     dwell.at_ms = now_ms;
     dwell.phase_ms = phase_ms();
     dwell.armed = armed_ != hal::RfMode::Idle;
@@ -123,7 +125,8 @@ void RadioService::listen_for(timing::Band band, hal::RfPlan& plan) {
     plan.gaussian_bt_e2 = protocol::kMbandGaussianBtE2;
 }
 
-// INFO: fc 15sep26 the gates a burst waits on clear inside the dwell, hal::Rf::arm() joins it there
+// INFO: fc 15sep26 the gates a burst waits on clear inside the dwell, hal::Rf::arm() joins it
+// there
 bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const {
     if (tx_armed_) return false;
     const timing::Transmitter::Attempt a = attempt(plan, now_ms);
@@ -132,7 +135,7 @@ bool RadioService::transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) c
 
 timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
                                                    uint32_t now_ms) const {
-    const messages::OwnState& own = context_.state.own;
+    const model::OwnState& own = context_.state.own;
     // F5: a cold receiver's first solutions walk, and the flight state derived
     // from them decides our transmit rate. Nothing goes on air until own-ship
     // says the solution behind it has settled.
@@ -174,7 +177,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     // air-time budget already refused to arm, counted apart from a dwell that
     // was armed and then missed its outcome.
     if (a.over_budget) {
-        context_.state.timing_stats.record_refused();
+        context_.state.rf.timing_stats.record_refused();
         if (!held_logged_) {
             log_refusal(radio::Event::Held, slot, now_ms);
             held_logged_ = true;
@@ -203,7 +206,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         // A dwell refused before it could even start: hal::Rf's own "a plan
         // that cannot complete before its end is refused here rather than
         // truncated on air", read out on the bench.
-        context_.state.timing_stats.record_missed();
+        context_.state.rf.timing_stats.record_missed();
         if (carries_tx) log_refusal(radio::Event::Unarmed, slot, now_ms);
         return;
     }
@@ -214,16 +217,16 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     if (carries_tx) {
         tx_utc_ = slot_utc(now_ms);
         tx_end_us_ = plan.end_us;
-        context_.state.tx_deadline_us = tx_at_us;
+        context_.state.rf.tx_deadline_us = tx_at_us;
     }
 }
 
 void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slot,
                                uint32_t now_ms) {
     const bus::State& state = context_.state;
-    const radio::Stamp stamp =
-        radio::stamp_of(context_.roles.clock.micros(), state.clock.pps_edge_us,
-                        state.clock.pps_locked, state.traffic_now(now_ms));
+    const events::Stamp stamp =
+        events::stamp_of(context_.roles.clock.micros(), state.clock.pps_edge_us,
+                         state.clock.pps_locked, state.traffic_now(now_ms));
     radio::Entry entry{};
     entry.event = outcome;
     entry.band = slot.band;
@@ -236,21 +239,21 @@ void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slo
 }
 
 void RadioService::collect_outcome(uint32_t now_ms) {
-    if (context_.state.tx_ok != seen_tx_ok_) {
-        seen_tx_ok_ = context_.state.tx_ok;
+    if (context_.state.air.tx_ok != seen_tx_ok_) {
+        seen_tx_ok_ = context_.state.air.tx_ok;
         held_logged_ = false;
         transmitter_.sent(tx_utc_, now_ms);
         // The executor's own report against the deadline this dwell was armed
         // for: both absolute instants on the same clock, so slot 1's wrap
         // costs this nothing.
-        context_.state.timing_stats.record_dwell_phase(
-            static_cast<int64_t>(context_.state.last_tx_done_at_us) -
-            static_cast<int64_t>(context_.state.tx_deadline_us));
+        context_.state.rf.timing_stats.record_dwell_phase(
+            static_cast<int64_t>(context_.state.air.last_tx_done_at_us) -
+            static_cast<int64_t>(context_.state.rf.tx_deadline_us));
         tx_armed_ = false;
     }
     // INFO: fc 15sep26 a dwell that ended unreported took the radio with it, and is counted here
     if (tx_armed_ && context_.roles.clock.micros() >= tx_end_us_) {
-        context_.state.timing_stats.record_missed();
+        context_.state.rf.timing_stats.record_missed();
         tx_armed_ = false;
     }
 }

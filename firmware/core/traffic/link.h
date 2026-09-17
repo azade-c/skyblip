@@ -7,7 +7,8 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/traffic/table.h"
 
 namespace skyblip::traffic {
@@ -19,7 +20,7 @@ constexpr int32_t kMinModelledRangeM = 50;
 
 struct LinkRow {
     uint32_t addr{0};
-    messages::Source source{messages::Source::AdslDirect};
+    model::Source source{model::Source::AdslDirect};
     int32_t slant_m{0};
     int32_t up_m{0};
     int8_t rssi_dbm{0};
@@ -34,10 +35,10 @@ struct LinkRow {
 // 12 dB down, instead of hiding it inside a terrain correction.
 int16_t free_space_loss_db(int32_t range_m);
 
-bool estimate_link(const messages::OwnState& own, const messages::AircraftObs& obs, LinkRow& out);
+bool estimate_link(const model::OwnState& own, const model::AircraftObs& obs, LinkRow& out);
 
 // Nearest first, at most cap rows. Returns how many were filled.
-int rank_by_range(const TrafficTable& table, const messages::OwnState& own, LinkRow* out, int cap);
+int rank_by_range(const TrafficTable& table, const model::OwnState& own, LinkRow* out, int cap);
 
 }  // namespace skyblip::traffic
 

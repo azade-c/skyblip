@@ -11,7 +11,6 @@
 
 #include <cstddef>
 
-#include "hal/capabilities.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/zephyr/annunciator.h"
@@ -29,6 +28,7 @@
 #include "hardware/platform/zephyr/rf.h"
 #include "hardware/platform/zephyr/system_power.h"
 #include "hardware/platform/zephyr/watchdog.h"
+#include "hal/capabilities.h"
 
 // Two questions only the board port can answer, because on this SoC they have to
 // be asked BEFORE the bus drivers claim the pins at POST_KERNEL: the e-paper's
@@ -142,7 +142,7 @@ class Platform {
     // reports a vibration motor and cannot vibrate.
     hal::Capabilities capabilities() const {
         hal::Capabilities c = hal::Capability::Storage | hal::Capability::Dfu |
-                              hal::Capability::Button | hal::Capability::Link;
+                                hal::Capability::Button | hal::Capability::Link;
         if (!buzzer_pin_held_low()) c |= hal::Capability::Buzzer;
         if (device_is_ready(epd_spi_dev_)) c |= hal::Capability::Display;
         if (device_is_ready(gnss_uart_dev_)) c |= hal::Capability::Gnss;

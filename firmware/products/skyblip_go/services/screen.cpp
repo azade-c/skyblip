@@ -2,12 +2,15 @@
 
 #include <cstring>
 
+#include "core/events/input.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/extrapolate.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/power/cutoff.h"
 #include "core/protocol/nmea_out.h"
 #include "core/timing/transmit.h"
-#include "core/util/units.h"
+#include "core/units/units.h"
 #include "ui/screens/installing.h"
 #include "ui/widgets/wordmark.h"
 
@@ -21,7 +24,7 @@ bool settled_for_a_double_press(uint32_t now_ms, uint32_t since_ms) {
 
 // INFO: cf 02aug26 a standing prompt takes the pad and the button both, so nothing pages or opens
 void ScreenService::handle_input(uint32_t now_ms) {
-    const comms::Pending pending = config_ ? config_->pending() : comms::Pending::None;
+    const comms::Pending pending = config_.pending();
     if (pending != prompt_) {
         prompt_ = pending;
         prompt_since_ms_ = now_ms;
@@ -37,8 +40,8 @@ void ScreenService::handle_input(uint32_t now_ms) {
         // the settings page - keeps the gesture disarmed until it ends, so
         // nothing already in flight can be spent on an authorisation. With no
         // panel fitted there is nothing to read and presence is all there is.
-        const bool readable =
-            prompt_on_glass_ || !hal::has(context_.roles.capabilities, hal::Capability::Display);
+        const bool readable = prompt_on_glass_ ||
+                              !hal::has(context_.roles.capabilities, hal::Capability::Display);
         const bool quiet = settled_for_a_double_press(now_ms, prompt_since_ms_) &&
                            (!pressed_once_ || settled_for_a_double_press(now_ms, last_press_ms_));
         if (readable && quiet) gesture_.arm(now_ms);
@@ -46,13 +49,13 @@ void ScreenService::handle_input(uint32_t now_ms) {
 
     sync_editor(now_ms);
 
-    messages::ButtonEvent event{};
+    events::ButtonEvent event{};
     while (context_.bus.input.pop(event)) {
-        if (event.id == messages::kPadTapped) {
+        if (event.id == events::kPadTapped) {
             if (prompt_ == comms::Pending::None) page_forward(now_ms);
             continue;
         }
-        if (event.id == messages::kPadHeld) {
+        if (event.id == events::kPadHeld) {
             if (prompt_ == comms::Pending::None) show_radar();
             continue;
         }
@@ -85,7 +88,7 @@ void ScreenService::sync_editor(uint32_t now_ms) {
     if (!wanted) showing_self_test_ = false;
     if (wanted == editor_.active()) return;
     if (wanted) {
-        showing_self_test_ = self_test_ != nullptr;
+        showing_self_test_ = true;
         editor_.enter(now_ms);
         return;
     }
@@ -139,19 +142,19 @@ void ScreenService::step_editor(uint32_t now_ms) {
 
     ui::SettingsValues current;
     current.settings = context_.state.settings;
-    current.qnh_pa = context_.state.qnh_pa;
+    current.qnh_pa = context_.state.baro.qnh_pa;
     ui::SettingsValues next;
 
     switch (editor_.tick(now_ms, current, next)) {
         case ui::SettingsAction::Changed:
             context_.state.settings = next.settings;
-            context_.state.qnh_pa = next.qnh_pa;
+            context_.state.baro.qnh_pa = next.qnh_pa;
             // INFO: cf 02aug26 One owner of the flash blob. The page changes the
             // struct the config service was already given a reference to and
             // says so with the same flag the companion link raises; the write
             // itself stays in go::ConfigLinkService::persist, so there is never
             // a second writer and never two versions of the blob.
-            if (config_ != nullptr) config_->note_settings_changed();
+            config_.note_settings_changed();
             dirty_ = true;
             break;
         case ui::SettingsAction::Moved: dirty_ = true; break;
@@ -172,9 +175,9 @@ Page ScreenService::traffic_page() const {
 void ScreenService::resolve(ui::Gesture gesture) {
     if (gesture == ui::Gesture::None) return;
     if (gesture == ui::Gesture::Confirm)
-        config_->confirm();
+        config_.confirm();
     else
-        config_->cancel();
+        config_.cancel();
     prompt_ = comms::Pending::None;
     gesture_.disarm();
     prompt_on_glass_ = false;
@@ -228,14 +231,14 @@ void ScreenService::tick(uint32_t now_ms) {
 
 bool ScreenService::refresh_allowed() const {
     return thermal() == Thermal::Refresh &&
-           power::may_refresh(context_.state.power_level, context_.state.supply_warned,
+           power::may_refresh(context_.state.power.level, context_.state.power.supply_warned,
                               power::PanelRefresh::Routine);
 }
 
 // TODO: fc 12sep26 a cold glass is unmeasured, and no rule that returns is one full a frame (#62)
 ScreenService::Thermal ScreenService::thermal() const {
-    if (!context_.state.die_temperature_valid) return Thermal::Refresh;
-    if (context_.state.die_decicelsius > kHoldAboveDeciCelsius) return Thermal::Hold;
+    if (!context_.state.power.die_valid) return Thermal::Refresh;
+    if (context_.state.power.die_dc > kHoldAboveDeciCelsius) return Thermal::Hold;
     return Thermal::Refresh;
 }
 
@@ -325,7 +328,7 @@ void ScreenService::draw_park_frame(ParkFrame frame) {
 
 bool ScreenService::may_present_park_frame() const {
     if (thermal() == Thermal::Hold) return false;
-    return power::may_refresh(context_.state.power_level, context_.state.supply_warned,
+    return power::may_refresh(context_.state.power.level, context_.state.power.supply_warned,
                               power::PanelRefresh::Park);
 }
 
@@ -345,7 +348,7 @@ void ScreenService::draw_prompt() {
 void ScreenService::draw_settings_page() {
     ui::SettingsSnapshot snapshot;
     snapshot.values.settings = context_.state.settings;
-    snapshot.values.qnh_pa = context_.state.qnh_pa;
+    snapshot.values.qnh_pa = context_.state.baro.qnh_pa;
     snapshot.focus = editor_.focus();
     ui::draw_settings(fb_, snapshot);
 }
@@ -357,7 +360,7 @@ void ScreenService::render(uint32_t now_ms) {
     }
     if (mode_ == Mode::Settings) {
         if (showing_self_test_)
-            ui::draw_boot(fb_, *self_test_);
+            ui::draw_boot(fb_, self_test_);
         else
             draw_settings_page();
         return;
@@ -365,7 +368,7 @@ void ScreenService::render(uint32_t now_ms) {
 
     fb_.clear(/*white=*/true);
 
-    const messages::OwnState& own = context_.state.own;
+    const model::OwnState& own = context_.state.own;
     const settings::Settings& settings = context_.state.settings;
 
     switch (page_) {
@@ -376,18 +379,18 @@ void ScreenService::render(uint32_t now_ms) {
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
-            snap.flight_seconds = context_.state.flight_seconds;
-            snap.flight_time_valid = context_.state.flight_time_valid;
-            snap.airborne = context_.state.flight_running;
+            snap.flight_seconds = context_.state.flight.seconds;
+            snap.flight_time_valid = context_.state.flight.time_valid;
+            snap.airborne = context_.state.flight.running;
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
             int n = 0;
             if (own.fix_valid) {
-                const messages::OwnState own_now = flight::carried_to(own, now_ms);
+                const model::OwnState own_now = flight::carried_to(own, now_ms);
                 for (int i = 0; i < traffic::TrafficTable::kCapacity && n < kMaxRadarTargets; i++) {
                     const traffic::Target* t = context_.state.traffic.at(i);
                     if (!t || !t->used) continue;
-                    const messages::AircraftObs obs = flight::carried_to(t->obs, now_ms);
+                    const model::AircraftObs obs = flight::carried_to(t->obs, now_ms);
                     int32_t north = 0, east = 0, up = 0;
                     if (!protocol::relative_ned(own_now, obs, north, east, up)) continue;
                     targets_[n].north_m = north;
@@ -417,9 +420,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.vs_fpm = climb_fpm();
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.turn_dps = own.turn_dps;
-            snap.flight_seconds = context_.state.flight_seconds;
-            snap.flight_time_valid = context_.state.flight_time_valid;
-            snap.airborne = context_.state.flight_running;
+            snap.flight_seconds = context_.state.flight.seconds;
+            snap.flight_time_valid = context_.state.flight.time_valid;
+            snap.airborne = context_.state.flight.running;
             ui::draw_sixpack(fb_, snap);
             break;
         }
@@ -441,9 +444,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.gnss.sats = own.sats;
             snap.gnss.hdop_e2 = own.hdop_e2;
             snap.gnss.vdop_e2 = own.vdop_e2;
-            snap.gnss.solutions = context_.state.gnss_solutions;
-            snap.rx_ok = context_.state.rx_ok;
-            snap.tx_ok = context_.state.tx_ok;
+            snap.gnss.solutions = context_.state.flight.gnss_solutions;
+            snap.rx_ok = context_.state.air.rx_ok;
+            snap.tx_ok = context_.state.air.tx_ok;
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             ui::draw_radio_log(fb_, snap);
@@ -466,23 +469,23 @@ void ScreenService::render(uint32_t now_ms) {
             snap.climb_mm_s = own.climb_mm_s;
             snap.utc = own.utc;
             snap.n_targets = context_.state.traffic.count();
-            snap.baro_valid = context_.state.baro_active;
-            snap.battery_valid = context_.state.battery.valid;
-            snap.battery_mv = context_.state.battery.millivolts;
-            snap.battery_percent = context_.state.battery.percent;
-            snap.charging = context_.state.battery.charging;
-            snap.charge = context_.state.charge;
+            snap.baro_valid = context_.state.baro.active;
+            snap.battery_valid = context_.state.power.battery.valid;
+            snap.battery_mv = context_.state.power.battery.millivolts;
+            snap.battery_percent = context_.state.power.battery.percent;
+            snap.charging = context_.state.power.battery.charging;
+            snap.charge = context_.state.power.charge;
             // The decision belongs to core/power's CutoffMonitor, which has
             // already debounced it, ignored a cell on the cable and thrown out a
             // floating sense. The page reports what it decided.
-            const power::PowerLevel level = context_.state.power_level;
+            const power::PowerLevel level = context_.state.power.level;
             snap.battery_low =
                 level == power::PowerLevel::Low || level == power::PowerLevel::Cutoff;
-            snap.pressure_mpa = context_.state.pressure_mpa;
-            snap.qnh_pa = context_.state.qnh_pa;
-            if (context_.state.baro_active) {
-                const uint32_t pa = context_.state.pressure_mpa / 1000;
-                snap.alt_qnh_m = flight::alt_cm_on_setting(pa, context_.state.qnh_pa) / 100;
+            snap.pressure_mpa = context_.state.baro.pressure_mpa;
+            snap.qnh_pa = context_.state.baro.qnh_pa;
+            if (context_.state.baro.active) {
+                const uint32_t pa = context_.state.baro.pressure_mpa / 1000;
+                snap.alt_qnh_m = flight::alt_cm_on_setting(pa, context_.state.baro.qnh_pa) / 100;
                 snap.alt_std_m = flight::pressure_to_alt_cm(pa) / 100;
             }
             ui::draw_status(fb_, snap);

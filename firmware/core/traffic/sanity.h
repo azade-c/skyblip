@@ -19,7 +19,8 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 
 namespace skyblip::traffic {
 
@@ -56,7 +57,7 @@ constexpr int32_t kMaxPlausibleRangeM = 30000;
 constexpr int32_t kMaxRelayedRangeM = 2 * kMaxPlausibleRangeM;
 
 // Which of the two applies to a report, from the path it came over.
-int32_t plausible_range_m(messages::Source source);
+int32_t plausible_range_m(model::Source source);
 
 // Why a reception was or was not believed. NoReference is not a verdict on the
 // packet: without a fix of our own there is no point to measure from, and a
@@ -69,7 +70,7 @@ enum class Plausibility : uint8_t { Believable, NoReference, TooFar };
 // that wants to log the refusal has the figure that caused it. Which ceiling is
 // applied depends on obs.source, because that is what says how many hops the
 // report crossed.
-Plausibility range_check(const messages::OwnState& own, const messages::AircraftObs& obs,
+Plausibility range_check(const model::OwnState& own, const model::AircraftObs& obs,
                          int32_t& slant_m);
 
 }  // namespace skyblip::traffic

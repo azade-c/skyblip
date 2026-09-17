@@ -1,5 +1,5 @@
-#ifndef SKYBLIP_CORE_UTIL_UNITS_H
-#define SKYBLIP_CORE_UTIL_UNITS_H
+#ifndef SKYBLIP_CORE_UNITS_UNITS_H
+#define SKYBLIP_CORE_UNITS_UNITS_H
 
 #include <cstdint>
 

@@ -12,10 +12,10 @@
 #include <zephyr/sys/reboot.h>
 
 #include "core/power/shutdown.h"
-#include "hal/system_power.h"
 #include "hardware/parts/sx1262/sx1262.h"
 #include "hardware/platform/zephyr/dfu.h"
 #include "hardware/platform/zephyr/supply_monitor.h"
+#include "hal/system_power.h"
 
 namespace skyblip::platform::zephyr {
 

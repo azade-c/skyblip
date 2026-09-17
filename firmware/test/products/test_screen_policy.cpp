@@ -1,4 +1,5 @@
 // The refresh policy over the real SSD1681 driver: partials only, every screen through black.
+#include "core/events/input.h"
 #include "test/support/screen_rig.h"
 
 TEST_CASE("screen policy: a static frame is never re-presented") {
@@ -131,7 +132,7 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    rig.bus.input.push(messages::ButtonEvent{messages::kButtonPressed});
+    rig.bus.input.push(events::ButtonEvent{events::kButtonPressed});
     rig.run_seconds(t, 2);
     REQUIRE(rig.screen.mode() == go::Mode::Settings);
     REQUIRE(rig.screen.editor().active());

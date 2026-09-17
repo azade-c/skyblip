@@ -8,8 +8,11 @@
 #include <cstring>
 #include <string>
 
+#include "core/events/link.h"
 #include "core/fec/manchester.h"
 #include "core/gnss/nmea.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/nmea_out.h"
@@ -22,12 +25,12 @@
 using namespace skyblip;
 
 namespace {
-messages::OwnState own_from_gnss(const char* rmc, const char* gga) {
+model::OwnState own_from_gnss(const char* rmc, const char* gga) {
     gnss::NmeaParser p;
     p.parse_line(rmc, static_cast<int>(std::strlen(rmc)));
     p.parse_line(gga, static_cast<int>(std::strlen(gga)));
     const gnss::GnssSolution& f = p.solution();
-    messages::OwnState o{};
+    model::OwnState o{};
     o.fix_valid = f.is_fix;
     o.utc_valid = f.utc_valid;
     o.pps_locked = true;
@@ -45,7 +48,7 @@ messages::OwnState own_from_gnss(const char* rmc, const char* gga) {
 
 TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> NMEA") {
     // 1) own-ship from GNSS
-    messages::OwnState own =
+    model::OwnState own =
         own_from_gnss("$GPRMC,120000,A,4807.000,N,00800.000,E,050.0,000.0,230324,,*1C",
                       "$GPGGA,120000,4807.000,N,00800.000,E,1,09,0.8,1000.0,M,47,M,,*6F");
     REQUIRE(own.fix_valid);
@@ -56,7 +59,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     //    used to be a copy of own-ship displaced north, which is a chase at a
     //    constant 800 m and alarms for the range alone - the assertion below
     //    says which of the two this fixture means.
-    messages::OwnState intruder_state = own;
+    model::OwnState intruder_state = own;
     intruder_state.lat_1e7 = own.lat_1e7 + static_cast<int32_t>((int64_t)800 * 1000000 / 11132);
     intruder_state.track_c9 = 256;  // cordic9: 512 to the turn, so due south
     intruder_state.utc = own.utc;
@@ -82,8 +85,8 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     rx.descramble();
 
     // 4) decode -> obs -> table
-    messages::AircraftObs obs;
-    protocol::to_obs(rx, own.utc, 500, -80, messages::Source::AdslDirect, obs);
+    model::AircraftObs obs;
+    protocol::to_obs(rx, events::Stamp{own.utc, 500, true}, -80, model::Source::AdslDirect, obs);
     CHECK(obs.addr == 0xC5D804u);
 
     traffic::TrafficTable table;
@@ -106,7 +109,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     // has no memory and cannot say more than that; six seconds of a range that
     // does not move is what quietens it, and that decision belongs to
     // AlarmTracker's SteadyRange suppression, which is what the product runs.
-    messages::AircraftObs chase = obs;
+    model::AircraftObs chase = obs;
     chase.track_c9 = own.track_c9;
     const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
     CHECK(following.closing_mps < traffic::kClosingFloorMps);
@@ -119,48 +122,48 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     char buf[128];
     int n = protocol::format_pflaa(buf, sizeof(buf), own, obs, a.level);
     REQUIRE(n > 0);
-    efb.send(messages::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
+    efb.send(events::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
     n = protocol::format_pflau(buf, sizeof(buf), own, table.count(), &obs, a.level,
                                a.rel_bearing_deg, a.rel_vert_m, a.rel_dist_m);
-    efb.send(messages::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
-    CHECK(efb.count_on(messages::Endpoint::Nmea) == 2);
+    efb.send(events::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
+    CHECK(efb.count_on(events::Endpoint::Nmea) == 2);
     CHECK(efb.sent[0].bytes.find("C5D804") != std::string::npos);
 }
 
 TEST_CASE("scenario: uplink RX merges with direct RX (dedup, prefer direct)") {
-    messages::OwnState own =
+    model::OwnState own =
         own_from_gnss("$GPRMC,120000,A,4807.000,N,00800.000,E,050.0,000.0,230324,,*1C",
                       "$GPGGA,120000,4807.000,N,00800.000,E,1,09,0.8,1000.0,M,47,M,,*6F");
 
     traffic::TrafficTable table;
 
     // First seen only via uplink (relayed from a ground station).
-    messages::AircraftObs up{};
+    model::AircraftObs up{};
     up.addr = 0x3FBEEF;
     up.addr_table = 5;  // ICAO (from ADS-B via uplink)
     up.position_valid = true;
     up.lat_1e7 = own.lat_1e7 + 50000;
     up.lon_1e7 = own.lon_1e7;
     up.alt_m = 1100;
-    up.source = messages::Source::AdslUplink;
-    up.rx_utc = own.utc;
+    up.source = model::Source::AdslUplink;
+    up.received.at_s = own.utc;
 
     // Encode+decode through the real uplink codec (the anti-drift lock).
     protocol::AdslUplink codec;
     uint8_t frame[protocol::AdslUplink::kFrameBytes];
     REQUIRE(codec.encode(&up, 1, 0, frame) == Status::Ok);
-    messages::AircraftObs decoded[4];
+    model::AircraftObs decoded[4];
     protocol::AdslUplink::DecodeStats st;
     REQUIRE(codec.decode(frame, decoded, 4, st) == Status::Ok);
     REQUIRE(st.targets == 1);
     table.update(decoded[0], own.utc);
-    CHECK(table.at(table.find(5, 0x3FBEEF))->obs.source == messages::Source::AdslUplink);
+    CHECK(table.at(table.find(5, 0x3FBEEF))->obs.source == model::Source::AdslUplink);
 
     // Later the same aircraft is heard directly on M-band -> prefer direct.
-    messages::AircraftObs direct = decoded[0];
-    direct.source = messages::Source::AdslDirect;
-    direct.rx_utc = own.utc + 1;
+    model::AircraftObs direct = decoded[0];
+    direct.source = model::Source::AdslDirect;
+    direct.received.at_s = own.utc + 1;
     table.update(direct, own.utc + 1);
     CHECK(table.count() == 1);  // merged, not duplicated
-    CHECK(table.at(table.find(5, 0x3FBEEF))->obs.source == messages::Source::AdslDirect);
+    CHECK(table.at(table.find(5, 0x3FBEEF))->obs.source == model::Source::AdslDirect);
 }

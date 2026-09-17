@@ -11,31 +11,39 @@
 
 #include <cstdint>
 
+#include "hal/capabilities.h"
+
 namespace skyblip::go {
 
 enum class Feature : uint32_t {
     None = 0,
-    AdslRx = 1u << 0,
-    UplinkRx = 1u << 1,
-    AdslTx = 1u << 6,
-    // Receive only: the same M-band dwell as AdslRx, framed by the sync window
-    // the two systems share (core/protocol/air.h). We never transmit it.
-    AlptasRx = 1u << 7,
-    Radar = 1u << 2,
-    Alarms = 1u << 3,
-    Instruments = 1u << 4,
-    CompanionLink = 1u << 5,
+    UplinkRx = 1u << 0,
+    CompanionLink = 1u << 1,
 };
 
-constexpr Feature kFeatures = static_cast<Feature>(
-    static_cast<uint32_t>(Feature::AdslRx) | static_cast<uint32_t>(Feature::UplinkRx) |
-    static_cast<uint32_t>(Feature::Radar) | static_cast<uint32_t>(Feature::Alarms) |
-    static_cast<uint32_t>(Feature::Instruments) | static_cast<uint32_t>(Feature::CompanionLink) |
-    static_cast<uint32_t>(Feature::AdslTx) | static_cast<uint32_t>(Feature::AlptasRx));
+constexpr Feature kFeatures = static_cast<Feature>(static_cast<uint32_t>(Feature::UplinkRx) |
+                                                   static_cast<uint32_t>(Feature::CompanionLink));
 
 // Named apart from hal::has so a service reading both cannot pick the wrong one.
 constexpr bool has_feature(Feature declared, Feature one) {
     return (static_cast<uint32_t>(declared) & static_cast<uint32_t>(one)) != 0;
+}
+
+struct FeatureSpec {
+    Feature feature;
+    hal::Capabilities needs;
+};
+
+constexpr FeatureSpec kFeatureSpecs[] = {
+    {Feature::UplinkRx, hal::Capability::Rf},
+    {Feature::CompanionLink, hal::Capability::Link},
+};
+
+constexpr Feature supported(Feature declared, hal::Capabilities capabilities) {
+    uint32_t kept = static_cast<uint32_t>(declared);
+    for (const FeatureSpec& spec : kFeatureSpecs)
+        if (!hal::has(capabilities, spec.needs)) kept &= ~static_cast<uint32_t>(spec.feature);
+    return static_cast<Feature>(kept);
 }
 
 }  // namespace skyblip::go

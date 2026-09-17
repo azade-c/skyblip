@@ -1,7 +1,8 @@
 #include "ui/screens/signal.h"
 
+#include "core/model/aircraft.h"
+#include "core/units/units.h"
 #include "core/util/format.h"
-#include "core/util/units.h"
 
 namespace skyblip::ui {
 
@@ -63,7 +64,7 @@ void draw_header(Framebuffer& fb, const SignalSnapshot& snap) {
 void draw_row(Framebuffer& fb, int y, const traffic::LinkRow& row, bool metric) {
     char buf[16];
 
-    buf[0] = messages::source_letter(row.source);
+    buf[0] = model::source_letter(row.source);
     buf[1] = 0;
     fb.draw_text(kSourceX, y, buf, true, 1);
 

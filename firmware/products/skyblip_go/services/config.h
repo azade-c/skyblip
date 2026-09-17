@@ -34,7 +34,7 @@ class ConfigLinkService : public runtime::Service {
    public:
     ConfigLinkService(runtime::Context& ctx, const PowerService& power)
         : runtime::Service(ctx),
-          config_(ctx.roles.link, ctx.state.settings, &ctx.roles.dfu, &ctx.state.timing_stats),
+          config_(ctx.roles.link, ctx.state.settings, &ctx.roles.dfu, &ctx.state.rf.timing_stats),
           power_(power) {
         config_.set_durable_writes(&writes_);
     }

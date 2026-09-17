@@ -3,6 +3,7 @@
 // runs past its edge or a burst that starts too late to finish inside the direct
 // slot transmits into someone else's window, and a device that keeps transmitting
 // once UTC is gone does it blind. Without a clock the answer is listen only.
+#include "core/model/ownship.h"
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
 #include "core/timing/transmit.h"
@@ -364,7 +365,7 @@ TEST_CASE("transmit: nothing goes out unless the slot allows it") {
 }
 
 TEST_CASE("transmit: own-ship goes on air only with a settled fix on an anchored clock") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.fix_valid = true;
     own.utc_valid = true;
     own.tx_settled = true;
@@ -373,15 +374,15 @@ TEST_CASE("transmit: own-ship goes on air only with a settled fix on an anchored
     CHECK_FALSE(own_ship_transmits(own, ClockState{true, false, 0}));
     CHECK_FALSE(own_ship_transmits(own, ClockState{false, true, 0}));
 
-    skyblip::messages::OwnState unfixed = own;
+    skyblip::model::OwnState unfixed = own;
     unfixed.fix_valid = false;
     CHECK_FALSE(own_ship_transmits(unfixed, anchored()));
 
-    skyblip::messages::OwnState untimed = own;
+    skyblip::model::OwnState untimed = own;
     untimed.utc_valid = false;
     CHECK_FALSE(own_ship_transmits(untimed, anchored()));
 
-    skyblip::messages::OwnState unsettled = own;
+    skyblip::model::OwnState unsettled = own;
     unsettled.tx_settled = false;
     CHECK_FALSE(own_ship_transmits(unsettled, anchored()));
 }

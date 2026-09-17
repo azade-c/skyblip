@@ -3,6 +3,8 @@
 #include "core/fec/crc.h"
 #include "core/fec/scramble.h"
 #include "core/flight/extrapolate.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/settings/address.h"
 #include "core/util/bitcount.h"
 #include "core/util/varint.h"
@@ -242,9 +244,9 @@ int AdslPacket::correct(uint8_t* err, int max_bad_bits) {
     return -1;
 }
 
-void to_obs(const AdslPacket& p, uint32_t rx_utc, uint16_t rx_ms, int8_t rssi_dbm,
-            messages::Source source, messages::AircraftObs& out) {
-    out = messages::AircraftObs{};
+void to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
+            model::Source source, model::AircraftObs& out) {
+    out = model::AircraftObs{};
     out.addr = p.address();
     out.addr_table = p.addr_table();
     out.aircraft_cat = p.AcftCat;
@@ -258,8 +260,7 @@ void to_obs(const AdslPacket& p, uint32_t rx_utc, uint16_t rx_ms, int8_t rssi_db
     out.speed_valid = p.has_speed();
     out.speed_q = out.speed_valid ? p.speed_q() : 0;
     out.track_c9 = p.track_c9();
-    out.rx_utc = rx_utc;
-    out.rx_ms = rx_ms;
+    out.received = received;
     out.rssi_dbm = rssi_dbm;
     out.source = source;
     out.position_valid = true;
@@ -348,12 +349,12 @@ uint8_t timestamp_code(uint32_t utc, int32_t lead_ms) {
     return static_cast<uint8_t>(ms / kTimeStampQuarterMs);
 }
 
-void from_own(AdslPacket& p, const messages::OwnState& own, uint32_t addr, uint8_t addr_table,
+void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, bool stealth) {
     from_own(p, own, addr, addr_table, aircraft_cat, stealth, BurstInstant{own.utc, 0, 0});
 }
 
-void from_own(AdslPacket& p, const messages::OwnState& own, uint32_t addr, uint8_t addr_table,
+void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, bool stealth, const BurstInstant& at) {
     p.init(0x02);
     const uint8_t table = stealth ? kAnonymousAddrTable : addr_table;

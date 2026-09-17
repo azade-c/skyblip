@@ -8,11 +8,11 @@
 #include <cstring>
 #include <string>
 
+#include "core/units/units.h"
 #include "core/util/fifo.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
 #include "core/util/result.h"
-#include "core/util/units.h"
 #include "core/util/varint.h"
 #include "doctest/doctest.h"
 

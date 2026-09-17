@@ -1,5 +1,7 @@
 #include "products/skyblip_go/services/power.h"
 
+#include "core/events/sensor.h"
+
 namespace skyblip::go {
 
 // Gated on the capability and not on the port's own answer, the same way the
@@ -17,7 +19,7 @@ void PowerService::sample_die_temperature(uint32_t now_ms) {
     int16_t decicelsius = 0;
     // A refused measurement leaves the last good one standing rather than
     // publishing a zero: the reading is minutes old by design anyway.
-    if (!die_->read(decicelsius)) return;
+    if (!context_.roles.die_temperature.read(decicelsius)) return;
     die_dc_ = decicelsius;
     die_valid_ = true;
     die_valid_ms_ = now_ms;
@@ -25,32 +27,33 @@ void PowerService::sample_die_temperature(uint32_t now_ms) {
 
 void PowerService::watch_charge() {
     const power::ChargeCondition was = charge_;
-    charge_ = power::charge_condition(context_.state.battery.external_power, die_valid_, die_dc_);
+    charge_ =
+        power::charge_condition(context_.state.power.battery.external_power, die_valid_, die_dc_);
     const bool out_of_window =
         charge_ == power::ChargeCondition::TooCold || charge_ == power::ChargeCondition::TooHot;
     if (out_of_window && charge_ != was) charge_warnings_++;
-    context_.state.charge = charge_;
+    context_.state.power.charge = charge_;
 }
 
 void PowerService::tick(uint32_t now_ms) {
-    messages::BatterySample raw{};
+    events::BatterySample raw{};
     while (context_.bus.battery.pop(raw)) {
         // Trimmed once, here, on the way out of the queue: the gauge and the
         // cutoff monitor are separate objects fed from the same stream, and a
         // cutoff that fired 40 mV early on a trimmed unit would be the
         // calibration causing the failure it exists to prevent. See
         // core/power/battery.h for what the offset is and where it comes from.
-        const messages::BatterySample sample =
+        const events::BatterySample sample =
             power::calibrated(raw, context_.state.settings.battery_offset_mv);
         gauge_.apply(sample);
         cutoff_.apply(sample);
     }
-    context_.state.battery = gauge_.state();
-    context_.state.power_level = cutoff_.level();
-    context_.state.supply_warned = cutoff_.supply_warned();
+    context_.state.power.battery = gauge_.state();
+    context_.state.power.level = cutoff_.level();
+    context_.state.power.supply_warned = cutoff_.supply_warned();
     sample_die_temperature(now_ms);
-    context_.state.die_decicelsius = die_dc_;
-    context_.state.die_temperature_valid = die_reading_fresh(now_ms);
+    context_.state.power.die_dc = die_dc_;
+    context_.state.power.die_valid = die_reading_fresh(now_ms);
     watch_charge();
 }
 

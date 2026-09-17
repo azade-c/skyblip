@@ -2,7 +2,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_SCREEN_H
 
 #include "core/comms/config.h"
-#include "core/util/units.h"
+#include "core/units/units.h"
 #include "runtime/service.h"
 #include "ui/framebuffer.h"
 #include "ui/input/gesture.h"
@@ -35,17 +35,15 @@ class ScreenService : public runtime::Service {
     // back on its own: a menu in front of converging traffic is a bug.
     static constexpr uint8_t kAlarmTakesGlass = 2;
 
-    using runtime::Service::Service;
-
-    void tick(uint32_t now_ms) override;
-
     // The one consumer of bus.input, and therefore the one place a press is
     // given a meaning. The companion link's state machine is handed over here
     // so that meaning can be "authorise this" when, and only when, a prompt the
     // pilot can read is on the glass.
-    void attach_config(comms::ConfigService& config) { config_ = &config; }
+    ScreenService(runtime::Context& context, comms::ConfigService& config,
+                  const ui::BootSnapshot& self_test)
+        : runtime::Service(context), config_(config), self_test_(self_test) {}
 
-    void attach_self_test(const ui::BootSnapshot& snapshot) { self_test_ = &snapshot; }
+    void tick(uint32_t now_ms) override;
 
     void next_page();
     void set_backlight(bool on);
@@ -109,8 +107,8 @@ class ScreenService : public runtime::Service {
                context_.state.clock.pps_locked;
     }
 
-    comms::ConfigService* config_{nullptr};
-    const ui::BootSnapshot* self_test_{nullptr};
+    comms::ConfigService& config_;
+    const ui::BootSnapshot& self_test_;
     comms::Pending prompt_{comms::Pending::None};
     ui::ConfirmGesture gesture_{};
     ui::SettingsEditor editor_{};

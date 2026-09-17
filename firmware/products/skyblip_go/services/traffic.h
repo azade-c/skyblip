@@ -1,6 +1,8 @@
 #ifndef SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_TRAFFIC_H
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_TRAFFIC_H
 
+#include "core/events/rf.h"
+#include "core/model/aircraft.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
 #include "core/radio/log.h"
@@ -18,7 +20,7 @@ namespace skyblip::go {
 class TrafficService : public runtime::Service {
    public:
     TrafficService(runtime::Context& context, Feature declared)
-        : runtime::Service(context), uplink_(has_feature(declared, Feature::UplinkRx)) {}
+        : runtime::Service(context), declared_(declared) {}
 
     Status setup() override;
     void tick(uint32_t now_ms) override;
@@ -26,19 +28,20 @@ class TrafficService : public runtime::Service {
     bool uplink_enabled() const { return uplink_; }
 
    private:
-    void on_frame(const messages::RfEvent& event, uint32_t now_ms);
-    void on_uplink(const messages::RfEvent& event, const radio::Stamp& stamp, uint32_t now_ms);
-    radio::Stamp stamp_for(const messages::RfEvent& event, uint32_t now_ms) const;
-    static uint32_t keyed_utc(const radio::Stamp& stamp, uint32_t now_s);
-    void log(const messages::RfEvent& event, const radio::Stamp& stamp, radio::Event outcome,
-             const messages::AircraftObs* obs = nullptr);
+    void on_frame(const events::RfEvent& event, uint32_t now_ms);
+    void on_uplink(const events::RfEvent& event, const events::Stamp& stamp, uint32_t now_ms);
+    events::Stamp stamp_for(const events::RfEvent& event, uint32_t now_ms) const;
+    static uint32_t keyed_utc(const events::Stamp& stamp, uint32_t now_s);
+    void log(const events::RfEvent& event, const events::Stamp& stamp, radio::Event outcome,
+             const model::AircraftObs* obs = nullptr);
     static radio::Event decode_adsl(protocol::Frame& frame, uint32_t utc,
-                                    messages::AircraftObs& obs);
+                                    const events::Stamp& stamp, model::AircraftObs& obs);
     radio::Event decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
-                               messages::AircraftObs& obs) const;
+                               model::AircraftObs& obs) const;
 
     protocol::AdslUplink uplink_codec_{};
-    const bool uplink_;
+    const Feature declared_;
+    bool uplink_{false};
 };
 
 }  // namespace skyblip::go

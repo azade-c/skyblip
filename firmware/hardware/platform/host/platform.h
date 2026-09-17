@@ -1,14 +1,12 @@
 #ifndef SKYBLIP_HARDWARE_PLATFORM_HOST_PLATFORM_H
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_PLATFORM_H
 
-#include "hal/capabilities.h"
-#include "hal/dfu.h"
-#include "hal/die_temperature.h"
 #include "hardware/parts/bme280/model.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/host/annunciator.h"
 #include "hardware/platform/host/clock.h"
+#include "hardware/platform/host/die_temperature.h"
 #include "hardware/platform/host/flash_region.h"
 #include "hardware/platform/host/indicator.h"
 #include "hardware/platform/host/io.h"
@@ -17,6 +15,9 @@
 #include "hardware/platform/host/rf.h"
 #include "hardware/platform/host/system_power.h"
 #include "hardware/platform/host/watchdog.h"
+#include "hal/capabilities.h"
+#include "hal/dfu.h"
+#include "hal/die_temperature.h"
 
 namespace skyblip::platform::host {
 
@@ -163,14 +164,7 @@ class Platform {
     host::Dfu& dfu() { return dfu_; }
     host::Baro& baro() { return baro_; }
     host::Battery& battery() { return battery_; }
-    // There is no die sensor here and there is no model of one: hal's port IS the
-    // absent part, so this hands back the port that answers "no reading" for
-    // ever. It exists because the product is one piece of code over both
-    // platforms (1-ARCHITECTURE.md §3.4) - the alternative was a compile-time
-    // branch on the platform, which is the thing that invariant forbids. What a
-    // host build proves is the absent case: no capability, no reading, no key in
-    // the reply.
-    hal::DieTemperature& die_temperature() { return die_temperature_; }
+    host::DieTemperature& die_temperature() { return die_temperature_; }
     host::Pps& pps() { return pps_; }
     host::Watchdog& watchdog() { return watchdog_; }
     host::SystemPower& system_power() { return system_power_; }
@@ -239,7 +233,7 @@ class Platform {
     host::Dfu dfu_{};
     host::Baro baro_{};
     host::Battery battery_{};
-    hal::DieTemperature die_temperature_{};
+    host::DieTemperature die_temperature_{};
     host::Pps pps_{clock_};
     host::Watchdog watchdog_{};
     host::SystemPower system_power_{};

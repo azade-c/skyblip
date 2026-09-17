@@ -24,10 +24,10 @@ namespace skyblip::go {
 // What this product cannot fly without, and what it can lose and keep flying.
 constexpr hal::Capabilities kRequired = hal::Capability::Rf | hal::Capability::Gnss;
 constexpr hal::Capabilities kOptional = hal::Capability::Display | hal::Capability::Baro |
-                                        hal::Capability::Buzzer | hal::Capability::Vibro |
-                                        hal::Capability::Link | hal::Capability::Storage |
-                                        hal::Capability::Dfu | hal::Capability::Button |
-                                        hal::Capability::Battery | hal::Capability::Indicator;
+                                          hal::Capability::Buzzer | hal::Capability::Vibro |
+                                          hal::Capability::Link | hal::Capability::Storage |
+                                          hal::Capability::Dfu | hal::Capability::Button |
+                                          hal::Capability::Battery | hal::Capability::Indicator;
 
 struct BootPartSpec {
     const char* name;
@@ -64,30 +64,6 @@ class Product {
     explicit Product(P& platform) : platform_(platform), board_(platform, bus_) {}
 
     Status setup() {
-        // The panel is where a pending operation is read and the button is where
-        // it is answered, so the screen service is the one that holds the
-        // companion link's state machine. Wired before anything can ask for an
-        // authorisation there is no way to grant.
-        screen_.attach_config(config_.config());
-        // Erasing every flight on the device is authorised where a firmware
-        // upload is: one prompt machine, one gesture, one place to look.
-        flight_log_.attach_config(config_.config());
-        // Whether a tablet is there is one fact with one owner. The sentences
-        // start on the same connection that opens the config channel and stop
-        // on the same disconnection, because both read it from the same place.
-        nmea_.attach_config(config_.config());
-        // The die sensor is not a role the board assembles - it has no pin and
-        // nothing to probe over a bus - so the platform hands it straight to the
-        // one service that samples the board on a slow cadence. Whether it is
-        // fitted at all is a capability, and the service reads that from roles.
-        power_.attach_die_temperature(platform_.die_temperature());
-        // The status lamp, to the one service that owns what this device says out
-        // loud. Attached only when the board found one: unattached, the alarm
-        // service holds the absent port from hal/indicator.h, runs the same table
-        // in core/indication and lights nothing.
-        if (hal::has(board_.capabilities(), hal::Capability::Indicator))
-            alarm_.attach_indicator(platform_.indicator());
-
         const Status board = board_.begin();
         const power::ResetCause causes = platform_.system_power().reset_causes();
         reset_reason_ = power::classify(causes);
@@ -111,7 +87,6 @@ class Product {
                    hal::missing(board_.capabilities(), kRequired) == hal::Capability::None;
 
         draw_self_test();
-        screen_.attach_self_test(boot_snapshot_);
         if (!flyable_) roles_.display.present(boot_fb_, hal::Refresh::Full, 0);
 
         if (board != Status::Ok) return board;
@@ -154,7 +129,9 @@ class Product {
     }
 
     hal::Capabilities capabilities() const { return board_.capabilities(); }
-    hal::Capabilities degraded() const { return hal::missing(board_.capabilities(), kOptional); }
+    hal::Capabilities degraded() const {
+        return hal::missing(board_.capabilities(), kOptional);
+    }
 
     // False when a required capability is missing: the loop refuses to fly, the
     // self-test page stays on the glass and the button still works.
@@ -218,7 +195,7 @@ class Product {
             case hal::Capability::Vibro:
                 return found.haptic == hal::HapticKind::WaveformDriver ? "DRV2605"
                        : found.haptic == hal::HapticKind::PinMotor     ? "PIN"
-                                                                       : nullptr;
+                                                                         : nullptr;
             default: return nullptr;
         }
     }
@@ -246,7 +223,7 @@ class Product {
             boot_parts_[i].name = spec.name;
             boot_parts_[i].state = hal::has(fitted, spec.capability)      ? ui::PartState::Pass
                                    : hal::has(kRequired, spec.capability) ? ui::PartState::Fail
-                                                                          : ui::PartState::Absent;
+                                                                            : ui::PartState::Absent;
             boot_parts_[i].detail = boot_detail(spec.capability);
         }
 
@@ -300,6 +277,8 @@ class Product {
 
     bus::Bus bus_{};
     bus::State state_{};
+    ui::Framebuffer boot_fb_{};
+    ui::BootSnapshot boot_snapshot_{};
     P& platform_;
     Board board_;
     hal::Roles roles_{board_.roles()};
@@ -313,9 +292,9 @@ class Product {
     RadioService radio_{ctx_};
     TrafficService traffic_{ctx_, kFeatures};
     AlarmService alarm_{ctx_};
-    NmeaService nmea_{ctx_, kFeatures};
-    FlightLogService flight_log_{ctx_};
-    ScreenService screen_{ctx_};
+    NmeaService nmea_{ctx_, kFeatures, config_.config()};
+    FlightLogService flight_log_{ctx_, config_.config()};
+    ScreenService screen_{ctx_, config_.config(), boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
     // published the slot plan it defers to, and before the screen, which is the
@@ -330,8 +309,6 @@ class Product {
         "config", "ownship", "power", "radio", "traffic", "alarm", "nmea", "flight_log", "screen"};
     runtime::Loop loop_{services_, kServiceCount, kServiceNames};
 
-    ui::Framebuffer boot_fb_{};
-    ui::BootSnapshot boot_snapshot_{};
     ui::BootPart boot_parts_[kBootPartCount]{};
     // The barometer's address as the page prints it. A member and not a local:
     // ui::BootPart holds a pointer, and the page is drawn after boot_detail()

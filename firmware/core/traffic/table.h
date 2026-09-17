@@ -4,13 +4,14 @@
 #include <array>
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/traffic/sanity.h"
 
 namespace skyblip::traffic {
 
 struct Target {
-    messages::AircraftObs obs;
+    model::AircraftObs obs;
     uint8_t alarm_level{0};
     bool used{false};
 };
@@ -52,14 +53,14 @@ class TrafficTable {
     // construction instead of by remembering. Whoever drains the radio bus
     // refreshes this each pass; a table nobody told has no reference and gates
     // nothing, which is also what a device without a fix has.
-    void set_own_reference(const messages::OwnState& own) { own_ = own; }
+    void set_own_reference(const model::OwnState& own) { own_ = own; }
 
     // Receptions refused because the position they claimed was further away than
     // this radio can hear (core/traffic/sanity.h). Not silent: a rate that climbs
     // is a receiver at the edge of its budget or a decoder that is wrong.
     uint32_t implausible_count() const { return implausible_; }
 
-    int update(const messages::AircraftObs& obs, uint32_t now);
+    int update(const model::AircraftObs& obs, uint32_t now);
 
     void age_out(uint32_t now, uint32_t max_age = kDefaultMaxAgeSec);
 
@@ -72,12 +73,11 @@ class TrafficTable {
 
    private:
     std::array<Target, kCapacity> slots_{};
-    messages::OwnState own_{};
+    model::OwnState own_{};
     uint32_t own_addr_{0};
     uint32_t implausible_{0};
 
-    static bool prefer_new(const messages::AircraftObs& incoming,
-                           const messages::AircraftObs& existing);
+    static bool prefer_new(const model::AircraftObs& incoming, const model::AircraftObs& existing);
     int allocate_slot(uint32_t now);
 };
 

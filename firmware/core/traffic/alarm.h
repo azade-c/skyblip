@@ -12,7 +12,8 @@
 #include <array>
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 
 namespace skyblip::traffic {
 
@@ -53,7 +54,7 @@ constexpr int32_t kUnknownTargetSpeedMps = 30;
 constexpr int32_t kNoImpactS = 32767;
 
 // INFO: fc 13sep26 now_ms is the instant both sides are carried to, on hal::Clock
-AlarmAssessment assess(const messages::OwnState& own, const messages::AircraftObs& target,
+AlarmAssessment assess(const model::OwnState& own, const model::AircraftObs& target,
                        uint32_t now_ms);
 
 // Why a contact that the geometry graded higher is being held down.
@@ -116,8 +117,7 @@ class AlarmTracker {
         bool escalated{false};
     };
 
-    Decision update(const messages::OwnState& own, const messages::AircraftObs& target,
-                    uint32_t now_ms);
+    Decision update(const model::OwnState& own, const model::AircraftObs& target, uint32_t now_ms);
 
     void forget_stale(uint32_t now_ms);
 
@@ -150,7 +150,7 @@ class AlarmTracker {
         uint32_t falling_since_ms{0};
     };
 
-    Slot* slot_for(const messages::AircraftObs& target, uint32_t now_ms);
+    Slot* slot_for(const model::AircraftObs& target, uint32_t now_ms);
     static void sample_track(Slot& slot, uint16_t track_c9, uint32_t now_ms);
     static bool co_circling(const Slot& slot, int16_t own_turn_dps, const AlarmAssessment& a);
     static bool notify_for(Slot& slot, uint8_t level, uint32_t now_ms, bool& escalated);

@@ -12,6 +12,7 @@
 
 #include "core/flight/log_record.h"
 #include "core/flight/state.h"
+#include "core/model/ownship.h"
 
 namespace skyblip::flight {
 
@@ -37,7 +38,7 @@ enum class LogAction : uint8_t { Idle, OpenSession, AppendRecord, CloseSession }
 // bounded ring; the writer drains them when the radio is not keying.
 class LogSession {
    public:
-    LogAction update(const messages::OwnState& own, uint32_t now_ms);
+    LogAction update(const model::OwnState& own, uint32_t now_ms);
 
     bool open() const { return open_; }
     // A closed session whose last record has not reached flash yet.

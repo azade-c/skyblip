@@ -31,11 +31,6 @@ class AlarmService : public runtime::Service {
     // on a rail that is about to drop.
     void park(uint32_t now_ms);
 
-    // Wired by the product, and only when the board found a lamp. Unattached, the
-    // port hal/indicator.h defines IS the absent part: the table below still runs
-    // and nothing lights.
-    void attach_indicator(hal::Indicator& indicator) { indicator_ = &indicator; }
-
     bool escalated_since_render() const { return dirty_; }
     void clear_dirty() { dirty_ = false; }
 
@@ -78,10 +73,6 @@ class AlarmService : public runtime::Service {
     traffic::AlarmTracker tracker_{};
     annunciation::Policy policy_{};
     indication::Policy lamp_{};
-    // Never null: what it starts on is the absent lamp, so a product that wired
-    // nothing lights nothing rather than dereferencing nothing.
-    hal::Indicator absent_lamp_{};
-    hal::Indicator* indicator_{&absent_lamp_};
     bool dirty_{false};
     bool running_{true};
 };

@@ -6,6 +6,7 @@
 // gain and reference error adds to it. These cases exist to show what that costs
 // in the only unit a pilot reads - percentage points - and to pin the arithmetic
 // that corrects it.
+#include "core/events/sensor.h"
 #include "core/power/battery.h"
 #include "core/power/cutoff.h"
 #include "core/settings/settings.h"
@@ -55,7 +56,7 @@ TEST_CASE("battery: the trimmed sample is the same sample, charger state and all
     // Nothing but the millivolts moves: the charger flag decides which curve the
     // gauge reads and whether the cutoff monitor may act at all, and a trim has
     // no opinion about either.
-    messages::BatterySample on_the_cable{};
+    events::BatterySample on_the_cable{};
     on_the_cable.millivolts = 4000;
     on_the_cable.external_power = true;
     CHECK(calibrated(on_the_cable, -60).external_power);
@@ -64,9 +65,9 @@ TEST_CASE("battery: the trimmed sample is the same sample, charger state and all
     // The boundary that matters: this unit reads 60 mV high, so a cell the raw
     // sample puts above the low-battery warning is really below it, and both
     // readers must agree on which side of the line it is.
-    messages::BatterySample raw{};
+    events::BatterySample raw{};
     raw.millivolts = 3540;
-    const messages::BatterySample trimmed = calibrated(raw, -60);
+    const events::BatterySample trimmed = calibrated(raw, -60);
     CHECK(raw.millivolts > kLowWarnMv);
     CHECK(trimmed.millivolts < kLowWarnMv);
 
@@ -98,7 +99,7 @@ TEST_CASE("battery: a unit that reads high is corrected by one number from the l
     const char* patch = "{\"battery_offset_mv\":-50}";
     REQUIRE(settings::apply_json(s, patch, 25) == Status::Ok);
 
-    messages::BatterySample sample{};
+    events::BatterySample sample{};
     sample.millivolts = kThisUnitReadsMv;
 
     Gauge uncalibrated;

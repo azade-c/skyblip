@@ -3,6 +3,7 @@
 // range at all, and the header counts every emitter heard rather than the handful
 // of rows that fit. A page that quietly lists five of nine is a page that says the
 // sky is emptier than it is.
+#include "core/model/aircraft.h"
 #include "doctest/doctest.h"
 #include "ui/framebuffer.h"
 #include "ui/screens/signal.h"
@@ -68,7 +69,7 @@ SignalSnapshot listing(const traffic::LinkRow* rows, int n, settings::Units unit
 traffic::LinkRow row_at(int32_t slant_m, int8_t rssi, int16_t erp, bool modelled) {
     traffic::LinkRow r;
     r.addr = 0xABCD;
-    r.source = messages::Source::AdslDirect;
+    r.source = model::Source::AdslDirect;
     r.slant_m = slant_m;
     r.up_m = 120;
     r.rssi_dbm = rssi;

@@ -12,8 +12,8 @@
 #ifndef SKYBLIP_CORE_COMMS_LOG_LINK_H
 #define SKYBLIP_CORE_COMMS_LOG_LINK_H
 
+#include "core/events/link.h"
 #include "core/flight/log_record.h"
-#include "core/messages/messages.h"
 
 namespace skyblip::comms {
 
@@ -59,7 +59,7 @@ constexpr int kLogChunkEnvelopeBytes = 83;
 // Zero means not even one fits, which is a refusal for the caller to count.
 int log_records_per_chunk(int payload_bytes);
 
-LogRequest parse_log_request(const messages::RxFrame& frame);
+LogRequest parse_log_request(const events::RxFrame& frame);
 
 // Returns the number of characters written, excluding the terminator.
 int format_log_ack(char* buf, int cap, bool ok, const char* reason);

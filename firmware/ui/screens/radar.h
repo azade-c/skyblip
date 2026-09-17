@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "core/settings/settings.h"
-#include "core/util/units.h"
+#include "core/units/units.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::ui {

@@ -6,6 +6,8 @@
 // the services ahead of the radio ran. Nothing here is mocked: the chip model
 // answers over SPI exactly as the part does, including when it answers nothing
 // at all.
+#include "core/events/rf.h"
+#include "core/model/band.h"
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
 #include "core/timing/transmit.h"
@@ -31,9 +33,18 @@ struct Pass {
     bus::State state{};
     platform::host::Rf rf{radio, platform.clock(), bus.rf};
     runtime::NullRoles null{};
-    hal::Roles roles{
-        platform.clock(), rf,       null.link,           null.display, null.kv, null.log_flash,
-        null.annunciator, null.dfu, hal::Capability::Rf, 0x5B7E57};
+    hal::Roles roles{platform.clock(),
+                       rf,
+                       null.link,
+                       null.display,
+                       null.kv,
+                       null.log_flash,
+                       null.annunciator,
+                       null.dfu,
+                       null.die_temperature,
+                       null.indicator,
+                       hal::Capability::Rf,
+                       0x5B7E57};
     runtime::Context context{roles, bus, state};
     go::RadioService radio_service{context};
     go::TrafficService traffic_service{context, go::kFeatures};
@@ -95,7 +106,7 @@ TEST_CASE("rf: the burst keys at its drawn instant, on a held channel as on a qu
     models::Sx1262 chip;
     parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
     platform::host::Clock clock;
-    bus::Queue<messages::RfEvent, 8> events;
+    bus::Queue<events::RfEvent, 8> events;
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
@@ -252,9 +263,9 @@ TEST_CASE("rf: a burst at the end of a second is dated in the second it happened
     pass.state.clock.utc_edge_us = edge_us;
     pass.state.clock.pps_edge_us = edge_us;
 
-    messages::RfEvent burst{};
-    burst.type = messages::RfEventType::CrcError;
-    burst.band = messages::Band::M;
+    events::RfEvent burst{};
+    burst.type = events::RfEventType::CrcError;
+    burst.band = model::Band::M;
     burst.freq_hz = timing::kMband1Hz;
     burst.at_us = edge_us + 954'000;
     burst.rssi_dbm = -101;
@@ -295,7 +306,7 @@ TEST_CASE("rf: a jammed site transmits at its instant, and reports the floor it 
     // world that takes it off the antenna is simulator::Air, and this harness has none.
     CHECK(pass.chip.saw_cmd(parts::sx::kSetTx));
     CHECK(timing::Scheduler::in_direct_slot(keyed_at_ms));
-    CHECK(pass.state.timing_stats.refused() == 0);
+    CHECK(pass.state.rf.timing_stats.refused() == 0);
     // The floor is a measurement, and a site this loud has walked it off the seed.
     CHECK(pass.radio_service.noise_floor().samples() > 3);
     CHECK(pass.radio_service.noise_floor().dbm() > timing::NoiseFloor::kSeedDbm);
@@ -345,7 +356,7 @@ TEST_CASE("rf: a receiver that hears nothing is reinitialised by the executor th
     models::Sx1262 chip;
     parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
     platform::host::Clock clock;
-    bus::Queue<messages::RfEvent, 8> events;
+    bus::Queue<events::RfEvent, 8> events;
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
@@ -384,7 +395,7 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     models::Sx1262 chip;
     parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
     platform::host::Clock clock;
-    bus::Queue<messages::RfEvent, 8> events;
+    bus::Queue<events::RfEvent, 8> events;
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
@@ -418,9 +429,9 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     CHECK_FALSE(chip.tx_pending);
 
     int missed = 0;
-    messages::RfEvent e{};
+    events::RfEvent e{};
     while (events.pop(e))
-        if (e.type == messages::RfEventType::Missed) missed++;
+        if (e.type == events::RfEventType::Missed) missed++;
     CHECK(missed == 1);
 
     // The same queueing with nothing to transmit is a receive dwell that did not
@@ -444,7 +455,7 @@ TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed
     }
     missed = 0;
     while (events.pop(e))
-        if (e.type == messages::RfEventType::Missed) missed++;
+        if (e.type == events::RfEventType::Missed) missed++;
     CHECK(missed == 0);
 }
 
@@ -469,15 +480,17 @@ struct Armings {
     bus::State state{};
     runtime::NullRoles null{};
     hal::Roles roles{clock,
-                     rf,
-                     null.link,
-                     null.display,
-                     null.kv,
-                     null.log_flash,
-                     null.annunciator,
-                     null.dfu,
-                     hal::Capability::Rf,
-                     0x5B7E57};
+                       rf,
+                       null.link,
+                       null.display,
+                       null.kv,
+                       null.log_flash,
+                       null.annunciator,
+                       null.dfu,
+                       null.die_temperature,
+                       null.indicator,
+                       hal::Capability::Rf,
+                       0x5B7E57};
     runtime::Context context{roles, bus, state};
     go::RadioService radio{context};
 
@@ -568,7 +581,7 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     models::Sx1262 chip;
     parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
     platform::host::Clock clock;
-    bus::Queue<messages::RfEvent, 8> events;
+    bus::Queue<events::RfEvent, 8> events;
     platform::host::Rf rf(radio, clock, events);
     REQUIRE(rf.begin() == Status::Ok);
 
@@ -591,7 +604,7 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     burst.tx_at_us = 600000;
     REQUIRE(rf.arm(burst) == Status::Ok);
 
-    uint8_t on_air[messages::kRfEventBytes];
+    uint8_t on_air[events::kRfEventBytes];
     uint8_t on_air_len = 0;
     for (uint32_t t = 460; t <= 800; t += 10) {
         clock.set_millis(t);
@@ -602,10 +615,10 @@ TEST_CASE("rf: a burst armed for the dwell in flight goes out in it") {
     CHECK(on_air_len > 0);
     CHECK(tuned_khz(chip) == timing::kMband0Hz / 1000);
     int sent = 0, missed = 0;
-    messages::RfEvent e{};
+    events::RfEvent e{};
     while (events.pop(e)) {
-        if (e.type == messages::RfEventType::TxDone) sent++;
-        if (e.type == messages::RfEventType::Missed) missed++;
+        if (e.type == events::RfEventType::TxDone) sent++;
+        if (e.type == events::RfEventType::Missed) missed++;
     }
     CHECK(sent == 1);
     CHECK(missed == 0);
@@ -625,7 +638,7 @@ TEST_CASE("rf: a plan the radio refuses is a burst that never armed, not one tha
     REQUIRE(a.rf.last.tx != nullptr);
     REQUIRE(a.state.radio_log.count() == 1);
     CHECK(a.state.radio_log.newest(0).event == radio::Event::Unarmed);
-    CHECK(a.state.timing_stats.missed() == 1);
+    CHECK(a.state.rf.timing_stats.missed() == 1);
 }
 
 // The hour's allowance holds every burst until it frees up again, so one row says
@@ -638,7 +651,7 @@ TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and coun
 
     // EN 300 220-2 band M is 10 permille of the hour: 7200 bursts of 5 ms fill it.
     for (int i = 0; i < 7202; i++) {
-        a.state.tx_ok++;
+        a.state.air.tx_ok++;
         a.tick_at(100);
     }
     REQUIRE(a.state.radio_log.count() == 0);
@@ -648,8 +661,8 @@ TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and coun
 
     REQUIRE(a.state.radio_log.count() == 1);
     CHECK(a.state.radio_log.newest(0).event == radio::Event::Held);
-    CHECK(a.state.radio_log.newest(0).band == messages::Band::M);
-    CHECK(a.state.timing_stats.refused() == 1);
+    CHECK(a.state.radio_log.newest(0).band == model::Band::M);
+    CHECK(a.state.rf.timing_stats.refused() == 1);
 
     a.state.own.utc += 2;
     a.state.own.fix_ms = static_cast<uint32_t>((Armings::kEdgeUs + 1000000) / 1000);
@@ -657,5 +670,5 @@ TEST_CASE("rf: the hour's air-time budget holding a burst is said once, and coun
     a.tick_in(1, 400);
 
     CHECK(a.state.radio_log.count() == 1);
-    CHECK(a.state.timing_stats.refused() == 2);
+    CHECK(a.state.rf.timing_stats.refused() == 2);
 }

@@ -10,7 +10,7 @@
 
 namespace skyblip::go {
 
-// Owns state.battery and state.power_level: what the divider read becomes the
+// Owns state.power.battery and state.power.level: what the divider read becomes the
 // voltage and the state of charge every screen and the companion link report,
 // and what core/power's cutoff rule made of the same samples. The level is
 // published rather than re-derived downstream, so the one place that knows the
@@ -35,12 +35,6 @@ class PowerService : public runtime::Service {
     // settings writer; the flight log's answer is in the same rule and is always
     // yes, which is the point of asking through it rather than around it.
     bool may_write(power::DurableWrite kind) const { return cutoff_.may_write(kind); }
-
-    // The board's die sensor, wired by the product. Thermals live here because
-    // this is the service that already samples the board once a second and
-    // because a hot cell and a hot die are one story: the two numbers a support
-    // case reads together should not come from two places.
-    void attach_die_temperature(hal::DieTemperature& sensor) { die_ = &sensor; }
 
     // Tenths of a degree, and whether anyone has read one. False on a board with
     // no sensor for ever, which is what the reply reads to decide whether the key
@@ -75,10 +69,6 @@ class PowerService : public runtime::Service {
 
     power::Gauge gauge_{};
     power::CutoffMonitor cutoff_{};
-    // Never null: the port this starts on is the absent part, so a product that
-    // wired nothing reads "no sensor" rather than dereferencing nothing.
-    hal::DieTemperature absent_die_{};
-    hal::DieTemperature* die_{&absent_die_};
     power::ChargeCondition charge_{power::ChargeCondition::Unknown};
     uint32_t charge_warnings_{0};
     uint32_t die_read_ms_{0};

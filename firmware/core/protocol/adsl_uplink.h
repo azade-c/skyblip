@@ -5,8 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "core/events/rf.h"
 #include "core/fec/reed_solomon.h"
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
 #include "core/util/result.h"
 
 namespace skyblip::protocol {
@@ -18,7 +19,7 @@ namespace skyblip::protocol {
 // codeword. Arming on all three costs nothing and rejects a burst of any other
 // length before the decoder ever sees it.
 static_assert(fec::ReedSolomon255::kN <= 255, "the §D.1.1 length field is one byte wide");
-static_assert(fec::ReedSolomon255::kN <= messages::kRfEventBytes,
+static_assert(fec::ReedSolomon255::kN <= events::kRfEventBytes,
               "an uplink frame would be truncated on its way off the radio");
 constexpr uint8_t kUplinkFrameBytes = static_cast<uint8_t>(fec::ReedSolomon255::kN);
 constexpr uint8_t kUplinkSync[3] = {0x2D, 0xD4, kUplinkFrameBytes};
@@ -64,10 +65,10 @@ class AdslUplink {
 
     AdslUplink() = default;
 
-    Status encode(const messages::AircraftObs* targets, int n, uint8_t key_index,
+    Status encode(const model::AircraftObs* targets, int n, uint8_t key_index,
                   uint8_t out_frame[kFrameBytes]) const;
 
-    Status decode(const uint8_t frame[kFrameBytes], messages::AircraftObs* targets, int cap,
+    Status decode(const uint8_t frame[kFrameBytes], model::AircraftObs* targets, int cap,
                   DecodeStats& stats) const;
 
    private:

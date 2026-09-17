@@ -2,12 +2,13 @@
 #ifndef SKYBLIP_CORE_TIMING_TRANSMIT_H
 #define SKYBLIP_CORE_TIMING_TRANSMIT_H
 
+#include "core/model/ownship.h"
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
 
 namespace skyblip::timing {
 
-inline bool own_ship_transmits(const messages::OwnState& own, const ClockState& clock) {
+inline bool own_ship_transmits(const model::OwnState& own, const ClockState& clock) {
     return own.fix_valid && own.utc_valid && own.tx_settled && clock.utc_valid && clock.pps_locked;
 }
 

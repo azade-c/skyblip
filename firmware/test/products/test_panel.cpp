@@ -10,19 +10,7 @@
 
 using namespace skyblip;
 
-namespace {
-
-class HeldDie : public hal::DieTemperature {
-   public:
-    bool read(int16_t& decicelsius) override {
-        decicelsius = value;
-        return true;
-    }
-
-    int16_t value{0};
-};
-
-}  // namespace
+namespace {}  // namespace
 
 TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform") {
     Rig rig;
@@ -308,11 +296,11 @@ TEST_CASE("product: the status page marks a low cell when the monitor says so, n
     // sags the rail for as long as it lasts, and the third sample is what
     // decides. The page says nothing while the monitor has not.
     rig.run(t, 2500);
-    REQUIRE(rig.state().power_level != power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level != power::PowerLevel::Low);
     const int undecided = rig.product.screen().framebuffer().count_black();
 
     rig.run(2500, 6000);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     // The same voltage and the same state of charge, so the only thing that can
     // have changed on the glass is the marker.
     CHECK(rig.product.screen().framebuffer().count_black() > undecided);
@@ -327,9 +315,7 @@ TEST_CASE("product: the status page marks a cell charging too hot to be charged"
     auto charging_at = [](int16_t decicelsius) {
         Rig rig{kWithDie};
         REQUIRE(rig.setup() == Status::Ok);
-        HeldDie die;
-        die.value = decicelsius;
-        rig.product.power().attach_die_temperature(die);
+        rig.platform.die_temperature().hold(decicelsius);
         rig.platform.battery().millivolts = 4000;
         rig.platform.battery().external_power = true;
         uint32_t t = 100;
@@ -337,7 +323,7 @@ TEST_CASE("product: the status page marks a cell charging too hot to be charged"
         rig.tap_pad(t);
         rig.run(t, t + 8000);
         REQUIRE(rig.product.screen().page() == go::Page::Status);
-        REQUIRE(rig.state().battery.charging);
+        REQUIRE(rig.state().power.battery.charging);
         return rig.product.screen().framebuffer().count_black();
     };
 

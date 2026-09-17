@@ -1,11 +1,13 @@
 #ifndef SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_OWNSHIP_H
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_OWNSHIP_H
 
+#include "core/events/sensor.h"
 #include "core/flight/extrapolate.h"
 #include "core/flight/ground.h"
 #include "core/flight/state.h"
 #include "core/flight/timer.h"
 #include "core/gnss/first_fix.h"
+#include "core/model/ownship.h"
 #include "runtime/service.h"
 #include "runtime/tasks.h"
 
@@ -22,7 +24,7 @@ class OwnshipService : public runtime::Service {
     bool baro_active() const { return baro_ref_ms_ != 0; }
 
     // ADS-L G.1.4 FlightState, decided by core/flight from the fix stream.
-    flight::FlightState flight_state_from(const messages::OwnState& own, uint32_t now_ms);
+    flight::FlightState flight_state_from(const model::OwnState& own, uint32_t now_ms);
 
     // The one copy of "has the receiver settled": the transmit gate reads it
     // through state.own.tx_settled, and whoever annunciates the first fix takes
@@ -34,10 +36,10 @@ class OwnshipService : public runtime::Service {
     void apply_solution(const gnss::GnssSolution& solution, uint32_t now_ms);
     uint32_t solution_instant(const gnss::GnssSolution& solution, uint32_t now_ms) const;
     void anchor_utc(const gnss::GnssSolution& solution);
-    void apply_baro(const messages::BaroSample& sample);
-    void update_derived_qnh(const messages::BaroSample& sample);
+    void apply_baro(const events::BaroSample& sample);
+    void update_derived_qnh(const events::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
-    void update_residual(const messages::OwnState& previous);
+    void update_residual(const model::OwnState& previous);
     void adopt_climb(int32_t mm_s);
     bool vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms, int32_t& ref_alt_mm,
                         uint32_t& ref_ms, int32_t& out_mm_s) const;

@@ -7,6 +7,7 @@
 #include <cstdlib>  // std::abs - libc++ pulls it in transitively, libstdc++ does not
 #include <cstring>
 
+#include "core/model/aircraft.h"
 #include "core/protocol/alptas.h"
 #include "core/protocol/nmea_out.h"
 #include "doctest/doctest.h"
@@ -29,8 +30,8 @@ struct Rng {
 
 constexpr uint32_t kUtc = 1700000000;  // 1700000000 % 16 == 0, so timebits == 0
 
-messages::AircraftObs make_obs(int32_t lat_1e7, int32_t lon_1e7) {
-    messages::AircraftObs obs{};
+model::AircraftObs make_obs(int32_t lat_1e7, int32_t lon_1e7) {
+    model::AircraftObs obs{};
     obs.addr = 0x123456;
     obs.addr_table = 0x06;  // FLARM-issued address
     obs.aircraft_cat = 4;   // glider
@@ -68,10 +69,10 @@ void check_position_round_trip(int32_t lat_1e7, int32_t lon_1e7, int32_t ref_lat
                                int32_t ref_lon_1e7) {
     CAPTURE(lat_1e7);
     CAPTURE(lon_1e7);
-    messages::AircraftObs obs = make_obs(lat_1e7, lon_1e7);
+    model::AircraftObs obs = make_obs(lat_1e7, lon_1e7);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, ref_lat_1e7, ref_lon_1e7) == Status::Ok);
-    messages::AircraftObs got{};
+    model::AircraftObs got{};
     REQUIRE(alptas_decode(frame, kUtc, ref_lat_1e7, ref_lon_1e7, got) == Status::Ok);
     CHECK(std::abs(got.lat_1e7 - lat_1e7) <= 26);
     CHECK(std::abs(got.lon_1e7 - lon_1e7) <= lon_quantum(lat_1e7));
@@ -79,11 +80,11 @@ void check_position_round_trip(int32_t lat_1e7, int32_t lon_1e7, int32_t ref_lat
 }  // namespace
 
 TEST_CASE("alptas: encode then decode preserves the identity and motion fields") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Ok);
 
-    messages::AircraftObs got{};
+    model::AircraftObs got{};
     REQUIRE(alptas_decode(frame, kUtc, 480000000, 87000000, got) == Status::Ok);
 
     CHECK(got.addr == 0x123456u);
@@ -97,17 +98,17 @@ TEST_CASE("alptas: encode then decode preserves the identity and motion fields")
     CHECK(got.speed_valid);
     CHECK(got.climb_valid);
     CHECK(got.position_valid);
-    CHECK(got.rx_utc == kUtc);
-    CHECK(got.source == messages::Source::Alptas);
+    CHECK(got.received.at_s == kUtc);
+    CHECK(got.source == model::Source::Alptas);
 }
 
 TEST_CASE("alptas: on-ground and airborne flight state survive the 2-bit field") {
     for (uint8_t state : {uint8_t(1), uint8_t(2)}) {
-        messages::AircraftObs obs = make_obs(481234567, 87654321);
+        model::AircraftObs obs = make_obs(481234567, 87654321);
         obs.flight_state = state;
         uint8_t frame[kAlptasFrameBytes];
         REQUIRE(alptas_encode(frame, obs, kUtc, 481000000, 87000000) == Status::Ok);
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         REQUIRE(alptas_decode(frame, kUtc, 481000000, 87000000, got) == Status::Ok);
         CHECK(int(got.flight_state) == int(state));
     }
@@ -115,12 +116,12 @@ TEST_CASE("alptas: on-ground and airborne flight state survive the 2-bit field")
 
 TEST_CASE("alptas: an ICAO address keeps its table, an unknown one degrades to 0") {
     for (uint8_t table : {uint8_t(0x05), uint8_t(0x06), uint8_t(0x00)}) {
-        messages::AircraftObs obs = make_obs(481234567, 87654321);
+        model::AircraftObs obs = make_obs(481234567, 87654321);
         obs.addr_table = table;
         obs.addr = 0xABCDEF;
         uint8_t frame[kAlptasFrameBytes];
         REQUIRE(alptas_encode(frame, obs, kUtc, 481000000, 87000000) == Status::Ok);
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         REQUIRE(alptas_decode(frame, kUtc, 481000000, 87000000, got) == Status::Ok);
         CHECK(got.addr == 0xABCDEFu);
         CHECK(int(got.addr_table) == int(table));
@@ -162,13 +163,13 @@ TEST_CASE("alptas: speed, climb and track round trip over their ranges") {
     for (uint16_t speed : kSpeeds) {
         for (int16_t climb : kClimbs) {
             for (uint16_t track : kTracks) {
-                messages::AircraftObs obs = make_obs(481234567, 87654321);
+                model::AircraftObs obs = make_obs(481234567, 87654321);
                 obs.speed_q = speed;
                 obs.climb_e8 = climb;
                 obs.track_c9 = track;
                 uint8_t frame[kAlptasFrameBytes];
                 REQUIRE(alptas_encode(frame, obs, kUtc, 481000000, 87000000) == Status::Ok);
-                messages::AircraftObs got{};
+                model::AircraftObs got{};
                 REQUIRE(alptas_decode(frame, kUtc, 481000000, 87000000, got) == Status::Ok);
                 CAPTURE(speed);
                 CAPTURE(climb);
@@ -187,11 +188,11 @@ TEST_CASE("alptas: speed, climb and track round trip over their ranges") {
 TEST_CASE("alptas: altitude round trips including below sea level and high up") {
     static const int32_t kAlts[] = {-400, -50, 0, 300, 1234, 3096, 5000, 11000};
     for (int32_t alt : kAlts) {
-        messages::AircraftObs obs = make_obs(481234567, 87654321);
+        model::AircraftObs obs = make_obs(481234567, 87654321);
         obs.alt_m = alt;
         uint8_t frame[kAlptasFrameBytes];
         REQUIRE(alptas_encode(frame, obs, kUtc, 481000000, 87000000) == Status::Ok);
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         REQUIRE(alptas_decode(frame, kUtc, 481000000, 87000000, got) == Status::Ok);
         CAPTURE(alt);
         CHECK(std::abs(got.alt_m - alt) <= 2);
@@ -199,7 +200,7 @@ TEST_CASE("alptas: altitude round trips including below sea level and high up") 
 }
 
 TEST_CASE("alptas: the frame CRC is set, checked, and a flipped bit fails it") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Ok);
     CHECK(alptas_crc_ok(frame));
@@ -214,7 +215,7 @@ TEST_CASE("alptas: the frame CRC is set, checked, and a flipped bit fails it") {
         bad[bit >> 3] ^= static_cast<uint8_t>(1u << (bit & 7));
         CAPTURE(bit);
         CHECK_FALSE(alptas_crc_ok(bad));
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         CHECK(alptas_decode(bad, kUtc, 480000000, 87000000, got) == Status::Crc);
     }
 
@@ -226,11 +227,11 @@ TEST_CASE("alptas: the frame CRC is set, checked, and a flipped bit fails it") {
 }
 
 TEST_CASE("alptas: the decrypt gate accepts the second it was sent in, +/-1") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Ok);
 
-    messages::AircraftObs got{};
+    model::AircraftObs got{};
     CHECK(alptas_decode(frame, kUtc, 480000000, 87000000, got) == Status::Ok);
     CHECK(alptas_decode(frame, kUtc + 1, 480000000, 87000000, got) == Status::Ok);
 
@@ -245,7 +246,7 @@ TEST_CASE("alptas: the decrypt gate accepts the second it was sent in, +/-1") {
 }
 
 TEST_CASE("alptas: the decrypt gate rejects a frame with one byte changed") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Ok);
 
@@ -257,7 +258,7 @@ TEST_CASE("alptas: the decrypt gate rejects a frame with one byte changed") {
         bad[i] = static_cast<uint8_t>(bad[i] ^ 0x5A);
         alptas_set_crc(bad);
         REQUIRE(alptas_crc_ok(bad));
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         CAPTURE(i);
         CHECK(alptas_decode(bad, kUtc, 480000000, 87000000, got) != Status::Ok);
     }
@@ -270,25 +271,25 @@ TEST_CASE("alptas: the decrypt gate rejects random frames") {
         uint8_t frame[kAlptasFrameBytes];
         for (int i = 0; i < kAlptasDataBytes; i++) frame[i] = static_cast<uint8_t>(rng.next() >> 9);
         alptas_set_crc(frame);
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         if (alptas_decode(frame, kUtc, 480000000, 87000000, got) == Status::Ok) accepted++;
     }
     CHECK(accepted == 0);
 }
 
 TEST_CASE("alptas: a non-position message type is not decoded as traffic") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     uint8_t frame[kAlptasFrameBytes];
     REQUIRE(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Ok);
     // Message type lives in the plaintext first word: 3 is a text message.
     frame[3] = static_cast<uint8_t>((frame[3] & 0xF0) | 3);
     alptas_set_crc(frame);
-    messages::AircraftObs got{};
+    model::AircraftObs got{};
     CHECK(alptas_decode(frame, kUtc, 480000000, 87000000, got) == Status::Unsupported);
 }
 
 TEST_CASE("alptas: encoding refuses to claim a position it does not have") {
-    messages::AircraftObs obs = make_obs(481234567, 87654321);
+    model::AircraftObs obs = make_obs(481234567, 87654321);
     obs.position_valid = false;
     uint8_t frame[kAlptasFrameBytes];
     CHECK(alptas_encode(frame, obs, kUtc, 480000000, 87000000) == Status::Invalid);
@@ -313,11 +314,11 @@ TEST_CASE("alptas: aircraft type maps back to the ADS-L category it came from") 
 
     // And the whole way round, through the wire.
     for (uint8_t cat : {uint8_t(1), uint8_t(3), uint8_t(4), uint8_t(5), uint8_t(8), uint8_t(11)}) {
-        messages::AircraftObs obs = make_obs(481234567, 87654321);
+        model::AircraftObs obs = make_obs(481234567, 87654321);
         obs.aircraft_cat = cat;
         uint8_t frame[kAlptasFrameBytes];
         REQUIRE(alptas_encode(frame, obs, kUtc, 481000000, 87000000) == Status::Ok);
-        messages::AircraftObs got{};
+        model::AircraftObs got{};
         REQUIRE(alptas_decode(frame, kUtc, 481000000, 87000000, got) == Status::Ok);
         CAPTURE(cat);
         CHECK(int(got.aircraft_cat) == int(cat));

@@ -5,12 +5,15 @@
 #include "boards/lilygo/t_echo_plus/pins.h"
 #include "core/bus/bus.h"
 #include "core/bus/state.h"
-#include "hal/inventory.h"
-#include "hal/roles.h"
+#include "core/events/input.h"
+#include "core/events/link.h"
+#include "core/events/sensor.h"
 #include "hardware/parts/drv2605/drv2605.h"
 #include "hardware/parts/l76k/l76k.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/parts/sx1262/sx1262.h"
+#include "hal/inventory.h"
+#include "hal/roles.h"
 #include "runtime/null.h"
 #include "runtime/tasks.h"
 #include "ui/input/button.h"
@@ -81,12 +84,14 @@ class TEchoPlus {
     hal::Roles roles() {
         return hal::Roles{
             platform_.clock(),
-            hal::has(capabilities_, hal::Capability::Rf) ? static_cast<hal::Rf&>(rf_) : null_.rf,
+            hal::has(capabilities_, hal::Capability::Rf) ? static_cast<hal::Rf&>(rf_)
+                                                             : null_.rf,
             hal::has(capabilities_, hal::Capability::Link)
                 ? static_cast<hal::Link&>(platform_.link())
                 : null_.link,
-            hal::has(capabilities_, hal::Capability::Display) ? static_cast<hal::Display&>(epd_)
-                                                              : null_.display,
+            hal::has(capabilities_, hal::Capability::Display)
+                ? static_cast<hal::Display&>(epd_)
+                : null_.display,
             hal::has(capabilities_, hal::Capability::Storage)
                 ? static_cast<hal::KvStore&>(platform_.kv())
                 : null_.kv,
@@ -99,8 +104,15 @@ class TEchoPlus {
                     hal::has(capabilities_, hal::Capability::Vibro)
                 ? static_cast<hal::Annunciator&>(platform_.annunciator())
                 : null_.annunciator,
-            hal::has(capabilities_, hal::Capability::Dfu) ? static_cast<hal::Dfu&>(platform_.dfu())
-                                                          : null_.dfu,
+            hal::has(capabilities_, hal::Capability::Dfu)
+                ? static_cast<hal::Dfu&>(platform_.dfu())
+                : null_.dfu,
+            hal::has(capabilities_, hal::Capability::DieTemperature)
+                ? static_cast<hal::DieTemperature&>(platform_.die_temperature())
+                : null_.die_temperature,
+            hal::has(capabilities_, hal::Capability::Indicator)
+                ? static_cast<hal::Indicator&>(platform_.indicator())
+                : null_.indicator,
             capabilities_,
             platform_.device_addr(),
         };
@@ -111,7 +123,7 @@ class TEchoPlus {
         if (!baro_due(clock, now_ms)) return;
         last_baro_ms_ = now_ms;
         uint32_t mpa = 0;
-        if (platform_.read_pressure_mpa(mpa)) bus_.baro.push(messages::BaroSample{mpa, now_ms});
+        if (platform_.read_pressure_mpa(mpa)) bus_.baro.push(events::BaroSample{mpa, now_ms});
     }
 
     bool baro_due(const timing::ClockState& clock, uint32_t now_ms) const {
@@ -128,7 +140,7 @@ class TEchoPlus {
         last_battery_ms_ = now_ms;
         uint16_t millivolts = 0;
         if (platform_.read_battery_mv(millivolts))
-            bus_.battery.push(messages::BatterySample{millivolts, platform_.external_power()});
+            bus_.battery.push(events::BatterySample{millivolts, platform_.external_power()});
     }
 
     // The producer side: everything hardware says arrives on the bus, and the
@@ -143,12 +155,12 @@ class TEchoPlus {
         // The connection before the bytes: a frame from a session whose Up is
         // still queued behind it would be answered by a service that does not yet
         // believe there is anyone there.
-        messages::LinkEvent link_event;
+        events::LinkEvent link_event;
         while (platform_.link().pop_event(link_event)) bus_.link_events.push(link_event);
 
-        messages::RxFrame frame;
+        events::RxFrame frame;
         while (platform_.link().pop_rx(frame)) {
-            if (frame.endpoint == messages::Endpoint::Log)
+            if (frame.endpoint == events::Endpoint::Log)
                 bus_.log_rx.push(frame);
             else
                 bus_.link_rx.push(frame);
@@ -163,14 +175,10 @@ class TEchoPlus {
 
         const bool button_down = platform_.button_down();
         if (button_.update(button_down, now_ms))
-            bus_.input.push(messages::ButtonEvent{messages::kButtonPressed});
+            bus_.input.push(events::ButtonEvent{events::kButtonPressed});
         switch (pad_.update(platform_.pad_down(), button_down, now_ms)) {
-            case ui::PadEvent::Tap:
-                bus_.input.push(messages::ButtonEvent{messages::kPadTapped});
-                break;
-            case ui::PadEvent::Hold:
-                bus_.input.push(messages::ButtonEvent{messages::kPadHeld});
-                break;
+            case ui::PadEvent::Tap: bus_.input.push(events::ButtonEvent{events::kPadTapped}); break;
+            case ui::PadEvent::Hold: bus_.input.push(events::ButtonEvent{events::kPadHeld}); break;
             case ui::PadEvent::None:
             default: break;
         }
@@ -186,7 +194,7 @@ class TEchoPlus {
         timing::carry_utc_to_edge(state.clock, platform_.pps().last_edge_us());
         // The one place the PPS edge is owned: the bench's interval-error
         // histogram is fed here rather than by a second reader of the pin.
-        state.timing_stats.record_edge(state.clock.pps_edge_us, state.clock.pps_locked);
+        state.rf.timing_stats.record_edge(state.clock.pps_edge_us, state.clock.pps_locked);
     }
 
     typename P::Rf& rf() { return rf_; }

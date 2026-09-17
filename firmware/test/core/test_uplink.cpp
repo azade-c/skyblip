@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "core/fec/reed_solomon.h"
+#include "core/model/aircraft.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/timing/slot.h"
 #include "doctest/doctest.h"
@@ -30,8 +31,8 @@ struct Rng {
     }
 };
 
-messages::AircraftObs make_target(uint32_t addr) {
-    messages::AircraftObs t{};
+model::AircraftObs make_target(uint32_t addr) {
+    model::AircraftObs t{};
     t.addr = addr & 0xFFFFFF;
     t.addr_table = 6;
     t.aircraft_cat = 4;
@@ -138,14 +139,14 @@ TEST_CASE("rs: beyond 16 errors, detected vs silent miscorrection, counted") {
 
 TEST_CASE("uplink: air<->ground round-trip is lossless at BER 0 (anti-drift lock)") {
     AdslUplink up;
-    messages::AircraftObs tx[AdslUplink::kMaxTargets];
+    model::AircraftObs tx[AdslUplink::kMaxTargets];
     int n = AdslUplink::kMaxTargets;
     for (int i = 0; i < n; i++) tx[i] = make_target(0x200000 + i);
 
     uint8_t frame[AdslUplink::kFrameBytes];
     CHECK(up.encode(tx, n, /*key=*/0, frame) == Status::Ok);
 
-    messages::AircraftObs rx[AdslUplink::kMaxTargets];
+    model::AircraftObs rx[AdslUplink::kMaxTargets];
     AdslUplink::DecodeStats st;
     CHECK(up.decode(frame, rx, n, st) == Status::Ok);
     CHECK(st.targets == n);
@@ -162,7 +163,7 @@ TEST_CASE("uplink: air<->ground round-trip is lossless at BER 0 (anti-drift lock
 TEST_CASE("uplink: survives up to 16 symbol errors on the wire") {
     AdslUplink up;
     Rng rng(0x55AA);
-    messages::AircraftObs tx[4];
+    model::AircraftObs tx[4];
     for (int i = 0; i < 4; i++) tx[i] = make_target(0x300000 + i * 7);
     uint8_t frame[AdslUplink::kFrameBytes];
     REQUIRE(up.encode(tx, 4, 0, frame) == Status::Ok);
@@ -177,7 +178,7 @@ TEST_CASE("uplink: survives up to 16 symbol errors on the wire") {
         used[pos] = true;
         frame[pos] ^= static_cast<uint8_t>(0x80 | (rng.next() & 0x7F));
     }
-    messages::AircraftObs rx[4];
+    model::AircraftObs rx[4];
     AdslUplink::DecodeStats st;
     CHECK(up.decode(frame, rx, 4, st) == Status::Ok);
     CHECK(st.corrected == 16);
@@ -188,11 +189,11 @@ TEST_CASE("uplink: survives up to 16 symbol errors on the wire") {
 
 TEST_CASE("uplink: a destroyed frame is DETECTED (Status::Crc), never silently wrong") {
     AdslUplink up;
-    messages::AircraftObs tx[2] = {make_target(1), make_target(2)};
+    model::AircraftObs tx[2] = {make_target(1), make_target(2)};
     uint8_t frame[AdslUplink::kFrameBytes];
     REQUIRE(up.encode(tx, 2, 0, frame) == Status::Ok);
     for (int i = 0; i < 40; i++) frame[i] ^= 0xFF;  // 40 > 16 errors
-    messages::AircraftObs rx[2];
+    model::AircraftObs rx[2];
     AdslUplink::DecodeStats st;
     Status s = up.decode(frame, rx, 2, st);
     CHECK(s == Status::Crc);  // detected, not delivered
@@ -258,12 +259,12 @@ TEST_CASE("uplink: a frame fits the window the dwell map is cut against") {
 // carries is checked before any of it becomes a target.
 TEST_CASE("uplink: a record with no address and no place on the globe is refused") {
     AdslUplink up;
-    messages::AircraftObs tx[3] = {make_target(0x600001), make_target(0), make_target(0x600003)};
+    model::AircraftObs tx[3] = {make_target(0x600001), make_target(0), make_target(0x600003)};
     tx[2].lat_1e7 = 1200000000;  // 120 degrees north of nowhere
     uint8_t frame[AdslUplink::kFrameBytes];
     REQUIRE(up.encode(tx, 3, 0, frame) == Status::Ok);
 
-    messages::AircraftObs rx[3];
+    model::AircraftObs rx[3];
     AdslUplink::DecodeStats st;
     CHECK(up.decode(frame, rx, 3, st) == Status::Ok);
     CHECK(st.targets == 1);

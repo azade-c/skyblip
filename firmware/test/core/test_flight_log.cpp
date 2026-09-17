@@ -5,8 +5,10 @@
 
 #include "core/comms/config.h"
 #include "core/comms/log_link.h"
+#include "core/events/link.h"
 #include "core/flight/log_record.h"
 #include "core/flight/log_session.h"
+#include "core/model/ownship.h"
 #include "doctest/doctest.h"
 #include "hal/link.h"
 
@@ -37,8 +39,8 @@ flight::LogRecord sample_record() {
     return r;
 }
 
-messages::OwnState flying(uint32_t utc, uint16_t speed_q) {
-    messages::OwnState own{};
+model::OwnState flying(uint32_t utc, uint16_t speed_q) {
+    model::OwnState own{};
     own.fix_valid = true;
     own.utc_valid = true;
     own.utc = utc;
@@ -54,8 +56,8 @@ messages::OwnState flying(uint32_t utc, uint16_t speed_q) {
     return own;
 }
 
-messages::OwnState parked(uint32_t utc) {
-    messages::OwnState own = flying(utc, 0);
+model::OwnState parked(uint32_t utc) {
+    model::OwnState own = flying(utc, 0);
     own.flight_state = static_cast<uint8_t>(flight::FlightState::OnGround);
     return own;
 }
@@ -255,7 +257,7 @@ TEST_CASE("log session: a fix outage does not end the flight, and nothing is wri
     flight::LogSession session;
     REQUIRE(session.update(flying(kBaseUtc, 200), 0) == flight::LogAction::OpenSession);
 
-    messages::OwnState blind = flying(kBaseUtc + 4, 200);
+    model::OwnState blind = flying(kBaseUtc + 4, 200);
     blind.fix_valid = false;
     CHECK(session.update(blind, 4000) == flight::LogAction::Idle);
     CHECK(session.open());
@@ -321,8 +323,8 @@ TEST_CASE("log ring: recovery puts it back where the power cut left it") {
 
 TEST_CASE("log link: the three commands, and nothing else") {
     auto framed = [](const char* json) {
-        messages::RxFrame frame{};
-        frame.endpoint = messages::Endpoint::Log;
+        events::RxFrame frame{};
+        frame.endpoint = events::Endpoint::Log;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
         return frame;
@@ -344,8 +346,8 @@ TEST_CASE("log link: the three commands, and nothing else") {
     CHECK_FALSE(comms::parse_log_request(framed("{\"cmd\":\"format\"}")).understood);
 
     // Config frames belong to the config service even if they reach this parser.
-    messages::RxFrame wrong = framed("{\"cmd\":\"list\"}");
-    wrong.endpoint = messages::Endpoint::Config;
+    events::RxFrame wrong = framed("{\"cmd\":\"list\"}");
+    wrong.endpoint = events::Endpoint::Config;
     CHECK_FALSE(comms::parse_log_request(wrong).understood);
 }
 

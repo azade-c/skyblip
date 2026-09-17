@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/events/sensor.h"
 
 namespace skyblip::power {
 
@@ -37,7 +37,7 @@ constexpr int16_t kCalibrationLimitMv = 250;
 // same millivolts - a cutoff that fired 40 mV early on a trimmed unit would be
 // the calibration causing the failure it exists to prevent.
 uint16_t calibrated_mv(uint16_t raw_mv, int16_t offset_mv);
-messages::BatterySample calibrated(const messages::BatterySample& raw, int16_t offset_mv);
+events::BatterySample calibrated(const events::BatterySample& raw, int16_t offset_mv);
 
 // One reading, one meaning. Charging is not a modifier on a percentage, it is a
 // different curve: a charger holds the terminal above the cell's open-circuit
@@ -92,7 +92,7 @@ struct BatteryState {
 // rediscovering why the unmeasured one was refused.
 class Gauge {
    public:
-    void apply(const messages::BatterySample& sample);
+    void apply(const events::BatterySample& sample);
 
     const BatteryState& state() const { return state_; }
 

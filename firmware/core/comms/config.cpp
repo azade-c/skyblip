@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/comms/timing_report.h"
+#include "core/events/link.h"
 #include "core/util/json_min.h"
 #include "core/util/span.h"
 
@@ -67,13 +68,13 @@ void ConfigService::set_flight_state(flight::FlightState fs) {
     flight_ = fs;
 }
 
-void ConfigService::on_link_up(const messages::LinkUp& up) {
+void ConfigService::on_link_up(const events::LinkUp& up) {
     session_ = up.session_id;
     link_up_ = true;
     if (image_state_ != dfu::ImageState::Confirmed) send_update();
 }
 
-void ConfigService::on_link_down(const messages::LinkDown&) {
+void ConfigService::on_link_down(const events::LinkDown&) {
     pending_ = Pending::None;
     pending_len_ = 0;
     upload_window_open_ = false;
@@ -111,7 +112,7 @@ Status ConfigService::reply(const char* json, int len) {
         return Status::OutOfRange;
     }
     const Status sent =
-        link_.send(messages::Endpoint::Config,
+        link_.send(events::Endpoint::Config,
                    ConstByteSpan(reinterpret_cast<const uint8_t*>(json), static_cast<size_t>(len)));
     if (!is_ok(sent)) diag_.link_drops++;
     return sent;
@@ -160,8 +161,8 @@ const char* ConfigService::flight_name(flight::FlightState fs) {
     return "unknown";
 }
 
-void ConfigService::on_rx(const messages::RxFrame& frame) {
-    if (frame.endpoint != messages::Endpoint::Config) return;
+void ConfigService::on_rx(const events::RxFrame& frame) {
+    if (frame.endpoint != events::Endpoint::Config) return;
     const char* data = reinterpret_cast<const char*>(frame.data.data());
     int len = frame.len;
     json::Reader r(data, len);

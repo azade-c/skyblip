@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/ownship.h"
 #include "core/util/result.h"
 
 namespace skyblip::flight {
@@ -81,7 +81,7 @@ struct LogRecord {
 };
 
 // Everything worth keeping out of the state the whole device already agrees on.
-LogRecord log_record_from(const messages::OwnState& own);
+LogRecord log_record_from(const model::OwnState& own);
 
 // 24 bytes, little-endian, CRC-16-CCITT over the first 22. base_utc is the
 // session's opening second: a record more than 18 hours into a session saturates

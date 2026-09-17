@@ -3,6 +3,7 @@
 // NOR's two awkward truths and knows how to die mid-program.
 #include <string>
 
+#include "core/events/link.h"
 #include "core/flight/log_record.h"
 #include "doctest/doctest.h"
 #include "hal/link.h"
@@ -55,7 +56,7 @@ std::string field(const std::string& json, const char* key) {
 const platform::host::Link::Frame* last_log_frame(Rig& rig) {
     for (size_t i = rig.platform.link().sent.size(); i > 0; i--) {
         const auto& frame = rig.platform.link().sent[i - 1];
-        if (frame.endpoint == messages::Endpoint::Log) return &frame;
+        if (frame.endpoint == events::Endpoint::Log) return &frame;
     }
     return nullptr;
 }

@@ -2,7 +2,7 @@
 // link, drained by the board onto the bus, read once by the config service.
 //
 // The first case in this file is a guard, and it exists because the tree shipped
-// messages::LinkUp, messages::LinkDown and two handlers for them with no producer
+// events::LinkUp, events::LinkDown and two handlers for them with no producer
 // anywhere: no board, no platform, no service ever put one on the bus. Every host
 // case that needed a link called ConfigService::on_link_up() by hand, so the suite
 // was green while a real device never saw a link come up - the battery gauge never
@@ -11,6 +11,7 @@
 // central does and asserts what a pilot would see.
 #include <string>
 
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "test/support/product_rig.h"
 
@@ -20,12 +21,12 @@ namespace {
 
 void taxi(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 0, 300); }
 
-int config_frames(Rig& rig) { return rig.platform.link().count_on(messages::Endpoint::Config); }
+int config_frames(Rig& rig) { return rig.platform.link().count_on(events::Endpoint::Config); }
 
 // The last thing the device said on an endpoint, empty when it said nothing.
 // A string rather than a pointer so a case that was going to fail fails on the
 // assertion rather than on the dereference after it.
-std::string last_frame_on(Rig& rig, messages::Endpoint endpoint) {
+std::string last_frame_on(Rig& rig, events::Endpoint endpoint) {
     const auto& sent = rig.platform.link().sent;
     for (auto it = sent.rbegin(); it != sent.rend(); ++it)
         if (it->endpoint == endpoint) return it->bytes;
@@ -94,7 +95,7 @@ TEST_CASE(
     taxi(rig, t, 4);
     const int pushed = config_frames(rig);
     CHECK(pushed >= 1);
-    const std::string status = last_frame_on(rig, messages::Endpoint::Config);
+    const std::string status = last_frame_on(rig, events::Endpoint::Config);
     CHECK(status.find("\"cmd\":\"status\"") != std::string::npos);
     CHECK(status.find("\"battery_percent\"") != std::string::npos);
 
@@ -194,8 +195,8 @@ TEST_CASE("companion link: a link dropped mid-offload leaves the log ready for t
     t += 200;
     REQUIRE(rig.link_up());
     CHECK(rig.product.config().config().session() == 12);
-    CHECK(rig.platform.link().count_on(messages::Endpoint::Log) >= 1);
-    CHECK(last_frame_on(rig, messages::Endpoint::Log).find("\"sessions\"") != std::string::npos);
+    CHECK(rig.platform.link().count_on(events::Endpoint::Log) >= 1);
+    CHECK(last_frame_on(rig, events::Endpoint::Log).find("\"sessions\"") != std::string::npos);
 }
 
 // An iOS central connects and exchanges the MTU afterwards, so the product sees

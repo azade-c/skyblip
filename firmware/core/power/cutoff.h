@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/events/sensor.h"
 
 namespace skyblip::power {
 
@@ -71,7 +71,7 @@ bool may_refresh(PowerLevel level, bool supply_warned, PanelRefresh kind);
 // going quiet must not cancel it.
 class CutoffMonitor {
    public:
-    PowerLevel apply(const messages::BatterySample& sample);
+    PowerLevel apply(const events::BatterySample& sample);
 
     PowerLevel level() const { return level_; }
     bool warned() const { return level_ == PowerLevel::Low || level_ == PowerLevel::Cutoff; }

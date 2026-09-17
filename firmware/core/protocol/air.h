@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/band.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/alptas.h"
@@ -120,7 +120,7 @@ size_t encode_oband(const uint8_t* frame, uint8_t* out);
 //
 // Naming a burst is protocol policy, so it lives here rather than in the
 // service that pulls the event: the service moves messages.
-System receive_burst(messages::Band band, const uint8_t* data, size_t len, Frame& out);
+System receive_burst(model::Band band, const uint8_t* data, size_t len, Frame& out);
 
 }  // namespace skyblip::protocol
 

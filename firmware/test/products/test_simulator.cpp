@@ -4,7 +4,9 @@
 // collision alarm. No mocks of logic.
 #include <cstdlib>
 
+#include "core/events/link.h"
 #include "core/flight/atmosphere.h"
+#include "core/model/aircraft.h"
 #include "doctest/doctest.h"
 #include "simulator/simulator.h"
 
@@ -84,8 +86,8 @@ TEST_CASE("simulator: a virtual aircraft arrives as a real ADS-L frame and enter
     // burst, so the window has to be wider than one of its transmissions.
     run(h, 2000, 6000);
 
-    CHECK(h.product().state().rx_ok > 0);             // frames actually decoded (CRC ok)
-    CHECK(h.product().state().rx_bad == 0);           // and none corrupt
+    CHECK(h.product().state().air.rx_ok > 0);         // frames actually decoded (CRC ok)
+    CHECK(h.product().state().air.rx_bad == 0);       // and none corrupt
     CHECK(h.product().state().traffic.count() >= 1);  // fused into the table
 }
 
@@ -285,11 +287,11 @@ TEST_CASE("simulator: a phone connects, the gauge pushes, the phone leaves and i
     h.world().connect_companion();
     run(h, 4000, 4200);
     REQUIRE(h.companion_connected());
-    const int before = h.companion_frames(messages::Endpoint::Config);
+    const int before = h.companion_frames(events::Endpoint::Config);
 
     h.world().set_battery_mv(3600);
     run(h, 4200, 9000);
-    const int pushed = h.companion_frames(messages::Endpoint::Config);
+    const int pushed = h.companion_frames(events::Endpoint::Config);
     CHECK(pushed > before);
 
     h.world().disconnect_companion();
@@ -298,7 +300,7 @@ TEST_CASE("simulator: a phone connects, the gauge pushes, the phone leaves and i
     h.world().set_external_power(true);
     h.world().set_battery_mv(4100);
     run(h, 9200, 15000);
-    CHECK(h.companion_frames(messages::Endpoint::Config) == pushed);
+    CHECK(h.companion_frames(events::Endpoint::Config) == pushed);
 }
 
 // The same call the page's "+ Aircraft" button and the terminal's [j] make. If
@@ -318,7 +320,7 @@ TEST_CASE("simulator: an ALP-TAS-equipped aircraft enters traffic as ALP-TAS") {
     int alptas = 0;
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = table.at(i);
-        if (t != nullptr && t->used && t->obs.source == messages::Source::Alptas) alptas++;
+        if (t != nullptr && t->used && t->obs.source == model::Source::Alptas) alptas++;
     }
     CHECK(alptas == 1);
 }

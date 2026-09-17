@@ -2,7 +2,7 @@
 #ifndef SKYBLIP_HAL_LINK_H
 #define SKYBLIP_HAL_LINK_H
 
-#include "core/messages/messages.h"
+#include "core/events/link.h"
 #include "core/util/result.h"
 #include "core/util/span.h"
 
@@ -32,7 +32,7 @@ class Link {
     // INFO: fc 04aug26 Longer than payload_bytes() is refused, never truncated:
     // a controller does not shorten an oversized notification, it fails it, and
     // a caller that learns nothing about that has silently dropped the frame.
-    virtual Status send(messages::Endpoint ep, ConstByteSpan bytes) = 0;
+    virtual Status send(events::Endpoint ep, ConstByteSpan bytes) = 0;
 };
 
 }

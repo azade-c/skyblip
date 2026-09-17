@@ -5,6 +5,7 @@
 // is a gauge a pilot stops believing.
 #include <string>
 
+#include "core/events/sensor.h"
 #include "core/power/battery.h"
 #include "core/power/cutoff.h"
 #include "core/power/reset_reason.h"
@@ -15,8 +16,8 @@
 using namespace skyblip;
 using namespace skyblip::power;
 
-static messages::BatterySample sample(uint16_t millivolts, bool external_power = false) {
-    return messages::BatterySample{millivolts, external_power};
+static events::BatterySample sample(uint16_t millivolts, bool external_power = false) {
+    return events::BatterySample{millivolts, external_power};
 }
 
 // The gauge medians three readings, so a settled value takes three - which is the

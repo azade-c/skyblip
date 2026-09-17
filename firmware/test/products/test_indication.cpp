@@ -96,7 +96,7 @@ TEST_CASE("product: a cell below the warning level blinks the lamp red") {
     // Below kLowWarnMv and above the cutoff, so the device warns and keeps flying.
     rig.platform.battery().millivolts = power::kLowWarnMv - 100;
     settle(rig, t, 5000);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Low);
     REQUIRE(step_until_lit(rig, t, 1000) > 0);
     CHECK(lamp_of(rig).lamp() == hal::Lamp::Red);
@@ -112,7 +112,7 @@ TEST_CASE("product: a divider that reads nothing does not blink like a flat cell
     uint32_t t = 0;
     settle(rig, t, 8000);
 
-    CHECK(rig.state().power_level == power::PowerLevel::Unknown);
+    CHECK(rig.state().power.level == power::PowerLevel::Unknown);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
 }
 
@@ -126,7 +126,7 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     rig.platform.battery().external_power = true;
     rig.platform.battery().millivolts = 4000;
     settle(rig, t, 5000);
-    REQUIRE(rig.state().battery.charging);
+    REQUIRE(rig.state().power.battery.charging);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
     // Held, not winked: external power is paying, and a pilot holding the cable
     // wants an answer that does not need watching for three seconds.
@@ -139,8 +139,8 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     // The charger has stopped pushing current and is holding the float voltage.
     rig.platform.battery().millivolts = power::kChargeCompleteMv + 5;
     settle(rig, t, 5000);
-    REQUIRE_FALSE(rig.state().battery.charging);
-    REQUIRE(rig.state().battery.external_power);
+    REQUIRE_FALSE(rig.state().power.battery.charging);
+    REQUIRE(rig.state().power.battery.external_power);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charged);
     CHECK(lamp_of(rig).lamp() == hal::Lamp::Green);
 }
@@ -153,7 +153,7 @@ TEST_CASE("product: a low cell on the cable shows charging, not low") {
     uint32_t t = 0;
     rig.platform.battery().millivolts = power::kLowWarnMv - 200;
     settle(rig, t, 6000);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     REQUIRE(rig.product.alarm().indicator_condition() == indication::Condition::Low);
 
     rig.platform.battery().external_power = true;

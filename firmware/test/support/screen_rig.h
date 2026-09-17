@@ -21,12 +21,15 @@ struct Rig {
     parts::Ssd1681 epd{chip, chip, chip.dc, chip.rst, chip.busy};
     platform::host::Clock clock;
     runtime::NullRoles null;
-    hal::Roles roles{clock,   null.rf,        null.link,        epd,  // epd fills Display
-                     null.kv, null.log_flash, null.annunciator, null.dfu};
+    hal::Roles roles{
+        clock,   null.rf,        null.link,        epd,  // epd fills Display
+        null.kv, null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
-    go::ScreenService screen{context};
+    comms::ConfigService config{null.link, state.settings};
+    ui::BootSnapshot self_test{};
+    go::ScreenService screen{context, config, self_test};
 
     Rig() {
         chip.attach_clock(clock);
@@ -35,7 +38,7 @@ struct Rig {
         // below produces real pixel changes.
         state.own.fix_valid = true;
         state.own.sats = 9;
-        state.flight_time_valid = true;
+        state.flight.time_valid = true;
         epd.begin();
     }
 
@@ -56,7 +59,7 @@ struct Rig {
     // The same flip at the caller's cadence, for the policies measured in minutes.
     void churn_at(uint32_t& t, uint32_t step_ms, int times) {
         for (int i = 0; i < times; i++) {
-            state.flight_seconds += 60;
+            state.flight.seconds += 60;
             tick(t += step_ms);
         }
     }
@@ -68,8 +71,8 @@ struct Rig {
     void alarm(uint8_t level) { state.alarm_level = level; }
 
     void die_temperature(int16_t decicelsius) {
-        state.die_decicelsius = decicelsius;
-        state.die_temperature_valid = true;
+        state.power.die_dc = decicelsius;
+        state.power.die_valid = true;
     }
 };
 

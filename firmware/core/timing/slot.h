@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/band.h"
 
 namespace skyblip::timing {
 
@@ -59,7 +59,7 @@ constexpr int kHopGuardMs = 1;
 constexpr uint32_t kPpsHoldoverMs = 60000;
 
 // One name for the band, spelled where a received burst can carry it.
-using Band = messages::Band;
+using Band = model::Band;
 
 enum class SlotState : uint8_t {
     UplinkRxO,

@@ -2,6 +2,8 @@
 #include <cmath>
 
 #include "core/flight/extrapolate.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "doctest/doctest.h"
 
@@ -13,9 +15,9 @@ namespace {
 
 constexpr double kMetresPerE7 = 0.0011132 * 10;  // 1e-7 deg of latitude, metres
 
-messages::OwnState flying(double lat_deg, double lon_deg, double mps, double track_deg,
-                          double climb_mps = 0.0, double turn_dps = 0.0) {
-    messages::OwnState own{};
+model::OwnState flying(double lat_deg, double lon_deg, double mps, double track_deg,
+                       double climb_mps = 0.0, double turn_dps = 0.0) {
+    model::OwnState own{};
     own.fix_valid = true;
     own.lat_1e7 = static_cast<int32_t>(lat_deg * 1e7);
     own.lon_1e7 = static_cast<int32_t>(lon_deg * 1e7);
@@ -33,7 +35,7 @@ double north_m(int32_t from_lat_1e7, int32_t to_lat_1e7) {
     return (to_lat_1e7 - from_lat_1e7) * kMetresPerE7;
 }
 
-double east_m(const messages::OwnState& from, int32_t to_lon_1e7) {
+double east_m(const model::OwnState& from, int32_t to_lon_1e7) {
     const double coslat = std::cos(from.lat_1e7 / 1e7 * M_PI / 180.0);
     return (to_lon_1e7 - from.lon_1e7) * kMetresPerE7 * coslat;
 }
@@ -41,7 +43,7 @@ double east_m(const messages::OwnState& from, int32_t to_lon_1e7) {
 }  // namespace
 
 TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
-    const messages::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
+    const model::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
     const Prediction at = extrapolate(own, 1000);
     REQUIRE(at.valid);
     // Due east at 40 m/s for one second: 40 m of easting and nothing else.
@@ -59,8 +61,8 @@ TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
 
 // A neighbour is carried by the three things its burst states: position, ground speed and track.
 TEST_CASE("extrapolate: a reported target moves along its reported track") {
-    const messages::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
-    messages::AircraftObs obs{};
+    const model::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
+    model::AircraftObs obs{};
     obs.position_valid = true;
     obs.speed_valid = true;
     obs.lat_1e7 = own.lat_1e7;
@@ -93,7 +95,7 @@ TEST_CASE("extrapolate: a reported target moves along its reported track") {
 // whole second turning, and putting it on the tangent puts it outside its own
 // circle. Four gliders in one core is exactly where a metre matters.
 TEST_CASE("extrapolate: a circling glider is predicted on its arc, not on the tangent") {
-    const messages::OwnState own = flying(48.5, 8.5, 40.0, 0.0, 0.0, 20.0);
+    const model::OwnState own = flying(48.5, 8.5, 40.0, 0.0, 0.0, 20.0);
     const Prediction at = extrapolate(own, 1000);
     REQUIRE(at.valid);
 
@@ -105,19 +107,19 @@ TEST_CASE("extrapolate: a circling glider is predicted on its arc, not on the ta
     CHECK(east_m(own, at.lon_1e7) == doctest::Approx(arc_east).epsilon(0.05));
 
     // The tangent it is not: straight ahead puts it 6.9 m off the circle.
-    messages::OwnState straight = own;
+    model::OwnState straight = own;
     straight.turn_dps = 0;
     CHECK(east_m(straight, extrapolate(straight, 1000).lon_1e7) == doctest::Approx(0.0));
 
     // And the track goes with it: 20 degrees is 28 units of cordic9.
     CHECK(at.track_c9 == 28);
     // Turning left through north wraps rather than going negative.
-    messages::OwnState left = flying(48.5, 8.5, 40.0, 0.0, 0.0, -20.0);
+    model::OwnState left = flying(48.5, 8.5, 40.0, 0.0, 0.0, -20.0);
     CHECK(extrapolate(left, 1000).track_c9 == 512 - 28);
 }
 
 TEST_CASE("extrapolate: the climb carries both altitudes, and only when it is known") {
-    const messages::OwnState climbing = flying(48.5, 8.5, 30.0, 45.0, 2.0);
+    const model::OwnState climbing = flying(48.5, 8.5, 30.0, 45.0, 2.0);
     const Prediction at = extrapolate(climbing, 1000);
     REQUIRE(at.valid);
     CHECK(at.alt_m == climbing.alt_m + 2);
@@ -126,7 +128,7 @@ TEST_CASE("extrapolate: the climb carries both altitudes, and only when it is kn
 
     // G.1.9's "unavailable" is not zero, and neither is it a level prediction we
     // are entitled to make: without a vertical rate the altitude stands still.
-    messages::OwnState unknown = climbing;
+    model::OwnState unknown = climbing;
     unknown.climb_valid = false;
     CHECK(extrapolate(unknown, 1000).alt_m == unknown.alt_m);
 }
@@ -135,7 +137,7 @@ TEST_CASE("extrapolate: the climb carries both altitudes, and only when it is kn
 // untouched and says so, so the caller can date it as the fix rather than
 // dressing a guess as a prediction.
 TEST_CASE("extrapolate: a gap longer than the bound is not predicted at all") {
-    const messages::OwnState own = flying(48.5, 8.5, 50.0, 90.0, 1.0);
+    const model::OwnState own = flying(48.5, 8.5, 50.0, 90.0, 1.0);
 
     const Prediction inside = extrapolate(own, kMaxExtrapolationMs);
     CHECK(inside.valid);
@@ -151,7 +153,7 @@ TEST_CASE("extrapolate: a gap longer than the bound is not predicted at all") {
     CHECK_FALSE(extrapolate(own, -(kMaxExtrapolationMs + 1)).valid);
 
     // A position nobody has is not extrapolated either.
-    messages::OwnState blind = own;
+    model::OwnState blind = own;
     blind.fix_valid = false;
     CHECK_FALSE(extrapolate(blind, 500).valid);
 }
@@ -160,7 +162,7 @@ TEST_CASE("extrapolate: a gap longer than the bound is not predicted at all") {
 // against a fix that actually arrived, so a model that has stopped describing
 // the aircraft says so on the bench instead of in the air.
 TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
-    const messages::OwnState own = flying(48.5, 8.5, 40.0, 0.0, 2.0);
+    const model::OwnState own = flying(48.5, 8.5, 40.0, 0.0, 2.0);
     const Prediction at = extrapolate(own, 1000);
     REQUIRE(at.valid);
 
@@ -176,7 +178,7 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
     // An aircraft flying the model it is given is predicted to within a metre a
     // second; one that rolls into a turn the model never saw is not, and the
     // residual is the difference between the two.
-    const messages::OwnState turning = flying(48.5, 8.5, 40.0, 0.0, 2.0, 25.0);
+    const model::OwnState turning = flying(48.5, 8.5, 40.0, 0.0, 2.0, 25.0);
     const Prediction ignored_turn = extrapolate(own, 1000);
     const Prediction with_turn = extrapolate(turning, 1000);
     const uint32_t missed =
@@ -186,7 +188,7 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
 
 // F3. The burst leaves a second after its solution: as it stands, it is 50 m behind at 50 m/s.
 TEST_CASE("adsl: the transmitted position is the position at the instant transmitted") {
-    messages::OwnState own{};
+    model::OwnState own{};
     own.fix_valid = true;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
@@ -222,7 +224,7 @@ TEST_CASE("adsl: the transmitted position is the position at the instant transmi
 // filled with a guess. The last fix goes out unmoved, dated when it was solved,
 // so the position and the timestamp still describe the same instant.
 TEST_CASE("adsl: past the extrapolation bound the fix goes out dated as the fix") {
-    messages::OwnState own{};
+    model::OwnState own{};
     own.fix_valid = true;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;

@@ -1,7 +1,7 @@
 #include "ui/screens/status.h"
 
+#include "core/units/units.h"
 #include "core/util/format.h"
-#include "core/util/units.h"
 
 namespace skyblip::ui {
 

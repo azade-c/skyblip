@@ -27,7 +27,10 @@
 #include <string>
 #include <vector>
 
+#include "core/events/link.h"
+#include "core/events/rf.h"
 #include "core/flight/atmosphere.h"
+#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/air.h"
 #include "core/settings/settings.h"
@@ -47,7 +50,7 @@ namespace {
 std::string stream(Rig& rig) {
     std::string all;
     for (const auto& frame : rig.platform.link().sent)
-        if (frame.endpoint == messages::Endpoint::Nmea) all += frame.bytes;
+        if (frame.endpoint == events::Endpoint::Nmea) all += frame.bytes;
     return all;
 }
 
@@ -101,7 +104,7 @@ int count_of(Rig& rig, const char* kind) {
 // the traffic table.
 void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m,
           uint16_t track_c9 = 256) {
-    messages::OwnState transmitter = rig.state().own;
+    model::OwnState transmitter = rig.state().own;
     transmitter.lat_1e7 += static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     transmitter.lon_1e7 += static_cast<int32_t>(static_cast<int64_t>(east_m) * 1000000 / 7460);
     transmitter.alt_m += up_m;
@@ -119,8 +122,8 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
         protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&packet.Version),
         protocol::kAdslFrameBytes, chips);
 
-    messages::RfEvent event{};
-    event.type = messages::RfEventType::RxDone;
+    events::RfEvent event{};
+    event.type = events::RfEventType::RxDone;
     event.rssi_dbm = -80;
     event.len = models::Sx1262::deliver_after_sync(chips, static_cast<uint8_t>(chip_len),
                                                    protocol::kSharedSync, protocol::kSharedSyncBits,
@@ -145,7 +148,7 @@ TEST_CASE("nmea: a tablet that pairs starts hearing sentences, and they stop whe
     fly(rig, t, 3);
 
     // Nobody is listening, so nothing is said - and nothing was formatted to say.
-    CHECK(rig.platform.link().count_on(messages::Endpoint::Nmea) == 0);
+    CHECK(rig.platform.link().count_on(events::Endpoint::Nmea) == 0);
 
     rig.raise_link();
     fly(rig, t, 3);
@@ -160,7 +163,7 @@ TEST_CASE("nmea: a tablet that pairs starts hearing sentences, and they stop whe
     rig.platform.link().clear();
     rig.drop_link();
     fly(rig, t, 3);
-    CHECK(rig.platform.link().count_on(messages::Endpoint::Nmea) == 0);
+    CHECK(rig.platform.link().count_on(events::Endpoint::Nmea) == 0);
 }
 
 TEST_CASE("nmea: an aircraft heard over the air becomes a $PFLAA a tablet can parse") {
@@ -248,7 +251,7 @@ TEST_CASE(
 
     int frames = 0;
     for (const auto& frame : rig.platform.link().sent) {
-        if (frame.endpoint != messages::Endpoint::Nmea) continue;
+        if (frame.endpoint != events::Endpoint::Nmea) continue;
         frames++;
         CHECK(frame.bytes.size() <= hal::kMinimumLinkPayload);
     }
@@ -318,11 +321,11 @@ TEST_CASE(
     // The air the aircraft is actually flying through, and a subscale nowhere
     // near standard, set on the device the way the settings page sets it.
     rig.platform.baro().chip.set_pressure_mpa(90000000);
-    rig.state().qnh_pa = 98000;
+    rig.state().baro.qnh_pa = 98000;
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
-    REQUIRE(rig.state().baro_active);
+    REQUIRE(rig.state().baro.active);
 
     std::string altitude;
     for (const std::string& s : sentences(rig))
@@ -333,9 +336,9 @@ TEST_CASE(
     REQUIRE(f.size() >= 3);
     CHECK(f[2] == "F");
 
-    const uint32_t pressure_pa = rig.state().pressure_mpa / 1000;
+    const uint32_t pressure_pa = rig.state().baro.pressure_mpa / 1000;
     const int32_t standard_cm = flight::pressure_to_alt_cm(pressure_pa);
-    const int32_t on_subscale_cm = flight::alt_cm_on_setting(pressure_pa, rig.state().qnh_pa);
+    const int32_t on_subscale_cm = flight::alt_cm_on_setting(pressure_pa, rig.state().baro.qnh_pa);
     const int32_t sent_cm = static_cast<int32_t>(std::stoi(f[1])) * 3048 / 100;
     // What an EFB does with this figure is apply its own QNH, so the figure has
     // to be the datum-free one: pressure altitude on 1013.25. Within a foot of
@@ -361,8 +364,8 @@ TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cad
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
-    REQUIRE(rig.state().baro_active);
-    REQUIRE(rig.state().battery.valid);
+    REQUIRE(rig.state().baro.active);
+    REQUIRE(rig.state().power.battery.valid);
 
     std::string lk8;
     for (const std::string& s : sentences(rig))
@@ -374,15 +377,15 @@ TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cad
     REQUIRE(f.size() == 6);
     // Field 1 is the raw pressure in pascals, which is what a consumer prefers
     // over field 2 because it can apply its own datum to it.
-    CHECK(std::stol(f[1]) == static_cast<long>(rig.state().pressure_mpa / 1000));
+    CHECK(std::stol(f[1]) == static_cast<long>(rig.state().baro.pressure_mpa / 1000));
     // Field 2 is metres on 1013.25, the same datum-free figure $PGRMZ carries.
     CHECK(std::abs(std::stol(f[2]) -
-                   flight::pressure_to_alt_cm(rig.state().pressure_mpa / 1000) / 100) <= 1);
+                   flight::pressure_to_alt_cm(rig.state().baro.pressure_mpa / 1000) / 100) <= 1);
     // Field 5 is the gauge's own percentage, offset by 1000. A device that says
     // 55% on its panel and something else on the tablet is a support call.
-    CHECK(std::stol(f[5]) == 1000 + rig.state().battery.percent);
+    CHECK(std::stol(f[5]) == 1000 + rig.state().power.battery.percent);
     CHECK(std::stol(f[5]) >= 1000);
-    CHECK(int(rig.state().battery.percent) == 55);
+    CHECK(int(rig.state().power.battery.percent) == 55);
     // Nothing publishes a temperature, so the field carries its "not available"
     // sentinel rather than a plausible number nobody measured.
     CHECK(f[4] == "99");
@@ -409,8 +412,8 @@ TEST_CASE("nmea: a unit with no barometer still tells the tablet about its cell"
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
-    REQUIRE_FALSE(rig.state().baro_active);
-    REQUIRE(rig.state().battery.valid);
+    REQUIRE_FALSE(rig.state().baro.active);
+    REQUIRE(rig.state().power.battery.valid);
 
     // No $PGRMZ at all, and an $LK8EX1 every second regardless.
     CHECK(count_of(rig, "$PGRMZ") == 0);
@@ -427,8 +430,8 @@ TEST_CASE("nmea: a unit with no barometer still tells the tablet about its cell"
     CHECK(f[1] == "999999");  // no pressure
     CHECK(f[2] == "99999");   // no pressure altitude
     CHECK(f[4] == "99");      // no temperature
-    CHECK(std::stol(f[5]) == 1000 + rig.state().battery.percent);
-    CHECK(int(rig.state().battery.percent) == 12);
+    CHECK(std::stol(f[5]) == 1000 + rig.state().power.battery.percent);
+    CHECK(int(rig.state().power.battery.percent) == 12);
 }
 
 // The cadence arithmetic this relies on: emit_ownship() is two calls inside
@@ -486,8 +489,9 @@ struct FeatureRig {
     platform::host::Clock clock;
     platform::host::Link link;
     runtime::NullRoles null;
-    hal::Roles roles{clock,          null.rf,          link,    null.display, null.kv,
-                     null.log_flash, null.annunciator, null.dfu};
+    hal::Roles roles{
+        clock,          null.rf,          link,     null.display,         null.kv,
+        null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
@@ -495,23 +499,24 @@ struct FeatureRig {
     comms::ConfigService config{link, settings};
     go::NmeaService nmea;
 
-    explicit FeatureRig(go::Feature declared) : nmea(context, declared) {
-        roles.capabilities = hal::Capability::Link;
+    FeatureRig(go::Feature declared, hal::Capabilities fitted = hal::Capability::Link)
+        : nmea(context, declared, config) {
+        roles.capabilities = fitted;
         state.own.fix_valid = true;
         state.own.utc_valid = true;
         state.own.lat_1e7 = 485000000;
         state.own.lon_1e7 = 85000000;
-        config.on_link_up(messages::LinkUp{1, platform::host::Link::kDefaultPayloadBytes});
-        nmea.attach_config(config);
+        config.on_link_up(events::LinkUp{1, platform::host::Link::kDefaultPayloadBytes});
+        nmea.setup();
     }
 
-    int frames() { return link.count_on(messages::Endpoint::Nmea); }
+    int frames() { return link.count_on(events::Endpoint::Nmea); }
 };
 
 }  // namespace
 
 TEST_CASE("nmea: a product that does not declare the companion link says nothing on it") {
-    FeatureRig silent(go::Feature::AdslRx);
+    FeatureRig silent(go::Feature::None);
     for (uint32_t t = 0; t <= 5000; t += 100) silent.nmea.tick(t);
     CHECK_FALSE(silent.nmea.enabled());
     CHECK(silent.frames() == 0);
@@ -522,6 +527,13 @@ TEST_CASE("nmea: a product that does not declare the companion link says nothing
     for (uint32_t t = 0; t <= 5000; t += 100) speaking.nmea.tick(t);
     CHECK(speaking.nmea.enabled());
     CHECK(speaking.frames() > 0);
+}
+
+TEST_CASE("nmea: the companion link is not claimed on a board with no link fitted") {
+    FeatureRig unfitted(go::Feature::CompanionLink, hal::Capability::None);
+    for (uint32_t t = 0; t <= 5000; t += 100) unfitted.nmea.tick(t);
+    CHECK_FALSE(unfitted.nmea.enabled());
+    CHECK(unfitted.frames() == 0);
 }
 
 // M. The pass cadence across the 49.7-day wrap of hal::Clock::millis(). The

@@ -9,6 +9,7 @@
 // internal storage_partition: a write there is an NVMC stall on the same core that
 // arms PPS-anchored deadlines. Before the page existed a settings write could only
 // happen on the ground, because a companion "set" is refused airborne.
+#include "core/events/link.h"
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
 #include "test/support/product_rig.h"
@@ -50,7 +51,7 @@ uint32_t writes(Rig& rig) { return rig.platform.kv().writes(); }
 
 // The phase of the second the device believes it is at, read off the radio's own
 // published view rather than recomputed here.
-int published_phase(Rig& rig) { return rig.state().dwell.phase_ms; }
+int published_phase(Rig& rig) { return rig.state().rf.dwell.phase_ms; }
 
 // Runs until the write count moves, and answers the millisecond it moved on.
 uint32_t wait_for_write(Rig& rig, uint32_t& t, uint32_t give_up_after_ms) {
@@ -75,7 +76,7 @@ TEST_CASE("flash window: a change made inside a dwell is not written until the w
     fly(rig, t);
     step_until(rig, t, t + static_cast<uint32_t>(timing::kDirectStart) + 20);
     REQUIRE(published_phase(rig) >= timing::kDirectStart);
-    REQUIRE(rig.state().plan.tx_allowed);
+    REQUIRE(rig.state().rf.plan.tx_allowed);
     const uint32_t before = writes(rig);
 
     change_volume(rig, 4);
@@ -89,7 +90,7 @@ TEST_CASE("flash window: a change made inside a dwell is not written until the w
     const int phase = static_cast<int>(at_ms % 1000);
     // One of the two stretches the dwell map leaves: slot 1's tail, or the uplink
     // dwell. Read off the policy rather than restated as numbers.
-    CHECK(timing::DurableWriteWindow::free_at(rig.state().plan, phase,
+    CHECK(timing::DurableWriteWindow::free_at(rig.state().rf.plan, phase,
                                               timing::DurableWriteWindow::kWorstWriteMs));
     CHECK(rig.product.config().durable_writes().forced() == 0);
 }
@@ -230,7 +231,7 @@ TEST_CASE("flash window: a pending change is flushed on the way to power off") {
     uint32_t t = 0;
     fly(rig, t);
     step_until(rig, t, t + static_cast<uint32_t>(timing::kDirectStart) + 20);
-    REQUIRE(rig.state().plan.tx_allowed);
+    REQUIRE(rig.state().rf.plan.tx_allowed);
 
     const uint32_t before = writes(rig);
     change_volume(rig, 1);
@@ -260,7 +261,7 @@ TEST_CASE("flash window: the write counters are readable over the companion link
     rig.platform.link().clear();
     rig.send("{\"cmd\":\"flash\"}");
     step_until(rig, t, t + 100);
-    REQUIRE(rig.platform.link().last_on(messages::Endpoint::Config));
+    REQUIRE(rig.platform.link().last_on(events::Endpoint::Config));
     const std::string reply = rig.platform.link().last().bytes;
     CHECK(reply.find("\"cmd\":\"flash\"") != std::string::npos);
     CHECK(reply.find("\"writes\":1") != std::string::npos);
@@ -319,7 +320,7 @@ TEST_CASE("flash window: a change is held, not written, while the cell is below 
     // The board samples the cell once a second and the monitor acts on the third
     // consecutive reading, so a low cell takes four seconds to become a decision.
     rig.seconds(t, 5, /*speed_q=*/0, 0);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
 
     const uint32_t before = writes(rig);
     change_volume(rig, 5);
@@ -337,7 +338,7 @@ TEST_CASE("flash window: a change is held, not written, while the cell is below 
     // Normal, and the change a pilot made is still there to write.
     rig.platform.battery().external_power = true;
     rig.seconds(t, 3, /*speed_q=*/0, 0);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Normal);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Normal);
     CHECK_FALSE(rig.product.config().holding_for_power());
     CHECK(writes(rig) - before == 1);
     CHECK(rig.product.config().durable_writes().forced() == 0);
@@ -360,7 +361,7 @@ TEST_CASE("flash window: a cell at its cutoff powers off without touching the se
     uint32_t t = 0;
     rig.platform.battery().millivolts = 3400;
     rig.seconds(t, 5, /*speed_q=*/0, 0);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Low);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     const uint32_t before = writes(rig);
 
     // A change made on a cell that is already warning: held, never written.
@@ -387,7 +388,7 @@ TEST_CASE("flash window: a healthy cell flushes the change it was holding") {
     uint32_t t = 0;
     fly(rig, t);
     step_until(rig, t, t + static_cast<uint32_t>(timing::kDirectStart) + 20);
-    REQUIRE(rig.state().plan.tx_allowed);
+    REQUIRE(rig.state().rf.plan.tx_allowed);
     const uint32_t before = writes(rig);
 
     change_volume(rig, 5);
@@ -408,7 +409,7 @@ TEST_CASE("flash window: a fired power-failure comparator stops settings writes"
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
     stand_on_the_ground(rig, t);
-    REQUIRE(rig.state().power_level == power::PowerLevel::Normal);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Normal);
     REQUIRE(rig.platform.system_power().supply_monitor_armed());
 
     const uint32_t before = writes(rig);

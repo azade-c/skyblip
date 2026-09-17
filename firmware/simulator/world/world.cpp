@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 
@@ -139,7 +141,7 @@ int World::aircraft_count() const {
     return n;
 }
 
-void World::service_aircraft(uint32_t now_ms, const messages::OwnState& own) {
+void World::service_aircraft(uint32_t now_ms, const model::OwnState& own) {
     (void)own;
     if (now_ms - last_aircraft_ms_ < 100) return;
     const double dt = (now_ms - last_aircraft_ms_) / 1000.0;
@@ -164,7 +166,7 @@ void World::service_aircraft(uint32_t now_ms, const messages::OwnState& own) {
 // §C.5). Scheduling the whole second up front is what a real transmitter's
 // clock does, and it keeps the emission instant independent of how coarsely the
 // simulation is stepped.
-void World::schedule_second(uint64_t epoch_us, const messages::OwnState& own) {
+void World::schedule_second(uint64_t epoch_us, const model::OwnState& own) {
     for (auto& a : aircraft_) {
         if (!a.used || a.system == protocol::System::AdslUplink) continue;
         transmit(a, epoch_us, own);
@@ -176,10 +178,9 @@ void World::schedule_second(uint64_t epoch_us, const messages::OwnState& own) {
 // aircraft's own frame carries: an address, a place, a height, a speed. No
 // climb rate and no track, because an uplink record has no room for them - which
 // is the whole reason a direct reception outranks a relay of the same aircraft.
-messages::AircraftObs World::as_relayed(const VirtualAircraft& a,
-                                        const messages::OwnState& own) const {
+model::AircraftObs World::as_relayed(const VirtualAircraft& a, const model::OwnState& own) const {
     const double coslat = std::cos(origin_lat_1e7_ / 1e7 * kPi / 180.0);
-    messages::AircraftObs obs{};
+    model::AircraftObs obs{};
     obs.addr = a.addr;
     obs.addr_table = 6;
     obs.aircraft_cat = 4;
@@ -200,8 +201,8 @@ messages::AircraftObs World::as_relayed(const VirtualAircraft& a,
 // finishing well before the dwell closes at 395 (core/timing/slot.h). A relay
 // costs the aircraft nothing - it never transmits on the O band - so this is
 // scheduled apart from the direct transmitters rather than per aircraft.
-void World::relay(uint64_t epoch_us, const messages::OwnState& own) {
-    messages::AircraftObs relayed[protocol::AdslUplink::kMaxTargets];
+void World::relay(uint64_t epoch_us, const model::OwnState& own) {
+    model::AircraftObs relayed[protocol::AdslUplink::kMaxTargets];
     int n = 0;
     for (auto& a : aircraft_) {
         if (!a.used || a.system != protocol::System::AdslUplink) continue;
@@ -270,7 +271,7 @@ size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t
 // so and the receiver reports it as one.
 size_t alptas_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t lat_1e7,
                     int32_t lon_1e7, uint8_t* chips) {
-    messages::AircraftObs obs{};
+    model::AircraftObs obs{};
     obs.addr = a.addr;
     obs.addr_table = 0x06;
     obs.aircraft_cat = 4;
@@ -293,7 +294,7 @@ size_t alptas_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32
 
 }  // namespace
 
-void World::transmit(VirtualAircraft& a, uint64_t epoch_us, const messages::OwnState& own) {
+void World::transmit(VirtualAircraft& a, uint64_t epoch_us, const model::OwnState& own) {
     const double coslat = std::cos(origin_lat_1e7_ / 1e7 * kPi / 180.0);
     int32_t lat = origin_lat_1e7_ + static_cast<int32_t>(a.north_m * 1e7 / kMetresPerDegLat);
     int32_t lon = origin_lon_1e7_;

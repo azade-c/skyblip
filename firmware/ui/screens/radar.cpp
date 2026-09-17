@@ -1,8 +1,8 @@
 #include "ui/screens/radar.h"
 
+#include "core/units/units.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
-#include "core/util/units.h"
 #include "ui/widgets/skyship.h"
 
 namespace skyblip::ui {

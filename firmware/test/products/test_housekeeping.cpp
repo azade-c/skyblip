@@ -7,6 +7,7 @@
 // list, the same part models the silicon build uses.
 #include <cstring>
 
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/platform.h"
 #include "products/skyblip_go/product.h"
@@ -104,8 +105,8 @@ struct Rig {
     // A companion app talking to the device: the frame arrives on the link the
     // board polls, so it takes the same road a phone's would.
     void send(const char* json) {
-        messages::RxFrame frame{};
-        frame.endpoint = messages::Endpoint::Config;
+        events::RxFrame frame{};
+        frame.endpoint = events::Endpoint::Config;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
         platform.link().push_rx(frame);
@@ -316,7 +317,7 @@ TEST_CASE("product: a device that cannot fly still switches itself off on a flat
     rig.platform.battery().millivolts = 3100;
     rig.run(0, 8000);
     CHECK(rig.product.power().cutoff());
-    CHECK(rig.state().battery.valid);
+    CHECK(rig.state().power.battery.valid);
     CHECK(rig.product.shutdown().reason() == power::ShutdownReason::LowBattery);
 
     rig.run(8000, 20000);
@@ -330,7 +331,7 @@ TEST_CASE("product: a warning comes before the cutoff, and a floating sense neve
     warned.run(0, 8000);
     // The level is published on the bus, which is where the status page reads
     // it: nothing downstream compares millivolts a second time.
-    CHECK(warned.state().power_level == power::PowerLevel::Low);
+    CHECK(warned.state().power.level == power::PowerLevel::Low);
     CHECK_FALSE(warned.product.power().cutoff());
     CHECK_FALSE(warned.product.shutdown().going_down());
 

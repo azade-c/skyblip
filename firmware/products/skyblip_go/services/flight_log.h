@@ -18,15 +18,14 @@ class FlightLogService : public runtime::Service {
     // more sessions than this on it offers the newest and says so.
     static constexpr int kMaxSessions = 16;
 
-    using runtime::Service::Service;
-
-    Status setup() override;
-    void tick(uint32_t now_ms) override;
-
     // The prompt machine lives with the config service because the panel and
     // the button do, so a destructive erase is authorised the same way a
     // firmware upload is.
-    void attach_config(comms::ConfigService& config) { config_ = &config; }
+    FlightLogService(runtime::Context& context, comms::ConfigService& config)
+        : runtime::Service(context), config_(config) {}
+
+    Status setup() override;
+    void tick(uint32_t now_ms) override;
 
     bool available() const { return available_; }
     bool recording() const { return session_.open(); }
@@ -86,7 +85,7 @@ class FlightLogService : public runtime::Service {
     bool on_ground() const;
     const SessionInfo* find(uint32_t session_id) const;
 
-    comms::ConfigService* config_{nullptr};
+    comms::ConfigService& config_;
     flight::LogSession session_{};
     flight::LogRing ring_{};
 

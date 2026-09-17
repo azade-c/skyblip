@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/model/aircraft.h"
 #include "core/util/result.h"
 
 namespace skyblip::protocol {
@@ -38,11 +38,11 @@ uint8_t adsl_table_to_alptas_addr_type(uint8_t addr_table);
 // Decrypt + unpack. Position is coded relative to the receiver, so it needs own
 // position, and the key stage needs the UTC second the frame arrived in.
 Status alptas_decode(const uint8_t* frame, uint32_t rx_utc, int32_t ref_lat_1e7,
-                     int32_t ref_lon_1e7, messages::AircraftObs& out);
+                     int32_t ref_lon_1e7, model::AircraftObs& out);
 
 // Pack + encrypt the same fields back, so the simulator can fly ALP-TAS traffic
 // and the round trip is a test.
-Status alptas_encode(uint8_t* frame, const messages::AircraftObs& obs, uint32_t utc,
+Status alptas_encode(uint8_t* frame, const model::AircraftObs& obs, uint32_t utc,
                      int32_t ref_lat_1e7, int32_t ref_lon_1e7);
 
 }

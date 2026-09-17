@@ -1,15 +1,17 @@
 #include "core/traffic/sanity.h"
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::traffic {
 
-int32_t plausible_range_m(messages::Source source) {
-    return source == messages::Source::AdslUplink ? kMaxRelayedRangeM : kMaxPlausibleRangeM;
+int32_t plausible_range_m(model::Source source) {
+    return source == model::Source::AdslUplink ? kMaxRelayedRangeM : kMaxPlausibleRangeM;
 }
 
-Plausibility range_check(const messages::OwnState& own, const messages::AircraftObs& obs,
+Plausibility range_check(const model::OwnState& own, const model::AircraftObs& obs,
                          int32_t& slant_m) {
     int32_t north_m = 0, east_m = 0, up_m = 0;
     if (!protocol::relative_ned(own, obs, north_m, east_m, up_m)) return Plausibility::NoReference;

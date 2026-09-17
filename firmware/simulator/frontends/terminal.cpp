@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "core/model/ownship.h"
 #include "simulator/simulator.h"
 
 using namespace skyblip;
@@ -60,7 +61,7 @@ void render(simulator::Simulator& s) {
     std::printf("+----------------------------------------------------+\n");
 
     const bus::State& st = s.product().state();
-    const messages::OwnState& o = st.own;
+    const model::OwnState& o = st.own;
     const char* glass = !s.panel_refreshing()       ? "idle"
                         : s.panel_refresh_is_full() ? "FULL"
                                                     : "partial";
@@ -72,11 +73,12 @@ void render(simulator::Simulator& s) {
                 o.lat_1e7 / 1e7, o.lon_1e7 / 1e7);
     std::printf("  alt:%5dm  spd:%5.1fm/s  trk:%03u  vs:%+.1fm/s\n", o.alt_m, o.speed_q / 4.0,
                 static_cast<unsigned>(o.track_c9 * 360 / 512), o.climb_e8 / 8.0);
-    std::printf("  batt:%u.%02uV %3u%%%s\n", st.battery.millivolts / 1000,
-                (st.battery.millivolts % 1000) / 10, st.battery.percent,
-                st.battery.charging ? " CHG" : "");
-    std::printf("  traffic:%d  rx ok/bad:%u/%u  tx ok:%u  ALARM:%s\n", st.traffic.count(), st.rx_ok,
-                st.rx_bad, st.tx_ok, kAlarm[st.alarm_level > 3 ? 3 : st.alarm_level]);
+    std::printf("  batt:%u.%02uV %3u%%%s\n", st.power.battery.millivolts / 1000,
+                (st.power.battery.millivolts % 1000) / 10, st.power.battery.percent,
+                st.power.battery.charging ? " CHG" : "");
+    std::printf("  traffic:%d  rx ok/bad:%u/%u  tx ok:%u  ALARM:%s\n", st.traffic.count(),
+                st.air.rx_ok, st.air.rx_bad, st.air.tx_ok,
+                kAlarm[st.alarm_level > 3 ? 3 : st.alarm_level]);
     // One line, because a log that only exists on a partition nobody can see is
     // a feature nobody notices is broken.
     const go::FlightLogService& log = s.product().flight_log();
@@ -168,7 +170,7 @@ int main(int argc, char** argv) {
         usleep(50 * 1000);
     }
     const bus::State& st = s.product().state();
-    std::printf("\nbye: traffic=%d rx=%u failures=%d\n", st.traffic.count(), st.rx_ok,
+    std::printf("\nbye: traffic=%d rx=%u failures=%d\n", st.traffic.count(), st.air.rx_ok,
                 s.world().failures());
     return 0;
 }

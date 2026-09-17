@@ -1,6 +1,8 @@
 // The page a bench reads: what it draws per burst, and what it refuses to invent.
 #include <cstring>
 
+#include "core/model/aircraft.h"
+#include "core/model/band.h"
 #include "doctest/doctest.h"
 #include "ui/framebuffer.h"
 #include "ui/screens/radio_log.h"
@@ -35,7 +37,7 @@ int ink_in_row(const Framebuffer& fb, int index) {
 radio::Entry entry_of(radio::Event event) {
     radio::Entry e{};
     e.event = event;
-    e.band = messages::Band::M;
+    e.band = model::Band::M;
     e.at_s = 45296;  // 12:34:56
     e.into_ms = 462;
     e.phase_valid = true;
@@ -45,7 +47,7 @@ radio::Entry entry_of(radio::Event event) {
 
 radio::Entry received(uint32_t addr, int8_t rssi) {
     radio::Entry e = entry_of(radio::Event::Received);
-    e.source = messages::Source::AdslDirect;
+    e.source = model::Source::AdslDirect;
     e.addr = addr;
     e.rssi_dbm = rssi;
     e.rssi_valid = true;
@@ -112,7 +114,7 @@ TEST_CASE("radio log page: the M band's two channels read apart, and the O band 
     second.channel = 1;
     log.record(second);
     radio::Entry uplink = received(0x3FA21C, -87);
-    uplink.band = messages::Band::O;
+    uplink.band = model::Band::O;
     log.record(uplink);
 
     Framebuffer fb;

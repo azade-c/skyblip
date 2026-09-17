@@ -1,6 +1,7 @@
 #include "core/protocol/air.h"
 
 #include "core/fec/manchester.h"
+#include "core/model/band.h"
 
 namespace skyblip::protocol {
 
@@ -88,8 +89,8 @@ size_t encode_oband(const uint8_t* frame, uint8_t* out) {
     return sizeof(kUplinkSync) + kUplinkFrameBytes;
 }
 
-System receive_burst(messages::Band band, const uint8_t* data, size_t len, Frame& out) {
-    if (band == messages::Band::O) {
+System receive_burst(model::Band band, const uint8_t* data, size_t len, Frame& out) {
+    if (band == model::Band::O) {
         out = Frame{};
         return len == kUplinkFrameBytes ? System::AdslUplink : System::Unknown;
     }

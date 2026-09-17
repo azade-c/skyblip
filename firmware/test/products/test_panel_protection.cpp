@@ -64,7 +64,7 @@ TEST_CASE("screen policy: no refresh starts on a dying rail, partial or full") {
     rig.churn(t, 2);
     const int before = rig.chip.present_count;
 
-    rig.state.supply_warned = true;
+    rig.state.power.supply_warned = true;
     rig.run_seconds(t, 600);
     CHECK(rig.chip.present_count == before);
     CHECK_FALSE(rig.chip.rails_on);
@@ -96,7 +96,7 @@ TEST_CASE("screen policy: going hot mid-refresh does not abandon the frame on th
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    rig.state.flight_seconds += 60;
+    rig.state.flight.seconds += 60;
     rig.tick(t += 1000);
     const int in_flight = rig.chip.present_count;
 
@@ -183,7 +183,7 @@ TEST_CASE("screen policy: a board whose die sensor never read refreshes as it al
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    REQUIRE_FALSE(rig.state.die_temperature_valid);
+    REQUIRE_FALSE(rig.state.power.die_valid);
 
     rig.churn(t, 3);
     CHECK_FALSE(rig.chip.last_full);
@@ -196,7 +196,7 @@ TEST_CASE("screen policy: nothing routine is refreshed once the cell is at its c
     rig.run_seconds(t, 3);
     const int before = rig.chip.present_count;
 
-    rig.state.power_level = power::PowerLevel::Cutoff;
+    rig.state.power.level = power::PowerLevel::Cutoff;
     rig.churn(t, 10);
     CHECK(rig.chip.present_count == before);
     CHECK_FALSE(rig.chip.rails_on);
@@ -208,7 +208,7 @@ TEST_CASE("screen policy: a low cell still gets its traffic picture") {
     rig.run_seconds(t, 3);
     const int before = rig.chip.present_count;
 
-    rig.state.power_level = power::PowerLevel::Low;
+    rig.state.power.level = power::PowerLevel::Low;
     rig.churn(t, 3);
     CHECK(rig.chip.present_count > before);
 }
@@ -219,7 +219,7 @@ TEST_CASE("screen policy: the white field the glass wears while off is drawn at 
     rig.run_seconds(t, 3);
     const int before = rig.chip.present_count;
 
-    rig.state.power_level = power::PowerLevel::Cutoff;
+    rig.state.power.level = power::PowerLevel::Cutoff;
     rig.screen.set_power(false);
     rig.run_seconds(t, 6);
     CHECK(rig.chip.present_count == before + 1);
@@ -251,7 +251,7 @@ TEST_CASE("screen policy: a park mid-refresh waits for the glass, it does not ta
     Rig rig;
     uint32_t t = 0;
     rig.churn(t, 5);
-    rig.state.flight_seconds += 60;
+    rig.state.flight.seconds += 60;
     rig.tick(t += 1000);
     const int before = rig.chip.present_count;
     REQUIRE(rig.epd.refreshing());
@@ -271,7 +271,7 @@ TEST_CASE("screen policy: a supply warning parks the panel without a park frame"
     rig.run_seconds(t, 5);
     const int before = rig.chip.present_count;
 
-    rig.state.supply_warned = true;
+    rig.state.power.supply_warned = true;
     rig.screen.set_power(false);
     rig.tick(t += 100);
     CHECK(rig.chip.present_count == before);
@@ -284,7 +284,7 @@ TEST_CASE("screen policy: a supply warning stops the routine refreshes too") {
     rig.run_seconds(t, 3);
     const int before = rig.chip.present_count;
 
-    rig.state.supply_warned = true;
+    rig.state.power.supply_warned = true;
     rig.churn(t, 10);
     CHECK(rig.chip.present_count == before);
     CHECK_FALSE(rig.chip.rails_on);

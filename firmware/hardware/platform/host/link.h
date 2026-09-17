@@ -6,6 +6,7 @@
 
 #include "core/bus/bus.h"
 #include "core/comms/link_session.h"
+#include "core/events/link.h"
 #include "hal/link.h"
 
 namespace skyblip::platform::host {
@@ -13,7 +14,7 @@ namespace skyblip::platform::host {
 class Link : public hal::Link {
    public:
     struct Frame {
-        messages::Endpoint endpoint;
+        events::Endpoint endpoint;
         std::string bytes;
     };
 
@@ -24,8 +25,8 @@ class Link : public hal::Link {
 
     Status begin() { return Status::Ok; }
 
-    void push_rx(const messages::RxFrame& frame) { rx_.push(frame); }
-    bool pop_rx(messages::RxFrame& out) { return rx_.pop(out); }
+    void push_rx(const events::RxFrame& frame) { rx_.push(frame); }
+    bool pop_rx(events::RxFrame& out) { return rx_.pop(out); }
 
     // A central connects, and a central goes away. The same comms::LinkSession
     // the Bluetooth callbacks drive on silicon, so a host case raises a link
@@ -33,7 +34,7 @@ class Link : public hal::Link {
     // board makes.
     void raise_link(uint16_t session_id = 1) { session_.connected(session_id, payload_bytes_); }
     void drop_link() { session_.disconnected(session_.session_id()); }
-    bool pop_event(messages::LinkEvent& out) { return session_.pop(out); }
+    bool pop_event(events::LinkEvent& out) { return session_.pop(out); }
     bool up() const { return session_.up(); }
     uint16_t session_id() const { return session_.session_id(); }
 
@@ -48,7 +49,7 @@ class Link : public hal::Link {
 
     uint16_t payload_bytes() const override { return payload_bytes_; }
 
-    Status send(messages::Endpoint ep, ConstByteSpan bytes) override {
+    Status send(events::Endpoint ep, ConstByteSpan bytes) override {
         // The controller's refusal, modelled: an oversized notification is not
         // shortened, it fails, so no case can pass by sending one.
         if (bytes.size() > payload_bytes_) {
@@ -71,10 +72,8 @@ class Link : public hal::Link {
     }
 
     const Frame& last() const { return sent.back(); }
-    bool last_on(messages::Endpoint ep) const {
-        return !sent.empty() && sent.back().endpoint == ep;
-    }
-    int count_on(messages::Endpoint ep) const {
+    bool last_on(events::Endpoint ep) const { return !sent.empty() && sent.back().endpoint == ep; }
+    int count_on(events::Endpoint ep) const {
         int n = 0;
         for (auto& f : sent)
             if (f.endpoint == ep) n++;
@@ -86,7 +85,7 @@ class Link : public hal::Link {
     int refused_oversize{0};
 
    private:
-    bus::Queue<messages::RxFrame, 4> rx_;
+    bus::Queue<events::RxFrame, 4> rx_;
     comms::LinkSession session_{};
     uint16_t payload_bytes_{kDefaultPayloadBytes};
     Status next_status_{Status::Ok};

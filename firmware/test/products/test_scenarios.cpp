@@ -3,6 +3,8 @@
 // the assertions. A bug found in flight becomes a file, not a bug report.
 #include <string>
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "core/traffic/alarm.h"
 #include "doctest/doctest.h"
@@ -64,7 +66,7 @@ TEST_CASE("scenario: a training scenario's expectations hold when replayed") {
     replay(s);
 
     CHECK(s.world().failures() == 0);
-    CHECK(s.product().state().rx_ok > 0);
+    CHECK(s.product().state().air.rx_ok > 0);
     // The last event pulls the fix, and the firmware must follow it down.
     CHECK_FALSE(s.product().state().own.fix_valid);
 }
@@ -122,8 +124,8 @@ TEST_CASE("scenario: ADS-L and ALP-TAS traffic are both heard in the same dwells
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = table.at(i);
         if (t == nullptr || !t->used) continue;
-        if (t->obs.source == messages::Source::AdslDirect) adsl++;
-        if (t->obs.source == messages::Source::Alptas) alptas++;
+        if (t->obs.source == model::Source::AdslDirect) adsl++;
+        if (t->obs.source == model::Source::Alptas) alptas++;
     }
     CHECK(adsl == 1);
     CHECK(alptas == 1);
@@ -139,11 +141,11 @@ TEST_CASE("scenario: an ALP-TAS target decodes to where it actually is") {
     s.run(5000);
 
     const traffic::TrafficTable& table = s.product().state().traffic;
-    const messages::OwnState& own = s.product().state().own;
+    const model::OwnState& own = s.product().state().own;
     int found = 0;
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = table.at(i);
-        if (t == nullptr || !t->used || t->obs.source != messages::Source::Alptas) continue;
+        if (t == nullptr || !t->used || t->obs.source != model::Source::Alptas) continue;
         found++;
         // 900 m north and 250 m east of us at the start, closing from the south.
         const int64_t dlat = t->obs.lat_1e7 - own.lat_1e7;
@@ -467,18 +469,18 @@ TEST_CASE("scenario: a skyPost relay puts aircraft on the radar that we cannot h
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = state.traffic.at(i);
         if (t == nullptr || !t->used) continue;
-        if (t->obs.source == messages::Source::AdslDirect) direct++;
-        if (t->obs.source == messages::Source::AdslUplink) relayed++;
+        if (t->obs.source == model::Source::AdslDirect) direct++;
+        if (t->obs.source == model::Source::AdslUplink) relayed++;
     }
     CHECK(direct == 1);
     CHECK(relayed == 3);
 
     // One frame a second, three aircraft in each, and none of it counted as an
     // M-band framing failure.
-    CHECK(state.uplink_frames > 5);
-    CHECK(state.uplink_bad == 0);
-    CHECK(state.uplink_targets >= 3 * state.uplink_frames);
-    CHECK(state.rx_ok > 0);
+    CHECK(state.air.uplink_frames > 5);
+    CHECK(state.air.uplink_bad == 0);
+    CHECK(state.air.uplink_targets >= 3 * state.air.uplink_frames);
+    CHECK(state.air.rx_ok > 0);
 
     // The tape says what it heard and where: the relay is on 869.525 and it is
     // read as a relay, not as an unframed burst.

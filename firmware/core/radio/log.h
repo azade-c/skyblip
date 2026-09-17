@@ -3,7 +3,9 @@
 
 #include <cstdint>
 
-#include "core/messages/messages.h"
+#include "core/events/stamp.h"
+#include "core/model/aircraft.h"
+#include "core/model/band.h"
 
 namespace skyblip::radio {
 
@@ -11,8 +13,8 @@ enum class Event : uint8_t { Transmitted, Lost, Held, Unarmed, Received, BadCrc,
 
 struct Entry {
     Event event{Event::Undecoded};
-    messages::Band band{messages::Band::M};
-    messages::Source source{messages::Source::AdslDirect};
+    model::Band band{model::Band::M};
+    model::Source source{model::Source::AdslDirect};
     uint32_t addr{0};
     uint32_t at_s{0};
     uint16_t into_ms{0};
@@ -27,17 +29,9 @@ struct Entry {
     bool tx_span_valid{false};
 };
 
-struct Stamp {
-    uint32_t at_s{0};
-    uint16_t into_ms{0};
-    bool phase_valid{false};
-};
-
-constexpr int64_t kStampReachUs = 2000000;
 // INFO: fc 16sep26 the field's own ceiling: a burst this late is a dwell that already ended
 constexpr uint16_t kTxSpanLimitUs = 65535;
 
-Stamp stamp_of(uint64_t at_us, uint64_t pps_edge_us, bool pps_locked, uint32_t now_s);
 uint16_t tx_span_of(uint64_t done_at_us, uint64_t deadline_us);
 
 class Log {

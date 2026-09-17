@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "core/model/aircraft.h"
+
 namespace skyblip::simulator {
 
 namespace {
@@ -173,7 +175,7 @@ int Air::format(int i, char* out, int cap) const {
         if (!framed_uplink(r, frame_bytes))
             return head + std::snprintf(out + head, left, "unframed");
         protocol::AdslUplink codec;
-        messages::AircraftObs relayed[protocol::AdslUplink::kMaxTargets];
+        model::AircraftObs relayed[protocol::AdslUplink::kMaxTargets];
         protocol::AdslUplink::DecodeStats stats{};
         if (codec.decode(frame_bytes, relayed, protocol::AdslUplink::kMaxTargets, stats) !=
             Status::Ok)

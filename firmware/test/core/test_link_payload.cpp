@@ -16,6 +16,7 @@
 #include "core/comms/config.h"
 #include "core/comms/log_link.h"
 #include "core/comms/timing_report.h"
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/link.h"
 #include "runtime/null.h"
@@ -25,10 +26,10 @@ using namespace skyblip::comms;
 
 namespace {
 
-messages::RxFrame frame(const char* json) {
-    messages::RxFrame f{};
+events::RxFrame frame(const char* json) {
+    events::RxFrame f{};
     f.session_id = 1;
-    f.endpoint = messages::Endpoint::Config;
+    f.endpoint = events::Endpoint::Config;
     f.len = static_cast<uint16_t>(std::strlen(json));
     std::memcpy(f.data.data(), json, f.len);
     return f;
@@ -110,7 +111,7 @@ TEST_CASE("link: a link that has not been told what it carries promises what BLE
     // what a controller does with an oversized notification.
     const char* twenty_one = "123456789012345678901";
     const ConstByteSpan too_long(reinterpret_cast<const uint8_t*>(twenty_one), 21);
-    CHECK(link.send(messages::Endpoint::Config, too_long) == Status::OutOfRange);
+    CHECK(link.send(events::Endpoint::Config, too_long) == Status::OutOfRange);
     CHECK(link.sent.empty());
     CHECK(link.refused_oversize == 1);
 }
@@ -245,7 +246,7 @@ TEST_CASE("comms: a status push the controller could not take is retried, not lo
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
     cs.set_flight_state(flight::FlightState::OnGround);
-    cs.on_link_up(messages::LinkUp{1, link.payload_bytes()});
+    cs.on_link_up(events::LinkUp{1, link.payload_bytes()});
 
     // Out of buffers for one pass - an upload sharing the connection will do
     // that. The push is the one frame nobody asked for, so nobody will ask
@@ -271,7 +272,7 @@ TEST_CASE("comms: a push that will never fit is counted once and not retried for
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
     cs.set_flight_state(flight::FlightState::OnGround);
-    cs.on_link_up(messages::LinkUp{1, link.payload_bytes()});
+    cs.on_link_up(events::LinkUp{1, link.payload_bytes()});
 
     cs.set_battery_state(full_battery(), power::PowerLevel::Normal);
     CHECK(cs.link_drops() == 1);

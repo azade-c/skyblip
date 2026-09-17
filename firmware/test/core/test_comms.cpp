@@ -9,18 +9,19 @@
 #include <string>
 
 #include "core/comms/config.h"
+#include "core/events/link.h"
 #include "doctest/doctest.h"
-#include "hal/dfu.h"
 #include "hardware/platform/host/link.h"
+#include "hal/dfu.h"
 
 using namespace skyblip;
 using namespace skyblip::comms;
 
 namespace {
-messages::RxFrame frame(const char* json) {
-    messages::RxFrame f{};
+events::RxFrame frame(const char* json) {
+    events::RxFrame f{};
     f.session_id = 1;
-    f.endpoint = messages::Endpoint::Config;
+    f.endpoint = events::Endpoint::Config;
     f.len = static_cast<uint16_t>(std::strlen(json));
     std::memcpy(f.data.data(), json, f.len);
     return f;
@@ -54,7 +55,7 @@ TEST_CASE("comms: get returns current config on the Config endpoint") {
     cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"get\"}"));
     REQUIRE(link.sent.size() == 1);
-    CHECK(link.last_on(messages::Endpoint::Config));
+    CHECK(link.last_on(events::Endpoint::Config));
     CHECK(link.last().bytes.find("config") != std::string::npos);
 }
 
@@ -247,11 +248,11 @@ TEST_CASE(
     platform::host::Link link;
     settings::Settings s = settings::defaults(1);
     ConfigService cs(link, s);
-    cs.on_link_up(messages::LinkUp{1, 244});
+    cs.on_link_up(events::LinkUp{1, 244});
     CHECK(link.sent.empty());
 
     cs.set_image_state(dfu::ImageState::Probation, dfu::UpdateRecord{});
-    cs.on_link_up(messages::LinkUp{2, 244});
+    cs.on_link_up(events::LinkUp{2, 244});
     REQUIRE(link.sent.size() == 1);
     CHECK(link.last().bytes.find("\"cmd\":\"update\"") != std::string::npos);
     CHECK(link.last().bytes.find("\"image\":\"probation\"") != std::string::npos);
@@ -424,7 +425,7 @@ TEST_CASE("comms: disconnect closes the upload window") {
     cs.confirm();
     REQUIRE(cs.upload_allowed());
 
-    messages::LinkDown down{};
+    events::LinkDown down{};
     cs.on_link_down(down);
     CHECK_FALSE(cs.upload_allowed());
 }
@@ -513,7 +514,7 @@ TEST_CASE("comms: link down cancels a pending change") {
     cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_rx(frame("{\"cmd\":\"set\",\"stealth\":true}"));
     CHECK(cs.pending() == Pending::Set);
-    cs.on_link_down(messages::LinkDown{1});
+    cs.on_link_down(events::LinkDown{1});
     CHECK(cs.pending() == Pending::None);
 }
 

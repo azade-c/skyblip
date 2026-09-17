@@ -1,5 +1,7 @@
 #include "core/flight/log_session.h"
 
+#include "core/model/ownship.h"
+
 namespace skyblip::flight {
 
 void LogSession::push(const LogRecord& record) {
@@ -37,7 +39,7 @@ void LogSession::reset() {
     closing_ = false;
 }
 
-LogAction LogSession::update(const messages::OwnState& own, uint32_t now_ms) {
+LogAction LogSession::update(const model::OwnState& own, uint32_t now_ms) {
     const bool flying = airborne(own.flight_state);
     // A record with no position or no UTC is a row of zeroes in a flight log.
     // The session survives a fix outage - the aircraft is still where it was -

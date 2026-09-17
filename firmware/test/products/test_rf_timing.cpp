@@ -5,7 +5,10 @@
 #include <cstring>
 #include <string>
 
+#include "core/events/rf.h"
 #include "core/gnss/first_fix.h"
+#include "core/model/aircraft.h"
+#include "core/model/band.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
 #include "core/timing/transmit.h"
@@ -70,7 +73,7 @@ struct Peer {
         if (!chip.receive_air(burst.chips, burst.len, /*crc_error=*/false, burst.rssi_dbm,
                               burst.bitrate))
             return false;
-        uint8_t buf[messages::kRfEventBytes];
+        uint8_t buf[events::kRfEventBytes];
         const parts::RadioEvent ev = radio.poll(buf, sizeof(buf));
         radio.start_receive();
         if (ev.type != parts::RadioEventType::RxDone) return false;
@@ -98,7 +101,7 @@ TEST_CASE("rf: what happened on air reaches the station log, sent and heard alik
         if (entry.event != radio::Event::Received) continue;
         heard = true;
         CHECK(entry.addr != 0);
-        CHECK(entry.source == messages::Source::AdslDirect);
+        CHECK(entry.source == model::Source::AdslDirect);
         CHECK(entry.rssi_valid);
         CHECK(entry.utc);
     }
@@ -122,7 +125,7 @@ TEST_CASE("rf: the log dates a burst to the millisecond of the second it landed 
         REQUIRE(entry.phase_valid);
         CHECK(entry.into_ms < 1000);
         // The phase is where the burst ENDED, so only a dwell it cannot have run into names one.
-        if (entry.band == messages::Band::M && entry.into_ms < timing::kSlot0End - 100) {
+        if (entry.band == model::Band::M && entry.into_ms < timing::kSlot0End - 100) {
             CHECK(entry.channel == 0);
             channelled++;
         }
@@ -206,7 +209,7 @@ TEST_CASE("rf: a burst is heard only inside the dwell that owns its channel") {
         CAPTURE(c.slot);
         CHECK((heard > 0) == c.heard);
         CHECK((deaf > 0) == !c.heard);
-        CHECK((h.product().state().rx_ok > 0u) == c.heard);
+        CHECK((h.product().state().air.rx_ok > 0u) == c.heard);
     }
 }
 
@@ -225,7 +228,7 @@ TEST_CASE("rf: a heard burst is the frame that was on air, decoded by the real p
     simulator::Simulator h;
     listen_at(h, 600, 0);
     h.run(3000);
-    REQUIRE(h.product().state().rx_ok > 0);
+    REQUIRE(h.product().state().air.rx_ok > 0);
     REQUIRE(h.product().state().traffic.count() == 1);
     char line[160];
     REQUIRE(h.world().air().format(0, line, sizeof(line)) > 0);
@@ -259,7 +262,7 @@ TEST_CASE("rf: own-ship transmits once a second, inside its window, alternating 
     }
     // Six seconds of flight, one burst a second, less the one the cleared tape cut in half.
     CHECK(transmissions >= 5);
-    CHECK(h.product().state().tx_ok == static_cast<uint32_t>(transmissions));
+    CHECK(h.product().state().air.tx_ok == static_cast<uint32_t>(transmissions));
 
     // E1 and E2, read off the service that spent them: the floor the carrier
     // sense threshold is derived from, and every millisecond that went on air.
@@ -304,7 +307,7 @@ TEST_CASE("rf: what own-ship put on air decodes back to own-ship state") {
 
 // G6's wiring, not the bucket arithmetic (core/test_timing.cpp already pins
 // that down): RadioService owns the deadline, TrafficService the executor's
-// report, and this proves the two actually meet in state.timing_stats rather
+// report, and this proves the two actually meet in state.rf.timing_stats rather
 // than each keeping a private opinion.
 TEST_CASE("rf: a completed burst lands in the bench's dwell-phase histogram") {
     simulator::Simulator h;
@@ -314,7 +317,7 @@ TEST_CASE("rf: a completed burst lands in the bench's dwell-phase histogram") {
     // 1 ms passes: a 5 ms one spends the burst's completion slack before the radio is serviced.
     run_on(h, past_settling(h), 6000, 1);
 
-    const timing::SlotTimingStats& stats = h.product().state().timing_stats;
+    const timing::SlotTimingStats& stats = h.product().state().rf.timing_stats;
     CHECK(stats.dwell_samples() > 0);
     CHECK(stats.missed() == 0);
     CHECK(stats.refused() == 0);
@@ -339,14 +342,14 @@ TEST_CASE("rf: losing and regaining PPS through the simulator counts as holdover
     // host::Pps has no jitter to show, but it does turn over exactly once per
     // simulated second, which is what the first sample needs.
     run_on(h, 0, 1200);
-    REQUIRE(h.product().state().timing_stats.pps_samples() >= 1);
+    REQUIRE(h.product().state().rf.timing_stats.pps_samples() >= 1);
 
     h.world().set_pps_locked(false);
     run_on(h, 1205, 2000);
     h.world().set_pps_locked(true);
     run_on(h, 3210, 2000);
 
-    const timing::SlotTimingStats& stats = h.product().state().timing_stats;
+    const timing::SlotTimingStats& stats = h.product().state().rf.timing_stats;
     CHECK(stats.holdover_events() >= 1);
     for (int b = 0; b < timing::SlotTimingStats::kBuckets; b++)
         if (b != 3) CHECK(stats.pps_bucket(b) == 0);
@@ -360,7 +363,7 @@ TEST_CASE("rf: without an anchored clock nothing is transmitted") {
     h.world().set_pps_locked(false);
     h.run(4000);
     CHECK(count_of(h.world().air(), simulator::AirEvent::Tx) == 0);
-    CHECK(h.product().state().tx_ok == 0);
+    CHECK(h.product().state().air.tx_ok == 0);
 }
 
 TEST_CASE("rf: on the ground the transmit rate drops to 0.1 Hz") {
@@ -385,7 +388,7 @@ TEST_CASE("rf: nothing goes on air until the first fix has settled") {
     h.run(gnss::kFirstFixSettleMs - 2000);
     CHECK_FALSE(h.product().state().own.tx_settled);
     CHECK(count_of(h.world().air(), simulator::AirEvent::Tx) == 0);
-    CHECK(h.product().state().tx_ok == 0);
+    CHECK(h.product().state().air.tx_ok == 0);
     // Not because it has nothing to say: the fix is good and the clock anchored.
     CHECK(h.product().state().own.fix_valid);
     CHECK(h.product().state().clock.pps_locked);
@@ -527,8 +530,8 @@ TEST_CASE("rf: nothing own-ship transmits is a frame own-ship received") {
     // Neither half may be zero, or the case above proves nothing.
     CHECK(received > 0);
     CHECK(transmitted > 0);
-    CHECK(h.product().state().rx_ok > 0);
-    CHECK(h.product().state().tx_ok > 0);
+    CHECK(h.product().state().air.rx_ok > 0);
+    CHECK(h.product().state().air.tx_ok > 0);
 }
 
 // --- J. Range sanity, end to end --------------------------------------------
@@ -546,8 +549,8 @@ TEST_CASE("rf: a decoded burst claiming an impossible range never reaches the ra
 
     // Heard, decoded, CRC intact: the frame is not being refused by the radio or
     // by the protocol layer.
-    CHECK(h.product().state().rx_ok > 0);
-    CHECK(h.product().state().rx_bad == 0);
+    CHECK(h.product().state().air.rx_ok > 0);
+    CHECK(h.product().state().air.rx_bad == 0);
     // And refused by the table, counted, with nothing on the screen.
     CHECK(h.product().state().traffic.count() == 0);
     CHECK(h.product().state().traffic.implausible_count() > 0);
@@ -564,7 +567,7 @@ TEST_CASE("rf: a burst from a range the link budget allows is traffic as before"
     h.world().add_aircraft(8000, 0, 0, 30, 180, 600, 0);
     h.run(4000);
 
-    CHECK(h.product().state().rx_ok > 0);
+    CHECK(h.product().state().air.rx_ok > 0);
     CHECK(h.product().state().traffic.count() == 1);
     CHECK(h.product().state().traffic.implausible_count() == 0);
 }
@@ -590,7 +593,7 @@ TEST_CASE("rf: own-ship keeps transmitting across the 49.7-day wrap") {
         t += simulator::Simulator::kStepMs;
     }
     REQUIRE(h.product().state().own.tx_settled);
-    const uint32_t sent_before = h.product().state().tx_ok;
+    const uint32_t sent_before = h.product().state().air.tx_ok;
     REQUIRE(sent_before > 0);
     h.world().air().clear();
 
@@ -618,7 +621,7 @@ TEST_CASE("rf: own-ship keeps transmitting across the 49.7-day wrap") {
     // Eight seconds of flight is eight bursts, give or take the one the step
     // boundary lands on. A wrap that broke the rate rule would show up as zero.
     CHECK(transmissions >= 6);
-    CHECK(h.product().state().tx_ok == sent_before + static_cast<uint32_t>(transmissions));
+    CHECK(h.product().state().air.tx_ok == sent_before + static_cast<uint32_t>(transmissions));
 
     // And the hour that straddles the wrap is still an hour: the design rate is
     // half the band's allowance and the window did not forget what it holds.
@@ -638,8 +641,8 @@ TEST_CASE("rf: a device on the ground transmits, and reports no burst it never a
     h.world().set_speed_kt(0);
     run_on(h, past_settling(h), 30000);
 
-    CHECK(h.product().state().tx_ok > 0);
-    CHECK(h.product().state().timing_stats.missed() == 0);
+    CHECK(h.product().state().air.tx_ok > 0);
+    CHECK(h.product().state().rf.timing_stats.missed() == 0);
 
     const radio::Log& log = h.product().state().radio_log;
     int sent = 0, lost = 0;

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "core/comms/config.h"
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/link.h"
 
@@ -14,10 +15,10 @@ using namespace skyblip;
 using namespace skyblip::comms;
 
 namespace {
-messages::RxFrame frame(const char* json) {
-    messages::RxFrame f{};
+events::RxFrame frame(const char* json) {
+    events::RxFrame f{};
     f.session_id = 1;
-    f.endpoint = messages::Endpoint::Config;
+    f.endpoint = events::Endpoint::Config;
     f.len = static_cast<uint16_t>(std::strlen(json));
     std::memcpy(f.data.data(), json, f.len);
     return f;
@@ -153,7 +154,7 @@ TEST_CASE(
     cs.set_battery_state(battery_of(50, true), power::PowerLevel::Normal);
     CHECK(link.sent.empty());
 
-    cs.on_link_up(messages::LinkUp{1, 200});
+    cs.on_link_up(events::LinkUp{1, 200});
 
     cs.set_battery_state(battery_of(50, true), power::PowerLevel::Normal);  // repeat: no push
     CHECK(link.sent.empty());
@@ -174,7 +175,7 @@ TEST_CASE(
                          power::PowerLevel::Low);  // same step as 56: no push
     CHECK(link.sent.size() == 3);
 
-    cs.on_link_down(messages::LinkDown{1});
+    cs.on_link_down(events::LinkDown{1});
     cs.set_battery_state(battery_of(90, false), power::PowerLevel::Normal);  // link is down again
     CHECK(link.sent.size() == 3);
 }

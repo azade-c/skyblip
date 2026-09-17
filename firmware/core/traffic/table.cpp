@@ -1,14 +1,16 @@
 #include "core/traffic/table.h"
 
+#include "core/model/aircraft.h"
+
 namespace skyblip::traffic {
 
 namespace {
-uint32_t obs_time(const messages::AircraftObs& o) { return o.rx_utc; }
-int source_rank(messages::Source s) {
+uint32_t obs_time(const model::AircraftObs& o) { return o.received.at_s; }
+int source_rank(model::Source s) {
     switch (s) {
-        case messages::Source::AdslDirect: return 3;
-        case messages::Source::Alptas: return 3;
-        case messages::Source::AdslUplink: return 1;
+        case model::Source::AdslDirect: return 3;
+        case model::Source::Alptas: return 3;
+        case model::Source::AdslUplink: return 1;
         default: return 0;
     }
 }
@@ -22,7 +24,7 @@ int TrafficTable::find(uint8_t addr_table, uint32_t addr) const {
     return -1;
 }
 
-bool TrafficTable::prefer_new(const messages::AircraftObs& in, const messages::AircraftObs& ex) {
+bool TrafficTable::prefer_new(const model::AircraftObs& in, const model::AircraftObs& ex) {
     const uint32_t tin = obs_time(in), tex = obs_time(ex);
     const int rank_in = source_rank(in.source), rank_ex = source_rank(ex.source);
     // A ground relay never displaces a first-hand reception the alarm layer
@@ -52,7 +54,7 @@ int TrafficTable::allocate_slot(uint32_t now) {
     return victim;
 }
 
-int TrafficTable::update(const messages::AircraftObs& obs, uint32_t now) {
+int TrafficTable::update(const model::AircraftObs& obs, uint32_t now) {
     if (own_addr_ != 0 && (obs.addr & 0x00FFFFFF) == own_addr_) return -1;
     // One observation at a time, deliberately: an uplink frame carries up to
     // thirteen aircraft and one implausible entry among them says nothing about

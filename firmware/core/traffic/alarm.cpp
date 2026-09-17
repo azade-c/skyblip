@@ -2,6 +2,8 @@
 
 #include "core/flight/extrapolate.h"
 #include "core/flight/turn.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/intmath.h"
 
@@ -24,7 +26,7 @@ void velocity_ned(uint16_t speed_q, uint16_t track_c9, int32_t& north, int32_t& 
     east = static_cast<int32_t>(speed_q) * isin(angle);
 }
 
-int32_t closing_from_vectors(const messages::OwnState& own, const messages::AircraftObs& target,
+int32_t closing_from_vectors(const model::OwnState& own, const model::AircraftObs& target,
                              int32_t n_m, int32_t e_m, int32_t dist_m) {
     if (dist_m <= 0) return kUnknownTargetSpeedMps;
 
@@ -47,10 +49,10 @@ int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
 // INFO: fc 13sep26 two positions from different instants are not a separation, so both are carried
 // to now
-AlarmAssessment assess(const messages::OwnState& own_fix, const messages::AircraftObs& reported,
+AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs& reported,
                        uint32_t now_ms) {
-    const messages::OwnState own = flight::carried_to(own_fix, now_ms);
-    const messages::AircraftObs target = flight::carried_to(reported, now_ms);
+    const model::OwnState own = flight::carried_to(own_fix, now_ms);
+    const model::AircraftObs target = flight::carried_to(reported, now_ms);
     AlarmAssessment a{};
     int32_t n_m, e_m, u_m;
     if (!protocol::relative_ned(own, target, n_m, e_m, u_m)) return a;
@@ -79,8 +81,8 @@ AlarmAssessment assess(const messages::OwnState& own_fix, const messages::Aircra
     return a;
 }
 
-AlarmTracker::Decision AlarmTracker::update(const messages::OwnState& own,
-                                            const messages::AircraftObs& target, uint32_t now_ms) {
+AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
+                                            const model::AircraftObs& target, uint32_t now_ms) {
     Decision d{};
     d.assessment = assess(own, target, now_ms);
     if (!d.assessment.valid) return d;
@@ -88,7 +90,7 @@ AlarmTracker::Decision AlarmTracker::update(const messages::OwnState& own,
     Slot* slot = slot_for(target, now_ms);
     if (slot == nullptr) return d;
 
-    const uint32_t key = target.rx_utc * 1000u + target.rx_ms;
+    const uint32_t key = target.received.at_s * 1000u + target.received.into_ms;
     if (key != slot->obs_key) {
         slot->obs_key = key;
         slot->seen_ms = now_ms;
@@ -172,7 +174,7 @@ void AlarmTracker::sample_track(Slot& slot, uint16_t track_c9, uint32_t now_ms) 
     slot.turn_ref_track_c9 = track_c9;
 }
 
-AlarmTracker::Slot* AlarmTracker::slot_for(const messages::AircraftObs& target, uint32_t now_ms) {
+AlarmTracker::Slot* AlarmTracker::slot_for(const model::AircraftObs& target, uint32_t now_ms) {
     Slot* free_slot = nullptr;
     Slot* oldest = nullptr;
     for (Slot& s : slots_) {

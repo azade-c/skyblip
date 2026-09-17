@@ -15,8 +15,8 @@
 #define SKYBLIP_HARDWARE_PARTS_DRV2605_H
 
 #include "core/util/result.h"
-#include "hal/haptic.h"
 #include "hardware/io/io.h"
+#include "hal/haptic.h"
 
 namespace skyblip::parts {
 

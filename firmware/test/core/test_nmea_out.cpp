@@ -8,6 +8,8 @@
 #include <string>
 
 #include "core/comms/config.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "doctest/doctest.h"
 #include "hal/link.h"
@@ -24,8 +26,8 @@ static bool checksum_ok(const std::string& s) {
     return static_cast<uint8_t>(std::stoi(hh, nullptr, 16)) == cs;
 }
 
-static messages::OwnState own_at(int32_t lat, int32_t lon, int32_t alt) {
-    messages::OwnState o{};
+static model::OwnState own_at(int32_t lat, int32_t lon, int32_t alt) {
+    model::OwnState o{};
     o.fix_valid = true;
     o.utc_valid = true;
     o.lat_1e7 = lat;
@@ -62,7 +64,7 @@ TEST_CASE("nmea: PGRMZ field 3 is the fix dimension, not a hardcoded constant") 
 
 TEST_CASE("nmea: relative geometry, target due north is +north, ~0 east") {
     auto own = own_at(481000000, 81000000, 1000);
-    messages::AircraftObs t{};
+    model::AircraftObs t{};
     t.position_valid = true;
     t.lat_1e7 = own.lat_1e7 + 10000000;  // +1 deg lat ~ 111 km north
     t.lon_1e7 = own.lon_1e7;
@@ -76,7 +78,7 @@ TEST_CASE("nmea: relative geometry, target due north is +north, ~0 east") {
 
 TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
     auto own = own_at(481000000, 81000000, 1000);
-    messages::AircraftObs t{};
+    model::AircraftObs t{};
     t.position_valid = true;
     t.addr = 0xC5D804;
     t.addr_table = 6;  // FLARM -> IDType 2
@@ -99,8 +101,8 @@ TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
 }
 
 TEST_CASE("nmea: PFLAA returns 0 without own position") {
-    messages::OwnState own{};  // no fix
-    messages::AircraftObs t{};
+    model::OwnState own{};  // no fix
+    model::AircraftObs t{};
     t.position_valid = true;
     char buf[128];
     CHECK(format_pflaa(buf, sizeof(buf), own, t, 0) == 0);
@@ -108,7 +110,7 @@ TEST_CASE("nmea: PFLAA returns 0 without own position") {
 
 TEST_CASE("nmea: PFLAU reports rx count, gps and threat") {
     auto own = own_at(481000000, 81000000, 1000);
-    messages::AircraftObs threat{};
+    model::AircraftObs threat{};
     threat.addr = 0x112233;
     char buf[128];
     int n = format_pflau(buf, sizeof(buf), own, 5, &threat, 3, 45, -50, 800);
@@ -180,14 +182,14 @@ TEST_CASE("nmea: GPRMC/GPGGA carry ownship's own absolute position") {
 
 TEST_CASE("nmea: GPRMC/GPGGA emit nothing without both a fix and a UTC time") {
     char buf[128];
-    messages::OwnState own = own_at(481000000, 81000000, 1000);
+    model::OwnState own = own_at(481000000, 81000000, 1000);
 
-    messages::OwnState no_fix = own;
+    model::OwnState no_fix = own;
     no_fix.fix_valid = false;
     CHECK(format_gprmc(buf, sizeof(buf), no_fix) == 0);
     CHECK(format_gpgga(buf, sizeof(buf), no_fix) == 0);
 
-    messages::OwnState no_utc = own;
+    model::OwnState no_utc = own;
     no_utc.utc_valid = false;
     CHECK(format_gprmc(buf, sizeof(buf), no_utc) == 0);
     CHECK(format_gpgga(buf, sizeof(buf), no_utc) == 0);
@@ -198,9 +200,9 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     // hal::Link::send like the other two, which refuses a frame longer than the
     // negotiated payload - so what these can produce at their widest is a budget
     // worth pinning now rather than discovering on someone's iPhone.
-    messages::OwnState own = own_at(-899999999, -1799999999, -999);
+    model::OwnState own = own_at(-899999999, -1799999999, -999);
     own.utc_valid = true;
-    messages::AircraftObs t{};
+    model::AircraftObs t{};
     t.position_valid = true;
     t.addr = 0xFFFFFF;
     t.addr_table = 0x06;

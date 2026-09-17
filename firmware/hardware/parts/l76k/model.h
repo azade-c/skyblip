@@ -236,7 +236,7 @@ class L76k : public io::Uart, public io::UartRate {
     char command_[kCommandCap]{};
     int command_len_{0};
     // Three windows, each a START instant plus a flag rather than an end instant.
-    // core/../hal/clock.h states the rule and section M found the bug it prevents:
+    // core/../ports/clock.h states the rule and section M found the bug it prevents:
     // an end instant compared with `<` inverts across the 49.7-day wrap, and here
     // it would invert PERMISSIVELY - a window that ends immediately is a model
     // that answers when the real part would not, which is the one direction a

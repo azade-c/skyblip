@@ -3,6 +3,8 @@
 
 #include "core/bus/state.h"
 #include "core/flight/atmosphere.h"
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/timing/slot.h"
 #include "hardware/platform/host/platform.h"
 #include "simulator/world/air.h"
@@ -110,12 +112,12 @@ class World {
     void set_origin();
     double own_north_m() const;
     double own_east_m() const;
-    void service_aircraft(uint32_t now_ms, const messages::OwnState& own);
-    void schedule_second(uint64_t epoch_us, const messages::OwnState& own);
-    void transmit(VirtualAircraft& aircraft, uint64_t epoch_us, const messages::OwnState& own);
-    void relay(uint64_t epoch_us, const messages::OwnState& own);
-    messages::AircraftObs as_relayed(const VirtualAircraft& aircraft,
-                                     const messages::OwnState& own) const;
+    void service_aircraft(uint32_t now_ms, const model::OwnState& own);
+    void schedule_second(uint64_t epoch_us, const model::OwnState& own);
+    void transmit(VirtualAircraft& aircraft, uint64_t epoch_us, const model::OwnState& own);
+    void relay(uint64_t epoch_us, const model::OwnState& own);
+    model::AircraftObs as_relayed(const VirtualAircraft& aircraft,
+                                  const model::OwnState& own) const;
     static int8_t rssi_at(double range_m);
     void apply_events(uint32_t now_ms, const bus::State& state);
     void fail(const char* what);

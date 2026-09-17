@@ -1,9 +1,9 @@
 #ifndef SKYBLIP_HARDWARE_PARTS_SSD1681_H
 #define SKYBLIP_HARDWARE_PARTS_SSD1681_H
 
-#include "hal/display.h"
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
+#include "hal/display.h"
 #include "ui/framebuffer.h"
 
 namespace skyblip::parts {

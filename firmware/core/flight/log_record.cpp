@@ -1,6 +1,7 @@
 #include "core/flight/log_record.h"
 
 #include "core/fec/crc.h"
+#include "core/model/ownship.h"
 
 namespace skyblip::flight {
 
@@ -44,7 +45,7 @@ int8_t clamp_i8(int32_t v) {
 
 }  // namespace
 
-LogRecord log_record_from(const messages::OwnState& own) {
+LogRecord log_record_from(const model::OwnState& own) {
     LogRecord r{};
     r.utc = own.utc;
     r.lat_1e7 = own.lat_1e7;

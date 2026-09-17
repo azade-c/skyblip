@@ -111,7 +111,7 @@ bool stored_settings(Rig& rig, settings::Settings& out) {
 ui::Framebuffer expected_page(Rig& rig) {
     ui::SettingsSnapshot snapshot;
     snapshot.values.settings = rig.state().settings;
-    snapshot.values.qnh_pa = rig.state().qnh_pa;
+    snapshot.values.qnh_pa = rig.state().baro.qnh_pa;
     snapshot.focus = rig.product.screen().editor().focus();
     ui::Framebuffer fb;
     ui::draw_settings(fb, snapshot);

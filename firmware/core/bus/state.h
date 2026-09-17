@@ -1,9 +1,10 @@
 #ifndef SKYBLIP_CORE_BUS_STATE_H
 #define SKYBLIP_CORE_BUS_STATE_H
 
+#include "core/events/rf.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/ground.h"
-#include "core/messages/messages.h"
+#include "core/model/ownship.h"
 #include "core/power/battery.h"
 #include "core/power/charging.h"
 #include "core/power/cutoff.h"
@@ -16,65 +17,84 @@
 
 namespace skyblip::bus {
 
-struct State {
-    settings::Settings settings{};
-    messages::OwnState own{};
-    timing::ClockState clock{};
+// Where the radio believes it is inside the second it is arming, stamped with
+// the pass it said so on. The radio service is the only writer; whoever needs
+// to know whether the core may be stalled reads it here rather than deriving
+// the phase a second time (core/timing/durable_write.h).
+struct RfState {
     timing::SlotPlan plan{};
-    // Where the radio believes it is inside the second it is arming, stamped with
-    // the pass it said so on. The radio service is the only writer; whoever needs
-    // to know whether the core may be stalled reads it here rather than deriving
-    // the phase a second time (core/timing/durable_write.h).
     timing::DwellPhase dwell{};
     // The bench accumulator G6 reads out: boards/ is the one writer of
     // the PPS half, products/skyblip_go/services/radio.cpp of the dwell half.
     timing::SlotTimingStats timing_stats{};
-    traffic::TrafficTable traffic{};
-    radio::Log radio_log{};
+    uint64_t tx_deadline_us{0};
+};
+
+struct PowerState {
     power::BatteryState battery{};
     // What the cutoff monitor made of the same samples the gauge saw. Whoever
     // draws a low cell reads this rather than comparing millivolts again: the
     // debounce, the charger and the sanity floor are decided once.
-    power::PowerLevel power_level{power::PowerLevel::Unknown};
+    power::PowerLevel level{power::PowerLevel::Unknown};
     power::ChargeCondition charge{power::ChargeCondition::Unknown};
     bool supply_warned{false};
-    int16_t die_decicelsius{0};
-    bool die_temperature_valid{false};
+    int16_t die_dc{0};
+    bool die_valid{false};
+};
 
-    uint8_t alarm_level{0};
-
-    uint32_t rx_ok{0};
-    uint32_t rx_bad{0};
-    uint32_t tx_ok{0};
-    // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
-    // from the M band's: every frame that arrived in the uplink dwell, the ones
-    // Reed-Solomon refused, and the aircraft the rest of them put in the table.
-    // The third is smaller than the aircraft the frames carried whenever the
-    // ground station relayed one back that the table refuses - own-ship, or an
-    // aircraft we are hearing better first-hand. Until 2026-08-05 an uplink
-    // frame reached protocol::receive_mband, failed to frame as either M-band
-    // system and landed in rx_bad: the whole feature was absent and its absence
-    // looked like radio noise, which is what hid it.
-    uint32_t uplink_frames{0};
-    uint32_t uplink_bad{0};
-    uint32_t uplink_targets{0};
-    // The instant the executor actually reported completion for, published by
-    // whoever already drains messages::RfEvent (TrafficService) so the policy
-    // layer that owns the deadline (RadioService) can measure against it
-    // without a second reader of the bus.
-    uint64_t last_tx_done_at_us{0};
-    uint64_t tx_deadline_us{0};
+struct FlightStatus {
     uint32_t gnss_solutions{0};
-    uint32_t flight_seconds{0};
-    bool flight_time_valid{false};
-    bool flight_running{false};
-    flight::FlightState confirmed_flight_state{flight::FlightState::Unknown};
-    bool panel_presented{false};
+    uint32_t seconds{0};
+    bool time_valid{false};
+    bool running{false};
+    flight::FlightState confirmed_state{flight::FlightState::Unknown};
+};
+
+struct BaroState {
     uint32_t pressure_mpa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.
     uint32_t qnh_pa{flight::kIsaSeaLevelPa};
     uint32_t derived_qnh_pa{0};
-    bool baro_active{false};
+    bool active{false};
+};
+
+struct State {
+    settings::Settings settings{};
+    model::OwnState own{};
+    timing::ClockState clock{};
+    traffic::TrafficTable traffic{};
+    radio::Log radio_log{};
+    RfState rf{};
+    PowerState power{};
+    FlightStatus flight{};
+    BaroState baro{};
+
+    uint8_t alarm_level{0};
+
+    struct AirCounts {
+        uint32_t rx_ok{0};
+        uint32_t rx_bad{0};
+        uint32_t tx_ok{0};
+        // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
+        // from the M band's: every frame that arrived in the uplink dwell, the ones
+        // Reed-Solomon refused, and the aircraft the rest of them put in the table.
+        // The third is smaller than the aircraft the frames carried whenever the
+        // ground station relayed one back that the table refuses - own-ship, or an
+        // aircraft we are hearing better first-hand. Until 2026-08-05 an uplink
+        // frame reached protocol::receive_mband, failed to frame as either M-band
+        // system and landed in rx_bad: the whole feature was absent and its absence
+        // looked like radio noise, which is what hid it.
+        uint32_t uplink_frames{0};
+        uint32_t uplink_bad{0};
+        uint32_t uplink_targets{0};
+        // The instant the executor actually reported completion for, published by
+        // whoever already drains events::RfEvent (TrafficService) so the policy
+        // layer that owns the deadline (RadioService) can measure against it
+        // without a second reader of the bus.
+        uint64_t last_tx_done_at_us{0};
+    } air{};
+
+    bool panel_presented{false};
     bool started{false};
 
     // The traffic table's single time base. Mixing GNSS epoch seconds with

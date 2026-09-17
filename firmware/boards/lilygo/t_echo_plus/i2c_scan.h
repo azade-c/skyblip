@@ -17,8 +17,8 @@
 
 #include <cstdint>
 
-#include "hal/inventory.h"
 #include "hardware/io/io.h"
+#include "hal/inventory.h"
 
 namespace skyblip::boards::t_echo_plus {
 

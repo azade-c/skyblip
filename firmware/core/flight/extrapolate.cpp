@@ -1,5 +1,7 @@
 #include "core/flight/extrapolate.h"
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::flight {
@@ -106,7 +108,7 @@ Prediction carry(const Motion& m, int32_t dt_ms) {
 
 }  // namespace
 
-Prediction extrapolate(const messages::OwnState& own, int32_t dt_ms) {
+Prediction extrapolate(const model::OwnState& own, int32_t dt_ms) {
     Motion m{};
     m.lat_1e7 = own.lat_1e7;
     m.lon_1e7 = own.lon_1e7;
@@ -122,7 +124,7 @@ Prediction extrapolate(const messages::OwnState& own, int32_t dt_ms) {
 }
 
 // INFO: fc 13sep26 ADS-L carries no turn rate, so a neighbour is carried straight (G.1.8, G.1.10)
-Prediction extrapolate(const messages::AircraftObs& obs, int32_t dt_ms) {
+Prediction extrapolate(const model::AircraftObs& obs, int32_t dt_ms) {
     Motion m{};
     m.lat_1e7 = obs.lat_1e7;
     m.lon_1e7 = obs.lon_1e7;
@@ -136,9 +138,9 @@ Prediction extrapolate(const messages::AircraftObs& obs, int32_t dt_ms) {
     return carry(m, dt_ms);
 }
 
-messages::OwnState carried_to(const messages::OwnState& own, uint32_t now_ms) {
+model::OwnState carried_to(const model::OwnState& own, uint32_t now_ms) {
     const Prediction p = extrapolate(own, static_cast<int32_t>(now_ms - own.fix_ms));
-    messages::OwnState out = own;
+    model::OwnState out = own;
     out.lat_1e7 = p.lat_1e7;
     out.lon_1e7 = p.lon_1e7;
     out.alt_m = p.alt_m;
@@ -147,9 +149,9 @@ messages::OwnState carried_to(const messages::OwnState& own, uint32_t now_ms) {
     return out;
 }
 
-messages::AircraftObs carried_to(const messages::AircraftObs& obs, uint32_t now_ms) {
+model::AircraftObs carried_to(const model::AircraftObs& obs, uint32_t now_ms) {
     const Prediction p = extrapolate(obs, static_cast<int32_t>(now_ms - obs.at_ms));
-    messages::AircraftObs out = obs;
+    model::AircraftObs out = obs;
     out.lat_1e7 = p.lat_1e7;
     out.lon_1e7 = p.lon_1e7;
     out.alt_m = p.alt_m;

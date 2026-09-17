@@ -4,8 +4,11 @@
 #include <atomic>
 #include <cstdint>
 
+#include "core/events/input.h"
+#include "core/events/link.h"
+#include "core/events/rf.h"
+#include "core/events/sensor.h"
 #include "core/gnss/nmea.h"
-#include "core/messages/messages.h"
 
 namespace skyblip::bus {
 
@@ -49,20 +52,20 @@ class Queue {
 
 struct Bus {
     Queue<gnss::GnssSolution, 2> gnss;
-    Queue<messages::BaroSample, 2> baro;
-    Queue<messages::RfEvent, 8> rf;
+    Queue<events::BaroSample, 2> baro;
+    Queue<events::RfEvent, 8> rf;
     // The connection itself, ahead of the bytes that travel over it: the config
     // service is the single reader, because it is the one that holds what a link
     // being up or gone means (a standing prompt, an upload window, the gauge it
     // pushes unsolicited).
-    Queue<messages::LinkEvent, 4> link_events;
-    Queue<messages::RxFrame, 4> link_rx;
+    Queue<events::LinkEvent, 4> link_events;
+    Queue<events::RxFrame, 4> link_rx;
     // One writer, one reader, per §5.3: the config service drains link_rx with a
     // while-pop, so a log command sharing that queue would be read and dropped
     // by the wrong service.
-    Queue<messages::RxFrame, 2> log_rx;
-    Queue<messages::ButtonEvent, 4> input;
-    Queue<messages::BatterySample, 2> battery;
+    Queue<events::RxFrame, 2> log_rx;
+    Queue<events::ButtonEvent, 4> input;
+    Queue<events::BatterySample, 2> battery;
 };
 
 }  // namespace skyblip::bus

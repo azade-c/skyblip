@@ -12,7 +12,8 @@
 
 namespace skyblip::go {
 
-// INFO: fc 15sep26 slot policy only, hal::Rf flies it against absolute deadlines and owns the chip
+// INFO: fc 15sep26 slot policy only, hal::Rf flies it against absolute deadlines and owns the
+// chip
 class RadioService : public runtime::Service {
    public:
     using runtime::Service::Service;

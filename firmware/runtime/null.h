@@ -1,10 +1,13 @@
 #ifndef SKYBLIP_RUNTIME_NULL_H
 #define SKYBLIP_RUNTIME_NULL_H
 
+#include "core/events/link.h"
 #include "hal/annunciator.h"
 #include "hal/dfu.h"
+#include "hal/die_temperature.h"
 #include "hal/display.h"
 #include "hal/flash_region.h"
+#include "hal/indicator.h"
 #include "hal/kvstore.h"
 #include "hal/link.h"
 #include "hal/rf.h"
@@ -27,7 +30,7 @@ class NullAnnunciator : public hal::Annunciator {
 
 class NullLink : public hal::Link {
    public:
-    Status send(messages::Endpoint, ConstByteSpan) override { return Status::Down; }
+    Status send(events::Endpoint, ConstByteSpan) override { return Status::Down; }
 };
 
 class NullKvStore : public hal::KvStore {
@@ -67,6 +70,8 @@ struct NullRoles {
     NullFlashRegion log_flash;
     NullDfu dfu;
     NullRf rf;
+    hal::DieTemperature die_temperature;
+    hal::Indicator indicator;
 };
 
 }  // namespace skyblip::runtime

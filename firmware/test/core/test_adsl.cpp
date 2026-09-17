@@ -7,6 +7,7 @@
 #include <cstdlib>  // std::abs - libc++ pulls it in transitively, libstdc++ does not
 #include <cstring>
 
+#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "doctest/doctest.h"
 
@@ -245,7 +246,7 @@ TEST_CASE("adsl: the invalid codes are reachable on purpose and round-trip") {
 }
 
 TEST_CASE("adsl: from_own marks what own-ship does not know") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
     own.alt_m = 1500;  // HAE: what G.1.7 transmits
@@ -280,7 +281,7 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
 // 308-309). Zero is a lie - it claims level flight - so ours says "unavailable"
 // with the code G.1.9 provides, and drops the address table to an anonymous one.
 TEST_CASE("adsl: stealth withholds the climb rate and claims no registered identity") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.fix_valid = true;
     own.climb_valid = true;
     own.lat_1e7 = 485000000;
@@ -313,7 +314,7 @@ TEST_CASE("adsl: stealth withholds the climb rate and claims no registered ident
 // F4. The address goes on the air here, and the shell hands us the chip id
 // straight from hwinfo, so this is the last place that can move it.
 TEST_CASE("adsl: a self-minted address is moved off a crowded prefix on its way out") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.fix_valid = true;
 
     AdslPacket anonymous{};
@@ -336,7 +337,7 @@ TEST_CASE("adsl: a self-minted address is moved off a crowded prefix on its way 
 // we claim no integrity at all, and receivers are entitled to weight us
 // accordingly. Without a fix that is the truthful answer; with one it is not.
 TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
     own.alt_m = 1500;
@@ -417,7 +418,7 @@ TEST_CASE("adsl: navigation integrity code sits on the G.1.12 boundaries") {
 // A degrading fix walks the codes down together, and a hopeless one claims
 // nothing rather than claiming a number nobody should act on.
 TEST_CASE("adsl: a degrading HDOP walks the accuracy claim down") {
-    skyblip::messages::OwnState own{};
+    skyblip::model::OwnState own{};
     own.fix_valid = true;
     AdslPacket p{};
 

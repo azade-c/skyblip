@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/services/diagnostics.h"
 #include "test/support/product_rig.h"
@@ -73,7 +74,7 @@ std::string last_config_frame(Rig& rig) {
     const auto& sent = rig.platform.link().sent;
     std::string joined;
     for (const auto& f : sent)
-        if (f.endpoint == messages::Endpoint::Config) joined += f.bytes;
+        if (f.endpoint == events::Endpoint::Config) joined += f.bytes;
     return joined;
 }
 
@@ -219,12 +220,12 @@ TEST_CASE("diagnostics: the console and the link cannot disagree") {
 
     // The state of charge the tablet draws is the state of charge the console
     // prints, digit for digit, because there is one snapshot behind both.
-    const uint8_t percent = rig.state().battery.percent;
+    const uint8_t percent = rig.state().power.battery.percent;
     const std::string key = std::to_string(percent);
     CHECK(has(frames, ("\"percent\":" + key).c_str()));
     CHECK(has(console, ("percent=" + key).c_str()));
 
-    const std::string fixes = std::to_string(rig.state().gnss_solutions);
+    const std::string fixes = std::to_string(rig.state().flight.gnss_solutions);
     CHECK(has(frames, ("\"fixes\":" + fixes).c_str()));
     CHECK(has(console, ("fixes=" + fixes).c_str()));
 }

@@ -1,5 +1,7 @@
 #include "core/traffic/link.h"
 
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/intmath.h"
 
@@ -33,8 +35,8 @@ uint32_t log2_q16(uint32_t x) {
     return r;
 }
 
-bool heard_over_its_own_path(messages::Source s) {
-    return s == messages::Source::AdslDirect || s == messages::Source::Alptas;
+bool heard_over_its_own_path(model::Source s) {
+    return s == model::Source::AdslDirect || s == model::Source::Alptas;
 }
 
 }  // namespace
@@ -48,7 +50,7 @@ int16_t free_space_loss_db(int32_t range_m) {
     return static_cast<int16_t>((tenths + 5) / 10);
 }
 
-bool estimate_link(const messages::OwnState& own, const messages::AircraftObs& obs, LinkRow& out) {
+bool estimate_link(const model::OwnState& own, const model::AircraftObs& obs, LinkRow& out) {
     int32_t north_m = 0, east_m = 0, up_m = 0;
     if (!protocol::relative_ned(own, obs, north_m, east_m, up_m)) return false;
 
@@ -66,7 +68,7 @@ bool estimate_link(const messages::OwnState& own, const messages::AircraftObs& o
     return true;
 }
 
-int rank_by_range(const TrafficTable& table, const messages::OwnState& own, LinkRow* out, int cap) {
+int rank_by_range(const TrafficTable& table, const model::OwnState& own, LinkRow* out, int cap) {
     int n = 0;
     for (int i = 0; i < TrafficTable::kCapacity; i++) {
         const Target* t = table.at(i);

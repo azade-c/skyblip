@@ -43,7 +43,7 @@ KEEPALIVE void simulator_set_track(int deg) { g_simulator.world().set_track_deg(
 KEEPALIVE void simulator_set_climb(int e1) { g_simulator.world().set_climb_e1(e1); }
 // Both in pascals: the subscale the device is set to, and the air outside.
 KEEPALIVE void simulator_set_qnh(int pa) {
-    g_simulator.product().state().qnh_pa = static_cast<uint32_t>(pa);
+    g_simulator.product().state().baro.qnh_pa = static_cast<uint32_t>(pa);
     g_simulator.product().screen().mark_dirty();
 }
 KEEPALIVE void simulator_set_airmass(int pa) {
@@ -109,12 +109,16 @@ KEEPALIVE int simulator_lat_1e7() { return g_simulator.product().state().own.lat
 KEEPALIVE int simulator_lon_1e7() { return g_simulator.product().state().own.lon_1e7; }
 KEEPALIVE int simulator_alt_m() { return g_simulator.product().state().own.alt_m; }
 KEEPALIVE int simulator_pressure_mpa() {
-    return static_cast<int>(g_simulator.product().state().pressure_mpa);
+    return static_cast<int>(g_simulator.product().state().baro.pressure_mpa);
 }
-KEEPALIVE int simulator_battery_mv() { return g_simulator.product().state().battery.millivolts; }
-KEEPALIVE int simulator_battery_percent() { return g_simulator.product().state().battery.percent; }
+KEEPALIVE int simulator_battery_mv() {
+    return g_simulator.product().state().power.battery.millivolts;
+}
+KEEPALIVE int simulator_battery_percent() {
+    return g_simulator.product().state().power.battery.percent;
+}
 KEEPALIVE int simulator_battery_charging() {
-    return g_simulator.product().state().battery.charging ? 1 : 0;
+    return g_simulator.product().state().power.battery.charging ? 1 : 0;
 }
 KEEPALIVE int simulator_speed_q() { return g_simulator.product().state().own.speed_q; }
 KEEPALIVE int simulator_track_c9() { return g_simulator.product().state().own.track_c9; }
@@ -125,14 +129,20 @@ KEEPALIVE int simulator_shutdown_phase() {
     return static_cast<int>(g_simulator.product().shutdown().phase());
 }
 KEEPALIVE int simulator_vibro_ms() { return g_simulator.vibro_ms(); }
-KEEPALIVE int simulator_rx_ok() { return static_cast<int>(g_simulator.product().state().rx_ok); }
-KEEPALIVE int simulator_rx_bad() { return static_cast<int>(g_simulator.product().state().rx_bad); }
-KEEPALIVE int simulator_tx_ok() { return static_cast<int>(g_simulator.product().state().tx_ok); }
+KEEPALIVE int simulator_rx_ok() {
+    return static_cast<int>(g_simulator.product().state().air.rx_ok);
+}
+KEEPALIVE int simulator_rx_bad() {
+    return static_cast<int>(g_simulator.product().state().air.rx_bad);
+}
+KEEPALIVE int simulator_tx_ok() {
+    return static_cast<int>(g_simulator.product().state().air.tx_ok);
+}
 KEEPALIVE int simulator_slot_state() {
-    return static_cast<int>(g_simulator.product().state().plan.state);
+    return static_cast<int>(g_simulator.product().state().rf.plan.state);
 }
 KEEPALIVE int simulator_dwell_freq() {
-    return static_cast<int>(g_simulator.product().state().plan.freq_hz / 1000);
+    return static_cast<int>(g_simulator.product().state().rf.plan.freq_hz / 1000);
 }
 
 // The tape: every burst that was on the air, heard or not.

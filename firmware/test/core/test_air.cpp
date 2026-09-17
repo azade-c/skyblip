@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "core/fec/manchester.h"
+#include "core/model/band.h"
 #include "core/protocol/air.h"
 #include "doctest/doctest.h"
 
@@ -174,7 +175,7 @@ TEST_CASE("air: an O-band burst is named an uplink frame without being decoded")
     uint8_t frame[protocol::kUplinkFrameBytes];
     fill(frame, protocol::kAdslFrameBytes, 9);
     protocol::Frame out{};
-    CHECK(protocol::receive_burst(messages::Band::O, frame, protocol::kUplinkFrameBytes, out) ==
+    CHECK(protocol::receive_burst(model::Band::O, frame, protocol::kUplinkFrameBytes, out) ==
           protocol::System::AdslUplink);
     // The codeword is eleven times longer than a Frame and stays where the
     // executor put it, so nothing was copied into out.
@@ -185,7 +186,7 @@ TEST_CASE("air: an O-band burst is named an uplink frame without being decoded")
 TEST_CASE("air: an O-band burst of the wrong length is not an uplink frame") {
     uint8_t frame[protocol::kUplinkFrameBytes] = {0};
     protocol::Frame out{};
-    CHECK(protocol::receive_burst(messages::Band::O, frame, protocol::kAdslFrameBytes, out) ==
+    CHECK(protocol::receive_burst(model::Band::O, frame, protocol::kAdslFrameBytes, out) ==
           protocol::System::Unknown);
 }
 
@@ -199,7 +200,7 @@ TEST_CASE("air: an M-band burst is still framed and named from its sync tail") {
     deliver(chips, chip_len, reported, sizeof(reported));
 
     protocol::Frame out{};
-    CHECK(protocol::receive_burst(messages::Band::M, reported, sizeof(reported), out) ==
+    CHECK(protocol::receive_burst(model::Band::M, reported, sizeof(reported), out) ==
           protocol::System::Alptas);
     CHECK(out.len == protocol::kAlptasFrameBytes);
 }

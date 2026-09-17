@@ -4,6 +4,8 @@
 // happen is a verdict where there is no evidence: a relayed position carries the
 // relay's radio, not the aircraft's, and an emitter without a position cannot be
 // ranged at all.
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
 #include "core/traffic/link.h"
 #include "doctest/doctest.h"
 
@@ -18,8 +20,8 @@ int32_t lat_offset_for(int32_t north_m) {
     return static_cast<int32_t>((static_cast<int64_t>(north_m) * 1000000) / 11132);
 }
 
-messages::OwnState own_at_equator() {
-    messages::OwnState o{};
+model::OwnState own_at_equator() {
+    model::OwnState o{};
     o.fix_valid = true;
     o.lat_1e7 = 0;
     o.lon_1e7 = 0;
@@ -27,8 +29,8 @@ messages::OwnState own_at_equator() {
     return o;
 }
 
-messages::AircraftObs emitter(int32_t north_m, int8_t rssi, messages::Source src) {
-    messages::AircraftObs t{};
+model::AircraftObs emitter(int32_t north_m, int8_t rssi, model::Source src) {
+    model::AircraftObs t{};
     t.position_valid = true;
     t.addr = 0xABCD;
     t.lat_1e7 = lat_offset_for(north_m);
@@ -53,9 +55,9 @@ TEST_CASE("link: free-space loss hits the 868 MHz reference points") {
 
 TEST_CASE("link: implied e.r.p. recovers the transmitter behind the signal") {
     // A 25 mW (14 dBm) emitter at 1 km arrives 91 dB down.
-    const messages::OwnState own = own_at_equator();
+    const model::OwnState own = own_at_equator();
     LinkRow row;
-    REQUIRE(estimate_link(own, emitter(1000, -77, messages::Source::AdslDirect), row));
+    REQUIRE(estimate_link(own, emitter(1000, -77, model::Source::AdslDirect), row));
     CHECK(row.modelled);
     CHECK(row.slant_m == doctest::Approx(1000).epsilon(0.01));
     CHECK(row.implied_erp_dbm == doctest::Approx(14).epsilon(0.1));
@@ -63,12 +65,12 @@ TEST_CASE("link: implied e.r.p. recovers the transmitter behind the signal") {
     // Same aircraft twice as far and 6 dB weaker is the same radio: the index
     // is what stays put while RSSI moves.
     LinkRow far;
-    REQUIRE(estimate_link(own, emitter(2000, -83, messages::Source::AdslDirect), far));
+    REQUIRE(estimate_link(own, emitter(2000, -83, model::Source::AdslDirect), far));
     CHECK(far.implied_erp_dbm == row.implied_erp_dbm);
 
     // And one that is 12 dB down at the same range reads 12 dB down.
     LinkRow weak;
-    REQUIRE(estimate_link(own, emitter(1000, -89, messages::Source::AdslDirect), weak));
+    REQUIRE(estimate_link(own, emitter(1000, -89, model::Source::AdslDirect), weak));
     CHECK(row.implied_erp_dbm - weak.implied_erp_dbm == 12);
 }
 
@@ -76,7 +78,7 @@ TEST_CASE("link: a relayed position says nothing about the aircraft's radio") {
     // The RSSI on an uplink frame is the ground station's path, not the
     // aircraft's, so the row exists and the verdict does not.
     LinkRow row;
-    REQUIRE(estimate_link(own_at_equator(), emitter(1000, -77, messages::Source::AdslUplink), row));
+    REQUIRE(estimate_link(own_at_equator(), emitter(1000, -77, model::Source::AdslUplink), row));
     CHECK(row.slant_m == doctest::Approx(1000).epsilon(0.01));
     CHECK_FALSE(row.modelled);
     CHECK(row.implied_erp_dbm == 0);
@@ -84,32 +86,32 @@ TEST_CASE("link: a relayed position says nothing about the aircraft's radio") {
 
 TEST_CASE("link: ALP-TAS traffic is measured on the same scale as ADS-L") {
     LinkRow row;
-    REQUIRE(estimate_link(own_at_equator(), emitter(1000, -77, messages::Source::Alptas), row));
+    REQUIRE(estimate_link(own_at_equator(), emitter(1000, -77, model::Source::Alptas), row));
     CHECK(row.modelled);
     CHECK(row.implied_erp_dbm == doctest::Approx(14).epsilon(0.1));
 }
 
 TEST_CASE("link: too close to model, still worth listing") {
     LinkRow row;
-    REQUIRE(estimate_link(own_at_equator(), emitter(30, -30, messages::Source::AdslDirect), row));
+    REQUIRE(estimate_link(own_at_equator(), emitter(30, -30, model::Source::AdslDirect), row));
     CHECK(row.slant_m < kMinModelledRangeM);
     CHECK_FALSE(row.modelled);
 }
 
 TEST_CASE("link: an emitter without a position cannot be ranged") {
-    messages::AircraftObs t = emitter(1000, -77, messages::Source::AdslDirect);
+    model::AircraftObs t = emitter(1000, -77, model::Source::AdslDirect);
     t.position_valid = false;
     LinkRow row;
     CHECK_FALSE(estimate_link(own_at_equator(), t, row));
 
-    messages::OwnState blind = own_at_equator();
+    model::OwnState blind = own_at_equator();
     blind.fix_valid = false;
-    CHECK_FALSE(estimate_link(blind, emitter(1000, -77, messages::Source::AdslDirect), row));
+    CHECK_FALSE(estimate_link(blind, emitter(1000, -77, model::Source::AdslDirect), row));
 }
 
 TEST_CASE("link: vertical separation counts as range") {
     // Directly overhead by 2 km is a 2 km path, not a zero one.
-    messages::AircraftObs t = emitter(0, -77, messages::Source::AdslDirect);
+    model::AircraftObs t = emitter(0, -77, model::Source::AdslDirect);
     t.alt_m = 3000;
     LinkRow row;
     REQUIRE(estimate_link(own_at_equator(), t, row));
@@ -120,7 +122,7 @@ TEST_CASE("link: vertical separation counts as range") {
 TEST_CASE("link: the wave takes the hypotenuse, not the ground track") {
     // 3 km out and 4 km up is a 5 km path. Charging the emitter only for its
     // horizontal separation would credit it with 4 dB it never radiated.
-    messages::AircraftObs t = emitter(3000, -91, messages::Source::AdslDirect);
+    model::AircraftObs t = emitter(3000, -91, model::Source::AdslDirect);
     t.alt_m = 5000;
     LinkRow row;
     REQUIRE(estimate_link(own_at_equator(), t, row));
@@ -133,7 +135,7 @@ TEST_CASE("link: ranking puts the nearest emitters first and drops the rest") {
     TrafficTable table;
     const int32_t ranges[6] = {8000, 1000, 5000, 300, 12000, 2500};
     for (int i = 0; i < 6; i++) {
-        messages::AircraftObs t = emitter(ranges[i], -90, messages::Source::AdslDirect);
+        model::AircraftObs t = emitter(ranges[i], -90, model::Source::AdslDirect);
         t.addr = 0x100u + static_cast<uint32_t>(i);
         table.update(t, 100);
     }
@@ -150,11 +152,11 @@ TEST_CASE("link: ranking puts the nearest emitters first and drops the rest") {
 
 TEST_CASE("link: ranking skips what it cannot range") {
     TrafficTable table;
-    messages::AircraftObs positioned = emitter(4000, -95, messages::Source::AdslDirect);
+    model::AircraftObs positioned = emitter(4000, -95, model::Source::AdslDirect);
     positioned.addr = 0x200;
     table.update(positioned, 100);
 
-    messages::AircraftObs blind = emitter(1000, -70, messages::Source::AdslDirect);
+    model::AircraftObs blind = emitter(1000, -70, model::Source::AdslDirect);
     blind.addr = 0x201;
     blind.position_valid = false;
     table.update(blind, 100);

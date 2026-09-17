@@ -1,5 +1,7 @@
 #include "core/power/battery.h"
 
+#include "core/events/sensor.h"
+
 namespace skyblip::power {
 
 namespace {
@@ -66,8 +68,8 @@ uint16_t calibrated_mv(uint16_t raw_mv, int16_t offset_mv) {
     return static_cast<uint16_t>(trimmed);
 }
 
-messages::BatterySample calibrated(const messages::BatterySample& raw, int16_t offset_mv) {
-    messages::BatterySample out = raw;
+events::BatterySample calibrated(const events::BatterySample& raw, int16_t offset_mv) {
+    events::BatterySample out = raw;
     out.millivolts = calibrated_mv(raw.millivolts, offset_mv);
     return out;
 }
@@ -77,7 +79,7 @@ uint8_t percent_from_mv(uint16_t millivolts, bool charging) {
                     : percent_on(kDischargeCurve, millivolts);
 }
 
-void Gauge::apply(const messages::BatterySample& sample) {
+void Gauge::apply(const events::BatterySample& sample) {
     for (int i = kWindow - 1; i > 0; i--) recent_[i] = recent_[i - 1];
     recent_[0] = sample.millivolts;
     if (seen_ < kWindow) seen_++;

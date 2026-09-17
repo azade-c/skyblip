@@ -10,13 +10,14 @@
 #include <zephyr/kernel.h>
 
 #include "core/comms/link_session.h"
+#include "core/events/link.h"
 #include "core/util/fifo.h"
 
 namespace skyblip::platform::zephyr {
 
-using skyblip::messages::Endpoint;
-using skyblip::messages::LinkEvent;
-using skyblip::messages::RxFrame;
+using skyblip::events::Endpoint;
+using skyblip::events::LinkEvent;
+using skyblip::events::RxFrame;
 
 namespace {
 
@@ -70,7 +71,7 @@ void push_rx(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t 
 }
 
 // INFO: fc 04aug26 The inbound half of the same rule. With an ATT_MTU of 498 a
-// central can write more than messages::RxFrame carries, and a command cut to
+// central can write more than events::RxFrame carries, and a command cut to
 // 256 bytes is not a command - a truncated "set" would apply the fields that
 // survived. So it is refused with the ATT error that says exactly that, which the
 // central sees, instead of being half-obeyed.

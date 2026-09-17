@@ -1,4 +1,5 @@
 // The station log: newest first, and nothing kept that a screen could not show.
+#include "core/model/aircraft.h"
 #include "core/radio/log.h"
 #include "doctest/doctest.h"
 
@@ -9,7 +10,7 @@ namespace {
 radio::Entry heard(uint32_t addr, uint32_t at_s) {
     radio::Entry e{};
     e.event = radio::Event::Received;
-    e.source = messages::Source::AdslDirect;
+    e.source = model::Source::AdslDirect;
     e.addr = addr;
     e.at_s = at_s;
     e.rssi_dbm = -87;
@@ -61,7 +62,7 @@ TEST_CASE("radio log: every outcome a burst can have is one it keeps") {
 }
 
 TEST_CASE("radio log: a burst is dated by the phase it landed at, not the pass that drained it") {
-    const radio::Stamp stamp = radio::stamp_of(12'462'000, 12'000'000, true, 45296);
+    const events::Stamp stamp = events::stamp_of(12'462'000, 12'000'000, true, 45296);
 
     CHECK(stamp.phase_valid);
     CHECK(stamp.at_s == 45296);
@@ -70,7 +71,7 @@ TEST_CASE("radio log: a burst is dated by the phase it landed at, not the pass t
 
 // Slot 1 closes 200 ms into the next second, so its tail is drained under a second the air had not.
 TEST_CASE("radio log: a burst before the edge belongs to the second its dwell opened in") {
-    const radio::Stamp stamp = radio::stamp_of(11'950'000, 12'000'000, true, 45296);
+    const events::Stamp stamp = events::stamp_of(11'950'000, 12'000'000, true, 45296);
 
     CHECK(stamp.phase_valid);
     CHECK(stamp.at_s == 45295);
@@ -79,7 +80,7 @@ TEST_CASE("radio log: a burst before the edge belongs to the second its dwell op
 
 // Without an edge to measure from, a phase is arithmetic on an instant nothing anchored.
 TEST_CASE("radio log: an unlocked clock reports the second and refuses the phase") {
-    const radio::Stamp stamp = radio::stamp_of(12'462'000, 12'000'000, false, 45296);
+    const events::Stamp stamp = events::stamp_of(12'462'000, 12'000'000, false, 45296);
 
     CHECK_FALSE(stamp.phase_valid);
     CHECK(stamp.at_s == 45296);
@@ -87,7 +88,7 @@ TEST_CASE("radio log: an unlocked clock reports the second and refuses the phase
 }
 
 TEST_CASE("radio log: an instant the latched edge cannot reach carries no phase") {
-    const radio::Stamp stamp = radio::stamp_of(12'000'000, 20'000'000, true, 45296);
+    const events::Stamp stamp = events::stamp_of(12'000'000, 20'000'000, true, 45296);
 
     CHECK_FALSE(stamp.phase_valid);
     CHECK(stamp.at_s == 45296);

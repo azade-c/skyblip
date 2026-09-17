@@ -2,8 +2,10 @@
 
 #include <cstring>
 
+#include "core/events/link.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/extrapolate.h"
+#include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
 
 namespace skyblip::go {
@@ -38,15 +40,20 @@ int32_t signed_bearing(uint16_t clockwise_deg) {
 
 }  // namespace
 
+Status NmeaService::setup() {
+    enabled_ =
+        has_feature(supported(declared_, context_.roles.capabilities), Feature::CompanionLink);
+    return Status::Ok;
+}
+
 // INFO: nm 04aug26 Nobody listening costs one boolean and a null check: no walk
 // of the traffic table, no formatting, nothing handed to a link that would
 // refuse it. That matters because this runs in the same pass as the dwell map,
 // and because the common case in a club is a device flying with no phone paired
 // at all.
 bool NmeaService::listening() const {
-    if (!enabled_ || config_ == nullptr) return false;
-    if (!hal::has(context_.roles.capabilities, hal::Capability::Link)) return false;
-    return config_->link_up();
+    if (!enabled_) return false;
+    return config_.link_up();
 }
 
 void NmeaService::tick(uint32_t now_ms) {
@@ -60,7 +67,7 @@ void NmeaService::tick(uint32_t now_ms) {
     if (passed_once_) {
         const uint32_t since = now_ms - last_pass_ms_;
         if (since < kMovingTargetRedrawMs) return;
-        if (context_.state.dwell.burst_armed &&
+        if (context_.state.rf.dwell.burst_armed &&
             since < kMovingTargetRedrawMs + kPassDeferralCeilingMs)
             return;
     }
@@ -75,8 +82,8 @@ void NmeaService::tick(uint32_t now_ms) {
 void NmeaService::run_pass(uint32_t now_ms) {
     const int negotiated = static_cast<int>(context_.roles.link.payload_bytes());
     payload_ = negotiated < hal::kMinimumLinkPayload ? hal::kMinimumLinkPayload
-               : negotiated > kFrameBytesCap         ? kFrameBytesCap
-                                                     : negotiated;
+               : negotiated > kFrameBytesCap           ? kFrameBytesCap
+                                                       : negotiated;
     frame_len_ = 0;
     stalled_ = false;
     emit_status(now_ms);
@@ -92,7 +99,7 @@ void NmeaService::run_pass(uint32_t now_ms) {
 // core/traffic already published on the target (products/.../alarm.cpp is its
 // single writer), so the tablet's alarm and the buzzer cannot disagree.
 void NmeaService::emit_status(uint32_t now_ms) {
-    const messages::OwnState& own = context_.state.own;
+    const model::OwnState& own = context_.state.own;
     const traffic::Target* threat = nullptr;
     traffic::AlarmAssessment worst{};
     uint8_t worst_level = 0;
@@ -130,7 +137,7 @@ void NmeaService::emit_status(uint32_t now_ms) {
 // core/protocol on the same fix and UTC validity $PGRMZ and $PFLAU already
 // read off own, so there is nothing to gate here a second time.
 void NmeaService::emit_ownship() {
-    const messages::OwnState& own = context_.state.own;
+    const model::OwnState& own = context_.state.own;
     const int rmc = protocol::format_gprmc(sentence_, sizeof(sentence_), own);
     if (rmc > 0) write(sentence_, rmc);
     const int gga = protocol::format_gpgga(sentence_, sizeof(sentence_), own);
@@ -149,8 +156,8 @@ void NmeaService::emit_ownship() {
 // GNSS altitude - both SoftRF forks gate the same sentence on a baro chip being
 // present for the same reason.
 void NmeaService::emit_altitude() {
-    if (!context_.state.baro_active) return;
-    const int32_t alt_cm = flight::pressure_to_alt_cm(context_.state.pressure_mpa / 1000);
+    if (!context_.state.baro.active) return;
+    const int32_t alt_cm = flight::pressure_to_alt_cm(context_.state.baro.pressure_mpa / 1000);
     write(sentence_,
           protocol::format_pgrmz(sentence_, sizeof(sentence_), centimetres_to_feet(alt_cm),
                                  context_.state.own.fix_valid));
@@ -170,16 +177,16 @@ void NmeaService::emit_altitude() {
 // BME280 measures it and nothing in the tree reads it, so the field carries its
 // "not available" sentinel rather than a plausible number nobody measured.
 void NmeaService::emit_vario_and_battery() {
-    const messages::OwnState& own = context_.state.own;
+    const model::OwnState& own = context_.state.own;
     protocol::Lk8Ex1 v{};
 
-    if (context_.state.baro_active) {
-        v.pressure_pa = context_.state.pressure_mpa / 1000;
+    if (context_.state.baro.active) {
+        v.pressure_pa = context_.state.baro.pressure_mpa / 1000;
         v.has_pressure = true;
         // Field 2 is the 1013.25 datum, the same datum-free figure $PGRMZ
         // carries and for the same reason: the consumer applies its own
         // subscale. A consumer that read field 1 recomputes this and ignores it.
-        v.alt_m = flight::pressure_to_alt_cm(context_.state.pressure_mpa / 1000) / 100;
+        v.alt_m = flight::pressure_to_alt_cm(context_.state.baro.pressure_mpa / 1000) / 100;
         v.has_alt = true;
     }
 
@@ -189,8 +196,8 @@ void NmeaService::emit_vario_and_battery() {
         v.has_vario = true;
     }
 
-    v.battery_percent = context_.state.battery.percent;
-    v.has_battery = context_.state.battery.valid;
+    v.battery_percent = context_.state.power.battery.percent;
+    v.has_battery = context_.state.power.battery.valid;
 
     write(sentence_, protocol::format_lk8ex1(sentence_, sizeof(sentence_), v));
 }
@@ -201,7 +208,7 @@ void NmeaService::emit_vario_and_battery() {
 // the first N slots every second, means slot 11 is a target the tablet is never
 // told about at all.
 void NmeaService::emit_targets(uint32_t now_ms) {
-    const messages::OwnState own = flight::carried_to(context_.state.own, now_ms);
+    const model::OwnState own = flight::carried_to(context_.state.own, now_ms);
     if (!own.fix_valid) return;
 
     int sent = 0;
@@ -247,7 +254,7 @@ void NmeaService::write(const char* bytes, int len) {
 void NmeaService::flush() {
     if (frame_len_ == 0) return;
     const Status sent = context_.roles.link.send(
-        messages::Endpoint::Nmea,
+        events::Endpoint::Nmea,
         ConstByteSpan(reinterpret_cast<const uint8_t*>(frame_), static_cast<size_t>(frame_len_)));
     frame_len_ = 0;
     if (is_ok(sent)) return;
