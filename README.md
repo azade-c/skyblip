@@ -40,8 +40,14 @@ skyBlip stands on a decade of open work by the free-flight community. Thanks to 
 
 ## License
 
-The firmware, the simulator and the tooling are **GPL-3.0-only**: see [`LICENSE`](LICENSE).
+The repository is **MIT**: see [`LICENSE`](LICENSE). The one exception is [`firmware/`](firmware), which is **GPL-3.0-only** under [`firmware/LICENSE`](firmware/LICENSE), and that license reaches everything below it: `core/`, `ui/`, `ports/`, `hardware/`, `runtime/`, `products/`, `boards/`, `test/` and the simulated world in `firmware/simulator/`.
 
-The website is **MIT**, and carries its own [`website/LICENSE`](website/LICENSE). The root license does not reach into that directory.
+So the schemas, the build and release scripts, the simulator page and the website may be copied into a closed product; a tracker built from this firmware owes its sources.
+
+The simulator page is MIT, but what `simulator/` builds is not: `make -C simulator build` copies the firmware's WASM into `simulator/build/`, and that binary stays GPL-3.0-only wherever it is served.
+
+## Trademark
+
+"skyBlip" and "skyPost", the wordmark and the airship mark in [`skyship/`](skyship) are trademarks of François Catuhe. The licenses above grant copyright permissions, not trademark ones: a fork may say it is compatible with skyBlip or derived from it, and may not use the names or the marks to name its own product or to suggest endorsement.
 
 Copyright (C) 2026 François Catuhe

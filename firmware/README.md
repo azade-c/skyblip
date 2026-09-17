@@ -6,6 +6,8 @@ The C++ tree: `core/` is the portable logic, `ports/` the roles a product needs 
 
 `make test` runs the host suite, `make simulator` builds the terminal one, `scripts/build_local.sh` from the repo root builds the device image.
 
+`.clang-format` and `.clang-tidy` live here rather than at the root because this is the only C++ in the repository, and both tools read the nearest config above the file they are given. `make tidy` runs the linter over what the host build compiles; CI runs the same target.
+
 ## Naming a boolean
 
 A boolean field says which kind of fact it is in its suffix, never in a prefix. `has_` and `have_` both read as "somebody has something" and the two were two lines apart in one struct before this rule existed.
@@ -35,3 +37,7 @@ A number carries its unit in its suffix, for the same reason a boolean carries i
 | `_dps` | degrees per second | `turn_dps` |
 
 `core/units/units.h` carries the same units as types, and the conversions between them. It is what `ui/` reads in, because a page that prints knots and feet should be converting from a type rather than from a name. On the wire and in `bus::State` the suffix is the convention, because a struct that crosses a queue is a layout as well as a vocabulary.
+
+## License
+
+GPL-3.0-only, see [`LICENSE`](LICENSE). This directory is the copyleft one: the rest of the repository is MIT, and code cannot travel from here to there. The WASM the simulator page loads is built from these sources and carries this license with it.
