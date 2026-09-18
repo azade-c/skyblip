@@ -5,7 +5,7 @@
 namespace skyblip::go {
 
 bool AlarmService::silenced(traffic::Target& target, formation::State state,
-                           const traffic::AlarmAssessment& a, uint32_t now_ms) {
+                            const traffic::AlarmAssessment& a, uint32_t now_ms) {
     if (state == formation::State::None) return false;
     if (a.closing_mps >= formation::kClosingMps) {
         formation_.release(target.obs.addr_table, target.obs.addr, now_ms);

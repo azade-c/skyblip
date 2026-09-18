@@ -44,10 +44,7 @@ class ScreenService : public runtime::Service {
     // pilot can read is on the glass.
     ScreenService(runtime::Context& context, Settings& settings, comms::ConfigService& config,
                   const BootSnapshot& self_test)
-        : runtime::Service(context),
-          settings_(settings),
-          config_(config),
-          self_test_(self_test) {}
+        : runtime::Service(context), settings_(settings), config_(config), self_test_(self_test) {}
 
     void tick(uint32_t now_ms) override;
 
