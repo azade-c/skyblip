@@ -22,7 +22,7 @@ bool flying_speed(const FlightSample& sample) {
 
 bool flying_climb(const FlightSample& sample) {
     return derated(climb_magnitude_e8(sample), sample.hdop_e2) >= kFlightClimbE8 &&
-           sample.speed_q >= kGroundSpeedQ;
+           sample.speed_q >= kClimbArmSpeedQ;
 }
 
 bool flight_evidence(const FlightSample& sample) {

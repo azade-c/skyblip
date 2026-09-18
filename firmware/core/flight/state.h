@@ -16,10 +16,11 @@ struct FlightSample {
     bool climb_valid{false};
 };
 
-constexpr uint16_t kFlightSpeedQ = 60;  // 15.0 m/s
-constexpr int16_t kFlightClimbE8 = 16;  // 2.0 m/s
-constexpr uint16_t kGroundSpeedQ = 10;  // 2.5 m/s
-constexpr int16_t kGroundClimbE8 = 8;   // 1.0 m/s
+constexpr uint16_t kFlightSpeedQ = 48;    // 12.0 m/s
+constexpr int16_t kFlightClimbE8 = 16;    // 2.0 m/s
+constexpr uint16_t kClimbArmSpeedQ = 10;  // 2.5 m/s
+constexpr uint16_t kGroundSpeedQ = 4;     // 1.0 m/s
+constexpr int16_t kGroundClimbE8 = 6;     // 0.75 m/s
 constexpr uint16_t kDopUnityE2 = 100;
 
 // INFO: fc 18sep26 moshe-braner's jerk gate: a speed jumping 4x between solutions is noise
