@@ -1,28 +1,28 @@
 ---
-title: Se servir du bouton
+title: Se servir du bouton et du pavé
 nav_title: Boutons
 slug: boutons
-description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pression change de page, deux pressions autorisent, un appui de deux secondes éteint. Ce que fait RST, et la seule chose pour laquelle le pavé tactile est lu.
+description: Deux contacts sur skyBlip Go · le pavé du bord haut déplace, le bouton du côté agit. Une tape change de page, une pression ouvre les réglages, deux pressions autorisent, un appui de deux secondes éteint.
 ---
 
 <section>
-  <h2 class="kicker">Se servir du bouton</h2>
-  <h3>Un bouton, trois choses.</h3>
+  <h2 class="kicker">Se servir du bouton et du pavé</h2>
+  <h3>Le pavé déplace, le bouton agit.</h3>
   <p class="lede">
-    skyBlip Go n&rsquo;a qu&rsquo;un bouton à apprendre, et il dit trois
-    choses&nbsp;: une pression change de page, deux pressions rapprochées
-    autorisent ce que l&rsquo;appareil demande, un appui de deux secondes
-    l&rsquo;éteint. Rien d&rsquo;autre n&rsquo;est caché derrière, et les trois ne
-    se recouvrent jamais&nbsp;: un appui long n&rsquo;est jamais lu comme une
-    pression, et une pression faite avant qu&rsquo;une question apparaisse ne peut
-    pas y répondre.
+    skyBlip Go a deux contacts à apprendre&nbsp;: un pavé tactile capacitif sur le
+    bord haut et un bouton sur le côté. Le pavé vous déplace&nbsp;: une tape passe
+    à la page suivante, un contact d&rsquo;une seconde ramène le radar. Le bouton
+    est celui qui change quelque chose&nbsp;: une pression ouvre les réglages et
+    fait avancer la ligne où vous êtes, deux pressions rapprochées autorisent ce
+    que l&rsquo;appareil demande, et un appui de deux secondes l&rsquo;éteint.
   </p>
   <p>
-    Le boîtier porte deux autres entrées&nbsp;: un petit bouton
-    <span class="mono">RST</span>, qui est le reset du processeur et la porte
-    d&rsquo;entrée du bootloader USB, et un pavé tactile capacitif, que le
-    firmware ne lit que pour une seule chose&nbsp;: ranger l&rsquo;appareil pour
-    la saison, écran vierge. Les deux sont traités en bas de page.
+    Ce partage est tout le vocabulaire, et il tient sur toutes les pages&nbsp;:
+    rien qu&rsquo;une manche frôle ne peut changer un réglage, et rien de ce qui
+    sert à parcourir les pages ne peut être dépensé à répondre à une question. Le
+    boîtier porte une entrée de plus, un petit bouton <span class="mono">RST</span>,
+    qui est le reset du processeur et la porte d&rsquo;entrée du bootloader USB.
+    Il est traité en bas de page.
   </p>
 
   <div class="table-scroll">
@@ -35,15 +35,23 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
       </thead>
       <tbody>
         <tr>
-          <th>Une pression</th>
-          <td>page suivante &mdash; ou, devant une question à l&rsquo;écran, la refuse</td>
+          <th>Une tape sur le pavé</th>
+          <td>page suivante&nbsp;; dans les réglages, descend d&rsquo;une ligne</td>
+        </tr>
+        <tr>
+          <th>Un contact d&rsquo;une seconde sur le pavé</th>
+          <td>retour au radar, depuis n&rsquo;importe quelle page</td>
+        </tr>
+        <tr>
+          <th>Une pression sur le bouton</th>
+          <td>ouvre les réglages&nbsp;; à l&rsquo;intérieur, agit sur la ligne sélectionnée &mdash; ou, devant une question à l&rsquo;écran, la refuse</td>
         </tr>
         <tr>
           <th>Deux pressions, à moins de 0,6&nbsp;s</th>
-          <td>autorisent la question à l&rsquo;écran&nbsp;; sur la page réglages, modifient la ligne sélectionnée</td>
+          <td>autorisent la question à l&rsquo;écran</td>
         </tr>
         <tr>
-          <th>Appui de 2&nbsp;s</th>
+          <th>Appui de 2&nbsp;s sur le bouton</th>
           <td>éteint l&rsquo;appareil</td>
         </tr>
         <tr>
@@ -55,14 +63,15 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
   </div>
 </section>
 
-<section>
+<section id="simulator">
   <h2 class="kicker">Essayez</h2>
   <h3>Le même firmware, dans cette page.</h3>
   <p>
     L&rsquo;appareil ci-dessous, c&rsquo;est le firmware que fait tourner un
-    skyBlip Go, compilé en WebAssembly&nbsp;: même radar, mêmes pages, même
-    bouton anti-rebond. Appuyez sur la touche du bord pour changer de page,
-    appuyez deux fois rapidement, ou maintenez-la deux secondes et regardez
+    skyBlip Go, compilé en WebAssembly&nbsp;: même radar, mêmes pages, mêmes
+    contacts anti-rebond. Tapez la bande du bord haut pour parcourir les pages,
+    gardez-la une seconde pour revenir au radar, appuyez sur la touche du côté
+    pour ouvrir les réglages, ou maintenez-la deux secondes et regardez
     l&rsquo;appareil s&rsquo;éteindre en gardant le logo à l&rsquo;écran.
   </p>
 
@@ -71,8 +80,10 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
         restart: "Rallumer",
         on: "en marche",
         off: "éteint",
+        settings: "réglages",
         glass: "L’écran e-paper simulé d’un skyBlip Go",
-        key: "Le bouton de l’appareil : une pression change de page, un appui de deux secondes éteint",
+        key: "Le bouton de l’appareil : une pression ouvre les réglages, un appui de deux secondes éteint",
+        pad: "Le pavé tactile : une tape change de page, un contact d’une seconde ramène le radar",
         caption: "Les capteurs sont simulés, le firmware ne l’est pas : c’est la version depuis laquelle ce site a été publié.",
         missing: "Le simulateur ne fait pas partie de cette version du site." %>
 </section>
@@ -128,41 +139,48 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
 
 <section>
   <h2 class="kicker">Les pages</h2>
-  <h3>Une pression passe à la suivante, et la liste est la vôtre.</h3>
+  <h3>Une tape passe à la suivante, et la liste est la vôtre.</h3>
   <p>
-    En vol, le bouton est un sélecteur de page&nbsp;: radar, six-pack, état,
-    signal, journal radio, puis la page réglages, puis on recommence. La ligne PAGES des réglages
-    masque celles avec lesquelles vous ne volez pas &mdash; toutes, radar et état
-    seulement, ou radar seul &mdash; et une page masquée est sautée par le bouton
-    au lieu d&rsquo;être parcourue. La page réglages reste toujours dans le cycle,
-    pour que le chemin du retour ne soit jamais quelque chose que vous puissiez
-    vous cacher à vous-même.
+    En vol, le pavé est le sélecteur de page&nbsp;: radar, six-pack, état, signal,
+    journal radio, puis on recommence. Un contact d&rsquo;une seconde est le chemin
+    du retour, le radar est donc à un geste d&rsquo;où que vous soyez. La ligne
+    PAGES des réglages masque celles avec lesquelles vous ne volez pas &mdash;
+    toutes, radar et état seulement, ou radar seul &mdash; et une page masquée est
+    sautée par la tape au lieu d&rsquo;être parcourue.
+  </p>
+  <p>
+    Les réglages ne sont pas sur ce parcours&nbsp;: ils sont un mode que le bouton
+    ouvre, et c&rsquo;est aussi pourquoi la ligne PAGES ne peut pas les masquer. Le
+    chemin du retour n&rsquo;est jamais quelque chose que vous puissiez vous cacher
+    à vous-même.
   </p>
 </section>
 
 <section>
   <h2 class="kicker">Les réglages à l&rsquo;écran</h2>
-  <h3>Une pression descend d&rsquo;une ligne, deux pressions la modifient.</h3>
+  <h3>Le pavé déplace, la pression modifie.</h3>
   <p>
-    Tout ce qui compte se règle sur l&rsquo;appareil, sans téléphone&nbsp;: une
-    pression pour descendre les lignes, deux pressions pour agir sur celle qui est
-    en surbrillance. Continuez de taper dans la fenêtre et la valeur continue
-    d&rsquo;avancer&nbsp;: c&rsquo;est ainsi qu&rsquo;on amène le calage là où on
-    le veut. Rien n&rsquo;est un brouillon&nbsp;: chaque action est une
-    modification terminée, il n&rsquo;y a donc aucun moyen de laisser
-    l&rsquo;appareil à moitié réglé.
+    Tout ce qui compte se règle sur l&rsquo;appareil, sans téléphone. Une pression
+    du bouton ouvre les réglages sur la carte d&rsquo;auto-test que l&rsquo;appareil
+    a dessinée au démarrage, et le geste suivant entre dans la liste. À partir de
+    là, c&rsquo;est le vocabulaire que vous avez déjà&nbsp;: une tape sur le pavé
+    descend les lignes, une pression du bouton agit sur celle qui est en
+    surbrillance, et chaque pression suivante fait avancer le même champ,
+    c&rsquo;est ainsi qu&rsquo;on amène le calage là où on le veut. Rien n&rsquo;est
+    un brouillon&nbsp;: chaque action est une modification terminée, il n&rsquo;y a
+    donc aucun moyen de laisser l&rsquo;appareil à moitié réglé.
   </p>
   <p>
-    Les lignes ne font qu&rsquo;avancer, la dernière rend l&rsquo;écran à
-    l&rsquo;image du trafic, et une page réglages sur laquelle personne n&rsquo;a
-    appuyé depuis une minute y retourne d&rsquo;elle-même. On ne peut pas rester
-    coincé dedans.
+    Les lignes ne font qu&rsquo;avancer, la tape après la dernière rend
+    l&rsquo;écran à l&rsquo;image du trafic, un contact d&rsquo;une seconde va droit
+    au radar, et une page réglages que personne n&rsquo;a touchée depuis une minute
+    y retourne d&rsquo;elle-même. On ne peut pas rester coincé dedans.
   </p>
 
   <div class="table-scroll">
     <table class="modules">
       <thead>
-        <tr><th>Ligne</th><th>Deux pressions</th></tr>
+        <tr><th>Ligne</th><th>Ce que fait une pression</th></tr>
       </thead>
       <tbody>
         <tr><th>ID</th><td>rien &mdash; votre adresse ADS-L, affichée, jamais modifiée au pouce</td></tr>
@@ -193,16 +211,18 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
   </p>
   <p>
     Les pressions ne comptent qu&rsquo;une fois la question arrivée à
-    l&rsquo;écran et le pouce arrêté&nbsp;: une série de pressions qui défilait
-    les pages ne peut donc pas être dépensée en autorisation. La présence physique
-    est toute la sécurité ici&nbsp;: l&rsquo;appareil ne demande à personne de
-    s&rsquo;apparier, il vous demande de l&rsquo;avoir en main.
+    l&rsquo;écran et le pouce arrêté&nbsp;: une série de pressions qui faisait
+    avancer une valeur dans les réglages ne peut donc pas être dépensée en
+    autorisation. Le pavé est inerte tant qu&rsquo;une question est posée&nbsp;: il
+    n&rsquo;y a aucune page à parcourir avant d&rsquo;y avoir répondu. La présence
+    physique est toute la sécurité ici&nbsp;: l&rsquo;appareil ne demande à
+    personne de s&rsquo;apparier, il vous demande de l&rsquo;avoir en main.
   </p>
 </section>
 
 <section>
-  <h2 class="kicker">Les deux autres</h2>
-  <h3><span class="mono">RST</span> redémarre. Le pavé range l&rsquo;appareil.</h3>
+  <h2 class="kicker">Le troisième</h2>
+  <h3><span class="mono">RST</span> redémarre, et rien d&rsquo;autre ne le fait.</h3>
   <p>
     <span class="mono">RST</span> est un reset matériel&nbsp;: une pression et
     l&rsquo;appareil redémarre, quoi que le firmware ait été en train de faire.
@@ -212,21 +232,13 @@ description: Un seul bouton sur skyBlip Go, trois choses qu'il dit · une pressi
     qui en fait le chemin de retour d&rsquo;un appareil qui ne démarre plus.
   </p>
   <p>
-    Le pavé tactile est lu à un seul endroit et nulle part ailleurs&nbsp;: maintenu
-    pendant les deux secondes d&rsquo;appui qui éteignent l&rsquo;appareil, il laisse
-    l&rsquo;écran vierge pour le rangement. Seul, il ne fait rien du tout. Il ne peut
-    ni allumer ni éteindre l&rsquo;appareil, ni changer de page, ni répondre à une
-    question affichée.
-  </p>
-  <p>
-    C&rsquo;est délibéré, et c&rsquo;est le raisonnement qui a longtemps laissé ce
-    pavé non lu&nbsp;: un pavé capacitif est inutilisable à travers des gants
-    d&rsquo;hiver, il se déclenche sur une joue et sous la pluie, et un bouton dont
-    on peut répéter les trois gestes au sol vaut mieux que deux entrées dont il
-    faut se rappeler le vocabulaire en vol. Rien de tout cela n&rsquo;atteint un
-    geste que l&rsquo;on fait une fois par saison, au sol, l&rsquo;appareil à deux
-    mains. Le pire qu&rsquo;un pavé mouillé puisse faire, c&rsquo;est envoyer
-    l&rsquo;appareil au repos avec un écran vierge plutôt qu&rsquo;un logo.
+    Le pavé est délibérément le contact inoffensif des trois. Un pavé capacitif est
+    inutilisable à travers des gants d&rsquo;hiver, et il se déclenche sur une joue
+    et sous la pluie, alors rien de ce qui compte n&rsquo;est derrière&nbsp;: il ne
+    peut ni allumer ni éteindre l&rsquo;appareil, ni changer un réglage, ni répondre
+    à une question affichée. Le pire qu&rsquo;un pavé mouillé puisse faire,
+    c&rsquo;est tourner une page que vous ne lisiez pas, ou envoyer avec un écran
+    vierge plutôt qu&rsquo;un logo un appareil déjà en train de s&rsquo;éteindre.
   </p>
 </section>
 
