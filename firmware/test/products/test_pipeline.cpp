@@ -101,17 +101,13 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     CHECK(a.closing_mps > 40);
     CHECK(a.level == traffic::Level::Urgent);
 
-    // The same aircraft in the same place, flying the way we are: nothing is
-    // arriving, and the proximity ring still draws it because 800 m abeam is
-    // worth knowing about. That is a level 2, and it is not an alarm. assess()
-    // has no memory and cannot say more than that; six seconds of a range that
-    // does not move is what quietens it, and that decision belongs to
-    // AlarmTracker's SteadyRange suppression, which is what the product runs.
+    // The same aircraft flying the way we are: two parallel paths, so it is a dot and not an alarm.
     model::AircraftObs chase = obs;
     chase.track_c9 = own.track_c9;
     const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
-    CHECK(following.closing_mps < traffic::kClosingFloorMps);
-    CHECK(following.level == traffic::Level::Important);
+    CHECK(following.closing_mps <= 0);
+    CHECK_FALSE(following.breaches);
+    CHECK(following.level == traffic::Level::Info);
 
     table.at(idx)->alarm_level = a.level;
 

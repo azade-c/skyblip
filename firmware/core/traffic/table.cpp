@@ -1,5 +1,6 @@
 #include "core/traffic/table.h"
 
+#include "core/flight/turn.h"
 #include "core/model/aircraft.h"
 
 namespace skyblip::traffic {
@@ -36,6 +37,24 @@ bool TrafficTable::prefer_new(const model::AircraftObs& in, const model::Aircraf
     return rank_in >= rank_ex;
 }
 
+void TrafficTable::sample_turn(TargetTurn& turn, const model::AircraftObs& obs) {
+    if (!obs.speed_valid) return;
+    const uint32_t dt = obs.at_ms - turn.ref_ms;
+    if (!turn.armed || dt > kTurnGapMs) {
+        turn.armed = true;
+        turn.valid = false;
+        turn.dps = 0;
+        turn.ref_ms = obs.at_ms;
+        turn.ref_track_c9 = obs.track_c9;
+        return;
+    }
+    if (dt < kTurnWindowMs) return;
+    turn.dps = flight::turn_rate_dps(obs.track_c9, turn.ref_track_c9, dt);
+    turn.valid = true;
+    turn.ref_ms = obs.at_ms;
+    turn.ref_track_c9 = obs.track_c9;
+}
+
 int TrafficTable::allocate_slot(uint32_t now) {
     for (int i = 0; i < kCapacity; i++)
         if (!slots_[i].used) return i;
@@ -68,13 +87,18 @@ int TrafficTable::update(const model::AircraftObs& obs, uint32_t now) {
     }
     int idx = find(obs.addr_table, obs.addr);
     if (idx >= 0) {
-        if (prefer_new(obs, slots_[idx].obs)) slots_[idx].obs = obs;
+        if (prefer_new(obs, slots_[idx].obs)) {
+            slots_[idx].obs = obs;
+            sample_turn(slots_[idx].turn, obs);
+        }
         return idx;
     }
     idx = allocate_slot(now);
     if (idx < 0) return -1;
     slots_[idx].used = true;
     slots_[idx].obs = obs;
+    slots_[idx].turn = TargetTurn{};
+    sample_turn(slots_[idx].turn, obs);
     slots_[idx].alarm_level = Level::None;
     return idx;
 }
@@ -84,6 +108,7 @@ void TrafficTable::age_out(uint32_t now, uint32_t max_age) {
         if (!slots_[i].used) continue;
         if (now - obs_time(slots_[i].obs) > max_age) {
             slots_[i].used = false;
+            slots_[i].turn = TargetTurn{};
             slots_[i].alarm_level = Level::None;
         }
     }
@@ -99,6 +124,7 @@ int TrafficTable::count() const {
 void TrafficTable::clear() {
     for (auto& s : slots_) {
         s.used = false;
+        s.turn = TargetTurn{};
         s.alarm_level = Level::None;
     }
 }

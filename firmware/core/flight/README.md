@@ -9,7 +9,8 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 | `timer` | how long this flight has been running |
 | `atmosphere` | the standard atmosphere as integer math: pressure altitude, subscales, vertical speed |
 | `turn` | rate of turn from two reported tracks |
-| `extrapolate` | where an aircraft will be, for the transmitter and the alarm |
+| `extrapolate` | where an aircraft is now, when the fix it came from is older than now |
+| `arc` | where an aircraft will be, out to the look-ahead the radar draws and the alarm grades |
 | `log_record`, `log_session` | what a flight leaves behind, and when a session runs |
 
 ## atmosphere
@@ -31,6 +32,16 @@ The chain used to truncate the driver's reading to a whole pascal, which is nine
 The rate is therefore measured in mm/s and encoded to eighths of a metre per second only where the radio needs it (`core/protocol/adsl.cpp`). Every screen, and the `$LK8EX1` vario, reads the measurement. `kMinWindowMs` and `kMaxWindowMs` bound the interval a rate may be taken over: too short and the sensor noise is the answer, too long and it is history.
 
 The barometer is sampled once a second on the PPS edge (`boards/lilygo/t_echo_plus/board.h`), so the second a rate is taken over is the second the fix stream is dated in. That needs the part in forced mode: in Zephyr's default normal mode the chip converts on its own standby timer and a read returns a sample of unknown age, which is the one error differentiating over that second cannot survive.
+
+## arc
+
+`extrapolate` and `arc` answer the same question over two horizons, and they are deliberately not one function. `extrapolate` closes the gap between the instant a fix was solved and the instant a position is used, so its ceiling is `kMaxExtrapolationMs`, a little over a second: past that the transmitter would be putting an invented position on the air, and §G.1.16 already refuses a solution older than 500 ms. `arc` is asked about a future nobody has to stand behind. It is what the radar's leader line draws and what `core/traffic/conflict` measures a breach against, so it runs to a minute and carries no obligation to the radio at all. Widening the first to serve the second was the tempting mistake.
+
+The model is the same one, OGN's: constant ground speed on a constant turn rate, the turn applied half before the step and half after, which keeps a circling aircraft on its arc instead of on the tangent. A path is walked, never indexed: `Arc::advance()` rotates the velocity vector by half a step's worth of turn, moves, and rotates again, so a whole minute costs two sine lookups per aircraft rather than two per sample. Position is carried in millimetres and rotations are rounded rather than truncated, because a Q14 rotation applied thirty times in a row loses a metre a step otherwise.
+
+A target's turn rate is not on the wire. ADS-L carries position, speed, track and climb, so `motion_of(obs, ...)` takes the rate `core/traffic` estimated from that target's own track history, and flies it straight when there is no estimate yet. Both the screen and the alarm read the same estimate, which is the whole point: a leader line that curves one way while the alarm grades the other is two models and one of them is wrong.
+
+`kMaxTurnDps` is 30. Above it the number is describing the receiver rather than the aircraft: a differentiated 1 Hz track produces tens of degrees per second out of a bad fix, and no aeroplane this device rides in holds that rate for the length of the projection. The clamp is applied where a motion is built, so nothing downstream has to remember it.
 
 ## ground
 

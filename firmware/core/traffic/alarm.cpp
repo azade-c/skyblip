@@ -2,24 +2,24 @@
 
 #include <algorithm>
 
+#include "core/flight/arc.h"
 #include "core/flight/extrapolate.h"
-#include "core/flight/turn.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
+#include "core/traffic/conflict.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::traffic {
 
 namespace {
 
-// isin/icos are Q14, and speed_q is quarter-metres per second, so a velocity
-// component here is quarter-metres per second scaled by kTrigOne.
 constexpr int32_t kTrigOne = 16384;
 constexpr int32_t kSpeedQPerMps = 4;
-// cordic9: 512 units of track for 65536 units of angle.
 constexpr int kTrackC9ToAngle = 7;
 constexpr int kTrackC9Mask = 0x1FF;
+constexpr int kTrackC9Turn = 512;
+constexpr uint16_t kUnknownTargetSpeedQ = kUnknownTargetSpeedMps * kSpeedQPerMps;
 
 void velocity_ned(uint16_t speed_q, uint16_t track_c9, int32_t& north, int32_t& east) {
     const int16_t angle =
@@ -47,12 +47,51 @@ int32_t closing_from_vectors(const model::OwnState& own, const model::AircraftOb
 
 int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
+uint16_t track_c9_towards(int32_t north_m, int32_t east_m) {
+    const int16_t bearing = iatan2(-east_m, -north_m);
+    const int32_t c9 = ((static_cast<int32_t>(static_cast<uint16_t>(bearing)) >> kTrackC9ToAngle) +
+                        kTrackC9Turn) %
+                       kTrackC9Turn;
+    return static_cast<uint16_t>(c9);
+}
+
+flight::Motion target_motion(const model::AircraftObs& target, int32_t n_m, int32_t e_m,
+                             int32_t u_m, int16_t turn_dps, bool turn_valid) {
+    flight::Motion m = flight::motion_of(target, turn_dps, turn_valid);
+    m.north_m = n_m;
+    m.east_m = e_m;
+    m.up_m = u_m;
+    if (!target.speed_valid) {
+        m.speed_q = kUnknownTargetSpeedQ;
+        m.track_c9 = track_c9_towards(n_m, e_m);
+        m.turn_dps = 0;
+        m.turning = false;
+    }
+    return m;
+}
+
+Level level_for(const AlarmAssessment& a) {
+    Level level = Level::None;
+    const bool in_window = iabs32(a.rel_vert_m) <= kVertWindowM;
+    if (in_window && a.rel_dist_m <= kInfoDistM) level = Level::Info;
+    if (!a.breaches) return level;
+    if (level == Level::None) level = Level::Info;
+    if (a.at_s <= kImportantTtiS) level = Level::Important;
+    if (a.at_s <= kUrgentTtiS) level = Level::Urgent;
+    return level;
+}
+
 }  // namespace
+
+AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs& reported,
+                       uint32_t now_ms) {
+    return assess(own_fix, reported, 0, false, now_ms);
+}
 
 // INFO: fc 13sep26 two positions from different instants are not a separation, so both are carried
 // to now
 AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs& reported,
-                       uint32_t now_ms) {
+                       int16_t target_turn_dps, bool target_turn_valid, uint32_t now_ms) {
     const model::OwnState own = flight::carried_to(own_fix, now_ms);
     const model::AircraftObs target = flight::carried_to(reported, now_ms);
     AlarmAssessment a{};
@@ -63,31 +102,32 @@ AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs&
     a.rel_dist_m = static_cast<int32_t>(idistance(n_m, e_m));
     a.closing_mps = closing_from_vectors(own, target, n_m, e_m, a.rel_dist_m);
 
-    int16_t brg = iatan2(e_m, n_m);
-    int own_deg = (static_cast<int>(own.track_c9) * 45) >> 6;
-    int brg_deg = (static_cast<int>(static_cast<uint16_t>(brg)) * 360) / 65536;
-    int rel = ((brg_deg - own_deg) % 360 + 360) % 360;
-    a.rel_bearing_deg = static_cast<uint16_t>(rel);
+    const int16_t brg = iatan2(e_m, n_m);
+    const int own_deg = (static_cast<int>(own.track_c9) * 45) >> 6;
+    const int brg_deg = (static_cast<int>(static_cast<uint16_t>(brg)) * 360) / 65536;
+    a.rel_bearing_deg = static_cast<uint16_t>(((brg_deg - own_deg) % 360 + 360) % 360);
 
-    if (u_m > kVertWindowM || u_m < -kVertWindowM) return a;
-
-    const bool converging = a.closing_mps >= kClosingFloorMps;
-    const bool opening = a.closing_mps <= -kClosingFloorMps;
-    const int32_t tti = converging ? a.rel_dist_m / a.closing_mps : kNoImpactS;
-
-    Level level = Level::None;
-    if (a.rel_dist_m <= kInfoDistM) level = Level::Info;
-    if (!opening && (a.rel_dist_m <= kImportantDistM || tti <= kImportantTtiS))
-        level = Level::Important;
-    if (converging && (a.rel_dist_m <= kUrgentDistM || tti <= kUrgentTtiS)) level = Level::Urgent;
-    a.level = level;
+    const Conflict conflict = first_breach(
+        flight::motion_of(own), target_motion(target, n_m, e_m, u_m, target_turn_dps,
+                                              target_turn_valid));
+    a.breaches = conflict.breaches;
+    a.at_s = conflict.breaches ? conflict.at_s : kNoImpactS;
+    a.miss_m = conflict.breaches ? conflict.miss_m : conflict.closest_m;
+    a.level = level_for(a);
     return a;
 }
 
 AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
                                             const model::AircraftObs& target, uint32_t now_ms) {
+    return update(own, target, 0, false, now_ms);
+}
+
+AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
+                                            const model::AircraftObs& target,
+                                            int16_t target_turn_dps, bool target_turn_valid,
+                                            uint32_t now_ms) {
     Decision d{};
-    d.assessment = assess(own, target, now_ms);
+    d.assessment = assess(own, target, target_turn_dps, target_turn_valid, now_ms);
     if (!d.assessment.valid) return d;
 
     Slot* slot = slot_for(target, now_ms);
@@ -97,23 +137,7 @@ AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
     if (key != slot->obs_key) {
         slot->obs_key = key;
         slot->seen_ms = now_ms;
-        if (target.speed_valid) sample_track(*slot, target.track_c9, now_ms);
     }
-
-    if (d.assessment.closing_mps >= kClosingFloorMps) {
-        slot->slow_closure = false;
-    } else if (!slot->slow_closure) {
-        slot->slow_closure = true;
-        slot->slow_since_ms = now_ms;
-    }
-
-    if (co_circling(*slot, own.turn_dps, d.assessment))
-        d.suppression = Suppression::CoCircling;
-    else if (slot->slow_closure && now_ms - slot->slow_since_ms >= kSteadyClosureMs)
-        d.suppression = Suppression::SteadyRange;
-
-    if (d.suppression != Suppression::None && d.assessment.level > kSuppressedLevel)
-        d.assessment.level = kSuppressedLevel;
 
     if (now_ms - slot->seen_ms <= kAlertMaxAgeMs)
         d.notify = notify_for(*slot, d.assessment.level, now_ms, d.escalated);
@@ -153,30 +177,6 @@ bool AlarmTracker::notify_for(Slot& slot, Level level, uint32_t now_ms, bool& es
     return speak;
 }
 
-bool AlarmTracker::co_circling(const Slot& slot, int16_t own_turn_dps, const AlarmAssessment& a) {
-    if (iabs32(own_turn_dps) < kCirclingTurnDps) return false;
-    if (iabs32(slot.turn_dps) < kCirclingTurnDps) return false;
-    if ((own_turn_dps > 0) != (slot.turn_dps > 0)) return false;
-    if (iabs32(own_turn_dps - slot.turn_dps) > kTurnMatchDps) return false;
-    if (a.rel_dist_m > kGaggleRangeM) return false;
-    if (iabs32(a.rel_vert_m) > kGaggleVertM) return false;
-    return a.closing_mps <= kGaggleClosureMps;
-}
-
-void AlarmTracker::sample_track(Slot& slot, uint16_t track_c9, uint32_t now_ms) {
-    if (!slot.turn_armed) {
-        slot.turn_armed = true;
-        slot.turn_ref_ms = now_ms;
-        slot.turn_ref_track_c9 = track_c9;
-        return;
-    }
-    const uint32_t dt = now_ms - slot.turn_ref_ms;
-    if (dt < kTargetTurnWindowMs) return;
-    slot.turn_dps = flight::turn_rate_dps(track_c9, slot.turn_ref_track_c9, dt);
-    slot.turn_ref_ms = now_ms;
-    slot.turn_ref_track_c9 = track_c9;
-}
-
 AlarmTracker::Slot* AlarmTracker::slot_for(const model::AircraftObs& target, uint32_t now_ms) {
     Slot* free_slot = nullptr;
     Slot* oldest = nullptr;
@@ -211,13 +211,6 @@ Level AlarmTracker::announced_level(uint32_t now_ms) const {
         level = std::max(s.notified_level, level);
     }
     return level;
-}
-
-int16_t AlarmTracker::target_turn_dps(uint8_t addr_table, uint32_t addr) const {
-    for (const Slot& s : slots_) {
-        if (s.used && s.addr == addr && s.addr_table == addr_table) return s.turn_dps;
-    }
-    return 0;
 }
 
 }  // namespace skyblip::traffic

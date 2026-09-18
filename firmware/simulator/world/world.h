@@ -57,8 +57,9 @@ class World {
                      double track_deg = 270, int phase_ms = -1, int slot = -1,
                      protocol::System system = protocol::System::AdslDirect, double turn_dps = 0,
                      double climb_mps = 0);
+    // INFO: fc 14sep26 a kilometre ahead on our track, reciprocal, sinking through our level
     int add_threat(protocol::System system = protocol::System::AdslDirect) {
-        return add_aircraft(600, 200, 30, 40, 200, -1, -1, system, 0, kThreatSinkMps);
+        return add_aircraft(0, 1000, 30, 40, 270, -1, -1, system, 0, kThreatSinkMps);
     }
     void clear_aircraft();
     int aircraft_count() const;
@@ -78,6 +79,7 @@ class World {
     void set_altitude_m(int32_t m) { gnss().alt_m = m; }
     void set_speed_kt(int32_t kt) { gnss().speed_kt = kt; }
     void set_track_deg(int32_t deg) { gnss().track_deg = ((deg % 360) + 360) % 360; }
+    void set_turn_dps(double dps) { gnss().turn_dps = dps; }
     void set_climb_e1(int32_t e1) { gnss().climb_mps_e1 = e1; }
     // The weather, not a setting: the sea-level pressure of the air the aircraft
     // is flying through. The barometer reads what that implies at its altitude.

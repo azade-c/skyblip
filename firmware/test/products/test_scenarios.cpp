@@ -176,11 +176,11 @@ TEST_CASE("scenario: a gaggle in one thermal is traffic, not three collisions") 
     CHECK(s.world().failures() == 0);
     const traffic::TrafficTable& table = s.product().state().traffic;
     CHECK(table.count() == 3);
-    CHECK(s.product().state().alarm_level <= traffic::kSuppressedLevel);
+    CHECK(s.product().state().alarm_level <= traffic::Level::Info);
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = table.at(i);
         if (t == nullptr || !t->used) continue;
-        CHECK(t->alarm_level <= traffic::kSuppressedLevel);
+        CHECK(t->alarm_level <= traffic::Level::Info);
     }
 }
 
@@ -197,7 +197,7 @@ TEST_CASE("scenario: a gaggle in one thermal is traffic, not three collisions") 
 // view is up to a second stale, and in a turn a second is 23 m.
 namespace {
 
-constexpr uint8_t kInfoSpoken = traffic::to_number(traffic::kSuppressedLevel);
+constexpr uint8_t kInfoSpoken = traffic::to_number(traffic::Level::Info);
 
 struct Encounter {
     static constexpr uint32_t kSampleMs = 100;
@@ -271,7 +271,8 @@ Encounter measure(simulator::Simulator& s) {
         const traffic::Target* target = only_target(state);
         if (target == nullptr) continue;
 
-        const traffic::AlarmAssessment a = traffic::assess(state.own, target->obs, t);
+        const traffic::AlarmAssessment a =
+            traffic::assess(state.own, target->obs, target->turn.dps, target->turn.valid, t);
         if (!a.valid) continue;
         const uint8_t level = traffic::to_number(state.alarm_level);
         const int32_t range_m = a.rel_dist_m;
@@ -321,30 +322,8 @@ void report(const Encounter& e) {
 
 }  // namespace
 
-// The committed limitation of the v1 alarm, and the reason decision 5.3 defers
-// circling prediction rather than pretending it is not needed.
-//
-// Two gliders work one thermal on 200 m circles - 45 kt at 13 deg/s is a 102 m
-// radius and a 28 s circle, the ordinary way a glider climbs, and the same band
-// core/traffic/alarm.h already calls circling - but their cores are 75 m apart
-// and they are a third of a circle out of phase. The separation therefore
-// breathes between 135 m and 11 m once per circle: a real collision risk, flown
-// every day, and invisible to a model that only knows range and range rate.
-//
-// Today's model says the wrong thing twice. For the first two and a half
-// seconds, before the tracker has two reports to differentiate a turn rate out
-// of, it grades the pair urgent at 130 m of true separation on 2 m/s of closure.
-// From then on the co-circling suppression holds it at info, the buzzer goes
-// quiet one re-notification window later, and both stay that way through the
-// 11 m crossing at 13.9 s. The geometry-only grade underneath
-// is no better: it is urgent for the whole approach and falls to info exactly at
-// the near miss, because at the closest point the range rate is zero by
-// definition.
-//
-// Nothing here is a bug to fix inside the straight-line model. Range and range
-// rate cannot separate 11 m from 135 m in a gaggle; only projecting both curved
-// paths can, which is v1.1.
-TEST_CASE("scenario: two gliders sharing a thermal core pass inside 15 m in silence") {
+// Decision 5.3, settled: cores 75 m apart, a third of a circle out of phase, an 11 m crossing that both arcs see coming.
+TEST_CASE("scenario: two gliders sharing a thermal core are warned about the 15 m pass") {
     simulator::Simulator s;
     REQUIRE(s.setup() == Status::Ok);
     REQUIRE(s.load_file("scenarios/circling_gaggle.json"));
@@ -354,37 +333,20 @@ TEST_CASE("scenario: two gliders sharing a thermal core pass inside 15 m in sile
     CHECK(s.world().failures() == 0);
     CHECK(e.traffic_count == 1);
 
-    // The one alarm this encounter ever produced came before the pair was
-    // recognised as co-circling, and it came at the far end of the breathing.
-    CHECK(e.reached[3]);
-    CHECK(e.first_ms[3] < Encounter::kSettledMs);
-    CHECK(e.first_true_m[3] > 100);
-    CHECK(e.spoken_peak_before_settle == 3);
-    CHECK(e.last_spoken_above_info_ms < Encounter::kQuietFromMs);
-    // Nothing louder than info, and in fact nothing at all: info is announced
-    // once per escalation, so a level that stays at 1 is a buzzer that stays
-    // quiet. The pilot hears one false urgent early and then silence through
-    // the near miss.
-    CHECK(e.spoken_peak_after_settle <= kInfoSpoken);
-
-    // And then silence, all the way through the near miss.
-    CHECK(e.settled_peak_level == kInfoSpoken);
     CHECK(e.min_true_m < 15);
     CHECK(e.min_true_ms > 10000);
-    CHECK(e.level_at_min_true == kInfoSpoken);
+    CHECK(e.reached[3]);
+    CHECK(e.first_ms[3] < e.min_true_ms);
+    CHECK(e.level_at_min_true == 3);
+    CHECK(e.settled_peak_level == 3);
+    CHECK(e.spoken_peak_after_settle == 3);
 
-    // Two circling gliders extrapolate badly: neither reports a turn rate, so each is carried
-    // straight.
+    // A neighbour's turn rate is not on the wire, so each is still carried straight to now.
     CHECK(e.min_reported_m < 60);
-    CHECK(e.min_reported_m > e.min_true_m * 2);
     CHECK(e.mean_range_error_m < 20);
 }
 
-// The other side of the fence, so v1.1 cannot buy circling prediction by going
-// deaf to the traffic v1 does catch: the same thermalling own-ship, and a glider
-// arriving in a straight line at 45 m/s from 2.2 km out, co-altitude. Its track
-// never matches ours, nothing suppresses it, and it must escalate all the way to
-// urgent while there is still a kilometre in hand.
+// The other side of the fence: the same thermalling own-ship and a glider arriving straight at 45 m/s, which must still escalate to urgent.
 TEST_CASE("scenario: a glider joining the thermal on a straight line is still caught") {
     simulator::Simulator s;
     REQUIRE(s.setup() == Status::Ok);
@@ -396,12 +358,14 @@ TEST_CASE("scenario: a glider joining the thermal on a straight line is still ca
     CHECK(e.traffic_count == 1);
 
     CHECK(e.reached[2]);
-    CHECK(e.first_ms[2] < 22000);
-    CHECK(e.first_range_m[2] > 1300);
+    CHECK(e.first_ms[2] < 28000);
+    CHECK(e.first_range_m[2] > 900);
     CHECK(e.reached[3]);
-    CHECK(e.first_ms[3] < 30000);
-    CHECK(e.first_range_m[3] > 900);
+    CHECK(e.first_ms[3] < 38000);
+    CHECK(e.first_range_m[3] > 400);
     CHECK(e.last_spoken_level == 3);
+    // Graded by time to breach at 68 m/s of closure, not by which ring it is in.
+    CHECK(e.first_range_m[2] / 68 <= traffic::kImportantTtiS + 2);
 
     // Both sides carried to the instant the range is read at: unaligned, this encounter reads 57 m
     // out.

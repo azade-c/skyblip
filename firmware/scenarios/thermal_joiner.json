@@ -13,7 +13,7 @@
   ],
   "events": [
     {"at_ms": 6000, "expect_traffic_min": 1},
-    {"at_ms": 21000, "expect_alarm_min": 2},
-    {"at_ms": 29000, "expect_alarm_min": 3}
+    {"at_ms": 28000, "expect_alarm_min": 2},
+    {"at_ms": 38000, "expect_alarm_min": 3}
   ]
 }

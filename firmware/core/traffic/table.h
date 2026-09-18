@@ -11,11 +11,23 @@
 
 namespace skyblip::traffic {
 
+struct TargetTurn {
+    int16_t dps{0};
+    bool valid{false};
+    bool armed{false};
+    uint32_t ref_ms{0};
+    uint16_t ref_track_c9{0};
+};
+
 struct Target {
     model::AircraftObs obs;
+    TargetTurn turn;
     Level alarm_level{Level::None};
     bool used{false};
 };
+
+constexpr uint32_t kTurnWindowMs = 1000;
+constexpr uint32_t kTurnGapMs = 3000;
 
 // How long a first-hand reception keeps a target to itself before a ground
 // relay of the same aircraft is allowed to refresh it.
@@ -79,6 +91,7 @@ class TrafficTable {
     uint32_t implausible_{0};
 
     static bool prefer_new(const model::AircraftObs& incoming, const model::AircraftObs& existing);
+    static void sample_turn(TargetTurn& turn, const model::AircraftObs& obs);
     int allocate_slot(uint32_t now);
 };
 

@@ -207,10 +207,10 @@ TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU
     rig.raise_link();
     fly(rig, t, 1);
 
-    // Co-altitude and inside the urgent ring, flying at us: the same geometry
+    // Co-altitude off the left wing on a course that meets ours in 14 s: the geometry
     // core/traffic grades, not a level written into the table by hand.
     for (int pass = 0; pass < 4; pass++) {
-        hear(rig, 0x112233, 300, 0, 10, /*track_c9=*/256);
+        hear(rig, 0x112233, 400, 150, 31, /*track_c9=*/223);
         fly(rig, t, 1);
     }
     REQUIRE(rig.state().alarm_level >= traffic::Level::Important);

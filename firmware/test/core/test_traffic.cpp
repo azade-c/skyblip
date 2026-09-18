@@ -365,34 +365,26 @@ TEST_CASE("alarm: the announced level rises with the contact and falls only when
     CHECK(tracker.announced_level(t + kAlertMaxAgeMs + 1) == Level::None);
 }
 
-// Two gliders working the same core are close, co-altitude and converging by
-// any straight-line model, several times a minute, for as long as the climb
-// lasts. That is the case the pilot least wants an alarm for, and the one a
-// range gate is loudest in.
+// Two arcs on one circle never meet, so the silence is the geometry's and not a flying style the firmware knows.
 TEST_CASE("alarm: two gliders circling the same thermal stop shouting at each other") {
     AlarmTracker tracker;
     const int16_t own_turn = 14;
     AlarmTracker::Decision d{};
 
-    // Both on the same circle, a quarter turn apart and 20 m below: from the
-    // turning frame the picture never changes, and it always shows the gap
-    // shutting, which is exactly the trap.
     for (int i = 0; i < 6; i++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(i) * 1000;
-        const int track_deg = 90 + 15 * i;
+        const int track_deg = 90 + own_turn * i;
         const model::OwnState own = flying(25, track_deg, own_turn);
         const double bearing = (track_deg - 90) * 3.14159265358979 / 180.0;
         const int north_m = static_cast<int>(150 * std::cos(bearing));
         const int east_m = static_cast<int>(150 * std::sin(bearing));
-        d = tracker.update(own, neighbour(own, north_m, east_m, 20, 25, track_deg + 160, t), t);
+        d = tracker.update(own, neighbour(own, north_m, east_m, 20, 25, track_deg + 160, t),
+                           own_turn, true, t);
     }
 
-    // The target's turn came out of its own reported track history, at the rate
-    // our own bank says we are turning at.
-    CHECK(tracker.target_turn_dps(6, 0x314159) >= kCirclingTurnDps);
     CHECK(d.assessment.closing_mps > 0);
-    CHECK(d.suppression == Suppression::CoCircling);
-    CHECK(d.assessment.level == kSuppressedLevel);
+    CHECK_FALSE(d.assessment.breaches);
+    CHECK(d.assessment.level == Level::Info);
     CHECK_FALSE(d.notify);
 }
 
@@ -401,65 +393,55 @@ TEST_CASE("alarm: two gliders circling the same thermal stop shouting at each ot
 // circling with us, and nothing about our own bank suppresses it.
 TEST_CASE("alarm: a head-on inside the thermal still alarms") {
     AlarmTracker tracker;
-    AlarmTracker::Decision d{};
+    Level peak = Level::None;
+    bool spoke = false;
 
+    // Straight through the core, arriving: 600 m out closing to 100 m, while we circle.
     for (int i = 0; i < 6; i++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(i) * 1000;
-        const model::OwnState own = flying(25, 90 + 15 * i, 14);
-        model::AircraftObs intruder = neighbour(own, 400, 0, 0, 30, 180, t);
+        const int track_deg = 90 + 14 * i;
+        const model::OwnState own = flying(25, track_deg, 14);
+        const double nose = track_deg * 3.14159265358979 / 180.0;
+        const int range_m = 600 - 100 * i;
+        model::AircraftObs intruder =
+            neighbour(own, static_cast<int>(range_m * std::cos(nose)),
+                      static_cast<int>(range_m * std::sin(nose)), 0, 40, track_deg + 180, t);
         intruder.addr = 0x777777;
-        d = tracker.update(own, intruder, t);
+        const AlarmTracker::Decision d = tracker.update(own, intruder, t);
+        peak = std::max(d.assessment.level, peak);
+        spoke = spoke || d.notify;
     }
 
-    CHECK(d.suppression == Suppression::None);
-    CHECK(d.assessment.level == Level::Urgent);
+    CHECK(peak == Level::Urgent);
+    CHECK(spoke);
 }
 
-// A neighbour whose range has not moved for six solutions is not arriving,
-// whatever ring it sits in - and the moment it turns towards us it is, on the
-// very next fix, because that is the whole exposure this trade buys.
-TEST_CASE("alarm: a neighbour holding station is quietened, and turning in undoes it") {
+// Two parallel paths never meet, so it takes no six seconds of range history to know a neighbour is not arriving.
+TEST_CASE("alarm: a neighbour holding station is quiet from the first fix, and turning in undoes it") {
     AlarmTracker tracker;
     const model::OwnState own = flying(30, 0);
     AlarmTracker::Decision d{};
 
     uint32_t t = 1000;
     d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 0, t), t);
-    CHECK(d.assessment.level == Level::Important);
-    CHECK(d.suppression == Suppression::None);
+    CHECK_FALSE(d.assessment.breaches);
+    CHECK(d.assessment.level == Level::Info);
 
     for (int i = 0; i < 8; i++) {
         t += 1000;
         d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 0, t), t);
     }
-    CHECK(d.suppression == Suppression::SteadyRange);
-    CHECK(d.assessment.level == kSuppressedLevel);
+    CHECK(d.assessment.level == Level::Info);
 
     t += 1000;
     d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t);
-    CHECK(d.suppression == Suppression::None);
+    CHECK(d.assessment.breaches);
     CHECK(d.assessment.level == Level::Urgent);
     CHECK(d.notify);
 }
 
-// Decision 5.3, the same limitation as scenarios/circling_gaggle.json but with
-// the radio and the fix stream taken out, so the numbers are arithmetic rather
-// than a replay. Two gliders circle one thermal at 45 kt and 13 deg/s: a 102 m
-// radius and a 28 s circle, which is what a glider climbing in a thermal flies
-// (radius = v^2 / (g tan(bank)); 23.1 m/s at 29 deg of bank is 102 m, and
-// core/traffic/alarm.h's own kCirclingTurnDps band already assumes it). Their
-// cores are 75 m apart and they are 34 deg out of phase, so the separation
-// breathes between 135 m and about 15 m once per circle while both fly a steady,
-// correct, perfectly ordinary thermalling turn.
-//
-// What is pinned here is what the model does: it holds the pair at info through
-// the whole convergence, because a pair matched in turn rate and direction
-// inside kGaggleRangeM is suppressed on the strength of the turn match alone -
-// there is nothing in the model that knows where either circle is centred. The
-// same suppression is what makes the device usable in a gaggle at all. Separating
-// the 15 m pass from the 135 m stand-off needs both curved paths projected
-// forward, which is the v1.1 work, and the day it lands this case must alarm.
-TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at info") {
+// Decision 5.3 settled: cores 75 m apart, 34 deg out of phase, 15 m pass, and the arcs say so before it happens.
+TEST_CASE("alarm: two gliders on offset circles converge to 15 m and are alarmed on") {
     AlarmTracker tracker;
     const double kPi = 3.14159265358979;
     const double radius_m = 102.0;
@@ -471,8 +453,8 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
     double min_separation_m = 1e9;
     uint32_t min_at_ms = 0;
     Level level_at_min = Level::None;
-    Suppression suppression_at_min = Suppression::None;
-    Level raw_peak_level = Level::None;
+    Level peak_level = Level::None;
+    bool warned_before_the_pass = false;
 
     for (int second = 0; second <= 20; second++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(second) * 1000;
@@ -490,25 +472,22 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
         const model::AircraftObs target =
             neighbour(own, static_cast<int>(target_north - own_north),
                       static_cast<int>(target_east - own_east), 0, 23, 34 + turn_dps * second, t);
-        const Level raw_level = assess(own, target, t).level;
-        raw_peak_level = std::max(raw_level, raw_peak_level);
-        const AlarmTracker::Decision d = tracker.update(own, target, t);
+        const AlarmTracker::Decision d = tracker.update(own, target, turn_dps, true, t);
+        peak_level = std::max(d.assessment.level, peak_level);
+        if (separation_m > 40 && d.assessment.level >= Level::Important)
+            warned_before_the_pass = true;
         if (separation_m < min_separation_m) {
             min_separation_m = separation_m;
             min_at_ms = t;
             level_at_min = d.assessment.level;
-            suppression_at_min = d.suppression;
         }
     }
 
     MESSAGE("closest approach " << min_separation_m << " m at t=" << min_at_ms << " ms, level "
                                 << int(to_number(level_at_min)));
     CHECK(min_separation_m < 20);
-    CHECK(level_at_min == kSuppressedLevel);
-    CHECK(suppression_at_min == Suppression::CoCircling);
-    // And the geometry alone, with no memory of the turn, is no better: it grades
-    // the same encounter urgent - at the far end of it as loudly as at the near.
-    CHECK(raw_peak_level == Level::Urgent);
+    CHECK(peak_level == Level::Urgent);
+    CHECK(warned_before_the_pass);
 }
 
 // --- J. Range sanity on receive ---------------------------------------------
@@ -746,5 +725,5 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     CHECK(tracker.announced_level(after + kAlertMaxAgeMs + 1u) == Level::None);
     // And past kForgetMs the slot is released, so the next aircraft can have it.
     tracker.forget_stale(after + kForgetMs + 1u);
-    CHECK(tracker.target_turn_dps(target.addr_table, target.addr) == 0);
+    CHECK(tracker.announced_level(after + kForgetMs + 1u) == Level::None);
 }
