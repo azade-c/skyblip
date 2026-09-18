@@ -10,17 +10,12 @@ enum class FlightState : uint8_t { Unknown = 0, OnGround = 1, Airborne = 2 };
 
 struct FlightSample {
     uint16_t speed_q{0};  // quarter metres per second
-    int16_t climb_e8{0};  // eighth metres per second
     uint16_t hdop_e2{0};  // hundredths; zero means the receiver did not report
     bool fix_valid{false};
-    bool climb_valid{false};
 };
 
-constexpr uint16_t kFlightSpeedQ = 48;    // 12.0 m/s
-constexpr int16_t kFlightClimbE8 = 16;    // 2.0 m/s
-constexpr uint16_t kClimbArmSpeedQ = 10;  // 2.5 m/s
-constexpr uint16_t kGroundSpeedQ = 4;     // 1.0 m/s
-constexpr int16_t kGroundClimbE8 = 6;     // 0.75 m/s
+constexpr uint16_t kFlightSpeedQ = 48;  // 12.0 m/s
+constexpr uint16_t kGroundSpeedQ = 4;   // 1.0 m/s
 constexpr uint16_t kDopUnityE2 = 100;
 
 // INFO: fc 18sep26 moshe-braner's jerk gate: a speed jumping 4x between solutions is noise

@@ -9,29 +9,13 @@ int32_t derated(int32_t evidence, uint16_t hdop_e2) {
     return evidence * kDopUnityE2 / static_cast<int32_t>(hdop_e2);
 }
 
-int32_t climb_magnitude_e8(const FlightSample& sample) {
-    if (!sample.climb_valid) return 0;
-    return sample.climb_e8 < 0 ? -sample.climb_e8 : sample.climb_e8;
-}
-
 }  // namespace
 
-bool flying_speed(const FlightSample& sample) {
+bool flight_evidence(const FlightSample& sample) {
     return derated(sample.speed_q, sample.hdop_e2) >= kFlightSpeedQ;
 }
 
-bool flying_climb(const FlightSample& sample) {
-    return derated(climb_magnitude_e8(sample), sample.hdop_e2) >= kFlightClimbE8 &&
-           sample.speed_q >= kClimbArmSpeedQ;
-}
-
-bool flight_evidence(const FlightSample& sample) {
-    return flying_speed(sample) || flying_climb(sample);
-}
-
-bool ground_evidence(const FlightSample& sample) {
-    return sample.speed_q < kGroundSpeedQ && climb_magnitude_e8(sample) < kGroundClimbE8;
-}
+bool ground_evidence(const FlightSample& sample) { return sample.speed_q < kGroundSpeedQ; }
 
 FlightState state_from(uint8_t adsl_code) {
     switch (static_cast<FlightState>(adsl_code)) {
@@ -69,9 +53,8 @@ FlightState FlightMonitor::update(const FlightSample& sample) {
         return state_;
     }
 
-    const bool believable_speed =
-        flying_speed(sample) && !(comparable && jerky(previous_speed_q, sample.speed_q));
-    if (believable_speed || flying_climb(sample)) state_ = FlightState::Airborne;
+    if (flight_evidence(sample) && !(comparable && jerky(previous_speed_q, sample.speed_q)))
+        state_ = FlightState::Airborne;
     return state_;
 }
 

@@ -10,10 +10,8 @@ namespace skyblip::go {
 flight::FlightState OwnshipService::flight_state_from(const model::OwnState& own) {
     flight::FlightSample sample{};
     sample.speed_q = own.speed_q;
-    sample.climb_e8 = own.climb_e8;
     sample.hdop_e2 = own.hdop_e2;
     sample.fix_valid = own.fix_valid;
-    sample.climb_valid = own.climb_valid;
     return flight_.update(sample);
 }
 
