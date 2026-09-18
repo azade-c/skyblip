@@ -72,6 +72,31 @@ bool Bhi260::poll() {
     return fresh;
 }
 
+const char* Bhi260::stage_text() const {
+    switch (stage_ == Stage::Failed ? failed_stage_ : stage_) {
+        case Stage::Absent: return "NONE";
+        case Stage::Idle: return "IDLE";
+        case Stage::Resetting: return "RST";
+        case Stage::HostInterface: return "HIF";
+        case Stage::Uploading: return "LOAD";
+        case Stage::Booting: return "BOOT";
+        case Stage::Configuring: return "CONF";
+        case Stage::Running: return "RUN";
+        case Stage::Failed: return "FAIL";
+    }
+    return "?";
+}
+
+const char* Bhi260::fault_text() const {
+    if (stage_ != Stage::Failed) return "";
+    switch (fault_) {
+        case Status::Invalid: return "IMAGE";
+        case Status::Crc: return "VERIFY";
+        case Status::Timeout: return "TIMEOUT";
+        default: return "DOWN";
+    }
+}
+
 void Bhi260::step_reset(uint32_t now_ms) {
     if (now_ms - since_ms_ < kResetSettleMs) return;
     stage_ = Stage::HostInterface;
@@ -284,6 +309,7 @@ bool Bhi260::boot_status(uint8_t& out) {
 }
 
 void Bhi260::fail(Status why) {
+    failed_stage_ = stage_;
     stage_ = Stage::Failed;
     fault_ = why;
 }

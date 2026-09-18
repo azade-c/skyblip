@@ -55,6 +55,8 @@ class Bhi260 {
     const Acceleration& acceleration() const { return sample_; }
     Stage stage() const { return stage_; }
     Status fault() const { return fault_; }
+    const char* stage_text() const;
+    const char* fault_text() const;
     bool running() const { return stage_ == Stage::Running; }
     uint8_t address() const { return address_; }
     uint16_t kernel_version() const { return kernel_version_; }
@@ -110,6 +112,7 @@ class Bhi260 {
     Stage stage_{Stage::Absent};
     Status fault_{Status::Ok};
     uint8_t address_{kAddress};
+    Stage failed_stage_{Stage::Absent};
     uint32_t since_ms_{0};
     uint32_t polled_ms_{0};
     uint32_t uploaded_{0};

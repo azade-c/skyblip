@@ -104,6 +104,23 @@ void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa)
     fb.draw_text(kSiUnitX, y, " hPa", true, 1);
 }
 
+void imu_field(ui::Canvas& fb, int y, const StatusSnapshot& s) {
+    char buf[24];
+    int n = fmt_string(buf, "IMU ");
+    n += fmt_string(buf + n, s.imu_stage);
+    if (s.imu_fault != nullptr && s.imu_fault[0] != 0) {
+        n += fmt_string(buf + n, " ");
+        n += fmt_string(buf + n, s.imu_fault);
+    }
+    if (s.slip_valid) {
+        n += fmt_string(buf + n, " ");
+        n += fmt_int(buf + n, s.slip_mg, 1, 0, false);
+        n += fmt_string(buf + n, "mg");
+    }
+    buf[n] = 0;
+    right_aligned(fb, kGlassW - kLeft, y, buf, n);
+}
+
 // Volts and state of charge, and the fact that decides which of the two curves
 // the percentage came from. A pilot who cannot see "CHG" cannot tell a cell that
 // is filling from one that is holding 4.1 V on its way down.
@@ -194,6 +211,7 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
     n = fmt_uint(buf, to_degrees(Cordic9(s.track_c9)).v, 3);
     buf[n] = 0;
     text_row(fb, y, "TRK", buf, " TRUE");
+    imu_field(fb, y, s);
     y += kLineH;
 
     char count[8];

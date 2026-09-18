@@ -1,6 +1,7 @@
 // The ball, end to end: a hub on the bus, a rudder mistake, ink on the glass.
 #include "doctest/doctest.h"
 #include "products/skyblip_go/pages/sixpack.h"
+#include "test/support/glass_text.h"
 #include "test/support/product_rig.h"
 
 using namespace skyblip;
@@ -67,6 +68,24 @@ TEST_CASE("inclinometer: a hub that stops answering takes the ball off the glass
 
     CHECK(rig.product.board().imu().stage() == parts::Bhi260::Stage::Failed);
     CHECK_FALSE(rig.state().slip.valid);
+}
+
+TEST_CASE("inclinometer: the status page names the stage the hub stopped in") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    fly_uncoordinated(rig, -150);
+    rig.run(0, kBootToBall);
+
+    uint32_t t = kBootToBall;
+    rig.tap_pad(t);
+    rig.tap_pad(t);
+    REQUIRE(rig.product.screen().page() == go::Page::Status);
+    rig.run(t, t + 1000);
+    CHECK(reads_in(rig.product.screen().framebuffer(), "IMU RUN", 0, 55, 200, 70));
+
+    rig.platform.chips().imu.answers = false;
+    rig.run(t + 1000, t + 1000 + flight::kSlipStaleMs + 1000);
+    CHECK(reads_in(rig.product.screen().framebuffer(), "IMU RUN DOWN", 0, 55, 200, 70));
 }
 
 TEST_CASE("inclinometer: a unit with no hub keeps the dial empty rather than centred") {

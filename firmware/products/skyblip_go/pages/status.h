@@ -30,6 +30,10 @@ struct StatusSnapshot {
     int32_t climb_mm_s{0};  // as measured, not as transmitted
     uint32_t utc{0};
     int n_targets{0};
+    const char* imu_stage{"NONE"};
+    const char* imu_fault{""};
+    bool slip_valid{false};
+    int16_t slip_mg{0};
     bool battery_valid{false};
     bool charging{false};
     bool battery_low{false};

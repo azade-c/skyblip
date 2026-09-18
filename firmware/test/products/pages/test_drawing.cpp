@@ -838,6 +838,40 @@ TEST_CASE("status: the barometer row reads what the sensor resolves, beside the 
     CHECK(reads_in(fb, "-1.23", 0, 165, 200, 185));
 }
 
+TEST_CASE("status: the IMU field reads the hub's own bring-up word and the ball it feeds") {
+    StatusSnapshot s;
+    s.imu_stage = "RUN";
+    s.slip_valid = true;
+    s.slip_mg = -120;
+    Glass running;
+    draw_status(running, s);
+    CHECK(reads_in(running, "IMU RUN -120mg", 0, 55, 200, 70));
+
+    // A hub that answered and never delivered a sample: the word without a ball.
+    StatusSnapshot quiet = s;
+    quiet.slip_valid = false;
+    Glass no_data;
+    draw_status(no_data, quiet);
+    CHECK(reads_in(no_data, "IMU RUN", 0, 55, 200, 70));
+    CHECK_FALSE(reads_in(no_data, "mg", 0, 55, 200, 70));
+
+    StatusSnapshot absent;
+    Glass none;
+    draw_status(none, absent);
+    CHECK(reads_in(none, "IMU NONE", 0, 55, 200, 70));
+}
+
+TEST_CASE("status: the widest IMU failure still leaves the track's datum readable") {
+    StatusSnapshot s;
+    s.imu_stage = "LOAD";
+    s.imu_fault = "TIMEOUT";
+    Glass fb;
+    draw_status(fb, s);
+
+    CHECK(reads_in(fb, "IMU LOAD TIMEOUT", 0, 55, 200, 70));
+    CHECK(reads_in(fb, "TRUE", 0, 55, 200, 70));
+}
+
 TEST_CASE("status: the battery row states the voltage, the charge and which curve") {
     // 4.00 V is nearly full off charge and about half full on it, so the two rows
     // must not read the same - and the charging one carries the CHG marker, which

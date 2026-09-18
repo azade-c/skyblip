@@ -506,6 +506,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.climb_mm_s = own.climb_mm_s;
             snap.utc = own.utc;
             snap.n_targets = context_.state.traffic.count();
+            snap.imu_stage = context_.state.imu.stage;
+            snap.imu_fault = context_.state.imu.fault;
+            snap.slip_valid = context_.state.slip.valid;
+            snap.slip_mg = context_.state.slip.lateral_mg;
             snap.baro_valid = context_.state.baro.active;
             snap.battery_valid = context_.state.power.battery.valid;
             snap.battery_mv = context_.state.power.battery.millivolts;

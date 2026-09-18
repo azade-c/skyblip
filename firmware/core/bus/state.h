@@ -70,6 +70,11 @@ struct SlipState {
     bool valid{false};
 };
 
+struct ImuState {
+    const char* stage{"NONE"};
+    const char* fault{""};
+};
+
 struct State {
     model::OwnState own{};
     timing::ClockState clock{};
@@ -80,6 +85,7 @@ struct State {
     FlightStatus flight{};
     BaroState baro{};
     SlipState slip{};
+    ImuState imu{};
     FormationState formation{};
 
     traffic::Level alarm_level{traffic::Level::None};

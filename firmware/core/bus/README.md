@@ -24,6 +24,8 @@ The groups are subjects, not owners. A reader wants every barometric fact in one
 | `power` | `power` |
 | `flight` | `ownship` |
 | `baro` | `ownship`, except `baro.qnh_pa`, which the pilot sets on the settings page and `screen` writes |
+| `slip` | `ownship` |
+| `imu` | the board, which owns the sensor hub the ball comes from and is the only code that can see where its bring-up stopped |
 | `alarm_level` | `alarm` |
 | `panel_presented` | `screen` |
 | `started` | the product |

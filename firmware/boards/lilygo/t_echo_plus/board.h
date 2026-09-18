@@ -190,7 +190,7 @@ class TEchoPlus {
         }
 
         poll_battery(now_ms);
-        poll_inclinometer(now_ms);
+        poll_inclinometer(state, now_ms);
 
         publish_contact(events::Contact::Button, button_, platform_.button_down(), now_ms);
         publish_contact(events::Contact::Pad, pad_, platform_.pad_down(), now_ms);
@@ -284,7 +284,9 @@ class TEchoPlus {
         capabilities_ = capabilities_ | ports::Capability::Inclinometer;
     }
 
-    void poll_inclinometer(uint32_t now_ms) {
+    void poll_inclinometer(bus::State& state, uint32_t now_ms) {
+        state.imu.stage = imu_.stage_text();
+        state.imu.fault = imu_.fault_text();
         if (!ports::has(capabilities_, ports::Capability::Inclinometer)) return;
         if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
         imu_.service(now_ms);
