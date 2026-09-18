@@ -31,6 +31,8 @@ constexpr int kRingW = 2;
 constexpr int kGlyphH = 7;
 constexpr int kCellW = 6;
 constexpr int kAlarmBarH = 3;
+constexpr int kSecondsScale = 1;
+constexpr int kSecondsGap = 2;
 constexpr int kClockScale = 2;
 constexpr int kRangeScale = 2;
 constexpr int kStateScale = 1;
@@ -135,12 +137,22 @@ void clear_behind(ui::Canvas& fb, int x, int y, int w, int h, int pad) {
 
 void flight_clock(ui::Canvas& fb, const RadarSnapshot& snap) {
     char buf[8];
+bool flight_over(const RadarSnapshot& snap) { return snap.flight_time_valid && !snap.airborne; }
+
     fmt_flight_clock(buf, snap.flight_seconds, snap.flight_time_valid);
-    clear_behind(fb, kMargin, kClockY, text_width(buf, kClockScale), kGlyphH * kClockScale,
-                 kLabelPad);
+    const int minutes_w = text_width(buf, kClockScale);
+    clear_behind(fb, kMargin, kClockY, minutes_w, kGlyphH * kClockScale, kLabelPad);
     fb.draw_text(kMargin, kClockY, buf, true, kClockScale);
 }
 
+    if (!flight_over(snap)) return;
+
+    char seconds[4];
+    seconds[fmt_uint(seconds, snap.flight_seconds % 60, 2)] = 0;
+    const int x = kMargin + minutes_w + kSecondsGap;
+    const int y = kClockY + kGlyphH * (kClockScale - kSecondsScale);
+    clear_behind(fb, x, y, text_width(seconds, kSecondsScale), kGlyphH * kSecondsScale, kLabelPad);
+    fb.draw_text(x, y, seconds, true, kSecondsScale);
 void range_label(ui::Canvas& fb, const RadarSnapshot& snap) {
     const bool metric = snap.units == go::Units::Metric;
     const int32_t km_e1 = (snap.range_nm * kMetresPerNm) / 100;

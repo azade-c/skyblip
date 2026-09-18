@@ -643,6 +643,36 @@ TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") 
 
 // B4. One circle, read in two habits: only the label under it changes.
 TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot does not move") {
+// Back on the ground the clock is a logbook entry, and a logbook is filled to the second.
+TEST_CASE("radar: a finished flight carries its seconds, a running one does not") {
+    RadarSnapshot landed = flying(0);
+    landed.airborne = false;
+    landed.flight_seconds = 42 * 60 + 37;
+    const Glass fb = radar(landed);
+    CHECK(reads_in(fb, "0:42", 0, 176, 60, 198, 2));
+    CHECK(reads_in(fb, "37", 45, 183, 80, 198));
+
+    RadarSnapshot airborne_again = landed;
+    airborne_again.airborne = true;
+    CHECK_FALSE(reads_in(radar(airborne_again), "37", 0, 170, 80, 199));
+
+    RadarSnapshot never_flown;
+    CHECK_FALSE(reads_in(radar(never_flown), "00", 0, 170, 80, 199));
+}
+
+// The seconds are half the height of the minutes and clear only their own row of the ring.
+TEST_CASE("radar: the seconds take no more ring than they cover") {
+    RadarSnapshot landed = flying(0);
+    landed.airborne = false;
+    landed.flight_seconds = 42 * 60 + 37;
+    const Glass fb = radar(landed);
+    const Glass no_seconds = radar(flying(0));
+
+    CHECK(ink_in(fb, 52, 170, 72, 186) > 0);
+    for (int y = 170; y < 186; y++)
+        for (int x = 52; x < 72; x++) CHECK(fb.get_pixel(x, y) == no_seconds.get_pixel(x, y));
+}
+
     RadarSnapshot metric = flying(0);
     metric.units = skyblip::go::Units::Metric;
     const Glass km = radar(metric);
