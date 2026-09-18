@@ -87,6 +87,7 @@ struct ImuState {
     uint32_t fifo_bytes{0};
     uint32_t unparsed{0};
     uint8_t error{0};
+    uint8_t interrupt{0};
     uint8_t meta{0};
     uint8_t sensor_error{0};
     uint8_t errored_sensor{0};

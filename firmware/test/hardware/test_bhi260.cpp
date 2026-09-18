@@ -102,9 +102,38 @@ TEST_CASE("bhi260: a hub that never announces itself is configured anyway, once 
 
     const uint32_t now_ms = bring_up(imu);
 
-    CHECK(imu.stage() == Stage::Running);
     CHECK(now_ms >= parts::Bhi260::kInitialisedTimeoutMs);
     CHECK(int(imu.meta_event()) == 0);
+    CHECK_FALSE(chip.running());
+}
+
+// The silence this chases: the hub takes the command, drops it, and reports nothing.
+TEST_CASE("bhi260: a configuration that did not stick is read back, and named") {
+    models::Bhi260 chip;
+    chip.accepts_configuration = false;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+
+    bring_up(imu);
+
+    CHECK(imu.stage() == Stage::Failed);
+    CHECK(imu.fault() == Status::Unsupported);
+    CHECK(imu.fault_text() == doctest::String("NOCFG"));
+    CHECK(imu.stage_text() == doctest::String("CONF"));
+}
+
+TEST_CASE("bhi260: an image with no accelerometer to enable is named, not waited on") {
+    models::Bhi260 chip;
+    chip.accel_present = false;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+
+    bring_up(imu);
+
+    CHECK(imu.stage() == Stage::Failed);
+    CHECK(imu.fault() == Status::NotFound);
+    CHECK(imu.fault_text() == doctest::String("NOSENS"));
+    CHECK(int(chip.accel_sensor_id) == 0);
 }
 
 TEST_CASE("bhi260: an image with no Bosch magic is refused before the bus is touched") {

@@ -39,6 +39,7 @@ struct StatusSnapshot {
     uint32_t imu_fifo_bytes{0};
     uint32_t imu_unparsed{0};
     uint8_t imu_error{0};
+    uint8_t imu_interrupt{0};
     uint8_t imu_meta{0};
     uint8_t imu_sensor_error{0};
     uint8_t imu_errored_sensor{0};

@@ -33,6 +33,7 @@ class Bhi260 {
     static constexpr uint32_t kHostInterfaceTimeoutMs = 2000;
     static constexpr uint32_t kBootTimeoutMs = 5000;
     static constexpr uint32_t kInitialisedTimeoutMs = 2000;
+    static constexpr uint32_t kParameterTimeoutMs = 500;
 
     enum class Stage : uint8_t {
         Absent,
@@ -67,24 +68,40 @@ class Bhi260 {
     uint32_t fifo_bytes() const { return fifo_bytes_; }
     uint8_t hub_error() const { return error_; }
     uint8_t meta_event() const { return meta_event_; }
+    uint8_t interrupt_status() const { return interrupt_; }
     uint8_t sensor_error() const { return sensor_error_; }
     uint8_t errored_sensor() const { return errored_sensor_; }
 
    private:
+    enum class Setup : uint8_t {
+        Kernel,
+        AwaitSensorsPresent,
+        AwaitConfiguration,
+    };
+
     static constexpr uint8_t kRegCommand = 0x00;
     static constexpr uint8_t kRegFifoNonWakeup = 0x02;
+    static constexpr uint8_t kRegStatusChannel = 0x03;
     static constexpr uint8_t kRegChipControl = 0x05;
     static constexpr uint8_t kRegHostInterfaceControl = 0x06;
     static constexpr uint8_t kRegResetRequest = 0x14;
     static constexpr uint8_t kRegProductId = 0x1C;
     static constexpr uint8_t kRegKernelVersion = 0x20;
     static constexpr uint8_t kRegBootStatus = 0x25;
+    static constexpr uint8_t kRegInterruptStatus = 0x2D;
     static constexpr uint8_t kRegErrorValue = 0x2E;
 
     static constexpr uint16_t kCmdUploadToProgramRam = 0x0002;
     static constexpr uint16_t kCmdBootProgramRam = 0x0003;
     static constexpr uint16_t kCmdConfigureSensor = 0x000D;
     static constexpr uint16_t kCmdChangeRange = 0x000E;
+
+    static constexpr uint16_t kParamReadMask = 0x1000;
+    static constexpr uint16_t kParamSensorsPresent = 0x011F;
+    static constexpr uint16_t kParamSensorConfig = 0x0500;
+    static constexpr uint16_t kSensorsPresentBytes = 32;
+    static constexpr uint16_t kSensorConfigBytes = 12;
+    static constexpr uint8_t kInterruptStatusChannel = 0x20;
 
     static constexpr uint8_t kBootHostInterfaceReady = 0x10;
     static constexpr uint8_t kBootFirmwareVerifyDone = 0x20;
@@ -109,6 +126,14 @@ class Bhi260 {
     void step_boot(uint32_t now_ms);
     void step_initialise(uint32_t now_ms);
     void step_configure(uint32_t now_ms);
+    void read_kernel_version(uint32_t now_ms);
+    void check_accelerometer_present(uint32_t now_ms);
+    void send_configuration(uint32_t now_ms);
+    void confirm_configuration(uint32_t now_ms);
+    void start_running(uint32_t now_ms);
+    bool request_parameter(uint16_t param);
+    bool parameter_ready();
+    int read_status_channel(uint16_t& code, uint8_t* out, uint16_t max);
     void step_running(uint32_t now_ms);
 
     bool configure_accelerometer();
@@ -130,7 +155,9 @@ class Bhi260 {
     uint32_t uploaded_{0};
     uint32_t unparsed_{0};
     uint32_t fifo_bytes_{0};
+    Setup setup_{Setup::Kernel};
     uint8_t error_{0};
+    uint8_t interrupt_{0};
     uint8_t meta_event_{0};
     uint8_t sensor_error_{0};
     uint8_t errored_sensor_{0};

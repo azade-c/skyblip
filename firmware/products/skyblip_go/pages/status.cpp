@@ -40,6 +40,7 @@ int fmt_elapsed(char* out, uint32_t seconds) {
     return n;
 }
 constexpr uint32_t kImuCountCeiling = 99;
+constexpr uint8_t kImuMetaInitialised = 16;
 
 // 1 m/s = 1.94384 kt, from quarter-m/s.
 int32_t knots(uint16_t speed_q) { return (static_cast<int32_t>(speed_q) * 194384) / (4 * 100000); }
@@ -140,9 +141,12 @@ int imu_traffic(char* out, const StatusSnapshot& s) {
     if (s.imu_error != 0) {
         n += fmt_string(out + n, " E");
         n += fmt_hex(out + n, s.imu_error, 2);
-    } else if (s.imu_meta != 0) {
+    } else if (s.imu_meta != kImuMetaInitialised) {
         n += fmt_string(out + n, " M");
         n += fmt_uint(out + n, s.imu_meta, 1);
+    } else {
+        n += fmt_string(out + n, " I");
+        n += fmt_hex(out + n, s.imu_interrupt, 2);
     }
     return n;
 }

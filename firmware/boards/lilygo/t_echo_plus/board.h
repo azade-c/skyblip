@@ -297,6 +297,7 @@ class TEchoPlus {
         state.imu.fifo_bytes = imu_.fifo_bytes();
         state.imu.unparsed = imu_.unparsed_events();
         state.imu.error = imu_.hub_error();
+        state.imu.interrupt = imu_.interrupt_status();
         state.imu.meta = imu_.meta_event();
         state.imu.sensor_error = imu_.sensor_error();
         state.imu.errored_sensor = imu_.errored_sensor();

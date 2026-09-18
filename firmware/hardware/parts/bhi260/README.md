@@ -19,7 +19,7 @@ That is the whole reason this driver is a state machine rather than four registe
 | `Uploading` | one 240-byte chunk of the image per `service()` | the last chunk sends `BOOT_PROGRAM_RAM` |
 | `Booting` | polls `BOOT_STATUS` for `FW_VERIFY_DONE` | `Crc` on the verify-error bit, `Timeout` after 5 s |
 | `Initialising` | drains the FIFO until the hub announces itself | the `Initialized` meta event, or 2 s |
-| `Configuring` | reads `KERNEL_VERSION`, sets the range, configures the virtual sensor | `Down` if the kernel version reads zero |
+| `Configuring` | reads `KERNEL_VERSION`, checks the accelerometer is in the image, sets the range and rate, reads the configuration back | `NotFound` if the image has no accelerometer, `Unsupported` if the rate did not stick, `Down` if the kernel version reads zero |
 | `Running` | drains the FIFO every 200 ms | `Down` the moment the bus stops answering |
 
 Every one of those stages has a word, and `status` prints it beside the ball it is waiting for: `stage_text()` is where it is or, once it has failed, where it stopped, and `fault_text()` is why. `Running` has a second failure the stage cannot show - a part that boots, answers and reports nothing - so `fifo_bytes()`, `unparsed_events()` and the error register the part reads every pass (`hub_error()`, 0x2E) are on the same field. That pair is the only account the device gives of a bring-up nobody can watch, and it is what a bench reads instead of guessing from an empty cage.
@@ -27,6 +27,8 @@ Every one of those stages has a word, and `status` prints it beside the ball it 
 ### What the hub says about itself
 
 A silent hub is rarely silent about why. Meta events (system ids 254 and 248, four bytes each) are the firmware's own commentary, and `meta_event()` keeps the last one: 16 is `Initialized`, 12 a FIFO overflow, 19 a reset nobody asked for. Meta event 11 is a sensor error and it carries the two bytes that end the investigation, which virtual sensor and which code: `errored_sensor()` and `sensor_error()`, read against the list in `examples/common/common.c` of the reference. An accelerometer the hub refused to start reads there as sensor 4 and a code in the 0x20s, where the FIFO can only report an absence.
+
+`interrupt_status()` is the other half of that account. The Plus has no HIRQ line, but `INT_STATUS` (0x2D) still reports what the part would have raised it for: 0x18 is data waiting in the non-wakeup FIFO, 0x20 a status response. Read every pass beside the error register, it separates the two ways a running hub has no ball - nothing produced, or something produced that our FIFO read never collected.
 
 One error code never reaches `hub_error()`. 0x77 is `Host Download Channel Empty`, which is the hub's answer to a FIFO read with nothing in it - the Plus leaves HIRQ unconnected, so every pass over an idle FIFO earns one, and reporting it would put a permanent error on the glass that means nothing more than "we polled". Every other code stands.
 
@@ -43,6 +45,14 @@ Chunk framing follows the reference (`BHY2_SensorAPI`, `bhy2_hif.c`): the first 
 `FW_VERIFY_DONE` says the image verified, not that the sensor framework behind it is up, and a configuration that arrives in between is dropped without a word: the command channel accepts it, no error register moves, and the part then boots, answers every pass and streams nothing. That is what a bench read as `IMU RUN B18 M16` - eighteen bytes out of the FIFO, the hub announcing itself after it had already been told what to do, and no accelerometer frame ever.
 
 So the driver follows the reference's own order (`examples/quaternion/quaternion.c`: boot, kernel version, drain the FIFO, then configure) and waits for meta event 16, `Initialized`, before it sends anything. A hub that never sends it is configured anyway once 2 s are up, because a ball that might work beats a stage word that is certainly stuck; `meta_event()` stays zero there, and the status field shows the count with no `M` beside it.
+
+### Why the configuration is read back
+
+Waiting for `Initialized` was not enough: the bench still read `IMU RUN B18 M16`, a hub that announced itself, took both commands and streamed nothing. Commands to this part are fire-and-forget - the command channel takes the bytes, and a hub that will not honour one says so nowhere a register read can find.
+
+So `Configuring` asks two questions over the status channel (0x03), the way `bhy2_hif_get_parameter` does: a command whose opcode is the parameter with 0x1000 set, then a wait on the status bit of `INT_STATUS` (0x2D), then a four-byte header of code and length followed by the payload. Parameter 0x011F is the bitmap of virtual sensors this image carries, and the accelerometer missing from it is `NOSENS` - an image that has no such sensor to enable, which no amount of configuring will fix. Parameter 0x0504 is what the hub thinks sensor 4 is set to, read straight after the two commands, and a sample rate of zero there is `NOCFG`: the hub took the command and did not apply it.
+
+Both are answered only when the hub answers. A parameter read that times out (500 ms) or comes back with a code for a different parameter leaves the bring-up as it was and moves on, because a diagnostic that can fail a working part is worse than the silence it replaces. Only a clear negative stops the bring-up.
 
 ### What is configured, and what is read
 

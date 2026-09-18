@@ -14,6 +14,15 @@ constexpr uint8_t kMetaEventInitialised = 16;
 
 uint16_t le16(const uint8_t* bytes) { return static_cast<uint16_t>(bytes[0] | (bytes[1] << 8)); }
 
+uint32_t le32(const uint8_t* bytes) {
+    return static_cast<uint32_t>(bytes[0]) | static_cast<uint32_t>(bytes[1]) << 8 |
+           static_cast<uint32_t>(bytes[2]) << 16 | static_cast<uint32_t>(bytes[3]) << 24;
+}
+
+bool bit_set(const uint8_t* bitmap, uint8_t bit) {
+    return (bitmap[bit / 8] & (1 << (bit % 8))) != 0;
+}
+
 }  // namespace
 
 Status Bhi260::probe() {
@@ -44,6 +53,7 @@ void Bhi260::load(ConstByteSpan image, uint32_t now_ms) {
     meta_event_ = 0;
     sensor_error_ = 0;
     errored_sensor_ = 0;
+    interrupt_ = 0;
 
     if (image.size() < kCommandHeaderBytes || le16(image.data()) != kFirmwareMagic) {
         fail(Status::Invalid);
@@ -102,6 +112,9 @@ const char* Bhi260::fault_text() const {
         case Status::Invalid: return "IMAGE";
         case Status::Crc: return "VERIFY";
         case Status::Timeout: return "TIMEOUT";
+        case Status::NotFound: return "NOSENS";
+        case Status::Unsupported: return "NOCFG";
+
         default: return "DOWN";
     }
 }
@@ -187,11 +200,21 @@ void Bhi260::step_initialise(uint32_t now_ms) {
 
     drain_fifo(now_ms);
     if (stage_ != Stage::Initialising) return;
-    if (meta_event_ == kMetaEventInitialised || now_ms - since_ms_ >= kInitialisedTimeoutMs)
+    if (meta_event_ == kMetaEventInitialised || now_ms - since_ms_ >= kInitialisedTimeoutMs) {
         stage_ = Stage::Configuring;
+        setup_ = Setup::Kernel;
+    }
 }
 
 void Bhi260::step_configure(uint32_t now_ms) {
+    switch (setup_) {
+        case Setup::Kernel: read_kernel_version(now_ms); return;
+        case Setup::AwaitSensorsPresent: check_accelerometer_present(now_ms); return;
+        case Setup::AwaitConfiguration: confirm_configuration(now_ms); return;
+    }
+}
+
+void Bhi260::read_kernel_version(uint32_t now_ms) {
     uint8_t version[2] = {0, 0};
     if (!read_registers(kRegKernelVersion, version, sizeof(version))) {
         fail(Status::Down);
@@ -202,12 +225,93 @@ void Bhi260::step_configure(uint32_t now_ms) {
         fail(Status::Down);
         return;
     }
+    if (!request_parameter(kParamSensorsPresent)) {
+        fail(Status::Down);
+        return;
+    }
+    setup_ = Setup::AwaitSensorsPresent;
+    since_ms_ = now_ms;
+}
+
+void Bhi260::check_accelerometer_present(uint32_t now_ms) {
+    if (!parameter_ready()) {
+        if (now_ms - since_ms_ >= kParameterTimeoutMs) send_configuration(now_ms);
+        return;
+    }
+
+    uint16_t code = 0;
+    uint8_t present[kSensorsPresentBytes] = {};
+    const int n = read_status_channel(code, present, sizeof(present));
+    if (n < 0) {
+        fail(Status::Down);
+        return;
+    }
+    if (code == kParamSensorsPresent && n == kSensorsPresentBytes &&
+        !bit_set(present, kSensorAccelerometer)) {
+        fail(Status::NotFound);
+        return;
+    }
+    send_configuration(now_ms);
+}
+
+void Bhi260::send_configuration(uint32_t now_ms) {
     if (!configure_accelerometer()) {
         fail(Status::Down);
         return;
     }
+    if (!request_parameter(kParamSensorConfig + kSensorAccelerometer)) {
+        fail(Status::Down);
+        return;
+    }
+    setup_ = Setup::AwaitConfiguration;
+    since_ms_ = now_ms;
+}
+
+void Bhi260::confirm_configuration(uint32_t now_ms) {
+    if (!parameter_ready()) {
+        if (now_ms - since_ms_ >= kParameterTimeoutMs) start_running(now_ms);
+        return;
+    }
+
+    uint16_t code = 0;
+    uint8_t config[kSensorConfigBytes] = {};
+    const int n = read_status_channel(code, config, sizeof(config));
+    if (n < 0) {
+        fail(Status::Down);
+        return;
+    }
+    if (code == kParamSensorConfig + kSensorAccelerometer && n >= 4 && le32(config) == 0) {
+        fail(Status::Unsupported);
+        return;
+    }
+    start_running(now_ms);
+}
+
+void Bhi260::start_running(uint32_t now_ms) {
     stage_ = Stage::Running;
     polled_ms_ = now_ms;
+}
+
+bool Bhi260::request_parameter(uint16_t param) {
+    return command(static_cast<uint16_t>(param | kParamReadMask), nullptr, 0);
+}
+
+bool Bhi260::parameter_ready() {
+    uint8_t status = 0;
+    if (!read_registers(kRegInterruptStatus, &status, 1)) return false;
+    interrupt_ = status;
+    return (status & kInterruptStatusChannel) != 0;
+}
+
+int Bhi260::read_status_channel(uint16_t& code, uint8_t* out, uint16_t max) {
+    uint8_t header[4] = {};
+    if (!read_registers(kRegStatusChannel, header, sizeof(header))) return -1;
+    code = le16(header);
+    const uint16_t len = le16(header + 2);
+    if (len == 0) return 0;
+    if (len > max) return -1;
+    if (!read_registers(kRegStatusChannel, out, len)) return -1;
+    return len;
 }
 
 bool Bhi260::configure_accelerometer() {
@@ -237,6 +341,7 @@ void Bhi260::read_hub_error() {
     uint8_t value = 0;
     if (!read_registers(kRegErrorValue, &value, 1)) return;
     error_ = value == kErrorHostChannelEmpty ? 0 : value;
+    read_registers(kRegInterruptStatus, &interrupt_, 1);
 }
 
 void Bhi260::drain_fifo(uint32_t now_ms) {

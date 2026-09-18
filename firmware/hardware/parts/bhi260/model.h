@@ -30,6 +30,7 @@ class Bhi260 : public io::I2c {
     bool read(uint8_t addr, uint8_t* data, size_t len) override {
         if (addr != address || !answers) return false;
         if (pointer == kRegFifoNonWakeup) return read_fifo(data, len);
+        if (pointer == kRegStatusChannel) return read_status(data, len);
         for (size_t i = 0; i < len; i++)
             data[i] = register_value(static_cast<uint8_t>(pointer + i));
         return true;
@@ -56,6 +57,8 @@ class Bhi260 : public io::I2c {
     bool accepts_firmware{true};
     uint8_t product_id{0x89};
     bool announces_itself{true};
+    bool accel_present{true};
+    bool accepts_configuration{true};
     uint8_t error_value{0};
     bool host_interface_ready{true};
     bool booted{false};
@@ -72,7 +75,16 @@ class Bhi260 : public io::I2c {
    private:
     static constexpr uint8_t kRegCommand = 0x00;
     static constexpr uint8_t kRegFifoNonWakeup = 0x02;
+    static constexpr uint8_t kRegStatusChannel = 0x03;
     static constexpr uint8_t kRegResetRequest = 0x14;
+    static constexpr uint8_t kRegInterruptStatus = 0x2D;
+    static constexpr uint8_t kInterruptFifoNonWakeup = 0x18;
+    static constexpr uint8_t kInterruptStatusChannel = 0x20;
+    static constexpr uint16_t kParamReadMask = 0x1000;
+    static constexpr uint16_t kParamSensorsPresent = 0x011F;
+    static constexpr uint16_t kParamSensorConfig = 0x0500;
+    static constexpr size_t kSensorsPresentBytes = 32;
+    static constexpr size_t kSensorConfigBytes = 12;
     static constexpr uint8_t kRegProductId = 0x1C;
     static constexpr uint8_t kRegKernelVersion = 0x20;
     static constexpr uint8_t kRegBootStatus = 0x25;
@@ -101,6 +113,8 @@ class Bhi260 : public io::I2c {
         payload_bytes_ = 0;
         sample_rate_hz = 0;
         announced_ = false;
+        status_len_ = 0;
+        status_pos_ = 0;
         stream_len_ = 0;
         stream_pos_ = 0;
     }
@@ -151,7 +165,7 @@ class Bhi260 : public io::I2c {
                     accel_range_g = static_cast<uint16_t>(payload_[1] | (payload_[2] << 8));
                 break;
             case kCmdConfigureSensor:
-                if (!announced_) break;
+                if (!announced_ || !accepts_configuration) break;
                 if (payload_bytes_ >= 8) {
                     accel_sensor_id = payload_[0];
                     uint32_t bits = 0;
@@ -164,7 +178,9 @@ class Bhi260 : public io::I2c {
                                                        (payload_[7] << 16));
                 }
                 break;
-            default: break;
+            default:
+                if (command_ & kParamReadMask) answer_parameter(command_ & ~kParamReadMask);
+                break;
         }
         command_ = 0;
         expected_ = 0;
@@ -177,6 +193,7 @@ class Bhi260 : public io::I2c {
             case kRegKernelVersion: return booted ? (kKernelVersion & 0xFF) : 0;
             case kRegKernelVersion + 1: return booted ? (kKernelVersion >> 8) : 0;
             case kRegBootStatus: return boot_status();
+            case kRegInterruptStatus: return interrupt_status();
             case kRegErrorValue: return error_value;
             default: return 0;
         }
@@ -187,6 +204,47 @@ class Bhi260 : public io::I2c {
         if (booted) status |= kBootFirmwareVerifyDone;
         if (verify_error && !booted) status |= kBootFirmwareVerifyError;
         return status;
+    }
+
+    uint8_t interrupt_status() const {
+        uint8_t status = 0;
+        if (status_pos_ < status_len_) status |= kInterruptStatusChannel;
+        if (running() || meta_pending_) status |= kInterruptFifoNonWakeup;
+        return status;
+    }
+
+    void answer_parameter(uint16_t param) {
+        uint8_t payload[kSensorsPresentBytes] = {};
+        size_t n = 0;
+        if (param == kParamSensorsPresent) {
+            n = kSensorsPresentBytes;
+            if (accel_present)
+                payload[kSensorAccelerometer / 8] =
+                    static_cast<uint8_t>(1 << (kSensorAccelerometer % 8));
+        } else if (param == kParamSensorConfig + kSensorAccelerometer) {
+            n = kSensorConfigBytes;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &sample_rate_hz, sizeof(bits));
+            for (int i = 0; i < 4; i++) payload[i] = static_cast<uint8_t>(bits >> (8 * i));
+            payload[10] = static_cast<uint8_t>(accel_range_g & 0xFF);
+            payload[11] = static_cast<uint8_t>(accel_range_g >> 8);
+        } else {
+            return;
+        }
+
+        status_len_ = 0;
+        status_pos_ = 0;
+        status_[status_len_++] = static_cast<uint8_t>(param & 0xFF);
+        status_[status_len_++] = static_cast<uint8_t>(param >> 8);
+        status_[status_len_++] = static_cast<uint8_t>(n & 0xFF);
+        status_[status_len_++] = static_cast<uint8_t>(n >> 8);
+        for (size_t i = 0; i < n; i++) status_[status_len_++] = payload[i];
+    }
+
+    bool read_status(uint8_t* data, size_t len) {
+        for (size_t i = 0; i < len; i++)
+            data[i] = status_pos_ < status_len_ ? status_[status_pos_++] : 0;
+        return true;
     }
 
     bool read_fifo(uint8_t* data, size_t len) {
@@ -246,6 +304,9 @@ class Bhi260 : public io::I2c {
     uint8_t stream_[kMaxStream]{};
     size_t stream_len_{0};
     size_t stream_pos_{0};
+    uint8_t status_[4 + kSensorsPresentBytes]{};
+    size_t status_len_{0};
+    size_t status_pos_{0};
 };
 
 }  // namespace skyblip::models

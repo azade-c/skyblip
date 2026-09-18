@@ -907,10 +907,10 @@ TEST_CASE("status: a silent hub reports the last thing it said about itself") {
     StatusSnapshot s;
     s.imu_stage = "RUN";
     s.imu_fifo_bytes = 18;
-    s.imu_meta = 16;
-    Glass initialized;
-    draw_status(initialized, s);
-    CHECK(reads_in(initialized, "IMU RUN B18 M16", 0, 55, 200, 70));
+    s.imu_meta = 12;
+    Glass overflowed;
+    draw_status(overflowed, s);
+    CHECK(reads_in(overflowed, "IMU RUN B18 M12", 0, 55, 200, 70));
 
     StatusSnapshot errored = s;
     errored.imu_errored_sensor = 4;
@@ -919,6 +919,41 @@ TEST_CASE("status: a silent hub reports the last thing it said about itself") {
     draw_status(refused, errored);
     CHECK(reads_in(refused, "IMU RUN SE4:23", 0, 55, 200, 70));
     CHECK(reads_in(refused, "TRUE", 0, 55, 200, 70));
+}
+
+// Only the interrupt register separates a hub producing nothing from a FIFO nobody read.
+TEST_CASE("status: an announced hub shows what the hub says it is holding") {
+    StatusSnapshot s;
+    s.imu_stage = "RUN";
+    s.imu_fifo_bytes = 18;
+    s.imu_meta = 16;
+    s.imu_interrupt = 0x18;
+    Glass holding;
+    draw_status(holding, s);
+    CHECK(reads_in(holding, "IMU RUN B18 I18", 0, 55, 200, 70));
+    CHECK(reads_in(holding, "TRUE", 0, 55, 200, 70));
+
+    StatusSnapshot quiet = s;
+    quiet.imu_interrupt = 0;
+    Glass empty;
+    draw_status(empty, quiet);
+    CHECK(reads_in(empty, "IMU RUN B18 I00", 0, 55, 200, 70));
+}
+
+TEST_CASE("status: a bring-up that named the fault stops on the stage that found it") {
+    StatusSnapshot s;
+    s.imu_stage = "CONF";
+    s.imu_fault = "NOSENS";
+    Glass absent;
+    draw_status(absent, s);
+    CHECK(reads_in(absent, "IMU CONF NOSENS", 0, 55, 200, 70));
+    CHECK(reads_in(absent, "TRUE", 0, 55, 200, 70));
+
+    StatusSnapshot refused = s;
+    refused.imu_fault = "NOCFG";
+    Glass dropped;
+    draw_status(dropped, refused);
+    CHECK(reads_in(dropped, "IMU CONF NOCFG", 0, 55, 200, 70));
 }
 
 TEST_CASE("status: the widest sensor error still leaves the track's datum readable") {
