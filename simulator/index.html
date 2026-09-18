@@ -122,13 +122,13 @@
                    oninput="SIM.speed(this.value)">
           </div>
           <div class="dial">
-            <header><label for="sats">STATE</label><output id="sats_o">14 sats</output></header>
-            <input type="range" id="sats" min="0" max="32" value="14" oninput="SIM.sats(this.value)">
+            <header><label for="sats">STATE</label><output id="sats_o">16 sats</output></header>
+            <input type="range" id="sats" min="0" max="32" value="16" oninput="SIM.sats(this.value)">
             <button id="fixbtn" onclick="SIM.toggleFix()">Fix: ON</button>
           </div>
           <div class="dial">
-            <header><label for="alt">ALT FT</label><output id="alt_o">3500 ft</output></header>
-            <input type="range" id="alt" min="0" max="18000" step="100" value="3500"
+            <header><label for="alt">ALT FT</label><output id="alt_o">4500 ft</output></header>
+            <input type="range" id="alt" min="0" max="18000" step="100" value="4500"
                    oninput="SIM.alt(this.value)">
           </div>
           <div class="dial">
@@ -137,13 +137,8 @@
                    oninput="SIM.turn(this.value)">
           </div>
           <div class="dial">
-            <header><label for="slp">SLIP MG</label><output id="slp_o">0 mg</output></header>
-            <input type="range" id="slp" min="-250" max="250" step="5" value="0"
-                   oninput="SIM.slip(this.value)">
-          </div>
-          <div class="dial">
-            <header><label for="trk">TRK</label><output id="trk_o">090&deg;</output></header>
-            <input type="range" id="trk" min="0" max="359" value="90"
+            <header><label for="trk">TRK</label><output id="trk_o">225&deg;</output></header>
+            <input type="range" id="trk" min="0" max="359" value="225"
                    oninput="SIM.track(this.value)">
           </div>
           <div class="dial">
@@ -151,11 +146,22 @@
             <input type="range" id="clb" min="-2000" max="2000" step="50" value="0"
                    oninput="SIM.climb(this.value)">
           </div>
+          <div class="dial">
+            <header><label for="slp">SLIP MG</label><output id="slp_o">0 mg</output></header>
+            <input type="range" id="slp" min="-250" max="250" step="5" value="0"
+                   oninput="SIM.slip(this.value)">
+          </div>
+        </div>
+        <div class="keymap" style="margin-top:12px;">
+          <div><b>arrows</b></div><div><code>&uarr; &darr;</code></div><div>climb and sink</div>
+          <div></div><div><code>&larr; &rarr;</code></div><div>turn left and right</div>
+          <div><b>throttle</b></div><div><code>f</code> / <code>s</code></div><div>faster and slower</div>
         </div>
         <div class="hint" style="margin-top:12px;">Laid out as the device's own six-pack and
           read in the units it prints: knots, feet, feet per minute, degrees per second.
           The sliders feed a simulated L76K that emits real NMEA and the production parser
           decodes it, so the telemetry below is the firmware's answer and not the knob's.
+          The ball sits under the needle, as it does in a turn coordinator.
           Turn is what a bank holds: 3 &deg;/s is a standard rate turn, 13 to 18 a glider
           thermalling, and past 30 the alarm stops believing the projection, which is why
           the slider goes to 60. Slip is the rudder: it feeds a simulated BHI260AP whose
@@ -391,6 +397,24 @@ SIM.addWingman = () => {
                 Math.round(ahead * Math.sin(rad) + right * Math.cos(rad)), 0,
                 Math.round(kt * KT_TO_MPS), track, 0);
 };
+
+// Flying it by hand: the arrows are the stick and f/s the throttle, one slider
+// step per press, so a held key climbs or banks at the repeat rate.
+const STICK = { ArrowUp:    ['clb', +1, SIM.climb],
+                ArrowDown:  ['clb', -1, SIM.climb],
+                ArrowRight: ['trn', +1, SIM.turn],
+                ArrowLeft:  ['trn', -1, SIM.turn],
+                f:          ['spd', +1, SIM.speed],
+                s:          ['spd', -1, SIM.speed] };
+addEventListener('keydown', event => {
+  const stick = STICK[event.key] || STICK[event.key.toLowerCase()];
+  if (!stick || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target.tagName === 'SELECT') return;
+  event.preventDefault();
+  const [id, direction, apply] = stick, slider = $(id);
+  slider.value = +slider.value + direction * +slider.step;
+  apply(slider.value);
+});
 
 const bandCanvas = $('band'), band = bandCanvas.getContext('2d');
 const EVENT = ['tx', 'rx', 'deaf', 'coll'];
