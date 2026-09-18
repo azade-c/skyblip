@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/bus/bus.h"
-#include "core/comms/link_session.h"
+#include "core/comms/link_sessions.h"
 #include "core/events/link.h"
 #include "ports/link.h"
 
@@ -16,6 +16,8 @@ class Link : public ports::Link {
     struct Frame {
         events::Endpoint endpoint;
         std::string bytes;
+        // INFO: fc 18sep26 Session 0 is the broadcast, what silicon put on every connection.
+        uint16_t session{0};
     };
 
     // INFO: fc 04aug26 A phone that negotiated ATT_MTU 247, which is what an
@@ -28,42 +30,47 @@ class Link : public ports::Link {
     void push_rx(const events::RxFrame& frame) { rx_.push(frame); }
     bool pop_rx(events::RxFrame& out) { return rx_.pop(out); }
 
-    // A central connects, and a central goes away. The same comms::LinkSession
-    // the Bluetooth callbacks drive on silicon, so a host case raises a link
-    // through the code the device runs rather than through a service call no
-    // board makes.
-    void raise_link(uint16_t session_id = 1) { session_.connected(session_id, payload_bytes_); }
-    void drop_link() { session_.disconnected(session_.session_id()); }
-    bool pop_event(events::LinkEvent& out) { return session_.pop(out); }
-    bool up() const { return session_.up(); }
-    uint16_t session_id() const { return session_.session_id(); }
+    void raise_link(uint16_t session_id = 1) {
+        sessions_.connected(session_id, declared_);
+        if (!sessions_.up(session_id)) return;
+        live_.push_back(session_id);
+        last_ = session_id;
+    }
+    void drop_link() { drop_link(last_); }
+    void drop_link(uint16_t session_id) {
+        sessions_.disconnected(session_id);
+        for (size_t i = 0; i < live_.size(); i++) {
+            if (live_[i] != session_id) continue;
+            live_.erase(live_.begin() + static_cast<long>(i));
+            break;
+        }
+    }
+    bool pop_event(events::LinkEvent& out) { return sessions_.pop(out); }
+    bool up() const { return sessions_.up(); }
+    int links() const { return sessions_.count(); }
+    uint16_t session_id() const { return last_; }
 
     // What this link came up with. Floored the way a real one is: nothing may
     // model a central that offers less than BLE guarantees. Said while a link is
     // up it is the MTU exchange landing late, which is what an iOS central does,
     // and it reaches the bus the same way silicon's att_mtu_updated does.
+    // INFO: fc 18sep26 What every central here negotiates, said before or after one connects.
     void declare_payload_bytes(uint16_t bytes) {
-        payload_bytes_ = bytes < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : bytes;
-        session_.payload_changed(payload_bytes_);
+        declared_ = bytes < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : bytes;
+        for (uint16_t session : live_) sessions_.payload_changed(session, declared_);
     }
 
-    uint16_t payload_bytes() const override { return payload_bytes_; }
+    void declare_payload_bytes(uint16_t session_id, uint16_t bytes) {
+        sessions_.payload_changed(session_id, bytes);
+    }
 
-    Status send(events::Endpoint ep, ConstByteSpan bytes) override {
-        // The controller's refusal, modelled: an oversized notification is not
-        // shortened, it fails, so no case can pass by sending one.
-        if (bytes.size() > payload_bytes_) {
-            refused_oversize++;
-            return Status::OutOfRange;
-        }
-        if (next_status_ != Status::Ok) {
-            Status s = next_status_;
-            if (once_) next_status_ = Status::Ok;
-            return s;
-        }
-        sent.push_back(
-            {ep, std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size())});
-        return Status::Ok;
+    uint16_t payload_bytes() const override { return sessions_.payload_bytes(); }
+
+    Status send(events::Endpoint ep, ConstByteSpan bytes) override { return record(0, ep, bytes); }
+
+    Status send_to(uint16_t session_id, events::Endpoint ep, ConstByteSpan bytes) override {
+        if (!sessions_.up(session_id)) return Status::Down;
+        return record(session_id, ep, bytes);
     }
 
     void force_status(Status s, bool once = true) {
@@ -79,15 +86,40 @@ class Link : public ports::Link {
             if (f.endpoint == ep) n++;
         return n;
     }
+    int count_to(uint16_t session_id, events::Endpoint ep) const {
+        int n = 0;
+        for (const auto& f : sent)
+            if (f.endpoint == ep && f.session == session_id) n++;
+        return n;
+    }
     void clear() { sent.clear(); }
 
     std::vector<Frame> sent;
     int refused_oversize{0};
 
    private:
+    Status record(uint16_t session_id, events::Endpoint ep, ConstByteSpan bytes) {
+        // The controller's refusal, modelled: an oversized notification is not
+        // shortened, it fails, so no case can pass by sending one.
+        if (bytes.size() > payload_bytes()) {
+            refused_oversize++;
+            return Status::OutOfRange;
+        }
+        if (next_status_ != Status::Ok) {
+            Status s = next_status_;
+            if (once_) next_status_ = Status::Ok;
+            return s;
+        }
+        sent.push_back({ep, std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()),
+                        session_id});
+        return Status::Ok;
+    }
+
     bus::Queue<events::RxFrame, 4> rx_;
-    comms::LinkSession session_{};
-    uint16_t payload_bytes_{kDefaultPayloadBytes};
+    comms::LinkSessions sessions_{};
+    std::vector<uint16_t> live_;
+    uint16_t declared_{kDefaultPayloadBytes};
+    uint16_t last_{0};
     Status next_status_{Status::Ok};
     bool once_{true};
 };

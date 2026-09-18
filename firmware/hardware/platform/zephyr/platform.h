@@ -71,7 +71,7 @@ class Platform {
         log_flash_.begin();
         annunciator_.begin();
         indicator_.begin();
-        link_.begin();
+        link_.begin(device_addr());
         baro_ = baro76_.ready() ? &baro76_ : (baro77_.ready() ? &baro77_ : nullptr);
         gpio_pin_configure_dt(&button_, GPIO_INPUT);
         gpio_pin_configure_dt(&pad_, GPIO_INPUT);

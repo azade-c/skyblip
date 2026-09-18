@@ -49,6 +49,7 @@ power::BatteryState battery_of(uint8_t percent, bool charging, bool valid = true
 
 TEST_CASE("comms: status reports why the device came up") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     std::memcpy(s.callsign, "D-KXYZ", 7);
     go::SettingsStore store_cs(s);
@@ -72,6 +73,7 @@ TEST_CASE("comms: status reports why the device came up") {
 
     // Unknown until the shell says otherwise, and never a stale answer.
     platform::host::Link fresh_link;
+    fresh_link.raise_link(1);
     go::SettingsStore store_fresh(s);
     ConfigService fresh(fresh_link, store_fresh);
     fresh.on_rx(frame("{\"cmd\":\"status\"}"));
@@ -80,6 +82,7 @@ TEST_CASE("comms: status reports why the device came up") {
 
 TEST_CASE("comms: timing reports the accumulator's buckets and counters") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     timing::SlotTimingStats stats;
     stats.record_edge(0, true);
@@ -109,6 +112,7 @@ TEST_CASE("comms: timing reports the accumulator's buckets and counters") {
 
 TEST_CASE("comms: timing without an accumulator wired up says so, not zeros") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -119,6 +123,7 @@ TEST_CASE("comms: timing without an accumulator wired up says so, not zeros") {
 
 TEST_CASE("comms: status carries state of charge, the charging flag, the level and its validity") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(1);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -136,6 +141,7 @@ TEST_CASE("comms: status carries state of charge, the charging flag, the level a
 
 TEST_CASE("comms: an invalid battery is reported as invalid, never as a false zero percent") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(1);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -153,6 +159,7 @@ TEST_CASE(
     "comms: no push without a link, one push per real change, none for a repeat or for noise "
     "inside a step") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(1);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -191,6 +198,7 @@ TEST_CASE(
 
 TEST_CASE("comms: status has room for every worst-case field, and the last key survives whole") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xFFFFFF);
     std::memcpy(s.callsign, "ABCDEFGHI", 10);
     go::SettingsStore store_cs(s);
@@ -217,6 +225,7 @@ TEST_CASE("comms: status has room for every worst-case field, and the last key s
 
 TEST_CASE("comms: timing carries the dwell evidence, and no clear-channel figure") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     timing::SlotTimingStats stats;
     stats.record_refused();
@@ -244,6 +253,7 @@ TEST_CASE("comms: timing carries the dwell evidence, and no clear-channel figure
 // test/core/test_diagnostics.cpp; this is the dispatch and the ceiling.
 TEST_CASE("comms: one question answers every subsystem, in frames the link can carry") {
     platform::host::Link link;
+    link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = go::defaults(0xAA55);
     go::SettingsStore store_cs(s);
@@ -310,6 +320,7 @@ TEST_CASE("comms: one question answers every subsystem, in frames the link can c
 
 TEST_CASE("comms: a dump nobody has collected says so, not zeros") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -332,6 +343,7 @@ TEST_CASE("comms: a dump nobody has collected says so, not zeros") {
 // keeps counting; two questions in a row must produce the same answer.
 TEST_CASE("comms: asking for the dump twice answers the same numbers twice") {
     platform::host::Link link;
+    link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = go::defaults(0xAA55);
     go::SettingsStore store_cs(s);
@@ -359,6 +371,7 @@ TEST_CASE("comms: asking for the dump twice answers the same numbers twice") {
 // (core/comms/frame_budget.h, pinned in test/core/test_diagnostics.cpp).
 TEST_CASE("comms: the timing report's counts are unsigned on every platform") {
     platform::host::Link link;
+    link.raise_link(1);
     go::Settings s = go::defaults(0xAA55);
     timing::SlotTimingStats stats;
     stats.record_edge(0, true);

@@ -306,7 +306,7 @@ TEST_CASE("product: the status reply over the link names why the device came up"
     rig.send("{\"cmd\":\"status\"}");
     rig.run(0, 200);
     REQUIRE(rig.platform.link().count_on(events::Endpoint::Config) == 1);
-    CHECK(rig.platform.link().last().bytes.find("WATCHDOG") != std::string::npos);
+    CHECK(rig.last_on(events::Endpoint::Config).find("WATCHDOG") != std::string::npos);
 
     // A device that came up because someone pressed the button says that, and
     // not the UNKNOWN a reason nobody passed on would read as.
@@ -316,8 +316,8 @@ TEST_CASE("product: the status reply over the link names why the device came up"
     pressed.platform.link().clear();
     pressed.send("{\"cmd\":\"status\"}");
     pressed.run(0, 200);
-    CHECK(pressed.platform.link().last().bytes.find("RESET PIN") != std::string::npos);
-    CHECK(pressed.platform.link().last().bytes.find("UNKNOWN") == std::string::npos);
+    CHECK(pressed.last_on(events::Endpoint::Config).find("RESET PIN") != std::string::npos);
+    CHECK(pressed.last_on(events::Endpoint::Config).find("UNKNOWN") == std::string::npos);
 }
 
 // B3. The slot map is specified against the PPS edge, and the transmit plan is
@@ -513,7 +513,7 @@ std::string status_of(Rig& rig, uint32_t& t) {
     rig.send("{\"cmd\":\"status\"}");
     rig.run(t, t + 200);
     t += 250;
-    return rig.platform.link().last().bytes;
+    return rig.last_on(events::Endpoint::Config);
 }
 
 }  // namespace
@@ -636,7 +636,7 @@ TEST_CASE("product: the range gate's refusals leave the device over the link") {
     rig.send("{\"cmd\":\"radio\"}");
     rig.run(t, t + 200);
     t += 250;
-    CHECK(rig.platform.link().last().bytes.find("\"range_refused\":0") != std::string::npos);
+    CHECK(rig.last_on(events::Endpoint::Config).find("\"range_refused\":0") != std::string::npos);
 
     // A contact on the other side of the country, claimed by a frame that passed
     // its CRC. Pushed at the table's own door, which is where the gate lives.

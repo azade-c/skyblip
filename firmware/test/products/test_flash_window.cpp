@@ -134,6 +134,7 @@ TEST_CASE("flash window: a thumb stepping the volume on the panel writes flash o
 
     rig.press(t);
     REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
+    rig.tap_pad(t);  // off the self test, onto the rows
 
     // Down to the volume row: a tap of the pad moves the focus.
     while (rig.product.screen().editor().focus() != go::MenuRow::Volume) rig.tap_pad(t);
@@ -260,8 +261,8 @@ TEST_CASE("flash window: the write counters are readable over the companion link
     rig.platform.link().clear();
     rig.send("{\"cmd\":\"flash\"}");
     step_until(rig, t, t + 100);
-    REQUIRE(rig.platform.link().last_on(events::Endpoint::Config));
-    const std::string reply = rig.platform.link().last().bytes;
+    const std::string reply = rig.last_on(events::Endpoint::Config);
+    REQUIRE_FALSE(reply.empty());
     CHECK(reply.find("\"cmd\":\"flash\"") != std::string::npos);
     CHECK(reply.find("\"writes\":1") != std::string::npos);
     CHECK(reply.find("\"forced\":0") != std::string::npos);

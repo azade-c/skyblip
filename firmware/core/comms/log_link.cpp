@@ -52,6 +52,7 @@ int base64_encode(const uint8_t* in, int len, char* out, int cap) {
 LogRequest parse_log_request(const events::RxFrame& frame) {
     LogRequest request{};
     if (frame.endpoint != events::Endpoint::Log) return request;
+    request.link_session = frame.session_id;
 
     json::Reader reader(reinterpret_cast<const char*>(frame.data.data()), frame.len);
     char command[16] = {0};

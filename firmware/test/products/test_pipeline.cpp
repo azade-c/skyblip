@@ -114,6 +114,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
 
     // 6) NMEA out to the EFB link
     platform::host::Link efb;
+    efb.raise_link(1);
     char buf[128];
     int n = protocol::format_pflaa(buf, sizeof(buf), own, obs, traffic::to_number(a.level));
     REQUIRE(n > 0);

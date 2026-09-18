@@ -16,7 +16,7 @@ The buses a part is constructed over:
 | `uart_rate(io::BusId)` | the receiver's baud, so the GNSS driver can walk the candidates |
 | `gpio()`, `wire(const PinMap&)` | the lines a part drives, and the board's map of them |
 
-The ports a platform fills directly, handed to `ports::Roles` by the board: `clock()`, `link()`, `kv()`, `log_flash()`, `annunciator()`, `indicator()`, `dfu()`, `die_temperature()`.
+The ports a platform fills directly, handed to `ports::Roles` by the board: `clock()`, `link()`, `kv()`, `log_flash()`, `annunciator()`, `indicator()`, `dfu()`, `die_temperature()`. `link()` is the one with a wire format an outside app depends on, and which GATT services it exposes is `platform/zephyr/README.md`.
 
 The producers the board polls, which are not ports because nothing calls them on the core's behalf. What reaches a service is the event the board pushes:
 

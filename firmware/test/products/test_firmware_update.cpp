@@ -199,7 +199,7 @@ TEST_CASE("product: apply is refused below the low-battery warning and nothing p
     rig.run(t, t + 200);
     t += 200;
     CHECK(config(rig).pending() == comms::Pending::None);
-    CHECK(rig.platform.link().last().bytes.find("low_power") != std::string::npos);
+    CHECK(rig.last_on(events::Endpoint::Config).find("low_power") != std::string::npos);
     CHECK_FALSE(rig.product.shutdown().going_down());
     CHECK(rig.platform.dfu().triggered == 0);
 }

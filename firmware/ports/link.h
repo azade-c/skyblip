@@ -27,12 +27,17 @@ class Link {
     // An iOS central commonly settles at ATT_MTU 185, which is 182 bytes here.
     // A link that has never been told anything answers the guaranteed minimum,
     // so a port that forgets to override this under-promises instead of lying.
+    //
+    // INFO: fc 18sep26 With several centrals this is the smallest, one frame goes to all.
     virtual uint16_t payload_bytes() const { return kMinimumLinkPayload; }
 
     // INFO: fc 04aug26 Longer than payload_bytes() is refused, never truncated:
     // a controller does not shorten an oversized notification, it fails it, and
     // a caller that learns nothing about that has silently dropped the frame.
     virtual Status send(events::Endpoint ep, ConstByteSpan bytes) = 0;
+
+    // INFO: fc 18sep26 send() is every subscribed central, send_to() is the one that asked.
+    virtual Status send_to(uint16_t session_id, events::Endpoint ep, ConstByteSpan bytes) = 0;
 };
 
 }

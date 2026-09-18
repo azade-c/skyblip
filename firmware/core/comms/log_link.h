@@ -21,6 +21,8 @@ enum class LogCommand : uint8_t { None, List, Read, Erase };
 
 struct LogRequest {
     LogCommand command{LogCommand::None};
+    // INFO: fc 18sep26 session is the flight being read, link_session is the app reading it.
+    uint16_t link_session{0};
     uint32_t session{0};
     uint32_t from{0};
     // A bare list asks how many flights there are; a list with an index asks

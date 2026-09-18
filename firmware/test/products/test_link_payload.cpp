@@ -105,6 +105,10 @@ TEST_CASE("link: a link that has not been told what it carries promises what BLE
     CHECK(absent.payload_bytes() == ports::kMinimumLinkPayload);
 
     platform::host::Link link;
+
+    link.raise_link(1);
+
+    link.raise_link(1);
     link.declare_payload_bytes(4);
     CHECK(link.payload_bytes() == ports::kMinimumLinkPayload);
 
@@ -119,6 +123,8 @@ TEST_CASE("link: a link that has not been told what it carries promises what BLE
 
 TEST_CASE("comms: the status a phone is pushed fits the narrowest payload we support, worst case") {
     platform::host::Link link;
+    link.raise_link(1);
+    link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = widest_settings();
     go::SettingsStore store_cs(s);
@@ -147,6 +153,8 @@ TEST_CASE("comms: the status a phone is pushed fits the narrowest payload we sup
 
 TEST_CASE("comms: the config reply fits it too, as one flat object instead of an escaped one") {
     platform::host::Link link;
+    link.raise_link(1);
+    link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = widest_settings();
     go::SettingsStore store_cs(s);
@@ -165,12 +173,15 @@ TEST_CASE("comms: the config reply fits it too, as one flat object instead of an
     CHECK(body.find("\"version\":1") != std::string::npos);
     CHECK(body.find("\"addr\":16777215") != std::string::npos);
     CHECK(body.find("\"addr_table\":63") != std::string::npos);
+    CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
     // The last field written, so its presence is the proof nothing was dropped.
     CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
 }
 
 TEST_CASE("comms: a link that came up at the BLE minimum is answered with a count, not a frame") {
     platform::host::Link link;
+    link.raise_link(1);
+    link.raise_link(1);
     link.declare_payload_bytes(ports::kMinimumLinkPayload);
     go::Settings s = widest_settings();
     go::SettingsStore store_cs(s);
@@ -196,6 +207,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
 
     // A phone that negotiated the whole L2CAP MTU: one frame, and it says so.
     platform::host::Link wide;
+    wide.raise_link(1);
     wide.declare_payload_bytes(495);
     go::SettingsStore store_on_wide(s);
     ConfigService on_wide(wide, store_on_wide, nullptr, &stats);
@@ -209,6 +221,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
     // fields between them - a laboratory reads this once, so a second frame is
     // free, and trimming a bucket would destroy what it came for.
     platform::host::Link narrow;
+    narrow.raise_link(1);
     narrow.declare_payload_bytes(kSmallestSupportedPayload);
     go::SettingsStore store_on_narrow(s);
     ConfigService on_narrow(narrow, store_on_narrow, nullptr, &stats);
@@ -239,6 +252,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
     // is refused whole: two frames of a three-frame report, with no third one
     // coming, is worse than no report.
     platform::host::Link hopeless;
+    hopeless.raise_link(1);
     hopeless.declare_payload_bytes(64);
     go::SettingsStore store_on_hopeless(s);
     ConfigService on_hopeless(hopeless, store_on_hopeless, nullptr, &stats);
@@ -249,6 +263,8 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
 
 TEST_CASE("comms: a status push the controller could not take is retried, not lost") {
     platform::host::Link link;
+    link.raise_link(1);
+    link.raise_link(1);
     go::Settings s = go::defaults(1);
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
@@ -275,6 +291,8 @@ TEST_CASE("comms: a status push the controller could not take is retried, not lo
 
 TEST_CASE("comms: a push that will never fit is counted once and not retried forever") {
     platform::host::Link link;
+    link.raise_link(1);
+    link.raise_link(1);
     link.declare_payload_bytes(ports::kMinimumLinkPayload);
     go::Settings s = go::defaults(1);
     go::SettingsStore store_cs(s);

@@ -290,8 +290,8 @@ void FlightLogService::reply(const char* json, int len) {
         link_drops_++;
         return;
     }
-    if (!is_ok(context_.roles.link.send(
-            events::Endpoint::Log,
+    if (!is_ok(context_.roles.link.send_to(
+            reply_to_, events::Endpoint::Log,
             ConstByteSpan(reinterpret_cast<const uint8_t*>(json), static_cast<size_t>(len)))))
         link_drops_++;
 }
@@ -312,6 +312,11 @@ void FlightLogService::serve_link() {
 // firmware upload gates this too, so there is one answer to "what may a phone
 // do to a flying device" rather than three.
 void FlightLogService::handle(const comms::LogRequest& request) {
+    reply_to_ = request.link_session;
+    if (!config_.claim_link(request.link_session)) {
+        ack(false, "claimed");
+        return;
+    }
     if (!request.understood) {
         ack(false, "unknown_cmd");
         return;

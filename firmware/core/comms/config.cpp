@@ -43,7 +43,7 @@ void ConfigService::tick(uint32_t now_ms) {
     // for again, so a controller that was momentarily out of buffers gets another
     // pass rather than costing a pilot a stale gauge. Only a transient refusal
     // arms this: a frame too big for the payload would retry forever.
-    if (status_push_due_ && link_up_) send_status();
+    if (status_push_due_ && link_up()) push_status();
     if (upload_window_open_ && now_ms - window_opened_ms_ >= kUploadWindowMs) {
         upload_window_open_ = false;
     }
@@ -68,17 +68,40 @@ void ConfigService::set_flight_state(flight::FlightState fs) {
     flight_ = fs;
 }
 
-void ConfigService::on_link_up(const events::LinkUp& up) {
-    session_ = up.session_id;
-    link_up_ = true;
-    if (image_state_ != dfu::ImageState::Confirmed) send_update();
+bool ConfigService::up(uint16_t session_id) const {
+    for (int i = 0; i < links_; i++)
+        if (up_[i] == session_id) return true;
+    return false;
 }
 
-void ConfigService::on_link_down(const events::LinkDown&) {
+void ConfigService::note_up(uint16_t session_id) {
+    if (up(session_id) || links_ == static_cast<int>(LinkSessions::kMaxSessions)) return;
+    up_[links_++] = session_id;
+}
+
+void ConfigService::note_down(uint16_t session_id) {
+    for (int i = 0; i < links_; i++) {
+        if (up_[i] != session_id) continue;
+        up_[i] = up_[--links_];
+        return;
+    }
+}
+
+// INFO: fc 18sep26 A second Up on one session is the MTU exchange landing late, never a second app.
+void ConfigService::on_link_up(const events::LinkUp& up) {
+    note_up(up.session_id);
+    if (image_state_ != dfu::ImageState::Confirmed) send_update(up.session_id);
+}
+
+// INFO: fc 18sep26 Only the holder's disconnect cancels: another app leaving must not answer a
+// prompt.
+void ConfigService::on_link_down(const events::LinkDown& down) {
+    note_down(down.session_id);
+    if (!claim_.holds(down.session_id)) return;
+    claim_.release();
     pending_ = Pending::None;
     pending_len_ = 0;
     upload_window_open_ = false;
-    link_up_ = false;
     status_push_due_ = false;
 }
 
@@ -96,7 +119,7 @@ void ConfigService::set_battery_state(const power::BatteryState& battery, power:
     diag_.battery = battery;
     diag_.level = level;
 
-    if (link_up_ && (charging_changed || level_changed || step_changed)) send_status();
+    if (link_up() && (charging_changed || level_changed || step_changed)) push_status();
 }
 
 int ConfigService::payload() const { return static_cast<int>(link_.payload_bytes()); }
@@ -107,6 +130,10 @@ int ConfigService::payload() const { return static_cast<int>(link_.payload_bytes
 // through this door is a request/response answer except the status push, so the
 // recovery from a lost one is the phone's next command; the push has tick().
 Status ConfigService::reply(const char* json, int len) {
+    return reply_to(claim_.holder(), json, len);
+}
+
+Status ConfigService::broadcast(const char* json, int len) {
     if (len <= 0 || len > payload()) {
         diag_.link_drops++;
         return Status::OutOfRange;
@@ -118,8 +145,30 @@ Status ConfigService::reply(const char* json, int len) {
     return sent;
 }
 
+Status ConfigService::reply_to(uint16_t session_id, const char* json, int len) {
+    if (len <= 0 || len > payload()) {
+        diag_.link_drops++;
+        return Status::OutOfRange;
+    }
+    const Status sent = link_.send_to(
+        session_id, events::Endpoint::Config,
+        ConstByteSpan(reinterpret_cast<const uint8_t*>(json), static_cast<size_t>(len)));
+    if (!is_ok(sent)) diag_.link_drops++;
+    return sent;
+}
+
 Status ConfigService::reply(const char* json) {
     return reply(json, static_cast<int>(std::strlen(json)));
+}
+
+void ConfigService::refuse_unclaimed(uint16_t session_id) {
+    char buf[96];
+    json::Writer w(buf, sizeof(buf));
+    w.kv_bool("ack", false);
+    w.kv_str("reason", "claimed");
+    w.kv_int("by", static_cast<long>(claim_.holder()));
+    const int len = w.finish();
+    reply_to(session_id, buf, len);
 }
 
 void ConfigService::stage(Pending pending, const char* reason) {
@@ -163,6 +212,10 @@ const char* ConfigService::flight_name(flight::FlightState fs) {
 
 void ConfigService::on_rx(const events::RxFrame& frame) {
     if (frame.endpoint != events::Endpoint::Config) return;
+    if (!claim_.grant(frame.session_id)) {
+        refuse_unclaimed(frame.session_id);
+        return;
+    }
     const char* data = reinterpret_cast<const char*>(frame.data.data());
     int len = frame.len;
     json::Reader r(data, len);
@@ -213,7 +266,7 @@ void ConfigService::on_rx(const events::RxFrame& frame) {
     }
 
     if (std::strcmp(cmd, "update") == 0) {
-        send_update();
+        send_update(claim_.holder());
         return;
     }
 

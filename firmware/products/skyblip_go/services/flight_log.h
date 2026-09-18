@@ -103,6 +103,7 @@ class FlightLogService : public runtime::Service {
     // still be queued behind a transmit slot, and that record belongs in the
     // sector the session was writing.
     uint32_t claimed_session_{0};
+    uint16_t reply_to_{0};
     bool claimed_{false};
     bool available_{false};
     bool index_stale_{false};

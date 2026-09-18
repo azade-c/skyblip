@@ -60,6 +60,11 @@ TEST_CASE("companion link: the product raises LinkUp through its own platform, n
     rig.run(t, t + 100);
     t += 100;
     CHECK(rig.link_up());
+    // Connected is not configuring: nothing is claimed until the app asks.
+    CHECK_FALSE(rig.product.config().config().claim().held());
+    rig.send("{\"cmd\":\"get\"}");
+    rig.run(t, t + 100);
+    t += 100;
     CHECK(rig.product.config().config().session() == 0x0042);
 
     rig.drop_link();
@@ -223,4 +228,91 @@ TEST_CASE("companion link: a late MTU exchange is the same phone, not a new one"
     CHECK(rig.link_up());
     CHECK(rig.product.config().config().session() == 5);
     CHECK(rig.product.config().config().pending() == comms::Pending::Dfu);
+}
+
+// The traffic picture is the same picture on every screen, so a tablet on the
+// yoke and a phone in a pocket both read it off one device.
+TEST_CASE("companion link: two centrals read the same traffic stream") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    taxi(rig, t, 3);
+
+    rig.raise_link(1);
+    rig.raise_link(2);
+    rig.run(t, t + 100);
+    t += 100;
+    REQUIRE(rig.platform.link().links() == 2);
+
+    rig.platform.link().clear();
+    taxi(rig, t, 3);
+    // One frame formatted once, put on every subscribed connection by the
+    // platform: what the host model records is the broadcast, session 0.
+    CHECK(rig.platform.link().count_to(0, events::Endpoint::Nmea) >= 3);
+}
+
+// Configuration is not broadcast: two apps writing settings is two apps
+// disagreeing about what the device stores.
+TEST_CASE("companion link: the first app to ask holds config, and the second is told who has it") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    taxi(rig, t, 20);
+
+    rig.raise_link(1);
+    rig.raise_link(2);
+    rig.send_from(1, "{\"cmd\":\"get\"}");
+    rig.run(t, t + 200);
+    t += 200;
+    REQUIRE(rig.product.config().config().session() == 1);
+    REQUIRE(rig.platform.link().count_to(1, events::Endpoint::Config) == 1);
+
+    rig.platform.link().clear();
+    rig.send_from(2, "{\"cmd\":\"dfu\"}");
+    rig.run(t, t + 200);
+    t += 200;
+    // Refused, with a reason and to the app that asked. Not silence, which a page
+    // cannot tell from a device that died.
+    const std::string refusal = rig.last_on(events::Endpoint::Config);
+    CHECK(refusal.find("\"reason\":\"claimed\"") != std::string::npos);
+    CHECK(rig.platform.link().count_to(2, events::Endpoint::Config) == 1);
+    CHECK(rig.product.config().config().pending() == comms::Pending::None);
+}
+
+// The prompt on the glass belongs to the app that raised it, so the other phone
+// walking out of range must not answer it or take it away.
+TEST_CASE("companion link: a second app leaving does not cancel the holder's prompt") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    taxi(rig, t, 20);
+
+    rig.raise_link(1);
+    rig.raise_link(2);
+    rig.send_from(1, "{\"cmd\":\"dfu\"}");
+    rig.run(t, t + 200);
+    t += 200;
+    REQUIRE(rig.product.config().config().pending() == comms::Pending::Dfu);
+
+    rig.drop_link(2);
+    rig.run(t, t + 200);
+    t += 200;
+    CHECK(rig.product.config().config().pending() == comms::Pending::Dfu);
+    CHECK(rig.product.config().config().session() == 1);
+
+    // And when the holder leaves, the prompt goes with it and the claim is free
+    // for the phone that is still connected.
+    rig.drop_link(1);
+    rig.run(t, t + 200);
+    t += 200;
+    CHECK(rig.product.config().config().pending() == comms::Pending::None);
+    CHECK_FALSE(rig.product.config().config().claim().held());
+    CHECK_FALSE(rig.link_up());
+
+    rig.raise_link(2);
+    rig.run(t, t + 100);
+    t += 100;
+    rig.send_from(2, "{\"cmd\":\"get\"}");
+    rig.run(t, t + 200);
+    CHECK(rig.product.config().config().session() == 2);
 }

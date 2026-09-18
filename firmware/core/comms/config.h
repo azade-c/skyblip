@@ -3,6 +3,8 @@
 
 #include "core/comms/config_store.h"
 #include "core/comms/diagnostics.h"
+#include "core/comms/link_claim.h"
+#include "core/comms/link_sessions.h"
 #include "core/comms/timing_report.h"
 #include "core/dfu/update.h"
 #include "core/events/link.h"
@@ -85,8 +87,11 @@ class ConfigService {
     // Whether anyone is listening. Exported because it is the one fact about
     // this service that no reply reveals until the gauge happens to move, and a
     // product test has to be able to assert that a connection reached it.
-    bool link_up() const { return link_up_; }
-    uint16_t session() const { return session_; }
+    bool link_up() const { return links_ > 0; }
+    int links() const { return links_; }
+    const LinkClaim& claim() const { return claim_; }
+    bool claim_link(uint16_t session_id) { return claim_.grant(session_id); }
+    uint16_t session() const { return claim_.holder(); }
 
     // The values core/power already decided: state of charge, the millivolt
     // reading, whether the charger is holding the rail, and the level
@@ -209,10 +214,18 @@ class ConfigService {
    private:
     Status reply(const char* json);
     Status reply(const char* json, int len);
+    Status reply_to(uint16_t session_id, const char* json, int len);
+    Status broadcast(const char* json, int len);
+    void refuse_unclaimed(uint16_t session_id);
+    void note_up(uint16_t session_id);
+    void note_down(uint16_t session_id);
+    bool up(uint16_t session_id) const;
     int payload() const;
     void stage(Pending pending, const char* reason);
     void ack(bool ok, const char* reason);
     void send_status();
+    void push_status();
+    int format_status(char* buf, int cap);
     // The bench's plug-in-and-read for G6: the same on_rx dispatch that
     // answers "get" and "status" answers "timing" from the one accumulator
     // core/timing::SlotTimingStats keeps, over the link the phone already has
@@ -229,7 +242,7 @@ class ConfigService {
     // unsolicited and is already sized against the narrowest phone in the field at
     // its worst case, with eleven bytes left.
     void send_radio();
-    void send_update();
+    void send_update(uint16_t session_id);
     // And the whole dump, which is the same table as the console's: one frame per
     // subsystem where the payload allows it, more where it does not, and never a
     // frame that mixes two subsystems (core/comms/diagnostics.h).
@@ -248,7 +261,9 @@ class ConfigService {
     flight::FlightState flight_{flight::FlightState::Unknown};
     Diagnostics diag_{};
     bool supply_warned_{false};
-    bool link_up_{false};
+    uint16_t up_[LinkSessions::kMaxSessions]{};
+    int links_{0};
+    LinkClaim claim_{};
     bool status_push_due_{false};
     bool power_off_requested_{false};
     bool install_requested_{false};
@@ -257,7 +272,6 @@ class ConfigService {
     Pending pending_{Pending::None};
     bool dirty_{false};
     bool upload_window_open_{false};
-    uint16_t session_{0};
     uint32_t now_ms_{0};
     uint32_t window_opened_ms_{0};
     uint32_t pending_since_ms_{0};

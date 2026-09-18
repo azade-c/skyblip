@@ -11,9 +11,8 @@ namespace skyblip::comms {
 // it over an iPhone's 182 bytes. The buffer is the limit itself, so a field added
 // later cannot quietly overflow it - the writer leaves the field out whole and
 // overflowed() refuses the frame instead.
-void ConfigService::send_status() {
-    char buf[kSmallestSupportedPayload + 1];
-    json::Writer w(buf, sizeof(buf));
+int ConfigService::format_status(char* buf, int cap) {
+    json::Writer w(buf, cap);
     w.kv_str("cmd", "status");
     w.kv_str("reset", power::to_string(diag_.reset));
     w.kv_str("flight", flight_name(flight_));
@@ -27,12 +26,30 @@ void ConfigService::send_status() {
     // read a different temperature depending on which surface answered it.
     if (diag_.die_valid) w.kv_int("die_temp_c", whole_celsius(diag_.die_decicelsius));
     const int len = w.finish();
-    if (w.overflowed()) {
+    return w.overflowed() ? 0 : len;
+}
+
+void ConfigService::send_status() {
+    char buf[kSmallestSupportedPayload + 1];
+    const int len = format_status(buf, static_cast<int>(sizeof(buf)));
+    if (len == 0) {
         diag_.link_drops++;
         status_push_due_ = false;
         return;
     }
     status_push_due_ = reply(buf, len) == Status::WouldBlock;
+}
+
+// INFO: fc 18sep26 Nobody asked for this one, so every app subscribed to it gets it.
+void ConfigService::push_status() {
+    char buf[kSmallestSupportedPayload + 1];
+    const int len = format_status(buf, static_cast<int>(sizeof(buf)));
+    if (len == 0) {
+        diag_.link_drops++;
+        status_push_due_ = false;
+        return;
+    }
+    status_push_due_ = broadcast(buf, len) == Status::WouldBlock;
 }
 
 // INFO: fc 04aug26 The one sender allowed more than one frame, and the reason
@@ -101,7 +118,7 @@ void ConfigService::send_radio() {
     send_report(report);
 }
 
-void ConfigService::send_update() {
+void ConfigService::send_update(uint16_t session_id) {
     char from[dfu::kVersionTextCap];
     char to[dfu::kVersionTextCap];
     dfu::format_version(update_record_.from, from, sizeof(from));
@@ -115,8 +132,8 @@ void ConfigService::send_update() {
         w.kv_str("to", to);
     }
     w.kv_bool("swap_powered", swap_powered());
-    w.finish();
-    reply(buf);
+    const int len = w.finish();
+    reply_to(session_id, buf, len);
 }
 
 // A whole dump nobody has collected is a dump of zeros, and zeros here read as a

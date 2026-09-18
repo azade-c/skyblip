@@ -6,6 +6,7 @@
 #define SKYBLIP_TEST_SUPPORT_PRODUCT_RIG_H
 
 #include <cstring>
+#include <string>
 
 #include "core/events/link.h"
 #include "core/events/sensor.h"
@@ -199,11 +200,28 @@ struct Rig {
     // platform -> board -> bus -> config service, which is the path silicon uses.
     void raise_link(uint16_t session_id = 1) { platform.link().raise_link(session_id); }
     void drop_link() { platform.link().drop_link(); }
+    void drop_link(uint16_t session_id) { platform.link().drop_link(session_id); }
     bool link_up() { return product.config().config().link_up(); }
 
+    // The last thing the device said on one endpoint, the NMEA broadcast aside.
+    std::string last_on(events::Endpoint endpoint) {
+        const auto& sent = platform.link().sent;
+        for (auto it = sent.rbegin(); it != sent.rend(); ++it)
+            if (it->endpoint == endpoint) return it->bytes;
+        return std::string();
+    }
+
     // The companion app's side of the link, arriving where the board polls it.
+    // An app that says something is an app that is connected.
     void send(const char* json) {
+        if (!platform.link().up()) raise_link();
+        send_from(platform.link().session_id(), json);
+    }
+
+    // Which app is talking, because config and the log answer one of them.
+    void send_from(uint16_t session_id, const char* json) {
         events::RxFrame frame{};
+        frame.session_id = session_id;
         frame.endpoint = events::Endpoint::Config;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
@@ -213,7 +231,13 @@ struct Rig {
     // The same app on the log endpoint, which is a separate characteristic and
     // a separate queue.
     void send_log(const char* json) {
+        if (!platform.link().up()) raise_link();
+        send_log_from(platform.link().session_id(), json);
+    }
+
+    void send_log_from(uint16_t session_id, const char* json) {
         events::RxFrame frame{};
+        frame.session_id = session_id;
         frame.endpoint = events::Endpoint::Log;
         frame.len = static_cast<uint16_t>(std::strlen(json));
         std::memcpy(frame.data.data(), json, frame.len);
