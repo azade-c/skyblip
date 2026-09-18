@@ -540,7 +540,7 @@ TEST_CASE("epd: 2118 and 2129 are the same in 0x2D and only 0x2E separates them"
     CHECK(b_differs);
 }
 
-TEST_CASE("epd: a signature nobody has recorded is unknown, not a guess") {
+TEST_CASE("epd: a signature nobody has recorded is unlisted, and an unread one is neither") {
     // The seventh row of SoftRF's table is the Plus - our own board - and it
     // carries no bytes at all, only the string "20.05.21". So this is the answer
     // this board is expected to give until somebody reads one on a bench.
@@ -548,9 +548,9 @@ TEST_CASE("epd: a signature nobody has recorded is unknown, not a guess") {
     unrecorded.read = true;
     unrecorded.a[0] = 0x12;
     unrecorded.b[3] = 0x34;
-    CHECK(parts::identify_panel(unrecorded) == parts::Panel::Unknown);
+    CHECK(parts::identify_panel(unrecorded) == parts::Panel::Unlisted);
 
-    // A fingerprint that was never taken is the same answer, by a different road.
+    // A fingerprint that was never taken is a different miss: nobody read it.
     parts::PanelSignature never_taken{};
     CHECK(parts::identify_panel(never_taken) == parts::Panel::Unknown);
     // Even when the bytes would otherwise match a shipped panel: an unread
@@ -564,7 +564,7 @@ TEST_CASE("epd: the identity is a name the self-test page can print") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    CHECK(std::string(d.panel_name()) == "UNKNOWN");
+    CHECK(std::string(d.panel_name()) == "NO ID");
 
     d.adopt(parts::panels::kDepg0150Bn);
     CHECK(std::string(d.panel_name()) == "DEPG0150");

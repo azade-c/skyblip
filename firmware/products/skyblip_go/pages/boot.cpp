@@ -27,7 +27,7 @@ const char* verdict(PartState state) {
         case PartState::Fail: return "FAIL";
         case PartState::Absent: break;
     }
-    return "n/a";
+    return "NOT FITTED";
 }
 
 // A leader of dots between the name and its verdict, so an eye running down the
@@ -73,25 +73,23 @@ void draw_boot(ui::Canvas& fb, const BootSnapshot& s) {
         y += kLineH;
     }
 
-    // The bus, as one more row: every address that answered, in hex, in the order
-    // the scan found them. No verdict, because nothing here is pass or fail - it
-    // is the evidence behind the rows above and behind the two parts this product
-    // does not drive.
     if (s.i2c_addresses && s.n_i2c_addresses > 0 && rows < kBootRows) {
-        n = fmt_string(buf, "I2C");
-        const int room = static_cast<int>(sizeof(buf)) - 4;
-        for (int i = 0; i < s.n_i2c_addresses && n + 3 <= room; i++) {
-            n += fmt_string(buf + n, " ");
-            n += fmt_hex(buf + n, s.i2c_addresses[i], 2);
+        char bus[kBootRowCells + 1];
+        n = fmt_string(bus, "I2C");
+        for (int i = 0; i < s.n_i2c_addresses; i++) {
+            const char* role = s.i2c_roles ? s.i2c_roles[i] : nullptr;
+            if (n + 1 + (role ? length(role) : 2) > kBootRowCells) break;
+            n += fmt_string(bus + n, " ");
+            n += role ? fmt_string(bus + n, role) : fmt_hex(bus + n, s.i2c_addresses[i], 2);
         }
-        buf[n] = 0;
-        fb.draw_text(kLeft, y, buf, true, 1);
+        bus[n] = 0;
+        fb.draw_text(kLeft, y, bus, true, 1);
         y += kLineH;
     }
 
-    y += 3;
+    y += kBootDividerGap;
     fb.hline(kLeft, y, kGlassW - 2 * kLeft, true);
-    y += 5;
+    y += kBootFooterGap;
 
     if (s.battery_valid) {
         // Centivolts: at boot the number that matters is whether the pack can
@@ -106,7 +104,7 @@ void draw_boot(ui::Canvas& fb, const BootSnapshot& s) {
     // The verdict, inverted so it cannot be read as one more row.
     const char* status = s.flyable ? "READY" : "GROUNDED";
     const int w = (length(status) + 2) * kCellW;
-    fb.rect(kRight - w, y - 3, w, 13, true, /*fill=*/true);
+    fb.rect(kRight - w, y - kBootVerdictRise, w, kBootVerdictH, true, /*fill=*/true);
     fb.draw_text(kRight - w + kCellW, y, status, false, 1);
 }
 

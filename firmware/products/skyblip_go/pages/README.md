@@ -164,6 +164,40 @@ The vertical speed is the measurement too, in millimetres per second, not the 0.
 
 The last field of the traffic row is `TX ON` or `TX OFF`, and it answers the question the page exists for: is anyone being told where this aircraft is. It used to read `PPS OK`, which named a pin on a part, was not a thing a pilot could act on, and was not on its own enough to put a burst on air. What it reports now is `timing::own_ship_transmits`, the same predicate `RadioService` refuses an attempt with, so the glass cannot disagree with the radio. When it reads `OFF` the reason is the row above: no fix, or no UTC. The one case it does not distinguish is the 20 s settle after acquisition (`gnss::kFirstFixSettleMs`), which passes on its own. PPS lock itself is support's business and lives in the timing report.
 
+## boot
+
+The power-on self test, and the one page worth having on a first flash: it names the part that did not answer, so a device that refuses to fly says why instead of going dark. It is drawn once, from what the board probed at bring-up, and it stays on the glass when a required part is missing.
+
+The header carries the identity and why the device is running at all: `ID 5B5AFE` on the left is the 24-bit address this unit transmits under, and the word on the right is the reset reason (`core/power/reset_reason.h`), which is the answer to "why am I looking at a boot at all". `POWER ON` is a cell being connected, `BUTTON WAKE` is a thumb bringing it out of SYSTEM OFF, `CHARGER WAKE` is a cable doing the same thing to a device in a flight bag, and `WATCHDOG`, `CPU LOCKUP`, `BROWNOUT`, `SOFT RESET`, `RESET PIN` and `DEBUGGER` are the ones worth a bug report. The register is read once at boot and then only remembered, so the companion app reports the same word.
+
+Then one row per part, each reading left to right as *what it is*, *which part answered*, *how it answered*:
+
+| Row | The part behind it |
+|---|---|
+| `RADIO` | the SX1262 transceiver, answered by a register round-trip: no radio, no flight |
+| `GNSS` | the L76K receiver on its UART: no receiver, no flight |
+| `PANEL` | the e-paper, by the lot its fingerprint names (`hardware/README.md`) |
+| `BARO` | the BME280, with the address that answered, ours at 0x76 and LilyGO's at 0x77 |
+| `TEMP` | the nRF52840's own die sensor, which is what the thermal charge limits read |
+| `BATTERY` | the resistor divider into the SAADC the cell voltage is measured on |
+| `BUTTON` | the main button on P1.10, which is also the pin that wakes the device |
+| `BUZZER` | the piezo, established from its drive stage holding P0.06 down |
+| `VIBRO` | the DRV2605 haptic driver at 0x5A, or `PIN` for a motor driven directly |
+| `LAMP` | the RGB status LEDs, the only thing that says "alive" with the glass parked |
+| `LINK` | Bluetooth LE, the connection a phone or a tablet arrives over |
+| `STORAGE` | the settings in internal NVS and the flight log on the external SPI NOR |
+| `DFU` | MCUboot, the path a firmware update is written through |
+
+Required first, then what the device senses with, then what it says things with, then what it talks and remembers through. `RADIO` and `GNSS` are the two the product cannot fly without (`kRequired`), which is why they are at the top and why only they can read `FAIL`.
+
+The last row is the I2C scan, and it reads `I2C IMU RTC HAPTIC BARO`: what answered on the sensor bus, named by the part that sits at each address, ascending, with no verdict. An address the board cannot account for has no name to print, so it prints as its hex, which is the whole point of scanning the bus rather than probing four addresses - `I2C IMU RTC HAPTIC BARO 3C` is a part nobody expected, and it is worth the trip to the bench. The map is `boards/lilygo/t_echo_plus/i2c_scan.h`, next to the addresses it names.
+
+The IMU and the RTC are why that row exists. They are soldered onto a Plus like everything else, but nothing in this firmware drives either of them, so neither has a capability, and a row is a capability: it carries a verdict, and `PASS` on a part the device never uses would be a claim that nothing behind it is true. The bus row is the honest half - the part answered, we know what it is, we do not use it - and the day a driver arrives, the IMU gets a row and stops being a name on this one.
+
+Three verdicts, and the third is not a failure. `PASS` is the part answered. `FAIL` is a part the device cannot fly without and did not get. `NOT FITTED` is a footprint with nothing behind it, which is a real answer on this hardware: a plain T-Echo has no buzzer and no haptic, some units come without a barometer, and a board built without a status lamp is still a board that flies. The part named in the middle column stays there when the verdict is `NOT FITTED`, because "the DRV2605 we look for is not there" is what a bench needs to read, and it is replaced by what actually answered when something did.
+
+Under the divider: the cell voltage in volts to two decimals, and the verdict, `READY` or `GROUNDED`, inverted so it cannot be read as one more row.
+
 ## settings
 
 The panel half of "a pilot with no phone can change the things that matter". It is a list of rows a thumb walks and a small editor that decides what a press means, both pure: the page takes a snapshot, the editor takes the values in and hands new values back, so the service owns the state and the file owns the meaning.
@@ -180,6 +214,6 @@ A pilot cannot get stuck here: the rows only ever advance and the tap past the l
 | `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |
 | `signal` | every emitter heard, nearest first, with the e.r.p. its level implies |
 | `settings` | the values a pilot can change without a phone |
-| `boot`, `confirm`, `installing` | the three moments that are not pages: coming up, being asked, being written |
+| `confirm`, `installing` | the two moments that are not pages: being asked, being written |
 
 `go::Page` lists them in the order the pad walks, and a long touch of the pad goes back to `Radar` from any of them. Settings is not on that walk at all: it is a mode the button opens, and alone among the pages it has no bit in `settings.page_mask`, because that is where the mask is changed and a mask that hid it would be one nobody could undo without a phone.

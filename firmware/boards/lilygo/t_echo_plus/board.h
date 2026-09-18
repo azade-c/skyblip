@@ -56,7 +56,7 @@ class TEchoPlus {
         take_bus_inventory();
         identify_panel();
         establish_haptic();
-        if (platform_.buzzer_pin_held_low()) capabilities_ = without(ports::Capability::Buzzer);
+        establish_buzzer();
     }
 
     // Probing is done: capabilities() is already known. This is bring-up, and a part that
@@ -261,6 +261,12 @@ class TEchoPlus {
         platform_.annunciator().attach_haptic(haptic_);
         inventory_.haptic = ports::HapticKind::WaveformDriver;
         capabilities_ = capabilities_ | ports::Capability::Vibro | ports::Capability::HapticDriver;
+    }
+
+    // INFO: fc 18sep26 a fitted piezo stage holds P0.06 down, an empty pad follows the pull-up up
+    void establish_buzzer() {
+        capabilities_ = platform_.buzzer_pin_held_low() ? capabilities_ | ports::Capability::Buzzer
+                                                        : without(ports::Capability::Buzzer);
     }
 
     P& platform_;

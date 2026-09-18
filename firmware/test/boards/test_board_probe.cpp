@@ -114,15 +114,25 @@ TEST_CASE("board: a panel nobody has fingerprinted is named, not guessed at") {
     // The default: no fingerprint taken, which is what this board will report on
     // silicon until a Plus is read on a bench.
     CHECK(board.display().panel() == parts::Panel::Unknown);
-    CHECK(std::string(board.inventory().panel) == "UNKNOWN");
+    CHECK(std::string(board.inventory().panel) == "NO ID");
     // And the display is still a capability. An identification that could refuse
     // to drive the glass would blank the one page that explains a dead device.
     CHECK(ports::has(board.capabilities(), ports::Capability::Display));
 }
 
-TEST_CASE("board: a buzzer pin held low withdraws the buzzer and keeps the haptic") {
+// Read off our own two units the day the page had them the wrong way round.
+TEST_CASE("board: a buzzer pin held down by its drive stage is a fitted buzzer") {
     platform::host::Platform platform;
     platform.set_buzzer_pin_held_low(true);
+    bus::Bus bus;
+    Board board{platform, bus};
+
+    CHECK(ports::has(board.capabilities(), ports::Capability::Buzzer));
+}
+
+TEST_CASE("board: a buzzer pin that follows the pull-up is an empty pad, and the haptic stays") {
+    platform::host::Platform platform;
+    platform.set_buzzer_pin_held_low(false);
     bus::Bus bus;
     Board board{platform, bus};
 
@@ -130,8 +140,7 @@ TEST_CASE("board: a buzzer pin held low withdraws the buzzer and keeps the hapti
     // The haptic is a different part on a different bus and is unaffected...
     CHECK(ports::has(board.capabilities(), ports::Capability::Vibro));
 
-    // ...and it is still reachable, because the annunciator is one role over two
-    // parts: a dead buzzer pin must not take the pulse with it.
+    // ...and still reachable: the annunciator is one role over two parts.
     ports::Roles roles = board.roles();
     roles.annunciator.vibrate(200);
     CHECK(platform.chips().haptic.moving());

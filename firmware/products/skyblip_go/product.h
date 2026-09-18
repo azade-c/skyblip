@@ -33,27 +33,27 @@ constexpr ports::Capabilities kOptional = ports::Capability::Display | ports::Ca
 struct BootPartSpec {
     const char* name;
     ports::Capability capability;
+    const char* wired_part;
 };
 
-// The inventory the self-test page reads out, in the order a bench eye wants
-// it: what the device cannot fly without first.
-//
-// No INDICATOR row, and that is a decision. Capability::Indicator is granted from
-// the devicetree, so on silicon the row would be a PASS that cannot fail - and the
-// status lamp is the in-flight and in-the-bag indicator, not a second self test:
-// what a bench wants to know about it is which colours light, which is a look at
-// the unit rather than a line of text on it.
 constexpr BootPartSpec kBootParts[] = {
-    {"RADIO", ports::Capability::Rf},      {"GNSS", ports::Capability::Gnss},
-    {"PANEL", ports::Capability::Display}, {"BARO", ports::Capability::Baro},
-    {"BUTTON", ports::Capability::Button}, {"BATTERY", ports::Capability::Battery},
-    {"LINK", ports::Capability::Link},     {"STORAGE", ports::Capability::Storage},
-    {"DFU", ports::Capability::Dfu},       {"BUZZER", ports::Capability::Buzzer},
-    {"VIBRO", ports::Capability::Vibro},
+    {"RADIO", ports::Capability::Rf, "SX1262"},
+    {"GNSS", ports::Capability::Gnss, "L76K"},
+    {"PANEL", ports::Capability::Display, "SSD1681"},
+    {"BARO", ports::Capability::Baro, "BME280"},
+    {"TEMP", ports::Capability::DieTemperature, "NRF52840"},
+    {"BATTERY", ports::Capability::Battery, "DIVIDER"},
+    {"BUTTON", ports::Capability::Button, "P1.10"},
+    {"BUZZER", ports::Capability::Buzzer, "PIEZO"},
+    {"VIBRO", ports::Capability::Vibro, "DRV2605"},
+    {"LAMP", ports::Capability::Indicator, "RGB"},
+    {"LINK", ports::Capability::Link, "BLE"},
+    {"STORAGE", ports::Capability::Storage, "NVS+NOR"},
+    {"DFU", ports::Capability::Dfu, "MCUBOOT"},
 };
 
 constexpr int kBootPartCount = static_cast<int>(sizeof(kBootParts) / sizeof(kBootParts[0]));
-static_assert(kBootPartCount <= kBootRows, "the self-test page would drop a part");
+static_assert(kBootPartCount < kBootRows, "the self-test page would drop the bus scan");
 
 // skyBlip Go: one board, one service list. The shell around it only decides how
 // often step() is called and where the pixels go.
@@ -180,20 +180,26 @@ class Product {
     // part against. Everything here comes from the bring-up probes
     // (ports/inventory.h), never from what the image was compiled expecting, which
     // is the whole point of the page.
-    const char* boot_detail(ports::Capability capability) {
+    const char* boot_detail(const BootPartSpec& spec) {
         const ports::Inventory& found = board_.inventory();
-        switch (capability) {
+        switch (spec.capability) {
             case ports::Capability::Baro:
-                if (found.baro_address == 0) return nullptr;
-                baro_address_[skyblip::fmt_hex(baro_address_, found.baro_address, 2)] = 0;
-                return baro_address_;
-            case ports::Capability::Display: return found.panel;
+                return found.baro_address == 0 ? spec.wired_part : baro_part(found.baro_address);
+            case ports::Capability::Display:
+                return ports::has(board_.capabilities(), ports::Capability::Display)
+                           ? found.panel
+                           : spec.wired_part;
             case ports::Capability::Vibro:
-                return found.haptic == ports::HapticKind::WaveformDriver ? "DRV2605"
-                       : found.haptic == ports::HapticKind::PinMotor     ? "PIN"
-                                                                         : nullptr;
-            default: return nullptr;
+                return found.haptic == ports::HapticKind::PinMotor ? "PIN" : spec.wired_part;
+            default: return spec.wired_part;
         }
+    }
+
+    const char* baro_part(uint8_t address) {
+        int n = skyblip::fmt_string(baro_part_, "BME280 ");
+        n += skyblip::fmt_hex(baro_part_ + n, address, 2);
+        baro_part_[n] = 0;
+        return baro_part_;
     }
 
     power::BootCell read_boot_cell() {
@@ -220,7 +226,7 @@ class Product {
             boot_parts_[i].state = ports::has(fitted, spec.capability)      ? PartState::Pass
                                    : ports::has(kRequired, spec.capability) ? PartState::Fail
                                                                             : PartState::Absent;
-            boot_parts_[i].detail = boot_detail(spec.capability);
+            boot_parts_[i].detail = boot_detail(spec);
         }
 
         boot_snapshot_.device_addr = roles_.device_addr;
@@ -230,8 +236,12 @@ class Product {
         boot_snapshot_.flyable = flyable_;
         boot_snapshot_.battery_valid = boot_cell_.valid;
         boot_snapshot_.battery_mv = boot_cell_.millivolts;
-        boot_snapshot_.i2c_addresses = board_.inventory().i2c_addresses;
-        boot_snapshot_.n_i2c_addresses = board_.inventory().i2c_count;
+        const ports::Inventory& found = board_.inventory();
+        for (uint8_t i = 0; i < found.i2c_count; i++)
+            i2c_roles_[i] = boards::t_echo_plus::i2c_role(found.i2c_addresses[i]);
+        boot_snapshot_.i2c_addresses = found.i2c_addresses;
+        boot_snapshot_.i2c_roles = i2c_roles_;
+        boot_snapshot_.n_i2c_addresses = found.i2c_count;
         draw_boot(boot_fb_, boot_snapshot_);
     }
 
@@ -310,7 +320,8 @@ class Product {
     // The barometer's address as the page prints it. A member and not a local:
     // BootPart holds a pointer, and the page is drawn after boot_detail()
     // has returned.
-    char baro_address_[3]{};
+    char baro_part_[10]{};
+    const char* i2c_roles_[ports::Inventory::kMaxI2cAddresses]{};
     power::ShutdownSequencer shutdown_{};
     power::ShutdownPhase acted_phase_{power::ShutdownPhase::Running};
     power::ResetReason reset_reason_{power::ResetReason::Unknown};

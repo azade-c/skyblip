@@ -17,6 +17,7 @@
 
 #include <cstdint>
 
+#include "boards/lilygo/t_echo_plus/pins.h"
 #include "hardware/io/io.h"
 #include "ports/inventory.h"
 
@@ -45,6 +46,14 @@ constexpr uint8_t kRtcAddress = 0x51;           // PCF8563, deliberately undrive
 // than by a sleep. The figure is here because that is an accident of boot order,
 // and the day a scan moves earlier it stops being true.
 constexpr uint32_t kImuSettlingMs = 90;
+
+constexpr const char* i2c_role(uint8_t address) {
+    return address == kImuAddress || address == kImuAddressAlternate      ? "IMU"
+           : address == kRtcAddress                                       ? "RTC"
+           : address == kHapticDriverAddress                              ? "HAPTIC"
+           : address == kBaroAddrPrimary || address == kBaroAddrAlternate ? "BARO"
+                                                                          : nullptr;
+}
 
 // Every address on the bus, in one pass. 112 probes at 100 kHz is about 20 ms of
 // bus time, once, at boot.

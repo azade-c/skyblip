@@ -622,7 +622,7 @@ TEST_CASE("wake: a charger plugged into a sleeping device does not switch it on"
     CHECK(boot_path(charger, /*button_down=*/false, healthy()) == BootPath::SleepAgain);
     // And the page a bench eye reads names it, rather than calling it a wake.
     CHECK(classify(charger) == ResetReason::ChargerWake);
-    CHECK(std::string(to_string(ResetReason::ChargerWake)) == "CHARGER");
+    CHECK(std::string(to_string(ResetReason::ChargerWake)) == "CHARGER WAKE");
 }
 
 TEST_CASE("wake: a pilot holding the button while plugging in gets the device") {

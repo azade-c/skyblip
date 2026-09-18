@@ -23,11 +23,11 @@ const char* to_string(ResetReason reason) {
         case ResetReason::PowerOn: return "POWER ON";
         case ResetReason::Pin: return "RESET PIN";
         case ResetReason::Brownout: return "BROWNOUT";
-        case ResetReason::Software: return "SOFTWARE";
+        case ResetReason::Software: return "SOFT RESET";
         case ResetReason::Watchdog: return "WATCHDOG";
         case ResetReason::Lockup: return "CPU LOCKUP";
-        case ResetReason::ChargerWake: return "CHARGER";
-        case ResetReason::LowPowerWake: return "WAKE";
+        case ResetReason::ChargerWake: return "CHARGER WAKE";
+        case ResetReason::LowPowerWake: return "BUTTON WAKE";
         case ResetReason::Debug: return "DEBUGGER";
         case ResetReason::Unknown: break;
     }

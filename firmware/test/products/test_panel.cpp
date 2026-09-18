@@ -10,7 +10,19 @@
 
 using namespace skyblip;
 
-namespace {}  // namespace
+namespace {
+
+bool reads_from(const go::Glass& fb, int x, int y, const char* text) {
+    go::Glass expected;
+    expected.clear(true);
+    expected.draw_text(x, y, text, true, 1);
+    for (int dy = 0; dy < 7; dy++)
+        for (int dx = 0; dx < int(std::string(text).size()) * go::kBootCellW; dx++)
+            if (fb.get_pixel(x + dx, y + dy) != expected.get_pixel(x + dx, y + dy)) return false;
+    return true;
+}
+
+}  // namespace
 
 TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform") {
     Rig rig;
@@ -358,18 +370,57 @@ TEST_CASE("product: the self-test page carries what the probes found, not what w
     // The host bus answers the BOM's address, and the page prints the address
     // that answered rather than the one in the devicetree.
     REQUIRE(baro->detail != nullptr);
-    CHECK(std::string(baro->detail) == "76");
+    CHECK(std::string(baro->detail) == "BME280 76");
     // The haptic on this platform is the waveform driver, so the row says which.
     REQUIRE(haptic->detail != nullptr);
     CHECK(std::string(haptic->detail) == "DRV2605");
-    // A footprint with only one part behind it gets no detail: the row is the row
-    // it always was, and a second verdict is not smuggled in as a name.
-    CHECK(radio->detail == nullptr);
+    // A footprint with one part behind it names that part and nothing else.
+    REQUIRE(radio->detail != nullptr);
+    CHECK(std::string(radio->detail) == "SX1262");
 }
 
-// A barometer that did not answer must not print a stale or a zero address: the
-// row already says ABSENT, and "00" would read as a part at address zero.
-TEST_CASE("product: a footprint nothing answered prints no address") {
+// A row that only says PASS cannot tell two units apart, which is what the page is for.
+TEST_CASE("product: every row on the self-test page names its part, inside the width of a row") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+
+    constexpr size_t kRowCells = go::kBootRowCells;
+    for (int i = 0; i < go::kBootPartCount; i++) {
+        const go::BootPart& row = rig.product.boot_rows()[i];
+        REQUIRE(row.detail != nullptr);
+        CHECK(std::string(row.detail).size() > 0);
+        // name, space, part, space, then the longest verdict there is.
+        const size_t cells = std::string(row.name).size() + std::string(row.detail).size() +
+                             std::string("NOT FITTED").size() + 2;
+        CHECK(cells <= kRowCells);
+    }
+}
+
+// The IMU and the RTC have no row because nothing drives them: the bus is their evidence.
+TEST_CASE("product: the parts this firmware never drives are named on the bus row") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+
+    CHECK(reads_from(rig.product.boot_page(), go::kBootLeftX, go::boot_row_y(go::kBootPartCount),
+                     "I2C IMU RTC HAPTIC BARO"));
+}
+
+// The page is the inventory: a capability with no row is a part nobody can miss.
+TEST_CASE("product: every capability the product flies on or without has a row") {
+    const uint32_t declared =
+        static_cast<uint32_t>(go::kRequired) | static_cast<uint32_t>(go::kOptional);
+    for (int bit = 0; bit < 32; bit++) {
+        const uint32_t one = 1u << bit;
+        if ((declared & one) == 0) continue;
+        bool on_the_page = false;
+        for (int i = 0; i < go::kBootPartCount; i++)
+            if (static_cast<uint32_t>(go::kBootParts[i].capability) == one) on_the_page = true;
+        CHECK(on_the_page);
+    }
+}
+
+// The row already says NOT FITTED, and "00" would read as a part at address zero.
+TEST_CASE("product: a footprint nothing answered names the part and prints no address") {
     constexpr ports::Capabilities kNoBaro = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
         ~static_cast<uint32_t>(ports::Capability::Baro));
@@ -380,6 +431,7 @@ TEST_CASE("product: a footprint nothing answered prints no address") {
         if (go::kBootParts[i].capability != ports::Capability::Baro) continue;
         const go::BootPart& row = rig.product.boot_rows()[i];
         CHECK(row.state == go::PartState::Absent);
-        CHECK(row.detail == nullptr);
+        REQUIRE(row.detail != nullptr);
+        CHECK(std::string(row.detail) == "BME280");
     }
 }

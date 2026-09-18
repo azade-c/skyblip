@@ -121,13 +121,7 @@ class Platform {
         return true;
     }
 
-    // What the buzzer pin answered before the PWM owned it. This can only ever
-    // WITHDRAW the buzzer: a pin that stays low against an internal pull-up
-    // cannot swing a transducer. It cannot confirm one either - the T-Echo Plus
-    // drives a passive piezo straight off the pin, and a capacitor charged by a
-    // pull-up reads the same as an empty pad. SoftRF uses the same reading to
-    // identify a DIFFERENT board, one whose buzzer stage pulls the pin down
-    // (platform/nRF52.cpp:1265-1275).
+    // INFO: fc 18sep26 our Plus reads this pin low and our plain T-Echo reads it high
     bool buzzer_pin_held_low() const { return board_buzzer_pin_held_low() != 0; }
     bool read_pressure_mpa(uint32_t& out_mpa) {
         return baro_ != nullptr && baro_->read_pressure_mpa(out_mpa);
@@ -136,15 +130,9 @@ class Platform {
     bool external_power() { return zephyr::Battery::external_power(); }
 
     // Probe only: what silicon answered, before anything is brought up.
-    //
-    // Capability::Vibro is NOT here any more. On this board the haptic is a part
-    // on the I2C bus, so its presence is the board's to establish, not a pin the
-    // platform can declare: P0.08 high with no DRV2605 behind it is a device that
-    // reports a vibration motor and cannot vibrate.
     ports::Capabilities capabilities() const {
         ports::Capabilities c = ports::Capability::Storage | ports::Capability::Dfu |
                                 ports::Capability::Button | ports::Capability::Link;
-        if (!buzzer_pin_held_low()) c |= ports::Capability::Buzzer;
         if (device_is_ready(epd_spi_dev_)) c |= ports::Capability::Display;
         if (device_is_ready(gnss_uart_dev_)) c |= ports::Capability::Gnss;
         if (device_is_ready(baro76_dev_) || device_is_ready(baro77_dev_))

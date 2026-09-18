@@ -132,6 +132,7 @@ class Platform {
     // degraded paths get exercised without a soldering iron.
     explicit Platform(ports::Capabilities fitted = kFullyFitted) : fitted_(fitted) {
         chips_.epd.attach_clock(clock_);
+        buzzer_pin_held_low_ = ports::has(fitted, ports::Capability::Buzzer);
         baro_.present = ports::has(fitted, ports::Capability::Baro);
         battery_.present = ports::has(fitted, ports::Capability::Battery);
         log_flash_.set_present(ports::has(fitted, ports::Capability::Storage));
@@ -183,10 +184,6 @@ class Platform {
         return out.read;
     }
 
-    // What the buzzer pin answered when it was read high-Z and then against the
-    // internal pull-up, before any driver owned it. A pin held low cannot swing a
-    // transducer; see the silicon platform for what the reading can and cannot
-    // conclude.
     bool buzzer_pin_held_low() const { return buzzer_pin_held_low_; }
     void set_buzzer_pin_held_low(bool held) { buzzer_pin_held_low_ = held; }
     bool read_pressure_mpa(uint32_t& out_mpa) { return baro_.read_pressure_mpa(out_mpa); }

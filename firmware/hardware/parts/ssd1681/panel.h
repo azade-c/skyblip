@@ -31,12 +31,9 @@ struct PanelSignature {
     bool read{false};
 };
 
-// Every panel the reference has seen in a T-Echo, plus the two it saw and could
-// not name. Unknown is not a failure: it is what our own board is expected to
-// report until a bench read is written down, because the Plus is one of the two
-// rows SoftRF left as a date string.
 enum class Panel : uint8_t {
     Unknown,
+    Unlisted,
     Gdeh0154D67Syx1942,
     Gdeh0154D67Syx2118,
     Gdeh0154D67Syx2129,
@@ -110,7 +107,7 @@ inline Panel identify_panel(const PanelSignature& signature) {
     if (panel_signature_equal(signature, panels::kDepg0150Bn)) return Panel::Depg0150Bn;
     if (panel_signature_equal(signature, panels::kGdep015Oc1)) return Panel::Gdep015Oc1;
     if (panel_signature_equal(signature, panels::kElecrowM1)) return Panel::ElecrowM1;
-    return Panel::Unknown;
+    return Panel::Unlisted;
 }
 
 // Short enough for the self-test row it is printed on: 200 px of 5x7 glass is 33
@@ -123,9 +120,10 @@ constexpr const char* panel_name(Panel panel) {
         case Panel::Depg0150Bn: return "DEPG0150";
         case Panel::Gdep015Oc1: return "OC1";
         case Panel::ElecrowM1: return "M1";
+        case Panel::Unlisted: return "UNLISTED";
         case Panel::Unknown: break;
     }
-    return "UNKNOWN";
+    return "NO ID";
 }
 
 // Deliberately absent: anything that would let an identification REFUSE to

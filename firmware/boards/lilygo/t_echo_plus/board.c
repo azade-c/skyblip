@@ -265,12 +265,7 @@ static void board_read_panel_fingerprint(void)
 	panel_fingerprint_read = true;
 }
 
-// High-Z, then against the internal pull-up. A pin that reads low both times is
-// held low by the board and cannot drive a transducer. It is the reading SoftRF
-// uses to identify a board whose buzzer stage pulls the pin down
-// (platform/nRF52.cpp:1265-1275); on this board, where a passive piezo hangs off
-// the pin directly, it can only ever CONTRADICT a fitted buzzer, never confirm
-// one - an empty pad and a charged piezo read the same.
+// INFO: fc 18sep26 SoftRF reads the same pin the same way to tell two boards apart (nRF52.cpp:1265)
 static void board_probe_buzzer_pin(void)
 {
 	if (!gpio_is_ready_dt(&buzzer_sense)) {

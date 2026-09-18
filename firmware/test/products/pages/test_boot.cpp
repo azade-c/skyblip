@@ -58,7 +58,7 @@ TEST_CASE("boot: every part on the page carries its own verdict") {
 
     CHECK(row_reads(fb, 0, "PASS"));
     CHECK(row_reads(fb, 1, "FAIL"));
-    CHECK(row_reads(fb, 2, "n/a"));
+    CHECK(row_reads(fb, 2, "NOT FITTED"));
 
     // An absent part is not a failed one. A unit built without a barometer must
     // not read as a broken unit on a bench.
@@ -197,18 +197,54 @@ TEST_CASE("boot: the bus scan is a row of its own, addresses and no verdict") {
     // of those four have no driver anywhere in the tree, which is exactly why the
     // row exists.
     const uint8_t found[] = {0x28, 0x51, 0x5A, 0x76};
+    const char* const roles[] = {"IMU", "RTC", "HAPTIC", "BARO"};
     BootSnapshot s = page(parts, 2, /*flyable=*/true);
     s.i2c_addresses = found;
+    s.i2c_roles = roles;
     s.n_i2c_addresses = 4;
 
     Glass fb;
     draw_boot(fb, s);
 
-    CHECK(reads_from(fb, kBootLeftX, boot_row_y(2), "I2C 28 51 5A 76"));
+    CHECK(reads_from(fb, kBootLeftX, boot_row_y(2), "I2C IMU RTC HAPTIC BARO"));
     // No verdict: nothing on this row is a pass or a failure.
     CHECK_FALSE(row_reads(fb, 2, "PASS"));
     CHECK_FALSE(row_reads(fb, 2, "FAIL"));
-    CHECK_FALSE(row_reads(fb, 2, "n/a"));
+    CHECK_FALSE(row_reads(fb, 2, "NOT FITTED"));
+}
+
+// A part nobody expected is the reason to scan at all, and there is no name for it.
+TEST_CASE("boot: an address the board cannot account for reads as its hex") {
+    const BootPart parts[] = {{"RADIO", PartState::Pass}};
+    const uint8_t found[] = {0x3C, 0x51};
+    const char* const roles[] = {nullptr, "RTC"};
+    BootSnapshot s = page(parts, 1, /*flyable=*/true);
+    s.i2c_addresses = found;
+    s.i2c_roles = roles;
+    s.n_i2c_addresses = 2;
+
+    Glass fb;
+    draw_boot(fb, s);
+
+    CHECK(reads_from(fb, kBootLeftX, boot_row_y(1), "I2C 3C RTC"));
+}
+
+// The row is what a bench reads a bus off: it must not run into the row's edge.
+TEST_CASE("boot: the bus row stops at the width of a row rather than running off it") {
+    const BootPart parts[] = {{"RADIO", PartState::Pass}};
+    const uint8_t found[] = {0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+    const char* const roles[] = {"HAPTIC", "HAPTIC", "HAPTIC", "HAPTIC",
+                                 "HAPTIC", "HAPTIC", "HAPTIC", "HAPTIC"};
+    BootSnapshot s = page(parts, 1, /*flyable=*/true);
+    s.i2c_addresses = found;
+    s.i2c_roles = roles;
+    s.n_i2c_addresses = 8;
+
+    Glass fb;
+    draw_boot(fb, s);
+
+    for (int y = boot_row_y(1); y < boot_row_y(1) + 7; y++)
+        for (int x = kBootRightX; x < kGlassW; x++) CHECK_FALSE(fb.get_pixel(x, y));
 }
 
 TEST_CASE("boot: the inventory a real unit reports fits with the bus row on it") {
@@ -219,8 +255,10 @@ TEST_CASE("boot: the inventory a real unit reports fits with the bus row on it")
         parts[i].state = PartState::Pass;
     }
     const uint8_t found[] = {0x28, 0x51, 0x5A, 0x76};
+    const char* const roles[] = {"IMU", "RTC", "HAPTIC", "BARO"};
     BootSnapshot s = page(parts, kBootRows - 1, /*flyable=*/true);
     s.i2c_addresses = found;
+    s.i2c_roles = roles;
     s.n_i2c_addresses = 4;
     s.battery_valid = true;
     s.battery_mv = 4050;
@@ -228,7 +266,7 @@ TEST_CASE("boot: the inventory a real unit reports fits with the bus row on it")
     Glass fb;
     draw_boot(fb, s);
 
-    CHECK(reads_from(fb, kBootLeftX, boot_row_y(kBootRows - 1), "I2C 28 51 5A 76"));
+    CHECK(reads_from(fb, kBootLeftX, boot_row_y(kBootRows - 1), "I2C IMU RTC HAPTIC BARO"));
     CHECK(boot_row_y(kBootRows - 1) + 7 < Glass::kH);
 
     // And the verdict is still on the glass below all of it.
