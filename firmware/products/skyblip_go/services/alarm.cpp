@@ -12,8 +12,8 @@ void AlarmService::tick(uint32_t now_ms) {
         for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
             traffic::Target* t = context_.state.traffic.at(i);
             if (!t || !t->used) continue;
-            const traffic::AlarmTracker::Decision d = tracker_.update(
-                context_.state.own, t->obs, t->turn.dps, t->turn.valid, now_ms);
+            const traffic::AlarmTracker::Decision d =
+                tracker_.update(context_.state.own, t->obs, t->turn.dps, t->turn.valid, now_ms);
             t->alarm_level = d.assessment.level;
             worst = std::max(d.assessment.level, worst);
             if (!d.notify) continue;

@@ -1981,7 +1981,7 @@ The committed scenarios are regression fixtures: the same files the browser and 
 - a gaggle in one thermal is traffic, not three collisions
   > The fixture for the way this device gets switched off in the cockpit: three gliders working the same thermal, co-altitude, a few hundred metres away, all going the same way at the same speed. Adding both speeds together called that 60 m/s of closure and held every one of them at "urgent" for as long as the climb lasted. They are traffic - they belong on the screen, they must not be an alarm - and the assertion is what the annunciator is allowed to say.
 - a glider joining the thermal on a straight line is still caught
-  > The other side of the fence: the same thermalling own-ship and a glider arriving straight at 45 m/s, which must still escalate to urgent.
+  > The other side of the fence: a glider arriving straight at 45 m/s must still reach urgent.
 - a skyPost relay puts aircraft on the radar that we cannot hear
   > The ground relay as a committed fixture, so the case is reproducible in the browser and not only in a test file: three aircraft too far away for this device to hear, reaching it because a skyPost heard them and put all three in one O-band frame, alongside one neighbour it hears for itself on the M band.  Before 2026-08-05 this scenario produced exactly one target. The uplink frame went to protocol::receive_mband, which frames the M band's two systems and nothing else, so it failed there and was counted as rx_bad: the feature was absent and its absence was indistinguishable from a noisy site.
 - a takeoff and a landing bracket one flight log session
@@ -1995,7 +1995,7 @@ The committed scenarios are regression fixtures: the same files the browser and 
 - the committed files replay with their expectations met
 - the parser reads ownship, traffic and events
 - two gliders sharing a thermal core are warned about the 15 m pass
-  > Decision 5.3, settled: cores 75 m apart, a third of a circle out of phase, an 11 m crossing that both arcs see coming.
+  > Decision 5.3, settled: cores 75 m apart, an 11 m crossing that both arcs see coming.
 
 ### test/products/test_screen_policy.cpp
 

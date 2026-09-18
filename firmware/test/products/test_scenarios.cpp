@@ -322,7 +322,7 @@ void report(const Encounter& e) {
 
 }  // namespace
 
-// Decision 5.3, settled: cores 75 m apart, a third of a circle out of phase, an 11 m crossing that both arcs see coming.
+// Decision 5.3, settled: cores 75 m apart, an 11 m crossing that both arcs see coming.
 TEST_CASE("scenario: two gliders sharing a thermal core are warned about the 15 m pass") {
     simulator::Simulator s;
     REQUIRE(s.setup() == Status::Ok);
@@ -346,7 +346,7 @@ TEST_CASE("scenario: two gliders sharing a thermal core are warned about the 15 
     CHECK(e.mean_range_error_m < 20);
 }
 
-// The other side of the fence: the same thermalling own-ship and a glider arriving straight at 45 m/s, which must still escalate to urgent.
+// The other side of the fence: a glider arriving straight at 45 m/s must still reach urgent.
 TEST_CASE("scenario: a glider joining the thermal on a straight line is still caught") {
     simulator::Simulator s;
     REQUIRE(s.setup() == Status::Ok);

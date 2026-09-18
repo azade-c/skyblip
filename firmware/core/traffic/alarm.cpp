@@ -49,9 +49,9 @@ int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
 uint16_t track_c9_towards(int32_t north_m, int32_t east_m) {
     const int16_t bearing = iatan2(-east_m, -north_m);
-    const int32_t c9 = ((static_cast<int32_t>(static_cast<uint16_t>(bearing)) >> kTrackC9ToAngle) +
-                        kTrackC9Turn) %
-                       kTrackC9Turn;
+    const int32_t c9 =
+        ((static_cast<int32_t>(static_cast<uint16_t>(bearing)) >> kTrackC9ToAngle) + kTrackC9Turn) %
+        kTrackC9Turn;
     return static_cast<uint16_t>(c9);
 }
 
@@ -107,9 +107,9 @@ AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs&
     const int brg_deg = (static_cast<int>(static_cast<uint16_t>(brg)) * 360) / 65536;
     a.rel_bearing_deg = static_cast<uint16_t>(((brg_deg - own_deg) % 360 + 360) % 360);
 
-    const Conflict conflict = first_breach(
-        flight::motion_of(own), target_motion(target, n_m, e_m, u_m, target_turn_dps,
-                                              target_turn_valid));
+    const Conflict conflict =
+        first_breach(flight::motion_of(own),
+                     target_motion(target, n_m, e_m, u_m, target_turn_dps, target_turn_valid));
     a.breaches = conflict.breaches;
     a.at_s = conflict.breaches ? conflict.at_s : kNoImpactS;
     a.miss_m = conflict.breaches ? conflict.miss_m : conflict.closest_m;

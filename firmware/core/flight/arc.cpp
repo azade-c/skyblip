@@ -68,10 +68,10 @@ Arc::Arc(const Motion& motion, uint32_t step_ms)
       step_ms_(static_cast<int32_t>(step_ms)) {
     const int16_t angle = angle16_of(motion.track_c9);
     const int32_t speed_mm_s = static_cast<int32_t>(motion.speed_q) * kMmPerSpeedQ;
-    vel_north_mm_s_ = static_cast<int32_t>(div_round(static_cast<int64_t>(speed_mm_s) * icos(angle),
-                                                     kTrigOne));
-    vel_east_mm_s_ = static_cast<int32_t>(div_round(static_cast<int64_t>(speed_mm_s) * isin(angle),
-                                                    kTrigOne));
+    vel_north_mm_s_ =
+        static_cast<int32_t>(div_round(static_cast<int64_t>(speed_mm_s) * icos(angle), kTrigOne));
+    vel_east_mm_s_ =
+        static_cast<int32_t>(div_round(static_cast<int64_t>(speed_mm_s) * isin(angle), kTrigOne));
     const int16_t half =
         motion.turning ? turn_angle16(clamped_turn_dps(motion.turn_dps), step_ms_ / 2) : 0;
     half_cos_ = icos(half);
