@@ -3,12 +3,21 @@
           data-controller="simulator"
           data-simulator-src-value="<%= simulator_module_path %>"
           data-simulator-on-value="<%= on %>"
-          data-simulator-off-value="<%= off %>">
+          data-simulator-off-value="<%= off %>"
+          data-simulator-settings-value="<%= settings %>">
     <div class="simulator-case">
+      <button class="simulator-pad" type="button" aria-label="<%= pad %>"
+              data-action="pointerdown->simulator#touch
+                           pointerup->simulator#lift
+                           pointerleave->simulator#lift
+                           pointercancel->simulator#lift
+                           keydown->simulator#touch
+                           keyup->simulator#lift"></button>
+
       <canvas class="simulator-glass" width="200" height="200"
               data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
+
       <button class="simulator-key" type="button" aria-label="<%= key %>"
-              data-simulator-target="device"
               data-action="pointerdown->simulator#hold
                            pointerup->simulator#release
                            pointerleave->simulator#release

@@ -48,6 +48,22 @@
   }
   .simulator-key:active { transform: translateX(2px); }
 
+  .simulator-pad {
+    position: absolute;
+    inset-block-start: 5px;
+    inset-inline: calc(var(--case-pad) * 2) var(--case-pad);
+    margin-inline: auto;
+    inline-size: 76px;
+    block-size: 7px;
+    padding: 0;
+    border: 1px solid var(--case-edge);
+    border-radius: 4px;
+    background: var(--key);
+    cursor: pointer;
+    touch-action: none;
+  }
+  .simulator-pad:active { background: var(--case-edge); }
+
   .simulator-controls {
     display: flex;
     align-items: center;
@@ -81,5 +97,5 @@
     margin: 0;
   }
 
-  .simulator:not(.simulator--running) .simulator-key { visibility: hidden; }
+  .simulator:not(.simulator--running) :is(.simulator-key, .simulator-pad) { visibility: hidden; }
 }
