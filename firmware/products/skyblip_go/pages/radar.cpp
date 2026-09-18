@@ -1,5 +1,6 @@
 #include "products/skyblip_go/pages/radar.h"
 
+#include "core/flight/arc.h"
 #include "core/units/units.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
@@ -60,8 +61,15 @@ constexpr int32_t kFeetPerTagUnit = 100;
 constexpr int32_t kMaxTagHundreds = 99;
 constexpr int16_t kChevronClimbE8 = 20;
 constexpr int32_t kLeaderSeconds = 60;
+constexpr uint32_t kLeaderStepMs = 5000;
+constexpr int kLeaderSteps = static_cast<int>((kLeaderSeconds * 1000) / kLeaderStepMs);
+constexpr uint32_t kMinuteStepMs = 10000;
+constexpr int kStepsPerMinute = static_cast<int>((kLeaderSeconds * 1000) / kMinuteStepMs);
+constexpr int32_t kSpeedQPerMps = 4;
+constexpr int32_t kTrackC9Turn = 512;
 constexpr int kMinLeaderPx = 3;
 constexpr int kOwnNoseAhead = ui::kSkyshipRowsToNose + 1;
+constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
 constexpr int kMinutesMarked = 2;
@@ -159,6 +167,13 @@ void aircraft(ui::Canvas& fb, int in_view, bool counting) {
     fb.draw_text(x - kUnitGap - text_width("ACT", 1), kFooterY, "ACT", true, 1);
 }
 
+struct Box {
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
 struct Plotted {
     int32_t right;
     int32_t ahead;
@@ -192,13 +207,37 @@ bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, 
     return true;
 }
 
-void own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap) {
-    if (snap.speed_mps <= 0) return;
-    for (int minute = 1; minute <= kMinutesMarked; minute++) {
-        const int32_t ahead = to_px(snap.speed_mps * kLeaderSeconds * minute, range_metres(snap));
-        if (ahead > kOuterR || ahead - kOwnNoseAhead < kMinLeaderPx) continue;
-        fb.rect(kNear, kNear - ahead, kMinuteDotW, kMinuteDotW, true, true);
+flight::Motion motion_of(int32_t speed_mps, uint16_t track_deg, int16_t turn_dps, bool turning) {
+    flight::Motion m{};
+    m.speed_q = static_cast<uint16_t>(speed_mps * kSpeedQPerMps);
+    m.track_c9 =
+        static_cast<uint16_t>((static_cast<int32_t>(track_deg % 360) * kTrackC9Turn) / 360);
+    m.turn_dps = turn_dps;
+    m.turning = turning;
+    return m;
+}
+
+HeadingUp on_glass_at(const flight::Position& p, const RadarSnapshot& snap, int16_t track) {
+    const HeadingUp at = heading_up(p.north_m, p.east_m, track);
+    const int64_t range = range_metres(snap);
+    return {to_px(at.ahead, range), to_px(at.right, range)};
+}
+
+int own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track, Box* marked) {
+    if (snap.speed_mps <= 0) return 0;
+    flight::Arc arc(motion_of(snap.speed_mps, snap.track_deg, snap.turn_dps, true), kMinuteStepMs);
+    int n = 0;
+    for (int step = 1; step <= kMinutesMarked * kStepsPerMinute; step++) {
+        const flight::Position ahead = arc.advance();
+        if (step % kStepsPerMinute != 0) continue;
+        const HeadingUp at = on_glass_at(ahead, snap, track);
+        if (!inside_ring(at.right, at.ahead)) continue;
+        if (at.right * at.right + at.ahead * at.ahead < kMinuteClearPx * kMinuteClearPx) continue;
+        const int x = px_of(at.right) - kMinuteDotW / 2, y = py_of(at.ahead) - kMinuteDotW / 2;
+        fb.rect(x, y, kMinuteDotW, kMinuteDotW, true, true);
+        marked[n++] = {x, y, kMinuteDotW, kMinuteDotW};
     }
+    return n;
 }
 
 struct Leader {
@@ -209,19 +248,26 @@ struct Leader {
 
 Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track) {
     if (t.speed_mps <= 0) return {0, 0, false};
-    const int16_t course = c16(t.track_deg);
-    const int64_t run = static_cast<int64_t>(t.speed_mps) * kLeaderSeconds;
-    const HeadingUp v = heading_up(static_cast<int32_t>((run * icos(course)) / kQ14One),
-                                   static_cast<int32_t>((run * isin(course)) / kQ14One), track);
-    const int64_t range = range_metres(snap);
-    const int32_t right = to_px(v.right, range), ahead = to_px(v.ahead, range);
-    if (right * right + ahead * ahead < kMinLeaderPx * kMinLeaderPx) return {0, 0, false};
-    return {right, ahead, true};
+    flight::Arc arc(motion_of(t.speed_mps, t.track_deg, t.turn_dps, t.turn_valid), kLeaderStepMs);
+    HeadingUp end{0, 0};
+    for (int step = 0; step < kLeaderSteps; step++) end = on_glass_at(arc.advance(), snap, track);
+    if (end.right * end.right + end.ahead * end.ahead < kMinLeaderPx * kMinLeaderPx)
+        return {0, 0, false};
+    return {end.right, end.ahead, true};
 }
 
-void draw_leader(ui::Canvas& fb, const Plotted& p, const Leader& v) {
+void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t, int16_t track,
+                 const Plotted& p, const Leader& v) {
     if (!v.valid) return;
-    fb.line(p.x, p.y, px_of(p.right + v.right), py_of(p.ahead + v.ahead), true);
+    flight::Arc arc(motion_of(t.speed_mps, t.track_deg, t.turn_dps, t.turn_valid), kLeaderStepMs);
+    int from_x = p.x, from_y = p.y;
+    for (int step = 0; step < kLeaderSteps; step++) {
+        const HeadingUp at = on_glass_at(arc.advance(), snap, track);
+        const int to_x = px_of(p.right + at.right), to_y = py_of(p.ahead + at.ahead);
+        fb.line(from_x, from_y, to_x, to_y, true);
+        from_x = to_x;
+        from_y = to_y;
+    }
 }
 
 void diamond(ui::Canvas& fb, int cx, int cy, int r, bool fill) {
@@ -270,13 +316,6 @@ int chevron_direction(const RadarTarget& t) {
     if (t.climb_e8 <= -kChevronClimbE8) return -1;
     return 0;
 }
-
-struct Box {
-    int x;
-    int y;
-    int w;
-    int h;
-};
 
 bool overlap(const Box& a, const Box& b) {
     return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -390,12 +429,11 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     Leader run[kMaxRadarTargets];
     for (int i = 0; i < n; i++) {
         run[i] = leader_of(snap, *in_view[i], track);
-        draw_leader(fb, shown[i], run[i]);
+        draw_leader(fb, snap, *in_view[i], track, shown[i], run[i]);
     }
-    if (in_ring > 0) own_minute_marks(fb, snap);
-
-    Box taken[2 * kMaxRadarTargets + 2];
+    Box taken[2 * kMaxRadarTargets + 2 + kMinutesMarked];
     int n_taken = 0;
+    if (in_ring > 0) n_taken += own_minute_marks(fb, snap, track, taken);
     taken[n_taken++] = footer_band();
     taken[n_taken++] = own_ship_box();
     for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);

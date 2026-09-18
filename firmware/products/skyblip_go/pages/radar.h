@@ -23,6 +23,8 @@ struct RadarTarget {
     bool climb_valid{false};
     int32_t speed_mps{0};
     uint16_t track_deg{0};
+    int16_t turn_dps{0};
+    bool turn_valid{false};
 };
 
 struct RadarSnapshot {
@@ -30,6 +32,7 @@ struct RadarSnapshot {
     go::Units units{go::Units::Nautical};
     int32_t range_nm{kDefaultRangeNm};
     uint16_t track_deg{0};
+    int16_t turn_dps{0};
     int32_t speed_mps{0};
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};

@@ -391,6 +391,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
+            snap.turn_dps = own.turn_dps;
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
@@ -414,6 +415,8 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].speed_mps =
                         obs.speed_valid ? to_mps(QuarterMetresPerSec(obs.speed_q)).v : 0;
                     targets_[n].track_deg = to_degrees(Cordic9(obs.track_c9)).v;
+                    targets_[n].turn_dps = t->turn.dps;
+                    targets_[n].turn_valid = t->turn.valid;
                     n++;
                 }
             }

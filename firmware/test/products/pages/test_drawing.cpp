@@ -249,6 +249,18 @@ RadarSnapshot cruising(int32_t speed_mps) {
     return snap;
 }
 
+// The dots and nothing else: the same plot without own-ship's own run under it.
+int marks_in(const RadarSnapshot& snap, int x0, int y0, int x1, int y1) {
+    RadarSnapshot still = snap;
+    still.speed_mps = 0;
+    const Glass with = radar(snap), without = radar(still);
+    int n = 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++)
+            if (with.get_pixel(x, y) && !without.get_pixel(x, y)) n++;
+    return n;
+}
+
 RadarSnapshot one_target(RadarTarget* t) {
     RadarSnapshot snap = flying(0);
     snap.n_targets = 1;
@@ -303,6 +315,29 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the 
     const Glass running_out = radar(one_target(fast));
     CHECK(running_out.get_pixel(kPlotX, 8));
     CHECK(running_out.get_pixel(kPlotX, 0));
+}
+
+// The leader is the arc the alarm grades, so a target in a turn does not draw a tangent.
+TEST_CASE("radar: a turning target's leader is its arc") {
+    RadarTarget straight[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0}};
+    RadarTarget arcing[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0, 2, true}};
+    RadarSnapshot snap = flying(0);
+    snap.n_targets = 1;
+
+    snap.targets = straight;
+    const Glass tangent = radar(snap);
+    snap.targets = arcing;
+    const Glass curved = radar(snap);
+
+    // 30 m/s at 2 deg/s is an 859 m radius: the minute ends 16 px right, 9 px up.
+    CHECK(tangent.get_pixel(kPlotX, kPlotY - 22));
+    CHECK_FALSE(curved.get_pixel(kPlotX, kPlotY - 22));
+    CHECK(ink_in(curved, kPlotX + 6, kPlotY - 12, kPlotX + 18, kPlotY) > 0);
+
+    // A target whose turn rate nobody has measured yet is flown straight.
+    RadarTarget unknown[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0, 2, false}};
+    snap.targets = unknown;
+    CHECK(radar(snap).get_pixel(kPlotX, kPlotY - 22));
 }
 
 // The ring is the scale the footer reads in, and the glass around it is spare.
@@ -374,6 +409,34 @@ TEST_CASE("radar: two dots off the nose mark the next minute and the one after")
     RadarSnapshot searching;
     searching.speed_mps = 30;
     CHECK_FALSE(radar(searching).get_pixel(99, 77));
+}
+
+// A pilot in a turn is not going where the nose points, and the dots are where they will be.
+TEST_CASE("radar: the minute dots ride own ship's turn, not its nose") {
+    // 30 m/s at 1 deg/s is a 1719 m radius: 60 deg of it is 10 px right, 18 px up.
+    RadarTarget behind[1] = {{-3000, 0, 0, Level::Info}};
+    RadarSnapshot right = flying(0);
+    right.speed_mps = 30;
+    right.n_targets = 1;
+    right.targets = behind;
+    right.turn_dps = 1;
+    CHECK(marks_in(right, 101, 70, 140, 90) == 8);
+    CHECK(marks_in(right, 90, 30, 101, 90) == 0);
+    CHECK_FALSE(radar(right).get_pixel(99, 77));
+
+    RadarSnapshot left = right;
+    left.turn_dps = -1;
+    CHECK(marks_in(left, 60, 70, 99, 90) == 8);
+    CHECK(marks_in(left, 99, 30, 140, 90) == 0);
+
+    RadarSnapshot straight_on = right;
+    straight_on.turn_dps = 0;
+    CHECK(marks_in(straight_on, 95, 50, 105, 82) == 8);
+
+    // A thermalling turn closes its circle inside the aeroplane: nothing to mark.
+    RadarSnapshot circling = right;
+    circling.turn_dps = 6;
+    CHECK(marks_in(circling, 0, 0, 200, 200) == 0);
 }
 
 // An empty ring needs no scale: the dots are read against traffic or not at all.
