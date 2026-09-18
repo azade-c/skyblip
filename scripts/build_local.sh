@@ -42,12 +42,16 @@ require_host_tools() {
   fi
 }
 
+# Resolved in the checkout you ran this from: HEAD in the worktree is the tree it
+# built last time, which is how a build silently ships the previous commit.
 checkout_ref() {
+  local commit
+  commit=$(git -C "$repo" rev-parse --verify "$ref^{commit}")
   if [ -e "$workspace/.git" ]; then
-    git -C "$workspace" checkout --detach --force "$ref"
+    git -C "$workspace" checkout --detach --force "$commit"
   else
     mkdir -p "$(dirname "$workspace")"
-    git -C "$repo" worktree add --detach "$workspace" "$ref"
+    git -C "$repo" worktree add --detach "$workspace" "$commit"
   fi
 }
 
