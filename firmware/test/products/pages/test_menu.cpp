@@ -1,4 +1,6 @@
 // The menu behind each page: which row is focused, what the pad moves and what the button changes.
+#include <initializer_list>
+
 #include "core/flight/atmosphere.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/glass.h"
