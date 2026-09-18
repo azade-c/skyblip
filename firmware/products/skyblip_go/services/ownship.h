@@ -30,7 +30,7 @@ class OwnshipService : public runtime::Service {
 
     bool baro_active() const { return baro_ref_ms_ != 0; }
 
-    // ADS-L G.1.4 FlightState, decided by core/flight from the fix stream.
+    // ADS-L G.1.2 FlightState, decided by core/flight from the fix stream.
     flight::FlightState flight_state_from(const model::OwnState& own);
 
     // The one copy of "has the receiver settled": the transmit gate reads it

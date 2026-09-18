@@ -61,7 +61,7 @@ constexpr uint8_t kMaxAlarmVolume = 5;
 constexpr int32_t kRangeStepsNm[] = {1, 2, 4, 8};
 constexpr int kRangeStepCount = static_cast<int>(sizeof(kRangeStepsNm) / sizeof(kRangeStepsNm[0]));
 
-// INFO: fc 12sep26 ADS-L G.1.4 codes 11 up are UAV and reserved, nothing a pilot sits in
+// INFO: fc 12sep26 ADS-L G.1.3 codes 11 up are UAV and reserved, nothing a pilot sits in
 constexpr uint8_t kNamedAircraftTypes = 11;
 
 enum class MenuAction : uint8_t { None, Moved, Changed, Open, Leave };

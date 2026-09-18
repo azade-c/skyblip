@@ -36,7 +36,7 @@ constexpr size_t kCallsignCap = 10;
 // the PLL word is computed.
 constexpr int16_t kFreqTrimLimitTenthsPpm = 100;
 
-// INFO: fc 12sep26 ADS-L G.1.4's light aircraft, what a device says until a pilot says otherwise
+// INFO: fc 12sep26 ADS-L G.1.3's light aircraft, what a device says until a pilot says otherwise
 constexpr uint8_t kAircraftTypeLight = 1;
 
 struct Settings {

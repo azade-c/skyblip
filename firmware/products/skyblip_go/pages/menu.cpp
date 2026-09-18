@@ -30,7 +30,7 @@ int length(const char* s) {
     return n;
 }
 
-// INFO: cf 02aug26 ADS-L 4 SRD-860 issue 2 G.1.4 wire values: the code stored is transmitted
+// INFO: cf 02aug26 ADS-L 4 SRD-860 issue 2 G.1.3 wire values: the code stored is transmitted
 const char* const kAircraftNames[kNamedAircraftTypes] = {
     "UNKNOWN",    "LIGHT",      "HEAVY",    "HELICOPTER", "GLIDER",    "BALLOON",
     "MICROLIGHT", "PARAGLIDER", "SKYDIVER", "VTOL",       "GYROCOPTER"};

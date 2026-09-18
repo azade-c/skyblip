@@ -44,7 +44,7 @@ constexpr uint32_t log_record_offset(uint32_t slot) {
     return kLogSectorHeaderBytes + slot * kLogRecordBytes;
 }
 
-// Bit 5 and 6 carry the ADS-L 4 SRD860 issue 2 G.1.4 flight state code as it
+// Bit 5 and 6 carry the ADS-L 4 SRD860 issue 2 G.1.2 flight state code as it
 // stood when the record was taken, so a reader can see the takeoff and the
 // landing the session was cut on rather than infer them from the speeds.
 constexpr uint8_t kLogFlagFixValid = 1u << 0;
