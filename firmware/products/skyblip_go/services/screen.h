@@ -37,8 +37,6 @@ class ScreenService : public runtime::Service {
     // back on its own: a menu in front of converging traffic is a bug.
     static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Important;
 
-    static constexpr int32_t kTaxiSpeedMps = flight::kLandingMotionE8 / 8;
-
     // The one consumer of bus.input, and therefore the one place a press is
     // given a meaning. The companion link's state machine is handed over here
     // so that meaning can be "authorise this" when, and only when, a prompt the
@@ -129,7 +127,7 @@ class ScreenService : public runtime::Service {
 
     bool taxiing() const {
         return context_.state.own.fix_valid && !context_.state.flight.running &&
-               to_mps(QuarterMetresPerSec(context_.state.own.speed_q)).v >= kTaxiSpeedMps;
+               context_.state.own.speed_q >= flight::kGroundSpeedQ;
     }
 
     Settings& settings_;

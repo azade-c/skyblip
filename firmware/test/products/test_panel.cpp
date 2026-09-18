@@ -268,9 +268,9 @@ TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, par
     CHECK(radar_says("TAXI", 12));  // 3 m/s, a tug on the perimeter track
     CHECK_FALSE(radar_says("GROUND", 12));
 
-    // 2 m/s is the boundary: a parked receiver's own noise is not a taxi.
-    CHECK(radar_says("TAXI", 8));
-    CHECK(radar_says("GROUND", 7));
+    // 2.5 m/s is the boundary: a parked receiver's own noise is not a taxi.
+    CHECK(radar_says("TAXI", 10));
+    CHECK(radar_says("GROUND", 9));
 }
 
 // An antenna under a wing in the circuit is a glitch, not a landing.

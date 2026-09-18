@@ -56,17 +56,41 @@ A target's turn rate is not on the wire. ADS-L carries position, speed, track an
 
 `kMaxTurnDps` is 30. Above it the number is describing the receiver rather than the aircraft: a differentiated 1 Hz track produces tens of degrees per second out of a bad fix, and no aeroplane this device rides in holds that rate for the length of the projection. The clamp is applied where a motion is built, so nothing downstream has to remember it.
 
+## state
+
+Airborne or on the ground, from the fix stream alone. It is not a display value: it gates the DFU lockout and the transmit rate, so the two ways of being wrong are not symmetric. Declaring a takeoff that did not happen locks the update out on the ground and drains the cell at the airborne burst rate; missing one leaves an aircraft transmitting at the rate a parked device uses, unlocked, in the air.
+
+Two bands, and nothing between them moves:
+
+| | Condition | Meaning |
+|---|---|---|
+| flight | ground speed >= 15.0 m/s, or a vertical rate >= 2.0 m/s from something already moving faster than 2.5 m/s | a speed nobody taxis at, or a climb no ground vehicle has |
+| ground | ground speed < 2.5 m/s **and** the vertical rate under 1.0 m/s | nothing left to explain |
+| between | keep the state you had | |
+
+There is no timer in any of it. What used to be five seconds of takeoff evidence and ten of landing is now the width of the gap between the two bands: six times, where the thresholds it replaced were two apart. That is what makes a taxi a taxi. Rotation is 18 to 23 m/s for everything this device flies in, a brisk taxi is 10, and the old 4.0 m/s criterion called a tug returning to the grid a takeoff.
+
+The climb trigger carries a ground speed with it because a barometer at a standstill is not evidence of anything: a gust, a canopy closing, a pressure step, and a parked aircraft would otherwise open a flight log session and lock its own update out. Something moving at 2.5 m/s and climbing at 2.0 is a ridge start or a winch launch, and those are the two launches a speed threshold alone cannot see.
+
+Evidence for flight is divided by the fix's own dilution of precision, the way OGN does it, so a solution nobody should trust cannot declare a takeoff. Evidence for the ground is not derated, and that asymmetry is deliberate: a derated figure is a smaller figure, and a smaller figure must never be the thing that puts an aircraft on the ground. The jerk gate is the other defence, and it guards the speed alone: a speed that jumps more than fourfold between two consecutive solutions is a receiver at a standstill, not an aircraft accelerating, so it costs one sample at the start of every roll.
+
+The first solution after power-on decides on its own evidence rather than waiting: a device rebooted in flight that answers `Unknown` hands both the transmit rate and the update lockout their wrong default. In the band between the two, it decides for the ground, because switching on while being towed to the grid is the common case and a glider rebooted in a thermal is climbing.
+
+What the missing holds cost is one case, and it is written down as a test: a bounce during a fast rollout is a second takeoff and a second landing, which is a second session in the flight log. The ten-second landing hold used to absorb exactly that. A wing lifting once the aircraft has stopped does not, because the climb trigger needs the ground speed.
+
+There is no longer an altitude that means flight on its own. The 2000 m rule it replaced was MSL, so any airfield above it - Samedan at 1707 m, Courchevel at 2008 m, Leadville at 3026 m - was a device that read airborne while parked, transmitting at 1 Hz with its update locked out for good.
+
 ## ground
 
 `state` answers one question about one solution, and the bus carries that answer as the ADS-L G.1.4 code in `own.flight_state`. `state_from` reads it back, and it is the only place that does: G.1.4 is two bits and we own neither the sender nor the future, so a code this build does not name is `Unknown`, which every gate refuses.
 
-`GroundLatch` is the second question, the one a door asks: may this device be written to, erased, updated. `Unknown` is not a ground - a device that has never had a fix has not proven anything - and once `Airborne` has been seen, only a positive `OnGround` clears it. A fix lost in flight is therefore never a landing: without the latch, a receiver dropping out over a ridge would unlock the firmware update mid-flight, which is the same failure the hold in `state` exists to prevent one layer down.
+`GroundLatch` is the second question, the one a door asks: may this device be written to, erased, updated. `Unknown` is not a ground - a device that has never had a fix has not proven anything - and once `Airborne` has been seen, only a positive `OnGround` clears it. A fix lost in flight is therefore never a landing: without the latch, a receiver dropping out over a ridge would unlock the firmware update mid-flight, which is the one failure `state` itself has no hold left to prevent.
 
 There is one latch, owned by the service that owns the monitor (`products/skyblip_go/services/ownship.cpp`) and published as `state.confirmed_flight_state`. The DFU and settings gate in `core/comms/config.h` and the flight log's offload gate both read that one value rather than deriving a second opinion or asking each other, so "on the ground" means the same thing to all three.
 
 ## timer
 
-`FlightTimer` counts from the takeoff `state.h` declares, and from no other event. One takeoff, so the clock on the glass, the log session on flash and the transmit rate cannot disagree about when the flight began. The five seconds `kTakeoffHoldMs` costs are invisible at the minute resolution the six-pack reads it in.
+`FlightTimer` counts from the takeoff `state.h` declares, and from no other event. One takeoff, so the clock on the glass, the log session on flash and the transmit rate cannot disagree about when the flight began. The takeoff is declared on the solution that shows it, so the clock starts within a second of the wheels.
 
 It freezes at the landing rather than clearing, and the next takeoff carries on from the figure it froze at. The count is airborne time since the device was switched on, not time since the last takeoff: a circuit detail or a touch and go is one line in a logbook, and a pilot should not have to add up the legs the state machine happened to split the day into. It also makes a false landing cheap. A glider bouncing on a ridge that loses `Airborne` for twenty seconds costs those twenty seconds, where a resetting clock would cost the whole flight.
 
