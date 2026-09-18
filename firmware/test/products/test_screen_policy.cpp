@@ -158,3 +158,24 @@ TEST_CASE("screen policy: presents wait for the panel, none is issued mid-refres
     rig.tick(t += 2700);  // settled: the pending change lands
     CHECK(rig.chip.present_count == count + 1);
 }
+
+// The wedge flips once per frame presented, so the present floor is the blink rate.
+TEST_CASE("screen policy: an alarm flashes the wedge at a flip a second") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    const int settled = rig.chip.present_count;
+
+    rig.threat(traffic::Level::Info, 0, 1500, t);
+    for (int i = 0; i < 100; i++) rig.tick(t += 100);  // ten seconds, sampled ten times a second
+    const int flips = rig.chip.present_count - settled;
+    CHECK(flips >= 9);
+    CHECK(flips <= 11);
+
+    // Dismissed, the picture stands still: one last frame, then nothing.
+    rig.state.alarm_dismissed = true;
+    for (int i = 0; i < 20; i++) rig.tick(t += 100);
+    const int held = rig.chip.present_count;
+    for (int i = 0; i < 100; i++) rig.tick(t += 100);
+    CHECK(rig.chip.present_count == held);
+}

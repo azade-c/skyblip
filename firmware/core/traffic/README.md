@@ -28,6 +28,14 @@ The alarm grades geometry, never a flying style. There is one projector, `core/f
 
 Levels come off the time to that breach, at the thresholds the cockpit already knew: `kUrgentTtiS` 15 s, `kImportantTtiS` 25 s. The proximity ring survives only as the info floor, so a contact inside `kInfoDistM` and inside the vertical window is a dot on the plot whatever it is doing. A target that reports no velocity is charged at `kUnknownTargetSpeedMps` on a course straight at us, because zero would make a relayed position the safest thing in the sky.
 
+## Dismissal
+
+A pilot who has the aircraft in sight has everything the device was trying to give them, and from that moment the annunciator is noise. `AlarmTracker::dismiss` is what a long touch of the pad reaches: what has already been said is not said again, so the urgent train stops repeating and the buzzer is released mid-pattern.
+
+It silences the annunciator and nothing else. The grade stands, the target keeps its symbol and the glass keeps pointing at it, because the dismissal is a claim about what the pilot has heard and not a claim about the sky.
+
+Anything worse takes the silence back, on the pass it happens: a contact that escalates, and any aircraft that has not been announced yet, both clear the dismissal, because the tracker only ever suppresses a level it has already spoken. That is also why there is no timer on it. A dismissal that expired would shout again about the aeroplane the pilot is looking at, and one that could outlive the next threat would be the bug this design exists to not have.
+
 What is deliberately absent: there is no co-circling test, no gaggle range gate, no steady-range timer, and no constant anywhere in this directory that assumes a glider. Two aircraft on one thermal circle are quiet because their arcs never meet, and the pair on offset circles that pass at 15 m is alarmed on before it happens. That pair was decision 5.3's committed limitation, and `test/core/test_traffic.cpp` now pins it as an alarm.
 
 ## Turn rate

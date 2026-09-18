@@ -34,6 +34,8 @@ class AlarmService : public runtime::Service {
     // on a rail that is about to drop.
     void park(uint32_t now_ms);
 
+    void dismiss() { tracker_.dismiss(); }
+
     bool escalated_since_render() const { return dirty_; }
     void clear_dirty() { dirty_ = false; }
 

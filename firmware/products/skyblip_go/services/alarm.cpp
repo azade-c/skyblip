@@ -48,8 +48,10 @@ void AlarmService::tick(uint32_t now_ms) {
     formation_.forget_stale(now_ms);
     context_.state.formation.members = formation_.members();
 
-    if (worst != context_.state.alarm_level) {
+    const bool dismissed = tracker_.dismissed();
+    if (worst != context_.state.alarm_level || dismissed != context_.state.alarm_dismissed) {
         context_.state.alarm_level = worst;
+        context_.state.alarm_dismissed = dismissed;
         dirty_ = true;
     }
 
@@ -57,7 +59,7 @@ void AlarmService::tick(uint32_t now_ms) {
     // Not the raw worst: what is being announced, which the tracker already
     // holds through a contact bouncing across a ring boundary, and which falls
     // to nothing when the target that caused it stops being heard.
-    situation.level = tracker_.announced_level(now_ms);
+    situation.level = dismissed ? traffic::Level::None : tracker_.announced_level(now_ms);
     situation.escalated = escalated;
     situation.first_fix = context_.state.own.fix_acquired;
     situation.enabled = settings_.alarm_enabled;

@@ -15,6 +15,7 @@
 #include "products/skyblip_go/pages/signal.h"
 #include "products/skyblip_go/pages/sixpack.h"
 #include "products/skyblip_go/pages/status.h"
+#include "products/skyblip_go/services/alarm.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -43,8 +44,12 @@ class ScreenService : public runtime::Service {
     // so that meaning can be "authorise this" when, and only when, a prompt the
     // pilot can read is on the glass.
     ScreenService(runtime::Context& context, Settings& settings, comms::ConfigService& config,
-                  const BootSnapshot& self_test)
-        : runtime::Service(context), settings_(settings), config_(config), self_test_(self_test) {}
+                  AlarmService& alarm, const BootSnapshot& self_test)
+        : runtime::Service(context),
+          settings_(settings),
+          config_(config),
+          alarm_(alarm),
+          self_test_(self_test) {}
 
     void tick(uint32_t now_ms) override;
 
@@ -104,16 +109,22 @@ class ScreenService : public runtime::Service {
         return to_feet_per_minute(MillimetresPerSec(context_.state.own.climb_mm_s)).v;
     }
 
-    bool alarm_takes_glass() const { return context_.state.alarm_level >= kAlarmTakesGlass; }
-
-    bool receiver_listening() const {
-        return ports::has(context_.roles.capabilities, ports::Capability::Rf) &&
-               context_.state.clock.pps_locked;
     bool climb_measured() const {
         return context_.state.own.climb_valid &&
                (context_.state.own.fix_valid || context_.state.baro.active);
     }
 
+    bool alarm_takes_glass() const { return context_.state.alarm_level >= kAlarmTakesGlass; }
+
+    bool alarm_stands() const { return context_.state.alarm_level != traffic::Level::None; }
+
+    bool alarm_flashing() const { return alarm_stands() && !context_.state.alarm_dismissed; }
+
+    void flash_alarm();
+
+    bool receiver_listening() const {
+        return ports::has(context_.roles.capabilities, ports::Capability::Rf) &&
+               context_.state.clock.pps_locked;
     }
 
     bool taxiing() const {
@@ -123,6 +134,7 @@ class ScreenService : public runtime::Service {
 
     Settings& settings_;
     comms::ConfigService& config_;
+    AlarmService& alarm_;
     const BootSnapshot& self_test_;
     comms::Pending prompt_{comms::Pending::None};
     Controls controls_{};
@@ -150,6 +162,8 @@ class ScreenService : public runtime::Service {
     uint32_t last_render_ms_{0};
     uint32_t last_present_ms_{0};
     traffic::Level last_alarm_{traffic::Level::None};
+    bool last_dismissed_{false};
+    bool alarm_flash_{false};
     bool dirty_{true};
     Change change_{Change::Asked};
     bool presented_once_{false};

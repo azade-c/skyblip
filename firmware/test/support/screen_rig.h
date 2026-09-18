@@ -35,7 +35,7 @@ struct Rig {
     comms::ConfigService config{null.link, store};
     go::BootSnapshot self_test{};
     go::AlarmService alarm_service{context, settings};
-    go::ScreenService screen{context, settings, config, self_test};
+    go::ScreenService screen{context, settings, config, alarm_service, self_test};
 
     Rig() {
         chip.attach_clock(clock);
@@ -75,6 +75,28 @@ struct Rig {
     }
 
     void alarm(traffic::Level level) { state.alarm_level = level; }
+
+    // A contact at a bearing, graded by hand, for the page to point at.
+    void threat(traffic::Level level, int32_t north_m, int32_t east_m, uint32_t now_ms) {
+        model::AircraftObs obs{};
+        obs.addr = kThreatAddr;
+        obs.addr_table = kThreatTable;
+        obs.position_valid = true;
+        obs.lat_1e7 = state.own.lat_1e7 + static_cast<int32_t>(int64_t(north_m) * 1000000 / 11132);
+        obs.lon_1e7 = state.own.lon_1e7 + static_cast<int32_t>(int64_t(east_m) * 1000000 / 11132);
+        obs.alt_m = state.own.alt_m;
+        obs.received.at_s = now_ms / 1000;
+        obs.at_ms = now_ms;
+        obs.source = model::Source::AdslDirect;
+        state.traffic.update(obs, now_ms / 1000);
+        const int at = state.traffic.find(kThreatTable, kThreatAddr);
+        REQUIRE(at >= 0);
+        state.traffic.at(at)->alarm_level = level;
+        alarm(level);
+    }
+
+    static constexpr uint32_t kThreatAddr = 0x424242;
+    static constexpr uint8_t kThreatTable = 6;
 
     void die_temperature(int16_t decicelsius) {
         state.power.die_dc = decicelsius;

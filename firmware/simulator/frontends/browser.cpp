@@ -136,6 +136,9 @@ KEEPALIVE int simulator_traffic_count() { return g_simulator.product().state().t
 KEEPALIVE int simulator_alarm_level() {
     return traffic::to_number(g_simulator.product().state().alarm_level);
 }
+KEEPALIVE int simulator_alarm_dismissed() {
+    return g_simulator.product().state().alarm_dismissed ? 1 : 0;
+}
 KEEPALIVE int simulator_shutdown_phase() {
     return static_cast<int>(g_simulator.product().shutdown().phase());
 }

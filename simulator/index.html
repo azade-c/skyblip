@@ -484,7 +484,8 @@ function draw() {
     $('modehint').textContent = 'mode: training, expectations failed: ' + f.failures();
   const lvl = f.alarm();
   const el = $('t_alarm');
-  el.textContent = ALARM[lvl] || lvl;
+  const dismissed = f.alarmDismissed() ? ' (dismissed)' : '';
+  el.textContent = (ALARM[lvl] || lvl) + dismissed;
   el.className = 'alarm a' + lvl;
 
   requestAnimationFrame(draw);

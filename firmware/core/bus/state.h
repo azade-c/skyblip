@@ -83,6 +83,7 @@ struct State {
     FormationState formation{};
 
     traffic::Level alarm_level{traffic::Level::None};
+    bool alarm_dismissed{false};
 
     struct AirCounts {
         uint32_t rx_ok{0};

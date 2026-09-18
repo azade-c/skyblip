@@ -30,10 +30,9 @@ constexpr int kOuterR = 92;
 constexpr int kRingW = 2;
 constexpr int kGlyphH = 7;
 constexpr int kCellW = 6;
-constexpr int kAlarmBarH = 3;
+constexpr int kClockScale = 2;
 constexpr int kSecondsScale = 1;
 constexpr int kSecondsGap = 2;
-constexpr int kClockScale = 2;
 constexpr int kRangeScale = 2;
 constexpr int kStateScale = 1;
 constexpr int kTrafficScale = 3;
@@ -74,6 +73,9 @@ constexpr int kOwnNoseAhead = ui::kSkyshipRowsToNose + 1;
 constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
+constexpr int kWedgeInnerR = 15;
+constexpr int64_t kTanScale = 10000;
+constexpr int64_t kWedgeEdgeTanE4 = 4142;
 constexpr int kFormationD = 13;
 constexpr int kFormationCorner = 4;
 constexpr int kFormationInset = 3;
@@ -135,16 +137,14 @@ void clear_behind(ui::Canvas& fb, int x, int y, int w, int h, int pad) {
     fb.rect(x - pad, y - pad, w + 2 * pad, h + 2 * pad, false, true);
 }
 
-void flight_clock(ui::Canvas& fb, const RadarSnapshot& snap) {
-    char buf[8];
 bool flight_over(const RadarSnapshot& snap) { return snap.flight_time_valid && !snap.airborne; }
 
+void flight_clock(ui::Canvas& fb, const RadarSnapshot& snap) {
+    char buf[8];
     fmt_flight_clock(buf, snap.flight_seconds, snap.flight_time_valid);
     const int minutes_w = text_width(buf, kClockScale);
     clear_behind(fb, kMargin, kClockY, minutes_w, kGlyphH * kClockScale, kLabelPad);
     fb.draw_text(kMargin, kClockY, buf, true, kClockScale);
-}
-
     if (!flight_over(snap)) return;
 
     char seconds[4];
@@ -153,6 +153,8 @@ bool flight_over(const RadarSnapshot& snap) { return snap.flight_time_valid && !
     const int y = kClockY + kGlyphH * (kClockScale - kSecondsScale);
     clear_behind(fb, x, y, text_width(seconds, kSecondsScale), kGlyphH * kSecondsScale, kLabelPad);
     fb.draw_text(x, y, seconds, true, kSecondsScale);
+}
+
 void range_label(ui::Canvas& fb, const RadarSnapshot& snap) {
     const bool metric = snap.units == go::Units::Metric;
     const int32_t km_e1 = (snap.range_nm * kMetresPerNm) / 100;
@@ -181,6 +183,13 @@ const char* grounded_word(const RadarSnapshot& snap) {
     if (!snap.fix_valid) return "NO FIX";
     if (snap.airborne) return nullptr;
     return snap.taxiing ? "TAXI" : "GROUND";
+}
+
+bool alarm_stands(const RadarSnapshot& snap) { return snap.max_alarm >= traffic::Level::Info; }
+
+const char* ring_word(const RadarSnapshot& snap) {
+    if (alarm_stands(snap) && snap.alarm_dismissed) return "DISMISSED";
+    return grounded_word(snap);
 }
 
 void aircraft(ui::Canvas& fb, int in_view, bool counting) {
@@ -527,7 +536,7 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     if (in_ring > 0) n_taken += own_minute_marks(fb, snap, track, taken);
     taken[n_taken++] = footer_band();
     taken[n_taken++] = own_ship_box();
-    if (const char* word = grounded_word(snap)) taken[n_taken++] = banner_box(word);
+    if (const char* word = ring_word(snap)) taken[n_taken++] = banner_box(word);
     if (snap.formation_members > 0) taken[n_taken++] = formation_box();
     for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
 
@@ -545,6 +554,57 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     return in_ring;
 }
 
+struct Wedge {
+    int32_t x{0};
+    int32_t y{0};
+    bool valid{false};
+};
+
+bool wedge_drawn(const RadarSnapshot& snap) {
+    if (!alarm_stands(snap)) return false;
+    return snap.alarm_dismissed || snap.alarm_flash;
+}
+
+Wedge alarm_wedge(const RadarSnapshot& snap, int16_t track) {
+    const RadarTarget* loudest = nullptr;
+    int64_t nearest = 0;
+    for (int i = 0; i < snap.n_targets; i++) {
+        const RadarTarget& t = snap.targets[i];
+        if (t.alarm_level < traffic::Level::Info) continue;
+        const int64_t d2 =
+            static_cast<int64_t>(t.north_m) * t.north_m + static_cast<int64_t>(t.east_m) * t.east_m;
+        const bool louder = loudest == nullptr || t.alarm_level > loudest->alarm_level ||
+                            (t.alarm_level == loudest->alarm_level && d2 < nearest);
+        if (!louder) continue;
+        loudest = &t;
+        nearest = d2;
+    }
+    if (loudest == nullptr) return {};
+    const HeadingUp at = heading_up(loudest->north_m, loudest->east_m, track);
+    if (at.ahead == 0 && at.right == 0) return {};
+    return {at.right, -at.ahead, true};
+}
+
+void invert_wedge(ui::Canvas& fb, const Wedge& w) {
+    const int64_t wx = w.x, wy = w.y;
+    const int64_t outer2 = 4 * static_cast<int64_t>(kOuterR) * kOuterR;
+    const int64_t inner2 = 4 * static_cast<int64_t>(kWedgeInnerR) * kWedgeInnerR;
+    const int bottom = kFar + kOuterR < kFooterTop ? kFar + kOuterR : kFooterTop;
+    for (int y = kFar - kOuterR; y < bottom; y++) {
+        const int64_t py = 2 * (y - kFar) + 1;
+        for (int x = kFar - kOuterR; x < kFar + kOuterR; x++) {
+            const int64_t px = 2 * (x - kFar) + 1;
+            const int64_t r2 = px * px + py * py;
+            if (r2 > outer2 || r2 < inner2) continue;
+            const int64_t along = px * wx + py * wy;
+            if (along <= 0) continue;
+            const int64_t across = px * wy - py * wx;
+            if ((across < 0 ? -across : across) * kTanScale > kWedgeEdgeTanE4 * along) continue;
+            fb.set_pixel(x, y, !fb.get_pixel(x, y));
+        }
+    }
+}
+
 }  // namespace
 
 void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
@@ -558,7 +618,7 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     ui::draw_skyship(fb, kFar, kNear);
     if (snap.formation_members > 0) formation_counts(fb, snap, track);
 
-    if (const char* word = grounded_word(snap)) state_banner(fb, word);
+    if (const char* word = ring_word(snap)) state_banner(fb, word);
 
     const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
 
@@ -567,7 +627,10 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     range_label(fb, snap);
     aircraft(fb, in_ring, snap.fix_valid && snap.receiver_listening);
 
-    if (snap.max_alarm >= traffic::Level::Urgent) fb.rect(0, 0, kGlassW, kAlarmBarH, true, true);
+    if (wedge_drawn(snap)) {
+        const Wedge wedge = alarm_wedge(snap, track);
+        if (wedge.valid) invert_wedge(fb, wedge);
+    }
 }
 
 }  // namespace skyblip::go

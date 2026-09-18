@@ -43,6 +43,22 @@ Glass radar(const RadarSnapshot& snap) {
     return fb;
 }
 
+int differing_in(const Glass& a, const Glass& b, int x0, int y0, int x1, int y1) {
+    int n = 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++) n += a.get_pixel(x, y) != b.get_pixel(x, y) ? 1 : 0;
+    return n;
+}
+
+RadarSnapshot with_threat(RadarTarget* one, Level level) {
+    RadarSnapshot snap = flying(0);
+    one->alarm_level = level;
+    snap.n_targets = 1;
+    snap.targets = one;
+    snap.max_alarm = level;
+    return snap;
+}
+
 }  // namespace
 
 TEST_CASE("fb: pixel set/get and clear") {
@@ -627,22 +643,6 @@ TEST_CASE("radar: the flight time reads in the bottom-left, and dashes before a 
     CHECK_FALSE(reads_in(radar(flying(47)), "0:42", 40, 0, 160, 90, 2));
 }
 
-TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") {
-    const Glass fb = radar(flying(0));
-    CHECK(reads_in(fb, "4", 70, 176, 100, 198, 2));
-    CHECK(reads_in(fb, "NM", 95, 183, 130, 198));
-
-    RadarSnapshot wider = flying(0);
-    wider.range_nm = 12;
-    CHECK(reads_in(radar(wider), "12", 70, 176, 106, 198, 2));
-
-    // The ring is cleared off the label rather than read through it.
-    for (int y = 186; y < 196; y++)
-        for (int x = 82; x < 88; x++) CHECK_FALSE(fb.get_pixel(x, y));
-}
-
-// B4. One circle, read in two habits: only the label under it changes.
-TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot does not move") {
 // Back on the ground the clock is a logbook entry, and a logbook is filled to the second.
 TEST_CASE("radar: a finished flight carries its seconds, a running one does not") {
     RadarSnapshot landed = flying(0);
@@ -673,6 +673,22 @@ TEST_CASE("radar: the seconds take no more ring than they cover") {
         for (int x = 52; x < 72; x++) CHECK(fb.get_pixel(x, y) == no_seconds.get_pixel(x, y));
 }
 
+TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") {
+    const Glass fb = radar(flying(0));
+    CHECK(reads_in(fb, "4", 70, 176, 100, 198, 2));
+    CHECK(reads_in(fb, "NM", 95, 183, 130, 198));
+
+    RadarSnapshot wider = flying(0);
+    wider.range_nm = 12;
+    CHECK(reads_in(radar(wider), "12", 70, 176, 106, 198, 2));
+
+    // The ring is cleared off the label rather than read through it.
+    for (int y = 186; y < 196; y++)
+        for (int x = 82; x < 88; x++) CHECK_FALSE(fb.get_pixel(x, y));
+}
+
+// B4. One circle, read in two habits: only the label under it changes.
+TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot does not move") {
     RadarSnapshot metric = flying(0);
     metric.units = skyblip::go::Units::Metric;
     const Glass km = radar(metric);
@@ -970,6 +986,75 @@ TEST_CASE("status: the callsign shares the header with the address, and never cr
     Glass none;
     draw_status(none, empty);
     CHECK(none.count_black() == bare.count_black());
+}
+
+// The wedge is the whole alarm on the glass: which way to look, from the first grade.
+TEST_CASE("radar: an alarm flashes a wedge on the bearing of the threat") {
+    RadarTarget east[1] = {{0, 1500, 0}};
+    RadarSnapshot snap = with_threat(east, Level::Urgent);
+
+    snap.alarm_flash = false;
+    const Glass between = radar(snap);
+    snap.alarm_flash = true;
+    const Glass lit = radar(snap);
+
+    CHECK(differing_in(between, lit, 130, 90, 190, 110) > 100);
+    // The sky behind the pilot is not what they are being told to look at.
+    CHECK(differing_in(between, lit, 10, 90, 70, 110) == 0);
+    // Own ship is never inverted: it is the one mark true whatever the radio heard.
+    CHECK(differing_in(between, lit, 88, 94, 112, 110) == 0);
+}
+
+// The grade that fills the diamond is the grade that starts the search.
+TEST_CASE("radar: the wedge is flashing by the time a target reads as a filled diamond") {
+    for (const Level level : {Level::Info, Level::Important, Level::Urgent}) {
+        RadarTarget east[1] = {{0, 1500, 0}};
+        RadarSnapshot snap = with_threat(east, level);
+
+        snap.alarm_flash = false;
+        const Glass between = radar(snap);
+        snap.alarm_flash = true;
+        CHECK(differing_in(between, radar(snap), 130, 90, 190, 110) > 100);
+    }
+
+    // A contact nobody graded is a hollow diamond and no wedge at all.
+    RadarTarget quiet_one[1] = {{0, 1500, 0}};
+    RadarSnapshot quiet = with_threat(quiet_one, Level::None);
+    quiet.alarm_flash = false;
+    const Glass off_phase = radar(quiet);
+    quiet.alarm_flash = true;
+    CHECK(differing_in(off_phase, radar(quiet), 0, 0, Glass::kW, Glass::kH) == 0);
+}
+
+TEST_CASE("radar: a dismissed alarm says so in the ring and stops flashing") {
+    RadarTarget east[1] = {{0, 1500, 0}};
+    RadarSnapshot snap = with_threat(east, Level::Urgent);
+    snap.alarm_dismissed = true;
+
+    snap.alarm_flash = false;
+    const Glass held = radar(snap);
+    snap.alarm_flash = true;
+    CHECK(differing_in(held, radar(snap), 0, 0, Glass::kW, Glass::kH) == 0);
+    CHECK(reads_in(held, "DISMISSED", 0, 120, Glass::kW, 171, 2));
+
+    // What went quiet is the buzzer, not the picture.
+    RadarTarget quiet_one[1] = {{0, 1500, 0}};
+    const Glass quiet = radar(with_threat(quiet_one, Level::None));
+    CHECK(differing_in(quiet, held, 130, 90, 190, 110) > 100);
+}
+
+TEST_CASE("radar: a threat astern flashes its wedge and leaves the footer alone") {
+    RadarTarget behind[1] = {{-1500, 0, 0}};
+    RadarSnapshot snap = with_threat(behind, Level::Urgent);
+
+    snap.alarm_flash = false;
+    const Glass between = radar(snap);
+    snap.alarm_flash = true;
+    const Glass lit = radar(snap);
+
+    CHECK(differing_in(between, lit, 90, 130, 110, 165) > 100);
+    // the footer band the clock, the range and the count own begins at y=171
+    CHECK(differing_in(between, lit, 0, 171, Glass::kW, Glass::kH) == 0);
 }
 
 TEST_CASE("status: the widest position on earth still fits its row") {

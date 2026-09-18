@@ -141,6 +141,8 @@ AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
 
     if (now_ms - slot->seen_ms <= kAlertMaxAgeMs)
         d.notify = notify_for(*slot, d.assessment.level, now_ms, d.escalated);
+    if (d.escalated) dismissed_ = false;
+    if (dismissed_) d.notify = false;
     return d;
 }
 

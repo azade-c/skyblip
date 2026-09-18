@@ -75,7 +75,9 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
             if (prompt_ == comms::Pending::None) page_forward(now_ms);
             return;
         case Command::Home:
-            if (prompt_ == comms::Pending::None) show_radar();
+            if (prompt_ != comms::Pending::None) return;
+            if (alarm_stands()) alarm_.dismiss();
+            show_radar();
             return;
         case Command::Act: break;
         case Command::None: return;
@@ -203,8 +205,10 @@ void ScreenService::tick(uint32_t now_ms) {
     last_tick_ms_ = now_ms;
     handle_input(now_ms);
 
-    if (context_.state.alarm_level != last_alarm_) {
+    if (context_.state.alarm_level != last_alarm_ ||
+        context_.state.alarm_dismissed != last_dismissed_) {
         last_alarm_ = context_.state.alarm_level;
+        last_dismissed_ = context_.state.alarm_dismissed;
         dirty_ = true;
     }
 
@@ -239,6 +243,13 @@ void ScreenService::tick(uint32_t now_ms) {
 
     context_.roles.display.present(fb_, ports::Refresh::Partial, now_ms);
     note_presented(now_ms);
+    flash_alarm();
+}
+
+void ScreenService::flash_alarm() {
+    if (!alarm_flashing()) return;
+    alarm_flash_ = !alarm_flash_;
+    dirty_ = true;
 }
 
 bool ScreenService::refresh_allowed() const {
@@ -398,6 +409,8 @@ void ScreenService::render(uint32_t now_ms) {
             snap.taxiing = taxiing();
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
+            snap.alarm_dismissed = context_.state.alarm_dismissed;
+            snap.alarm_flash = alarm_flash_;
             snap.formation_members = context_.state.formation.members;
             int n = 0;
             if (own.fix_valid) {
@@ -436,6 +449,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.speed_kt = (static_cast<int32_t>(own.speed_q) * 194384) / (4 * 100000);
             snap.alt_ft = to_feet(Metres(own.alt_m)).v;
             snap.vs_fpm = climb_fpm();
+            snap.vs_valid = climb_measured();
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
             snap.turn_dps = own.turn_dps;
             snap.flight_seconds = context_.state.flight.seconds;
@@ -449,7 +463,6 @@ void ScreenService::render(uint32_t now_ms) {
             draw_sixpack(fb_, snap);
             break;
         }
-            snap.vs_valid = climb_measured();
         case Page::Signal: {
             SignalSnapshot snap;
             snap.fix_valid = own.fix_valid;

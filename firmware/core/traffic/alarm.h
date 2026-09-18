@@ -67,6 +67,9 @@ class AlarmTracker {
     void forget_stale(uint32_t now_ms);
     void withdraw(uint8_t addr_table, uint32_t addr);
 
+    void dismiss() { dismissed_ = true; }
+    bool dismissed() const { return dismissed_; }
+
     Level announced_level(uint32_t now_ms) const;
 
    private:
@@ -86,6 +89,7 @@ class AlarmTracker {
     static bool notify_for(Slot& slot, Level level, uint32_t now_ms, bool& escalated);
 
     std::array<Slot, kTrackedTargets> slots_{};
+    bool dismissed_{false};
 };
 
 }  // namespace skyblip::traffic

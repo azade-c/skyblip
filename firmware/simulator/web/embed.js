@@ -80,6 +80,7 @@ export async function load() {
 
     traffic: call('simulator_traffic_count', 'number', n),
     alarm: call('simulator_alarm_level', 'number', n),
+    alarmDismissed: call('simulator_alarm_dismissed', 'number', n),
     rxOk: call('simulator_rx_ok', 'number', n),
     rxBad: call('simulator_rx_bad', 'number', n),
     txOk: call('simulator_tx_ok', 'number', n),

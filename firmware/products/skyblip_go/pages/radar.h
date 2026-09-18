@@ -43,6 +43,8 @@ struct RadarSnapshot {
     int n_targets{0};
     const RadarTarget* targets{nullptr};
     traffic::Level max_alarm{traffic::Level::None};
+    bool alarm_dismissed{false};
+    bool alarm_flash{false};
     int formation_members{0};
 };
 

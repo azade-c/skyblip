@@ -7,7 +7,7 @@ The board pushes one `events::ContactEvent` per settled edge, stamped when the l
 | Gesture | Command | On the traffic pages | In the settings mode |
 |---|---|---|---|
 | pad touched and released under `Controls::kHomeTouchMs` | `Next` | the next page | the next row |
-| pad held past `Controls::kHomeTouchMs` (1 s) | `Home` | the radar | the radar |
+| pad held past `Controls::kHomeTouchMs` (1 s) | `Home` | the radar, and a standing alarm is dismissed | the radar |
 | button pressed | `Act` | opens the settings | changes the focused row |
 | button held past `power::kLongPressMs` (2 s) | none | off | off |
 | pad held through that press | none | off, with a blank panel: the stow | the stow |
@@ -17,6 +17,14 @@ One rule in two places: the pad moves, the button acts, and the long touch is th
 The pad carries the navigation because it is what a gloved thumb finds on the top edge without looking, and the page lands on the release rather than on the contact: that is what leaves room for the long touch in the same finger. A touch the button joins says nothing at all, in either direction, because that pair is already the stow and a device on its way off must not change page on the way.
 
 A touch can also go home without being let go of, which is why `Controls` is ticked as well as read: the pilot's finger is still on the pad when the radar comes back, and a hold that waited for the release would be a second of glass saying nothing.
+
+## The long touch under an alarm
+
+With any graded contact standing, the way home also dismisses it (`core/traffic/README.md`). One gesture and not two, because under an alarm the two mean the same thing: a pilot holding the pad is asking for the traffic picture, and a pilot who is looking at the traffic picture has been told everything the buzzer and the flashing wedge were going to tell them.
+
+It is the pad and not the button. The button's hold is already the way the device switches off, and a pilot silencing an alarm must never be a thumb away from stowing the device that raised it. The press the button does have here opens the settings, which is a page the same alarm has just taken off the glass.
+
+What a dismissal costs if it was an accident is one flight's worth of nothing: the grade stands, the wedge stays on the bearing, and anything worse speaks again. That is what makes a single 1 s hold the right price rather than a gesture a pilot has to be taught.
 
 ## The button's third meaning
 

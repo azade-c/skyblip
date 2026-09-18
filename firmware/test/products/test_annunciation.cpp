@@ -134,6 +134,29 @@ TEST_CASE("product: an empty sky releases the buzzer and does not re-announce an
     CHECK(int(sky.sounding_level()) == 0);
 }
 
+// The pad's long touch is a pilot saying they have the aircraft in sight.
+TEST_CASE("product: a long touch of the pad dismisses a standing alarm") {
+    Sky sky;
+    uint32_t t = sky.with_an_urgent_threat();
+
+    sky.simulator.world().hold_pad(true);
+    sky.run(t, t + go::Controls::kHomeTouchMs + 500);
+    t += go::Controls::kHomeTouchMs + 500;
+    sky.simulator.world().hold_pad(false);
+    sky.run(t, t + 500);
+    t += 500;
+
+    CHECK(int(sky.announcing_level()) == 0);
+    CHECK(int(sky.sounding_level()) == 0);
+    CHECK(sky.simulator.product().state().alarm_dismissed);
+    // Still urgent, still plotted: what was dismissed is the noise.
+    CHECK(int(sky.simulator.product().state().alarm_level) == 3);
+
+    const uint32_t before = sky.tone_commands();
+    sky.run(t, t + 4 * annunciation::kUrgentStandingReannounceMs);
+    CHECK(sky.tone_commands() == before);
+}
+
 TEST_CASE("product: switching alarms off silences the buzzer on the pass it is switched off") {
     Sky sky;
     uint32_t t = sky.with_an_urgent_threat();

@@ -313,6 +313,59 @@ TEST_CASE("alarm: an urgent contact says so again, at the re-notification cadenc
     CHECK(spoken == 2);
 }
 
+// What a pilot with the aircraft in sight dismisses is what has already been said.
+TEST_CASE("alarm: a dismissed contact stops re-announcing itself") {
+    AlarmTracker tracker;
+    const model::OwnState own = flying(30, 0);
+
+    uint32_t t = 1000;
+    REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).notify);
+    tracker.dismiss();
+
+    int spoken = 0;
+    for (int i = 0; i < 50; i++) {
+        t += 100;
+        if (tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).notify) spoken++;
+    }
+    // The same five seconds that says it twice when nobody has dismissed it.
+    CHECK(spoken == 0);
+    CHECK(tracker.dismissed());
+    CHECK(tracker.announced_level(t) == Level::Urgent);
+}
+
+TEST_CASE("alarm: an aircraft that gets worse takes the dismissal back") {
+    AlarmTracker tracker;
+    const model::OwnState own = flying(30, 0);
+
+    uint32_t t = 1000;
+    AlarmTracker::Decision d = tracker.update(own, neighbour(own, 2800, 0, 0, 20, 180, t), t);
+    REQUIRE(d.assessment.level == Level::Info);
+    tracker.dismiss();
+
+    t += 100;
+    d = tracker.update(own, neighbour(own, 1200, 0, 0, 20, 180, t), t);
+    CHECK(d.assessment.level >= Level::Important);
+    CHECK(d.notify);
+    CHECK(d.escalated);
+    CHECK_FALSE(tracker.dismissed());
+}
+
+TEST_CASE("alarm: a dismissal is spent on the sky that earned it") {
+    AlarmTracker tracker;
+    const model::OwnState own = flying(30, 0);
+
+    uint32_t t = 1000;
+    REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).notify);
+    tracker.dismiss();
+
+    t += 100;
+    model::AircraftObs stranger = neighbour(own, 0, 400, 0, 30, 270, t);
+    stranger.addr = 0x271828;
+    const AlarmTracker::Decision d = tracker.update(own, stranger, t);
+    CHECK(d.notify);
+    CHECK_FALSE(tracker.dismissed());
+}
+
 // A target we have not heard from is a memory, not a threat: it may have turned,
 // landed or switched off. SoftRF alerts only inside ALERT_EXPIRATION_TIME.
 TEST_CASE("alarm: a target that has gone quiet stops driving the annunciator") {
