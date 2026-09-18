@@ -109,6 +109,11 @@ class ScreenService : public runtime::Service {
     bool receiver_listening() const {
         return ports::has(context_.roles.capabilities, ports::Capability::Rf) &&
                context_.state.clock.pps_locked;
+    bool climb_measured() const {
+        return context_.state.own.climb_valid &&
+               (context_.state.own.fix_valid || context_.state.baro.active);
+    }
+
     }
 
     bool taxiing() const {

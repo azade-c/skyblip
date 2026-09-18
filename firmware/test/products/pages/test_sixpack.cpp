@@ -74,6 +74,7 @@ SixPackSnapshot flying() {
     s.speed_kt = 90;
     s.alt_ft = 3450;
     s.vs_fpm = 500;
+    s.vs_valid = true;
     s.track_deg = 270;
     s.turn_dps = 3;
     s.flight_seconds = 7 * 60;
@@ -114,6 +115,29 @@ TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withh
 
     // A device that cannot see satellites is not a device on the ground.
     CHECK(title_matches(fb, kTiles[1], "NO FIX"));
+}
+
+// The barometer measures a climb of its own, so the vario is not a GNSS instrument.
+TEST_CASE("sixpack: a baro vertical speed reads on without a fix") {
+    SixPackSnapshot searching;
+    searching.vs_fpm = -1000;
+    searching.vs_valid = true;
+    Glass fb;
+    draw_sixpack(fb, searching);
+
+    CHECK(value_matches(fb, kTiles[5], "-1000"));
+    CHECK(fb.get_pixel(kTiles[5].cx, kTiles[5].cy + kFaceR));
+    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
+    CHECK(value_matches(fb, kTiles[0], "---"));
+    CHECK(value_matches(fb, kTiles[2], "---"));
+
+    // No barometer and no fix is no vertical speed, needle at rest.
+    SixPackSnapshot blind = searching;
+    blind.vs_valid = false;
+    Glass none;
+    draw_sixpack(none, blind);
+    CHECK(value_matches(none, kTiles[5], "---"));
+    CHECK(none.get_pixel(kTiles[5].cx - kFaceR, kTiles[5].cy));
 }
 
 // A frozen clock under a state that no longer holds is the one reading worth naming as stale.
@@ -194,6 +218,7 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     nautical.speed_kt = 90;  // 166 km/h
     nautical.alt_ft = 3450;
     nautical.vs_fpm = 500;
+    nautical.vs_valid = true;
     nautical.track_deg = 7;
     SixPackSnapshot metric = nautical;
     metric.units = skyblip::go::Units::Metric;

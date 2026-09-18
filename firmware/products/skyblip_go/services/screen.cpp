@@ -449,6 +449,7 @@ void ScreenService::render(uint32_t now_ms) {
             draw_sixpack(fb_, snap);
             break;
         }
+            snap.vs_valid = climb_measured();
         case Page::Signal: {
             SignalSnapshot snap;
             snap.fix_valid = own.fix_valid;

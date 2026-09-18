@@ -277,7 +277,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
 
     const int32_t kt = s.data_valid ? clampi(s.speed_kt, 0, 999) : 0;
     const int32_t alt_ft = s.data_valid ? s.alt_ft : 0;
-    const int32_t vs_fpm = s.data_valid ? s.vs_fpm : 0;
+    const int32_t vs_fpm = s.vs_valid ? s.vs_fpm : 0;
     const int32_t turn_dps = s.data_valid ? s.turn_dps : 0;
     const int32_t track = s.data_valid ? s.track_deg % 360 : 0;
     const int32_t bank = bank_deg(turn_dps, kt);
@@ -321,7 +321,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
     dial(fb, kCx[2], 1, "VS FPM", 0);
     vsi_face(fb, kCx[2], kCy[1]);
     needle(fb, kCx[2], kCy[1], vsi_deg(vs_fpm), kNeedle, /*thick=*/false, /*cleared=*/true);
-    value_center(fb, kCx[2], 1, s.data_valid, vs_fpm, false);
+    value_center(fb, kCx[2], 1, s.vs_valid, vs_fpm, false);
 }
 
 }  // namespace skyblip::go

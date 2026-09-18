@@ -134,11 +134,13 @@ The needle can land in the shading, since a stopped aircraft parks it on that ve
 
 ### With no fix
 
-Every needle parks at zero rather than being left off: speed and altitude standing up, the vario level, the wings level, the horizon flat, the card showing north. An instrument with no needle at all reads as a broken instrument, and the six of them together read as a device that has crashed rather than one that is waiting for satellites.
+Every needle parks at zero rather than being left off: speed and altitude standing up, the vario level unless a barometer is still feeding it, the wings level, the horizon flat, the card showing north. An instrument with no needle at all reads as a broken instrument, and the six of them together read as a device that has crashed rather than one that is waiting for satellites.
 
 The numbers do not follow the needles. They stay `---`, because a needle at rest is a position and a number is a claim: parking the digits at `0` would say the aircraft is stationary at sea level on a track of north, which is a reading and not a rest state. The needles say what the instrument is doing, the numbers say what is known.
 
-The flight time is the exception, and it is why the title carries the state. A fix lost in the air parks five dials and the clock keeps running, so `NO FIX` over `1:35` says both that this flight is an hour and a half old and that nothing else on this page is being told anything right now. Blanking it would throw away the one figure the outage cannot make wrong, and stopping it would make the outage a hole in the logbook.
+The vario is an exception when a barometer is fitted. Pressure is a measurement of its own and the climb taken from it owes the satellites nothing, so the needle keeps moving and the number keeps reading through an outage: `ScreenService::climb_measured` shows the dial whenever a climb has been measured and its source is still live, which is a fix or an active barometer. Without a barometer the vertical speed came from the fix, and it parks with the other five.
+
+The flight time is the other exception, and it is why the title carries the state. A fix lost in the air parks five dials and the clock keeps running, so `NO FIX` over `1:35` says both that this flight is an hour and a half old and that nothing else on this page is being told anything right now. Blanking it would throw away the one figure the outage cannot make wrong, and stopping it would make the outage a hole in the logbook.
 
 A track due north reads `360`, not `000`. It is what a pilot says on the radio and what every other instrument in the cockpit shows, and `000` is nobody's heading.
 
