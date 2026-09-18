@@ -102,7 +102,7 @@ void NmeaService::emit_status(uint32_t now_ms) {
     const model::OwnState& own = context_.state.own;
     const traffic::Target* threat = nullptr;
     traffic::AlarmAssessment worst{};
-    uint8_t worst_level = 0;
+    traffic::Level worst_level = traffic::Level::None;
     int heard = 0;
 
     for (int slot = 0; slot < traffic::TrafficTable::kCapacity; slot++) {
@@ -123,7 +123,7 @@ void NmeaService::emit_status(uint32_t now_ms) {
     const int len =
         threat != nullptr
             ? protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, &threat->obs,
-                                     worst_level,
+                                     traffic::to_number(worst_level),
                                      static_cast<int16_t>(signed_bearing(worst.rel_bearing_deg)),
                                      worst.rel_vert_m, worst.rel_dist_m)
             : protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, nullptr, 0, 0, 0, 0);
@@ -218,9 +218,9 @@ void NmeaService::emit_targets(uint32_t now_ms) {
         const int slot = (from + step) % traffic::TrafficTable::kCapacity;
         const traffic::Target* target = context_.state.traffic.at(slot);
         if (target == nullptr || !target->used) continue;
-        const int len =
-            protocol::format_pflaa(sentence_, sizeof(sentence_), own,
-                                   flight::carried_to(target->obs, now_ms), target->alarm_level);
+        const int len = protocol::format_pflaa(sentence_, sizeof(sentence_), own,
+                                               flight::carried_to(target->obs, now_ms),
+                                               traffic::to_number(target->alarm_level));
         if (len <= 0) continue;
         write(sentence_, len);
         sent++;

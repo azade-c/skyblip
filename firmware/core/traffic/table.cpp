@@ -8,7 +8,7 @@ namespace {
 uint32_t obs_time(const model::AircraftObs& o) { return o.received.at_s; }
 int source_rank(model::Source s) {
     switch (s) {
-        case model::Source::AdslDirect: return 3;
+        case model::Source::AdslDirect:
         case model::Source::Alptas: return 3;
         case model::Source::AdslUplink: return 1;
         default: return 0;
@@ -42,7 +42,7 @@ int TrafficTable::allocate_slot(uint32_t now) {
     int victim = -1;
     uint32_t oldest = 0xFFFFFFFF;
     for (int i = 0; i < kCapacity; i++) {
-        if (slots_[i].alarm_level > 0) continue;
+        if (slots_[i].alarm_level != Level::None) continue;
         uint32_t age = now - obs_time(slots_[i].obs);
         if (age >= oldest || victim < 0) {
             if (victim < 0 || age > oldest) {
@@ -75,7 +75,7 @@ int TrafficTable::update(const model::AircraftObs& obs, uint32_t now) {
     if (idx < 0) return -1;
     slots_[idx].used = true;
     slots_[idx].obs = obs;
-    slots_[idx].alarm_level = 0;
+    slots_[idx].alarm_level = Level::None;
     return idx;
 }
 
@@ -84,7 +84,7 @@ void TrafficTable::age_out(uint32_t now, uint32_t max_age) {
         if (!slots_[i].used) continue;
         if (now - obs_time(slots_[i].obs) > max_age) {
             slots_[i].used = false;
-            slots_[i].alarm_level = 0;
+            slots_[i].alarm_level = Level::None;
         }
     }
 }
@@ -99,7 +99,7 @@ int TrafficTable::count() const {
 void TrafficTable::clear() {
     for (auto& s : slots_) {
         s.used = false;
-        s.alarm_level = 0;
+        s.alarm_level = Level::None;
     }
 }
 

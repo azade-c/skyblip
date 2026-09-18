@@ -38,7 +38,17 @@ void ConfigLinkService::tick(uint32_t now_ms) {
 
     config_.tick(now_ms);
     drain_settings(now_ms);
+    spend_gnss_cold_start();
     confirm_image_once_healthy();
+}
+
+// A cold start costs the next fix and the driver puts our configuration back
+// behind it, so it is spent where the request is read rather than reached for
+// through the board.
+void ConfigLinkService::spend_gnss_cold_start() {
+    if (!config_.gnss_cold_start_requested()) return;
+    config_.clear_gnss_cold_start_request();
+    context_.roles.gnss.request_restart(ports::Restart::Cold);
 }
 
 // INFO: le 04aug26 The single reader of the connection, drained once per pass and

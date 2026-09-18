@@ -2,7 +2,8 @@
 # Dependabot rewrites SHA pins and their trailing version comments, so the Zephyr
 # setup action stays pinned AND current, as a reviewable PR rather than a silent
 # change under a mutable tag. Zephyr modules come from west.yml, which Dependabot
-# does not read, and the scripts are stdlib-only Python.
+# does not read (deps-check.yml reports those weekly), and the repo's own scripts
+# are stdlib-only Python.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -14,6 +15,20 @@ updates:
       prefix: "deps(actions)"
     groups:
       actions:
+        patterns: ["*"]
+
+  # clang-format and clang-tidy. They live in a requirements.txt rather than in
+  # the workflow, because a version inline in a `run:` step is a pin nothing
+  # watches: this is the only shape Dependabot can read them in.
+  - package-ecosystem: pip
+    directory: "/.github/lint"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "deps(lint)"
+    groups:
+      lint:
         patterns: ["*"]
 
   # The website's gems. `directory` is the Gemfile's, not the repo's, so this is

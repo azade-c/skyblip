@@ -466,7 +466,7 @@ TEST_CASE("l76k: a factory reset is recoverable, and the configuration goes back
     REQUIRE(gnss.configured());
     REQUIRE(chip.aviation_dynamic_model());
 
-    gnss.request_restart(parts::L76k::Restart::Factory);
+    gnss.request_restart(ports::Restart::Factory);
     uint32_t t = kBringUpLeadMs + 5010;
     chip.tick(t);
     gnss.service(t);
@@ -498,7 +498,7 @@ TEST_CASE("l76k: a cold start keeps the configuration and loses only the almanac
     run(gnss, chip, 0, kBringUpLeadMs + 5000);
     REQUIRE(gnss.solution().is_fix);
 
-    gnss.request_restart(parts::L76k::Restart::Cold);
+    gnss.request_restart(ports::Restart::Cold);
     const uint32_t t = kBringUpLeadMs + 5010;
     chip.tick(t);
     gnss.service(t);

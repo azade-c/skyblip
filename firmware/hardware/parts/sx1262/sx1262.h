@@ -2,6 +2,7 @@
 #ifndef SKYBLIP_HARDWARE_PARTS_SX1262_H
 #define SKYBLIP_HARDWARE_PARTS_SX1262_H
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 
@@ -312,8 +313,7 @@ constexpr int32_t kFreqTrimPerUnit = 10000000;
 // on a counter needs.
 constexpr uint32_t trimmed_hz(uint32_t freq_hz, int16_t corr_e1_ppm) {
     int32_t corr = corr_e1_ppm;
-    if (corr > kFreqTrimLimitTenthsPpm) corr = kFreqTrimLimitTenthsPpm;
-    if (corr < -kFreqTrimLimitTenthsPpm) corr = -kFreqTrimLimitTenthsPpm;
+    corr = std::clamp<int32_t>(corr, -kFreqTrimLimitTenthsPpm, kFreqTrimLimitTenthsPpm);
     const int64_t offset = (static_cast<int64_t>(freq_hz) * corr) / kFreqTrimPerUnit;
     return static_cast<uint32_t>(static_cast<int64_t>(freq_hz) + offset);
 }

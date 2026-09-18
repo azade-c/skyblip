@@ -1,5 +1,7 @@
 #include "core/timing/slot.h"
 
+#include <algorithm>
+
 namespace skyblip::timing {
 
 namespace {
@@ -57,8 +59,8 @@ int Scheduler::slot_of(int phase_ms) {
     return -1;
 }
 
-SlotPlan Scheduler::plan(int phase_ms, const ClockState& clock) const {
-    if (phase_ms < 0) phase_ms = 0;
+SlotPlan Scheduler::plan(int phase_ms, const ClockState& clock) {
+    phase_ms = std::max(phase_ms, 0);
     if (phase_ms >= 1000) phase_ms %= 1000;
 
     SlotPlan p{};

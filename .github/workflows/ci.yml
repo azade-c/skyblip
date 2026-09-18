@@ -66,21 +66,26 @@ jobs:
           git diff --exit-code docs/BEHAVIOR.md
 
   lint:
-    name: clang-format
+    name: clang-format + clang-tidy
     needs: changes
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-26.04-arm
     steps:
       - uses: actions/checkout@v7
-      # Pinned: the runner image ships clang-format 18, which reformats brace-init
+      # Pinned in .github/lint/requirements.txt, where Dependabot can see them:
+      # the runner image ships clang-format 18, which reformats brace-init
       # differently, so an unpinned formatter is a gate that changes its mind.
-      - name: install clang-format
-        run: pipx install clang-format==21.1.8
+      - name: install clang-format and clang-tidy
+        run: pip install --disable-pip-version-check -r .github/lint/requirements.txt
       - name: check formatting
         run: |
           find firmware/core firmware/ui firmware/ports firmware/hardware firmware/boards \
                firmware/runtime firmware/products firmware/simulator firmware/test \
             -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror
+
+      # The tree is clean, so the config fails the job on any finding at all.
+      - name: check the C++ subset rules
+        run: make -C firmware tidy
 
 # TODO: fc 12sep26 uncomment once the image is built in CI again, local for now: scripts/build_local.sh
 #   product-image:

@@ -37,7 +37,8 @@ struct Rig {
     runtime::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
-        null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator};
+        null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator,
+        null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
@@ -71,9 +72,8 @@ struct Rig {
         event.at_us = at_us;
         event.rssi_dbm = -80;
         uint8_t chips[protocol::kTxChipBytes] = {0};
-        const size_t chip_len = protocol::encode_mband(
-            protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&tx.Version),
-            protocol::AdslPacket::kDataBytes, chips);
+        const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, tx.Data,
+                                                       protocol::AdslPacket::kDataBytes, chips);
         deliver(chips, chip_len, event.data.data(), protocol::kRxChipBytes);
         event.len = protocol::kRxChipBytes;
         bus.rf.push(event);

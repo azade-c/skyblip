@@ -113,9 +113,8 @@ void hear_directly(Rig& rig, uint32_t& t, uint32_t addr, int32_t north_m, int32_
     packet.set_crc();
 
     uint8_t chips[protocol::kTxChipBytes] = {0};
-    const size_t chip_len = protocol::encode_mband(
-        protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&packet.Version),
-        protocol::kAdslFrameBytes, chips);
+    const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, packet.Data,
+                                                   protocol::kAdslFrameBytes, chips);
 
     // 500 ms is inside the direct slot and inside the first M-band dwell.
     rig.run(t, t + 500);
@@ -153,7 +152,8 @@ struct FeatureRig {
     runtime::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
-        null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator};
+        null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator,
+        null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};

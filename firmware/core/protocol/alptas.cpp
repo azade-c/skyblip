@@ -147,12 +147,12 @@ void scramble(uint32_t* data, uint32_t utc) {
         z = last & 0xFF;
     }
 
-    for (uint8_t i = 0; i < 4; i++) data[2 + i] ^= get_word(keys + 4 * i);
+    for (uint8_t i = 0; i < 4; i++) data[2 + i] ^= get_word(keys + 4 * static_cast<ptrdiff_t>(i));
 }
 
 void crypt_frame(uint8_t* data, uint32_t utc, bool encode) {
     uint32_t w[kWords];
-    for (uint8_t i = 0; i < kWords; i++) w[i] = get_word(data + 4 * i);
+    for (uint8_t i = 0; i < kWords; i++) w[i] = get_word(data + 4 * static_cast<ptrdiff_t>(i));
     if (encode) {
         scramble(w, utc);
         btea4(w + 2, true);
@@ -160,7 +160,7 @@ void crypt_frame(uint8_t* data, uint32_t utc, bool encode) {
         btea4(w + 2, false);
         scramble(w, utc);
     }
-    for (uint8_t i = 0; i < kWords; i++) put_word(data + 4 * i, w[i]);
+    for (uint8_t i = 0; i < kWords; i++) put_word(data + 4 * static_cast<ptrdiff_t>(i), w[i]);
 }
 
 // INFO: fc 09mar26 longitude quantum in 1e-7 deg as a function of |latitude| in

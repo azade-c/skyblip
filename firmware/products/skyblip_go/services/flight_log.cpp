@@ -386,6 +386,10 @@ void FlightLogService::answer_read(uint32_t session_id, uint32_t from) {
 
     const uint32_t slots = ring_.slots_per_sector();
     const uint32_t count = ring_.sector_count();
+    if (slots == 0 || count == 0) {
+        ack(false, "no_storage");
+        return;
+    }
     const uint32_t available = entry->records - from;
     const uint32_t wanted =
         available < static_cast<uint32_t>(per_chunk) ? available : static_cast<uint32_t>(per_chunk);
@@ -393,8 +397,9 @@ void FlightLogService::answer_read(uint32_t session_id, uint32_t from) {
         const uint32_t index = from + i;
         const uint32_t sector = (entry->first_sector + index / slots) % count;
         const uint32_t offset = sector_offset(sector) + flight::log_record_offset(index % slots);
-        if (!is_ok(context_.roles.log_flash.read(offset, chunk_ + i * flight::kLogRecordBytes,
-                                                 flight::kLogRecordBytes))) {
+        if (!is_ok(context_.roles.log_flash.read(
+                offset, chunk_ + static_cast<size_t>(i) * flight::kLogRecordBytes,
+                flight::kLogRecordBytes))) {
             ack(false, "read_failed");
             return;
         }

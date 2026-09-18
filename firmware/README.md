@@ -2,9 +2,11 @@
 
 The C++ tree: `core/` is the portable logic, `ports/` the roles a product needs from a board, `hardware/` the parts and platforms that fill them, `ui/` the pages, `products/` the services that wire a device together, `boards/` the Zephyr board, `test/` the host suite, `simulator/` the world it flies in. Each directory carries its own README for what it decides.
 
-`ports/` is a port layer, not a hardware abstraction layer, and it is named for what it is: it declares the roles the core needs filled, in the core's own vocabulary, and `hardware/` is where a part or a platform fills one. Register code belongs there, never here. `core/` and `ui/` compile with no framework headers at all, which is what buys the host suite and the WASM simulator; Zephyr is used freely below `ports/` and never above it.
+`ports/` is a port layer, not a hardware abstraction layer, and it is named for what it is: it declares the roles the core needs filled, in the core's own vocabulary, and `hardware/` is where a part or a platform fills one. A port is what the core calls; what the world does to a sensor arrives as an `events::` value on a queue instead, and `hardware/README.md` is where that half of the contract is written down. Register code belongs there, never here. `core/` and `ui/` compile with no framework headers at all, which is what buys the host suite and the WASM simulator; Zephyr is used freely below `ports/` and never above it.
 
 `make test` runs the host suite, `make simulator` builds the terminal one, `scripts/build_local.sh` from the repo root builds the device image.
+
+`.clang-format` and `.clang-tidy` live here rather than at the root because this is the only C++ in the repository, and both tools read the nearest config above the file they are given. `make tidy` runs the linter over what the host build compiles; CI runs the same target.
 
 ## Naming a boolean
 
@@ -35,3 +37,7 @@ A number carries its unit in its suffix, for the same reason a boolean carries i
 | `_dps` | degrees per second | `turn_dps` |
 
 `core/units/units.h` carries the same units as types, and the conversions between them. It is what `ui/` reads in, because a page that prints knots and feet should be converting from a type rather than from a name. On the wire and in `bus::State` the suffix is the convention, because a struct that crosses a queue is a layout as well as a vocabulary.
+
+## License
+
+GPL-3.0-only, see [`LICENSE`](LICENSE). This directory is the copyleft one: the rest of the repository is MIT, and code cannot travel from here to there. The WASM the simulator page loads is built from these sources and carries this license with it.

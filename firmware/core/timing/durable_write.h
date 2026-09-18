@@ -146,7 +146,7 @@ class DurableWriteWindow {
     static bool free_at(const SlotPlan& plan, int phase_ms, uint32_t cost_ms);
 
    private:
-    bool placeable(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms) const;
+    static bool placeable(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms);
 
     uint32_t requests_{0};
     uint32_t writes_{0};

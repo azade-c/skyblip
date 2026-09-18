@@ -19,6 +19,7 @@
 
 using namespace skyblip;
 using namespace skyblip::indication;
+using skyblip::traffic::Level;
 
 namespace {
 
@@ -32,7 +33,7 @@ constexpr uint32_t kStepMs = 10;
 Situation everything_at_once() {
     Situation s{};
     s.running = true;
-    s.alarm_level = 3;
+    s.alarm_level = Level::Urgent;
     s.external_power = true;
     s.charge_complete = false;
     s.power_level = power::PowerLevel::Cutoff;
@@ -112,7 +113,7 @@ TEST_CASE("indication: an alarm during charging shows the alarm") {
     CHECK(indication_for(Condition::Alarm).lamp == ports::Lamp::Red);
 
     // And level 1 does not: it is heard dozens of times in one thermal.
-    s.alarm_level = 1;
+    s.alarm_level = Level::Info;
     CHECK(condition_for(s) != Condition::Alarm);
     s.alarm_level = kAlarmTakesLamp;
     CHECK(condition_for(s) == Condition::Alarm);
@@ -128,7 +129,7 @@ TEST_CASE("indication: the priority order is the table, top row first") {
     s.running = true;
 
     CHECK(condition_for(s) == Condition::Alarm);
-    s.alarm_level = 0;
+    s.alarm_level = Level::None;
 
     // Charging outranks a low cell, because a low cell with the cable in is
     // exactly what the first minute of a charge looks like, and "it is charging"
@@ -246,7 +247,7 @@ TEST_CASE("indication: the lamp goes dark the moment the device starts going dow
     CHECK(lamp.policy.condition() == Condition::Off);
     // And it stays dark: nothing about the cell or the sky brings it back while
     // the device is on its way down.
-    s.alarm_level = 3;
+    s.alarm_level = Level::Urgent;
     lamp.run(s, 1010, 5000);
     CHECK(lamp.shown == ports::Lamp::None);
 }
@@ -260,7 +261,7 @@ TEST_CASE("indication: a change shows itself at once, not at the end of the cycl
     // Mid-cycle: the wink is long over and the lamp is dark for another 2 s.
     REQUIRE(lamp.shown == ports::Lamp::None);
 
-    s.alarm_level = 3;
+    s.alarm_level = Level::Urgent;
     lamp.step(s, 1010);
     CHECK(lamp.shown == ports::Lamp::Red);
 }

@@ -10,19 +10,22 @@ namespace skyblip::ui {
 
 constexpr int kRadioLogRows = radio::Log::kCapacity;
 
+enum class PpsState : uint8_t { None, Lock, Holdover };
+
 struct GnssReception {
     bool fix_valid{false};
-    bool utc_valid{false};
     uint8_t sats{0};
-    uint16_t hdop_e2{0};
-    uint16_t vdop_e2{0};
-    uint32_t solutions{0};
+    PpsState pps{PpsState::None};
+    uint16_t pps_age_s{0};
 };
 
 struct RadioLogSnapshot {
     GnssReception gnss{};
     uint32_t rx_ok{0};
     uint32_t tx_ok{0};
+    uint32_t noise{0};
+    int8_t band_dbm{0};
+    bool airborne{false};
     int n_rows{0};
     const radio::Log* log{nullptr};
 };

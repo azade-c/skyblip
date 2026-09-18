@@ -1,5 +1,7 @@
 #include "core/traffic/link.h"
 
+#include <algorithm>
+
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
@@ -19,7 +21,7 @@ constexpr uint64_t kTwentyLog10PerLog2Tenths = 60206;
 // log2 in Q16, by squaring the mantissa one bit at a time. No table, no float,
 // and exact enough that a dB is never wrong by more than it is measurable.
 uint32_t log2_q16(uint32_t x) {
-    if (x < 1) x = 1;
+    x = std::max<uint32_t>(x, 1);
     int b = 0;
     while ((x >> b) > 1) b++;
     uint32_t r = static_cast<uint32_t>(b) << 16;
@@ -42,7 +44,7 @@ bool heard_over_its_own_path(model::Source s) {
 }  // namespace
 
 int16_t free_space_loss_db(int32_t range_m) {
-    if (range_m < 1) range_m = 1;
+    range_m = std::max(range_m, 1);
     const uint64_t l2 = log2_q16(static_cast<uint32_t>(range_m));
     const int32_t tenths =
         static_cast<int32_t>(((l2 * kTwentyLog10PerLog2Tenths) / 1000ULL) >> 16) +

@@ -9,6 +9,7 @@
 #include "core/gnss/first_fix.h"
 #include "core/model/aircraft.h"
 #include "core/model/band.h"
+#include "core/protocol/air.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
 #include "core/timing/transmit.h"
@@ -16,6 +17,7 @@
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/parts/sx1262/sx1262.h"
 #include "simulator/simulator.h"
+#include "test/support/rf_channel.h"
 
 using namespace skyblip;
 
@@ -82,6 +84,34 @@ struct Peer {
 };
 
 }  // namespace
+
+// A quiet band still frames a few bursts a minute, and the tape is sixteen rows.
+TEST_CASE("rf: a window the band's own noise walked through is counted, never put on the tape") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(true);
+    h.world().set_pps_locked(false);
+    const uint32_t start = past_settling(h);
+    run_on(h, start, 1000);
+
+    uint8_t burst[protocol::kSyncWindowChipBytes + protocol::kRxChipBytes];
+    std::memcpy(burst, protocol::kSharedSync, protocol::kSyncWindowChipBytes);
+    models::RfChannel noise(0xC0FFEE);
+    for (size_t i = protocol::kSyncWindowChipBytes; i < sizeof(burst); i++)
+        burst[i] = static_cast<uint8_t>(noise.next());
+
+    const int rows_before = h.product().state().radio_log.count();
+    const uint32_t bad_before = h.product().state().air.rx_bad;
+    const uint32_t at_ms = start + 2000 + timing::kSlot0Start + 200;
+    h.step(at_ms);
+    REQUIRE(h.platform().chips().radio.receive_air(burst, sizeof(burst), /*crc_error=*/false,
+                                                   /*rssi=*/-112, protocol::kMbandChipRateBps));
+    run_on(h, at_ms, 200);
+
+    CHECK(h.product().state().air.rx_noise == 1);
+    CHECK(h.product().state().air.rx_bad == bad_before);
+    CHECK(h.product().state().radio_log.count() == rows_before);
+}
 
 // The page a bench reads instead of guessing from two counters that only ever climb.
 TEST_CASE("rf: what happened on air reaches the station log, sent and heard alike") {
@@ -554,7 +584,7 @@ TEST_CASE("rf: a decoded burst claiming an impossible range never reaches the ra
     // And refused by the table, counted, with nothing on the screen.
     CHECK(h.product().state().traffic.count() == 0);
     CHECK(h.product().state().traffic.implausible_count() > 0);
-    CHECK(h.product().state().alarm_level == 0);
+    CHECK(h.product().state().alarm_level == traffic::Level::None);
 }
 
 // The same air with the same aircraft at a range this radio can actually reach:

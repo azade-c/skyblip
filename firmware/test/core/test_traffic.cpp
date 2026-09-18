@@ -4,6 +4,7 @@
 // rather than doubles it, and a stale entry ages out instead of haunting the
 // screen. The alarm cases pin the escalation as a target closes, and what the
 // alarm is allowed to say out loud about a target it has already announced.
+#include <algorithm>
 #include <cmath>
 
 #include "core/flight/extrapolate.h"
@@ -167,7 +168,7 @@ TEST_CASE("traffic: overflow drops oldest non-threat, keeps active alarms") {
     }
     // mark the oldest entry as an active alarm so it can't be evicted
     int oldest = tbl.find(6, 0x1000);
-    tbl.at(oldest)->alarm_level = 3;
+    tbl.at(oldest)->alarm_level = Level::Urgent;
     int idx = tbl.update(obs(0x9999, 6, 300), 300);
     CHECK(idx >= 0);                  // newcomer placed
     CHECK(tbl.find(6, 0x1000) >= 0);  // protected alarm still present
@@ -188,11 +189,11 @@ TEST_CASE("alarm: level escalates as a target closes head-on") {
         return neighbour(own, north_m, 0, up_m, 40, 180);
     };
 
-    CHECK(assess(own, target_at(5000, 0), 0).level <= 1);  // far
-    CHECK(assess(own, target_at(1200, 0), 0).level >= 2);  // important
-    CHECK(assess(own, target_at(300, 0), 0).level == 3);   // urgent
+    CHECK(assess(own, target_at(5000, 0), 0).level <= Level::Info);  // far
+    CHECK(assess(own, target_at(1200, 0), 0).level >= Level::Important);
+    CHECK(assess(own, target_at(300, 0), 0).level == Level::Urgent);
     // large vertical separation suppresses the alarm
-    CHECK(assess(own, target_at(300, 800), 0).level == 0);
+    CHECK(assess(own, target_at(300, 800), 0).level == Level::None);
 }
 
 TEST_CASE("alarm: invalid when own has no fix") {
@@ -245,10 +246,10 @@ TEST_CASE("alarm: closing speed is the relative velocity on the line of sight") 
 // one crossing our nose 2 km out at 80 m/s of closure is.
 TEST_CASE("alarm: urgency is what the geometry says, not what the range ring says") {
     const model::OwnState own = flying(30, 0);
-    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 0), 0).level < 3);
-    CHECK(assess(own, neighbour(own, -300, 0, 0, 40, 180), 0).level == 1);
-    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 180), 0).level == 3);
-    CHECK(assess(own, neighbour(own, 900, 0, 0, 50, 180), 0).level == 3);
+    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 0), 0).level < Level::Urgent);
+    CHECK(assess(own, neighbour(own, -300, 0, 0, 40, 180), 0).level == Level::Info);
+    CHECK(assess(own, neighbour(own, 400, 0, 0, 30, 180), 0).level == Level::Urgent);
+    CHECK(assess(own, neighbour(own, 900, 0, 0, 50, 180), 0).level == Level::Urgent);
 }
 
 // Uplinked and relayed traffic often arrives as a position with no velocity.
@@ -261,7 +262,7 @@ TEST_CASE("alarm: a target that reports no velocity degrades, it does not vanish
 
     const AlarmAssessment a = assess(own, quiet, 0);
     CHECK(a.closing_mps >= 30 + kUnknownTargetSpeedMps - 1);
-    CHECK(a.level == 3);
+    CHECK(a.level == Level::Urgent);
 }
 
 // The annunciator is not the alarm level: a target already announced at a level
@@ -273,7 +274,7 @@ TEST_CASE("alarm: a target is announced once per level, and again when it gets w
 
     uint32_t t = 1000;
     AlarmTracker::Decision d = tracker.update(own, neighbour(own, 2800, 0, 0, 20, 180), t);
-    REQUIRE(d.assessment.level == 1);
+    REQUIRE(d.assessment.level == Level::Info);
     CHECK(d.notify);
     CHECK(d.escalated);
 
@@ -287,7 +288,7 @@ TEST_CASE("alarm: a target is announced once per level, and again when it gets w
     // Now it is important, and that is new information.
     t += 100;
     d = tracker.update(own, neighbour(own, 1200, 0, 0, 20, 180, t), t);
-    CHECK(d.assessment.level >= 2);
+    CHECK(d.assessment.level >= Level::Important);
     CHECK(d.notify);
     CHECK(d.escalated);
 }
@@ -300,7 +301,7 @@ TEST_CASE("alarm: an urgent contact says so again, at the re-notification cadenc
 
     uint32_t t = 1000;
     AlarmTracker::Decision d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t);
-    REQUIRE(d.assessment.level == 3);
+    REQUIRE(d.assessment.level == Level::Urgent);
     REQUIRE(d.notify);
 
     int spoken = 0;
@@ -339,27 +340,29 @@ TEST_CASE("alarm: the announced level rises with the contact and falls only when
     const model::OwnState own = flying(30, 0);
 
     uint32_t t = 1000;
-    REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).assessment.level == 3);
-    CHECK(int(tracker.announced_level(t)) == 3);
+    REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).assessment.level ==
+            Level::Urgent);
+    CHECK(tracker.announced_level(t) == Level::Urgent);
 
     // The contact opens out to the info ring. The tracker holds what it said
     // for a re-notification window, so a target sliding across a ring boundary
     // is not announced twice a second...
     t += 100;
-    REQUIRE(tracker.update(own, neighbour(own, 2800, 0, 0, 20, 0, t), t).assessment.level == 1);
-    CHECK(int(tracker.announced_level(t)) == 3);
+    REQUIRE(tracker.update(own, neighbour(own, 2800, 0, 0, 20, 0, t), t).assessment.level ==
+            Level::Info);
+    CHECK(tracker.announced_level(t) == Level::Urgent);
 
     // ...and then it lets go, which is the moment the tone must change.
     for (int i = 0; i < 25; i++) {
         t += 100;
         tracker.update(own, neighbour(own, 2800, 0, 0, 20, 0, t), t);
     }
-    CHECK(int(tracker.announced_level(t)) == 1);
+    CHECK(tracker.announced_level(t) == Level::Info);
 
     // A target nobody has heard from announces nothing at all: the same five
     // second window the reminders live in, so the buzzer stops when the sky
     // goes quiet rather than when the table finally forgets.
-    CHECK(int(tracker.announced_level(t + kAlertMaxAgeMs + 1)) == 0);
+    CHECK(tracker.announced_level(t + kAlertMaxAgeMs + 1) == Level::None);
 }
 
 // Two gliders working the same core are close, co-altitude and converging by
@@ -409,7 +412,7 @@ TEST_CASE("alarm: a head-on inside the thermal still alarms") {
     }
 
     CHECK(d.suppression == Suppression::None);
-    CHECK(d.assessment.level == 3);
+    CHECK(d.assessment.level == Level::Urgent);
 }
 
 // A neighbour whose range has not moved for six solutions is not arriving,
@@ -422,7 +425,7 @@ TEST_CASE("alarm: a neighbour holding station is quietened, and turning in undoe
 
     uint32_t t = 1000;
     d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 0, t), t);
-    CHECK(d.assessment.level == 2);
+    CHECK(d.assessment.level == Level::Important);
     CHECK(d.suppression == Suppression::None);
 
     for (int i = 0; i < 8; i++) {
@@ -435,7 +438,7 @@ TEST_CASE("alarm: a neighbour holding station is quietened, and turning in undoe
     t += 1000;
     d = tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t);
     CHECK(d.suppression == Suppression::None);
-    CHECK(d.assessment.level == 3);
+    CHECK(d.assessment.level == Level::Urgent);
     CHECK(d.notify);
 }
 
@@ -467,9 +470,9 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
 
     double min_separation_m = 1e9;
     uint32_t min_at_ms = 0;
-    uint8_t level_at_min = 0;
+    Level level_at_min = Level::None;
     Suppression suppression_at_min = Suppression::None;
-    uint8_t raw_peak_level = 0;
+    Level raw_peak_level = Level::None;
 
     for (int second = 0; second <= 20; second++) {
         const uint32_t t = 1000 + static_cast<uint32_t>(second) * 1000;
@@ -487,8 +490,8 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
         const model::AircraftObs target =
             neighbour(own, static_cast<int>(target_north - own_north),
                       static_cast<int>(target_east - own_east), 0, 23, 34 + turn_dps * second, t);
-        const uint8_t raw_level = assess(own, target, t).level;
-        if (raw_level > raw_peak_level) raw_peak_level = raw_level;
+        const Level raw_level = assess(own, target, t).level;
+        raw_peak_level = std::max(raw_level, raw_peak_level);
         const AlarmTracker::Decision d = tracker.update(own, target, t);
         if (separation_m < min_separation_m) {
             min_separation_m = separation_m;
@@ -499,13 +502,13 @@ TEST_CASE("alarm: two gliders on offset circles converge to 15 m and stay at inf
     }
 
     MESSAGE("closest approach " << min_separation_m << " m at t=" << min_at_ms << " ms, level "
-                                << static_cast<int>(level_at_min));
+                                << int(to_number(level_at_min)));
     CHECK(min_separation_m < 20);
     CHECK(level_at_min == kSuppressedLevel);
     CHECK(suppression_at_min == Suppression::CoCircling);
     // And the geometry alone, with no memory of the turn, is no better: it grades
     // the same encounter urgent - at the far end of it as loudly as at the near.
-    CHECK(raw_peak_level == 3);
+    CHECK(raw_peak_level == Level::Urgent);
 }
 
 // --- J. Range sanity on receive ---------------------------------------------
@@ -641,7 +644,7 @@ TEST_CASE("traffic: a mis-decode of a tracked aircraft does not move the aircraf
     real_contact.addr = 0x4C0001;
     const int idx = tbl.update(real_contact, 100);
     REQUIRE(idx >= 0);
-    tbl.at(idx)->alarm_level = 2;
+    tbl.at(idx)->alarm_level = Level::Important;
 
     model::AircraftObs same_aircraft_wrong_place = neighbour(own, 120000, 0, 0, 30, 180, 101000);
     same_aircraft_wrong_place.addr = 0x4C0001;
@@ -651,7 +654,7 @@ TEST_CASE("traffic: a mis-decode of a tracked aircraft does not move the aircraf
     CHECK(tbl.find(6, 0x4C0001) == idx);
     CHECK(tbl.at(idx)->obs.lat_1e7 == real_contact.lat_1e7);
     CHECK(tbl.at(idx)->obs.received.at_s == real_contact.received.at_s);
-    CHECK(int(tbl.at(idx)->alarm_level) == 2);
+    CHECK(tbl.at(idx)->alarm_level == Level::Important);
 }
 
 // A relayed target crossed two links, so it is allowed to be further away than
@@ -729,7 +732,7 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     // re-notification cadence, and the announced level stands while it is fresh.
     model::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, 1000);
     REQUIRE(tracker.update(own, target, before).notify);
-    CHECK(tracker.announced_level(before) == 3);
+    CHECK(tracker.announced_level(before) == Level::Urgent);
 
     // 3000 ms later, past the wrap. Still fresh (kAlertMaxAgeMs is 5000), so the
     // level still stands - an announced_level that read 0 here would be a buzzer
@@ -737,10 +740,10 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     const uint32_t after = before + 3000u;
     target.received.at_s = 2;                          // a new observation of the same aircraft
     CHECK(tracker.update(own, target, after).notify);  // the urgent reminder
-    CHECK(tracker.announced_level(after) == 3);
+    CHECK(tracker.announced_level(after) == Level::Urgent);
 
     // Past the alert age with nothing new heard: no longer driving the annunciator.
-    CHECK(tracker.announced_level(after + kAlertMaxAgeMs + 1u) == 0);
+    CHECK(tracker.announced_level(after + kAlertMaxAgeMs + 1u) == Level::None);
     // And past kForgetMs the slot is released, so the next aircraft can have it.
     tracker.forget_stale(after + kForgetMs + 1u);
     CHECK(tracker.target_turn_dps(target.addr_table, target.addr) == 0);

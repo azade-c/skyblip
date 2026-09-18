@@ -115,13 +115,6 @@ class Product {
                 config_.config().clear_install_request();
                 shutdown_.request(power::ShutdownReason::Install, now_ms);
             }
-            // The receiver is the board's, not a service's, so the confirmed
-            // request is spent here. A cold start costs the next fix and the
-            // driver puts our configuration back behind it.
-            if (config_.config().gnss_cold_start_requested()) {
-                config_.config().clear_gnss_cold_start_request();
-                board_.gnss().request_restart(parts::L76k::Restart::Cold);
-            }
         }
         shutdown_.tick(now_ms, platform_.button_down(), platform_.pad_down());
         drive_shutdown(now_ms);

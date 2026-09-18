@@ -47,8 +47,6 @@ constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
 constexpr int kSymbolR = 4;
 constexpr int kAdvisoryR = 5;
-constexpr uint8_t kProximateLevel = 1;
-constexpr uint8_t kAdvisoryLevel = 2;
 constexpr int kTagScale = 2;
 constexpr int kTagGlyphH = kGlyphH * kTagScale;
 constexpr int kTagGap = 2;
@@ -170,7 +168,7 @@ struct Plotted {
 };
 
 int64_t range_metres(const RadarSnapshot& snap) {
-    return (snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
+    return static_cast<int64_t>(snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
 }
 
 int32_t to_px(int32_t metres, int64_t range) {
@@ -240,12 +238,12 @@ void diamond(Framebuffer& fb, int cx, int cy, int r, bool fill) {
     }
 }
 
-void traffic_symbol(Framebuffer& fb, const Plotted& p, uint8_t alarm_level) {
-    if (alarm_level >= kAdvisoryLevel) {
+void traffic_symbol(Framebuffer& fb, const Plotted& p, traffic::Level alarm_level) {
+    if (alarm_level >= traffic::Level::Important) {
         fb.circle(p.x, p.y, kAdvisoryR, true, true);
         return;
     }
-    diamond(fb, p.x, p.y, kSymbolR, alarm_level >= kProximateLevel);
+    diamond(fb, p.x, p.y, kSymbolR, alarm_level >= traffic::Level::Info);
 }
 
 void chevron(Framebuffer& fb, int x, int y, bool up) {
@@ -303,7 +301,7 @@ struct Tag {
 };
 
 int symbol_radius(const RadarTarget& t) {
-    return t.alarm_level >= kAdvisoryLevel ? kAdvisoryR : kSymbolR;
+    return t.alarm_level >= traffic::Level::Important ? kAdvisoryR : kSymbolR;
 }
 
 Box symbol_box(const Plotted& p, const RadarTarget& t) {
@@ -435,7 +433,8 @@ void draw_radar(Framebuffer& fb, const RadarSnapshot& snap) {
     range_label(fb, snap);
     aircraft(fb, in_ring, snap.fix_valid && snap.receiver_listening);
 
-    if (snap.max_alarm >= 3) fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);
+    if (snap.max_alarm >= traffic::Level::Urgent)
+        fb.rect(0, 0, Framebuffer::kW, kAlarmBarH, true, true);
 }
 
 }  // namespace skyblip::ui

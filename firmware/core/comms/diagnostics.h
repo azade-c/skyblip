@@ -34,7 +34,10 @@ struct Diagnostics {
     uint32_t duty_permille{0};
     uint32_t rx_ok{0};
     uint32_t rx_bad{0};
+    uint32_t rx_noise{0};
     uint32_t tx_ok{0};
+    uint16_t tx_keyed_us{0};
+    uint16_t tx_span_us{0};
 
     uint32_t tracked{0};
     uint8_t alarm{0};

@@ -132,9 +132,14 @@ bool load_scenario(const char* path, Scenario& out) {
     if (!f) return false;
     std::string text;
     char chunk[512];
-    size_t n = 0;
-    while ((n = std::fread(chunk, 1, sizeof(chunk), f)) > 0) text.append(chunk, n);
+    for (;;) {
+        const size_t n = std::fread(chunk, 1, sizeof(chunk), f);
+        text.append(chunk, n);
+        if (n < sizeof(chunk)) break;
+    }
+    const bool failed = std::ferror(f) != 0;
     std::fclose(f);
+    if (failed) return false;
     return parse_scenario(text.c_str(), static_cast<int>(text.size()), out);
 }
 

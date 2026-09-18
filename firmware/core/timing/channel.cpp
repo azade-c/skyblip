@@ -1,5 +1,7 @@
 #include "core/timing/channel.h"
 
+#include <algorithm>
+
 namespace skyblip::timing {
 
 // Integer arithmetic on hundredths of a dBm. Truncation toward zero would stall
@@ -32,10 +34,9 @@ constexpr int kPowerRatioSpanDb = static_cast<int>(sizeof(kPowerRatioQ20) / size
 
 int8_t ChannelLevel::mean_dbm(const int8_t* samples, uint8_t n) {
     if (samples == nullptr || n == 0) return 0;
-    if (n > kMaxSamples) n = kMaxSamples;
+    n = std::min(n, kMaxSamples);
     int8_t peak = samples[0];
-    for (uint8_t i = 1; i < n; i++)
-        if (samples[i] > peak) peak = samples[i];
+    for (uint8_t i = 1; i < n; i++) peak = std::max(samples[i], peak);
     uint32_t sum = 0;
     for (uint8_t i = 0; i < n; i++) {
         const int down = static_cast<int>(peak) - static_cast<int>(samples[i]);

@@ -118,9 +118,8 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     packet.set_crc();
 
     uint8_t chips[protocol::kTxChipBytes];
-    const size_t chip_len = protocol::encode_mband(
-        protocol::kAdslSyncWord, reinterpret_cast<const uint8_t*>(&packet.Version),
-        protocol::kAdslFrameBytes, chips);
+    const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, packet.Data,
+                                                   protocol::kAdslFrameBytes, chips);
 
     events::RfEvent event{};
     event.type = events::RfEventType::RxDone;
@@ -213,7 +212,7 @@ TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU
         hear(rig, 0x112233, 300, 0, 10, /*track_c9=*/256);
         fly(rig, t, 1);
     }
-    REQUIRE(rig.state().alarm_level >= 2);
+    REQUIRE(rig.state().alarm_level >= traffic::Level::Important);
 
     std::string status;
     for (const std::string& s : sentences(rig))
@@ -491,7 +490,8 @@ struct FeatureRig {
     runtime::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          link,     null.display,         null.kv,
-        null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
+        null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator,
+        null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};

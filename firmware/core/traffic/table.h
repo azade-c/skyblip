@@ -6,13 +6,14 @@
 
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
+#include "core/traffic/alarm.h"
 #include "core/traffic/sanity.h"
 
 namespace skyblip::traffic {
 
 struct Target {
     model::AircraftObs obs;
-    uint8_t alarm_level{0};
+    Level alarm_level{Level::None};
     bool used{false};
 };
 

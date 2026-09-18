@@ -1,5 +1,7 @@
 #include "ui/screens/settings.h"
 
+#include <algorithm>
+
 #include "core/util/format.h"
 
 namespace skyblip::ui {
@@ -64,8 +66,7 @@ uint8_t next_page_mask(uint8_t mask) {
 
 uint32_t step_qnh_pa(uint32_t qnh_pa, bool up) {
     uint32_t whole = ((qnh_pa + kQnhStepPa / 2) / kQnhStepPa) * kQnhStepPa;
-    if (whole < kQnhMinPa) whole = kQnhMinPa;
-    if (whole > kQnhMaxPa) whole = kQnhMaxPa;
+    whole = std::clamp(whole, kQnhMinPa, kQnhMaxPa);
     if (up) return whole + kQnhStepPa > kQnhMaxPa ? kQnhMaxPa : whole + kQnhStepPa;
     return whole < kQnhMinPa + kQnhStepPa ? kQnhMinPa : whole - kQnhStepPa;
 }

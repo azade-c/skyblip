@@ -142,7 +142,7 @@ TEST_CASE("simulator: a converging aircraft raises the collision alarm and buzze
     REQUIRE(h.setup() == Status::Ok);
     run(h, 0, 2000);
     REQUIRE(h.product().state().own.fix_valid);
-    CHECK(int(h.alarm_level()) == 0);
+    CHECK(int(h.buzzer_level()) == 0);
 
     h.world().add_threat();  // ~600 m, converging, sinking through our level
     run(h, 2000, 6000);
@@ -167,7 +167,7 @@ TEST_CASE("simulator: clearing traffic empties the table and silences the alarm"
     h.world().clear_aircraft();
     run(h, 6000, 42000);
     CHECK(h.product().state().traffic.count() == 0);
-    CHECK(int(h.alarm_level()) == 0);
+    CHECK(int(h.buzzer_level()) == 0);
 }
 
 TEST_CASE("simulator: every page renders ink to the panel") {
@@ -244,12 +244,12 @@ TEST_CASE("simulator: an escalating threat buzzes and, from 'important', vibrate
     // motor - a pilot who feels every passing glider stops feeling anything.
     h.world().add_aircraft(2500, 0, 0, 20, 90);
     run(h, 2000, 5000);
-    if (h.announcing_level() == 1) CHECK(h.vibro_ms() == 0);
+    if (h.announcing_level() == traffic::Level::Info) CHECK(h.vibro_ms() == 0);
 
     // Now something close and converging: important or urgent, so it must vibrate.
     h.world().add_threat();
     run(h, 5000, 9000);
-    REQUIRE(h.announcing_level() >= 2);
+    REQUIRE(h.announcing_level() >= traffic::Level::Important);
     CHECK(h.vibro_ms() >= 200);
 }
 
@@ -259,7 +259,7 @@ TEST_CASE("simulator: a threat going away does not buzz the motor again") {
     run(h, 0, 2000);
     h.world().add_threat();
     run(h, 2000, 6000);
-    REQUIRE(h.alarm_level() >= 2);
+    REQUIRE(h.buzzer_level() >= 2);
     REQUIRE(h.vibro_ms() >= 200);
 
     // De-escalation is a level CHANGE too, and it must not be mistaken for a new
@@ -268,7 +268,7 @@ TEST_CASE("simulator: a threat going away does not buzz the motor again") {
     const uint16_t after_escalation = h.vibro_ms();
     h.world().clear_aircraft();
     run(h, 6000, 40000);
-    CHECK(h.alarm_level() == 0);
+    CHECK(h.buzzer_level() == 0);
     CHECK(h.vibro_ms() == after_escalation);  // unchanged: no pulse on the way down
 }
 

@@ -4,6 +4,7 @@
 #ifndef SKYBLIP_HARDWARE_MODEL_SX1262_H
 #define SKYBLIP_HARDWARE_MODEL_SX1262_H
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -171,9 +172,8 @@ class Sx1262 : public io::Spi, public io::Gpio {
     }
 
     bool saw_cmd(uint8_t opcode) const {
-        for (uint8_t c : cmds_seen)
-            if (c == opcode) return true;
-        return false;
+        return std::any_of(cmds_seen.begin(), cmds_seen.end(),
+                           [opcode](uint8_t c) { return c == opcode; });
     }
 
     int busy_pin{0}, reset_pin{1}, dio1_pin{2};

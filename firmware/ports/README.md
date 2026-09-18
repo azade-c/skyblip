@@ -6,9 +6,17 @@ This is not a hardware abstraction layer, which is why it stopped being called o
 
 Register code belongs in `hardware/parts/` and `hardware/platform/`. Zephyr headers belong there too: nothing above this line includes a framework, which is what buys the host suite and the WASM simulator.
 
+## What is a port and what is an event
+
+A port is something the core calls: arm this dwell, send these bytes, paint this frame, read the die now. The core decides when, so it needs a name for what it decides against.
+
+A receiver, a barometer, a divider and a button are called by nobody. The world happens to them, the board polls them, and what reaches a service is an `events::BaroSample` or an `events::ButtonEvent` on a queue. The queue is already the interface, declared in `core/events/`, so a port in front of one would be an abstraction with no caller. `hardware/README.md` lists what a platform owes the board for that half.
+
+`Rf` shows the line: the core calls `arm()`, so it is a port, and the executor pushes `RfEvent`, so the reception is an event. One device, two directions, two mechanisms. `Gnss` is a port for one reason only - a cold start is a thing the core asks for - and everything else the receiver knows arrives as a solution on the bus, which is why the port has one method on it.
+
 ## Absent is a role, not a null
 
-Every field of `Roles` is a reference. A board with no lamp, no die sensor and no radio still fills all ten, because a port whose methods do nothing is a smaller thing than a pointer every caller has to check. Some ports are their own absent part: `Indicator` and `DieTemperature` are concrete, and the base class is what a board without one is handed. The rest have a null in `runtime/null.h`.
+Every field of `Roles` is a reference. A board with no lamp, no die sensor and no radio still fills all eleven, because a port whose methods do nothing is a smaller thing than a pointer every caller has to check. Some ports are their own absent part: `Indicator`, `DieTemperature` and `Gnss` are concrete, and the base class is what a board without one is handed. The rest have a null in `runtime/null.h`.
 
 What is missing is stated once, in `capabilities.h`, and read by the code that has something to say about it: the self-test page prints the row, a service skips the work. Never by dereferencing.
 

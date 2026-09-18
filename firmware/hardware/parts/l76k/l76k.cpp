@@ -62,13 +62,13 @@ void L76k::verify_failed(uint32_t now_ms) {
     begin_wake(now_ms);
 }
 
-void L76k::request_restart(Restart kind) { pending_restart_ = static_cast<uint8_t>(kind); }
+void L76k::request_restart(ports::Restart kind) { pending_restart_ = static_cast<uint8_t>(kind); }
 
 void L76k::service(uint32_t now_ms) {
     serviced_ms_ = now_ms;
 
     if (pending_restart_ != kNoRestart) {
-        const bool factory = pending_restart_ == static_cast<uint8_t>(Restart::Factory);
+        const bool factory = pending_restart_ == static_cast<uint8_t>(ports::Restart::Factory);
         send(kRestartCommands[pending_restart_], now_ms);
         pending_restart_ = kNoRestart;
         // A factory reset takes the constellations, the sentence set, the

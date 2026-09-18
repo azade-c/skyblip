@@ -8,6 +8,7 @@
 #include "ports/die_temperature.h"
 #include "ports/display.h"
 #include "ports/flash_region.h"
+#include "ports/gnss.h"
 #include "ports/indicator.h"
 #include "ports/kvstore.h"
 #include "ports/link.h"
@@ -28,6 +29,7 @@ struct Roles {
     Dfu& dfu;
     DieTemperature& die_temperature;
     Indicator& indicator;
+    Gnss& gnss;
     Capabilities capabilities{Capability::None};
     uint32_t device_addr{0};
 };

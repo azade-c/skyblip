@@ -2,27 +2,28 @@
 
 namespace skyblip::annunciation {
 
-Pattern pattern_for(Voice voice, uint8_t level) {
+Pattern pattern_for(Voice voice, traffic::Level level) {
     Pattern p{};
     if (voice != Voice::Traffic) return p;
     switch (level) {
-        case 0: return p;
-        case 1:
+        case traffic::Level::None: return p;
+        case traffic::Level::Info:
             p.tone_ms = kInfoDiscreetBlipMs;
             p.repeats = kInfoDiscreetBlipCount;
             return p;
-        case 2:
+        case traffic::Level::Important:
             p.tone_ms = kImportantPairBeepMs;
             p.gap_ms = kImportantPairGapSameAsBeepMs;
             p.repeats = kImportantPairBeepCount;
             return p;
-        default:
+        case traffic::Level::Urgent:
             p.tone_ms = kUrgentTrainPulseMs;
             p.gap_ms = kUrgentTrainGapSameAsPulseMs;
             p.repeats = kUrgentTrainPulseCount;
             p.reannounce_ms = kUrgentStandingReannounceMs;
             return p;
     }
+    return p;
 }
 
 Command Policy::update(const Situation& situation, uint32_t now_ms) {
@@ -31,20 +32,21 @@ Command Policy::update(const Situation& situation, uint32_t now_ms) {
         return emit();
     }
 
-    if (situation.level != 0) {
+    if (situation.level != traffic::Level::None) {
         if (voice_ != Voice::Traffic || level_ != situation.level || situation.escalated)
             begin(Voice::Traffic, situation.level, now_ms);
     } else if (voice_ == Voice::Traffic) {
         release();
     }
 
-    if (situation.first_fix && voice_ != Voice::Traffic) begin(Voice::FirstFix, 0, now_ms);
+    if (situation.first_fix && voice_ != Voice::Traffic)
+        begin(Voice::FirstFix, traffic::Level::None, now_ms);
 
     advance(now_ms);
     return emit();
 }
 
-void Policy::begin(Voice voice, uint8_t level, uint32_t now_ms) {
+void Policy::begin(Voice voice, traffic::Level level, uint32_t now_ms) {
     voice_ = voice;
     level_ = level;
     pattern_ = pattern_for(voice, level);
@@ -72,7 +74,10 @@ void Policy::play_jingle(uint32_t now_ms) {
             phase_on_ = false;
             continue;
         }
-        if (note.gap_ms == 0 || note_ + 1 >= kFirstFixNoteCount) return release();
+        if (note.gap_ms == 0 || note_ + 1 >= kFirstFixNoteCount) {
+            release();
+            return;
+        }
         if (now_ms - phase_ms_ < note.gap_ms) return;
         phase_ms_ += note.gap_ms;
         note_++;
@@ -84,7 +89,10 @@ void Policy::play_jingle(uint32_t now_ms) {
 
 void Policy::advance(uint32_t now_ms) {
     if (voice_ == Voice::None) return;
-    if (voice_ == Voice::FirstFix) return play_jingle(now_ms);
+    if (voice_ == Voice::FirstFix) {
+        play_jingle(now_ms);
+        return;
+    }
 
     while (true) {
         if (phase_on_) {
@@ -109,7 +117,7 @@ void Policy::advance(uint32_t now_ms) {
 void Policy::release() {
     voice_ = Voice::None;
     tone_hz_ = 0;
-    level_ = 0;
+    level_ = traffic::Level::None;
     said_ = 0;
     phase_on_ = false;
 }
@@ -117,7 +125,7 @@ void Policy::release() {
 Command Policy::emit() {
     Command command{};
     command.tone_on = voice_ != Voice::None && phase_on_;
-    command.tone_level = command.tone_on ? level_ : 0;
+    command.tone_level = command.tone_on ? traffic::to_number(level_) : 0;
     command.tone_hz = command.tone_on ? tone_hz_ : 0;
     command.changed = command.tone_on != commanded_on_ || command.tone_level != commanded_level_ ||
                       command.tone_hz != commanded_hz_;

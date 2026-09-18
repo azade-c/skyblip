@@ -9,13 +9,14 @@
 #include "core/gnss/nmea.h"
 #include "core/gnss/validity.h"
 #include "hardware/io/io.h"
+#include "ports/gnss.h"
 
 namespace skyblip::parts {
 
 // The rate port is io::UartRate (hardware/io/io.h): a board whose platform can
 // retune the port hands the driver one, and autobaud recovery becomes available.
 
-class L76k {
+class L76k : public ports::Gnss {
    public:
     explicit L76k(io::Uart& uart, io::UartRate& rate = io::kFixedUartRate)
         : uart_(uart), rate_(rate) {}
@@ -30,12 +31,6 @@ class L76k {
         Ready,
         Degraded
     };
-
-    // What $PCAS10 asks the receiver to throw away. A poisoned almanac otherwise
-    // costs a pilot twenty minutes of a receiver that reads as broken, and there
-    // is no other way out of it from the front panel. SoftRF carries the same
-    // escape for u-blox only (.../src/driver/GNSS.cpp, ENABLE_UBLOX_RFS).
-    enum class Restart : uint8_t { Hot = 0, Warm = 1, Cold = 2, Factory = 3 };
 
     // INFO: gn 09jun25 t_echo_plus.dts:278 `current-speed` must equal this, nothing checks it
     static constexpr uint32_t kBaudRate = 9600;
@@ -144,7 +139,7 @@ class L76k {
 
     // Throw away the receiver's stored state. A factory reset takes our
     // configuration with it, so the sequence runs again behind it.
-    void request_restart(Restart kind);
+    void request_restart(ports::Restart kind) override;
 
     // Sentences the parser accepted since boot. A receiver that is wired but
     // silent (or babbling at the wrong baud) never moves this off zero, which is

@@ -41,7 +41,7 @@ size_t manchester_decode(const uint8_t* coded, size_t data_len, uint8_t* data, u
         uint8_t hi = kDecode[coded[2 * i]];
         uint8_t lo = kDecode[coded[2 * i + 1]];
         data[i] = static_cast<uint8_t>(((hi & 0x0F) << 4) | (lo & 0x0F));
-        uint8_t e = static_cast<uint8_t>(((hi & 0xF0)) | ((lo & 0xF0) >> 4));
+        uint8_t e = static_cast<uint8_t>((hi & 0xF0) | ((lo & 0xF0) >> 4));
         if (err) err[i] = e;
         bad_bits += __builtin_popcount(e);
     }

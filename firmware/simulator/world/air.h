@@ -116,6 +116,7 @@ class Air {
     };
 
     void log(const Burst& b, AirEvent event);
+    bool detected_by(models::Sx1262& radio, Burst& b);
     void take_own_transmission(uint64_t now_us, models::Sx1262& radio);
     void set_carrier(uint64_t now_us, models::Sx1262& radio);
 

@@ -41,8 +41,8 @@ class OwnshipService : public runtime::Service {
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const model::OwnState& previous);
     void adopt_climb(int32_t mm_s);
-    bool vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms, int32_t& ref_alt_mm,
-                        uint32_t& ref_ms, int32_t& out_mm_s) const;
+    static bool vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,
+                               int32_t& ref_alt_mm, uint32_t& ref_ms, int32_t& out_mm_s);
 
     flight::FlightMonitor flight_{};
     flight::FlightTimer timer_{};

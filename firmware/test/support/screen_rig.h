@@ -22,8 +22,9 @@ struct Rig {
     platform::host::Clock clock;
     runtime::NullRoles null;
     ports::Roles roles{
-        clock,   null.rf,        null.link,        epd,  // epd fills Display
-        null.kv, null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator};
+        clock,          null.rf,        null.link,        epd,  // epd fills Display
+        null.kv,        null.log_flash, null.annunciator, null.dfu, null.die_temperature,
+        null.indicator, null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
@@ -68,7 +69,7 @@ struct Rig {
         return chip.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH;
     }
 
-    void alarm(uint8_t level) { state.alarm_level = level; }
+    void alarm(traffic::Level level) { state.alarm_level = level; }
 
     void die_temperature(int16_t decicelsius) {
         state.power.die_dc = decicelsius;

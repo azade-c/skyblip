@@ -16,7 +16,7 @@ Heading up, not north up. The own ship is drawn nose-up and cannot turn, so the 
 
 ### The three symbols, and the tag beside them
 
-Traffic is drawn the way a pilot has already learned to read it, in TCAS's shapes: a hollow diamond for an aircraft that is out there, a filled diamond for one that is close, a filled circle for a traffic advisory. The shape comes from the grade `core/traffic/alarm.h` put on the target and from nothing the page computes for itself, so the glass and the annunciator can never disagree about which aircraft matters: level 0 is the hollow diamond, level 1 the filled one - the alarm layer's info ring, 3 km and a 300 m vertical window - and level 2 or above the circle.
+Traffic is drawn the way a pilot has already learned to read it, in TCAS's shapes: a hollow diamond for an aircraft that is out there, a filled diamond for one that is close, a filled circle for a traffic advisory. The shape comes from the grade `core/traffic/alarm.h` put on the target and from nothing the page computes for itself, so the glass and the annunciator can never disagree about which aircraft matters: `traffic::Level::None` is the hollow diamond, `Info` the filled one - the alarm layer's info ring, 3 km and a 300 m vertical window - and `Important` or above the circle.
 
 There is no resolution advisory here, and there never will be. An RA is an instruction to climb or descend, coordinated with the other aircraft so the two are not told to do the same thing; this device has no link to coordinate over and no authority to give one. The loudest thing it can say is look, so the urgent grade reads as the same circle as the important one, and the extra urgency goes where it is already spent: the bar across the top of the glass, the lamp and the sounder. The circle is a pixel wider than the diamonds because it is the one symbol that has to survive being glanced at.
 
@@ -67,18 +67,22 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-12:34:56 RX M A 3FA21C -87     an ADS-L frame from 3FA21C
-12:34:56 RX M F 4C11A0 -93     an ALP-TAS frame, same dwell
-12:34:55 RX M BAD       -101   a burst that arrived and never framed
-12:34:55 TX M SENT             own-ship's burst left the antenna
-12:34:53 TX M LOST             armed, and the radio never reported it sent
+34:56.462 RX M0 A     3FA21C   -87   an ADS-L frame from 3FA21C
+34:56.918 RX M1 F     4C11A0   -93   an ALP-TAS frame, the other channel
+34:55.107 RX M0 DEC           -101   a burst that framed and named no system
+34:55.694 TX M0       GND            own-ship's burst left the antenna
+34:53.881 TX M1 LOST  GND            armed, and the radio never reported it sent
 ```
 
-The columns are the stamp, the direction, the band the dwell was armed for, the verdict, the emitter's address and the level it arrived at. `BAD` is the one that matters: a burst reached the dwell and did not become a frame. It is the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`.
+The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device.
+
+`DEC` is the row that matters: a burst reached the dwell and did not become a frame. It is the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
+
+Three columns left this page rather than shrinking it. The byte count, because the M band reads a fixed 58 bytes whatever arrived and a constant is not a measurement. The keying and the whole span of a transmission, because they are microseconds of this CPU and of the chip, and the reader who wants them wants the diagnostics dump, not a tape. The DOPs and the solution count, because `status` already carries them and a dilution figure is not a radio number.
 
 The stamp is UTC as `hh:mm:ss` once the receiver has given us a second, and `T+<seconds>` since boot before that. Two shapes rather than one, so a reading is never taken for a wall clock it is not. A bench indoors never gets a fix and would otherwise have a column of dashes.
 
-The GNSS line is on this page for the same reason the log is: a radio that hears nothing and a radio that is not being told where it is read identically on every other page. The solution count beside it is the one that separates a receiver saying nothing at all from one saying it cannot see the sky.
+The second line is the radio's half of the receiver, and it explains the tape under it. Without a latched PPS edge nothing may transmit at all (`timing::own_ship_transmits`) and no row carries a phase, so `PPS LOCK`, `PPS HOLD 12` and `PPS NONE` answer a column of stamps that suddenly lost its milliseconds before the reader has to wonder. `BAND` is the noise floor the dwells measured, above the column of levels it is the floor under: a device hearing nothing at -85 dBm is deaf because the band is full, and one hearing nothing at -110 dBm is deaf for its own reasons.
 
 ## sixpack
 

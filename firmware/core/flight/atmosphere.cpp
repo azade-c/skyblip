@@ -1,5 +1,7 @@
 #include "core/flight/atmosphere.h"
 
+#include <algorithm>
+
 namespace skyblip::flight {
 
 namespace {
@@ -102,8 +104,7 @@ bool climb_mm_s_from_alt(int32_t alt_mm_now, int32_t alt_mm_then, uint32_t dt_ms
 int16_t climb_e8_from_mm_s(int32_t mm_s) {
     const int64_t eighths = static_cast<int64_t>(mm_s) * 8;
     int64_t e8 = (eighths >= 0 ? eighths + 500 : eighths - 500) / 1000;
-    if (e8 > 32767) e8 = 32767;
-    if (e8 < -32768) e8 = -32768;
+    e8 = std::clamp<int64_t>(e8, -32768, 32767);
     return static_cast<int16_t>(e8);
 }
 

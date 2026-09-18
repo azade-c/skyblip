@@ -197,6 +197,8 @@ TEST_CASE("scenario: a gaggle in one thermal is traffic, not three collisions") 
 // view is up to a second stale, and in a turn a second is 23 m.
 namespace {
 
+constexpr uint8_t kInfoSpoken = traffic::to_number(traffic::kSuppressedLevel);
+
 struct Encounter {
     static constexpr uint32_t kSampleMs = 100;
     // The tracker needs two reports from a target before it has a turn rate for
@@ -251,12 +253,12 @@ Encounter measure(simulator::Simulator& s) {
 
         // Every step, not every sample: the urgent train's pulses are 90 ms and
         // a 100 ms sample would step straight over them.
-        if (s.alarm_level() != spoken) {
-            spoken = s.alarm_level();
+        if (s.buzzer_level() != spoken) {
+            spoken = s.buzzer_level();
             if (spoken != 0) {
                 e.last_spoken_level = spoken;
                 e.last_spoken_ms = t;
-                if (spoken > traffic::kSuppressedLevel) e.last_spoken_above_info_ms = t;
+                if (spoken > kInfoSpoken) e.last_spoken_above_info_ms = t;
                 uint8_t& peak = t >= Encounter::kQuietFromMs ? e.spoken_peak_after_settle
                                                              : e.spoken_peak_before_settle;
                 if (spoken > peak) peak = spoken;
@@ -271,7 +273,7 @@ Encounter measure(simulator::Simulator& s) {
 
         const traffic::AlarmAssessment a = traffic::assess(state.own, target->obs, t);
         if (!a.valid) continue;
-        const uint8_t level = state.alarm_level;
+        const uint8_t level = traffic::to_number(state.alarm_level);
         const int32_t range_m = a.rel_dist_m;
         const int32_t true_m = static_cast<int32_t>(s.world().separation_m(0));
 
@@ -363,13 +365,13 @@ TEST_CASE("scenario: two gliders sharing a thermal core pass inside 15 m in sile
     // once per escalation, so a level that stays at 1 is a buzzer that stays
     // quiet. The pilot hears one false urgent early and then silence through
     // the near miss.
-    CHECK(e.spoken_peak_after_settle <= traffic::kSuppressedLevel);
+    CHECK(e.spoken_peak_after_settle <= kInfoSpoken);
 
     // And then silence, all the way through the near miss.
-    CHECK(e.settled_peak_level == traffic::kSuppressedLevel);
+    CHECK(e.settled_peak_level == kInfoSpoken);
     CHECK(e.min_true_m < 15);
     CHECK(e.min_true_ms > 10000);
-    CHECK(e.level_at_min_true == traffic::kSuppressedLevel);
+    CHECK(e.level_at_min_true == kInfoSpoken);
 
     // Two circling gliders extrapolate badly: neither reports a turn rate, so each is carried
     // straight.

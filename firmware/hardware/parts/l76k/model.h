@@ -363,7 +363,7 @@ class L76k : public io::Uart, public io::UartRate {
         lon_1e7 += static_cast<int32_t>(east_m * 1e7 / (111320.0 * coslat));
     }
 
-    int put_time(char* s) {
+    int put_time(char* s) const {
         int n = 0;
         n += fmt_uint(s + n, utc_sod / 3600u, 2);
         n += fmt_uint(s + n, (utc_sod / 60u) % 60u, 2);

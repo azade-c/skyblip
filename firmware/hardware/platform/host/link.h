@@ -23,7 +23,7 @@ class Link : public ports::Link {
     // ends of the range say so with declare_payload_bytes().
     static constexpr uint16_t kDefaultPayloadBytes = 244;
 
-    Status begin() { return Status::Ok; }
+    static Status begin() { return Status::Ok; }
 
     void push_rx(const events::RxFrame& frame) { rx_.push(frame); }
     bool pop_rx(events::RxFrame& out) { return rx_.pop(out); }
@@ -75,7 +75,7 @@ class Link : public ports::Link {
     bool last_on(events::Endpoint ep) const { return !sent.empty() && sent.back().endpoint == ep; }
     int count_on(events::Endpoint ep) const {
         int n = 0;
-        for (auto& f : sent)
+        for (const auto& f : sent)
             if (f.endpoint == ep) n++;
         return n;
     }

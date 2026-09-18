@@ -1,5 +1,7 @@
 #include "core/comms/timing_report.h"
 
+#include <algorithm>
+
 #include "core/comms/frame_budget.h"
 #include "core/util/format.h"
 #include "core/util/json_min.h"
@@ -58,7 +60,7 @@ bool TimingReport::fits(int payload) const {
     int widest = 0;
     for (int i = 0; i < count_; i++) {
         const int bytes = field_bytes(fields_[i]);
-        if (bytes > widest) widest = bytes;
+        widest = std::max(bytes, widest);
     }
     frame::Budget budget(payload);
     return budget.take(field_bytes(Field{"cmd", "timing", 0})) &&
@@ -70,7 +72,7 @@ int TimingReport::next_frame(int payload, char* buf, int cap) {
     if (exhausted()) return 0;
 
     int room = payload + 1;
-    if (room > cap) room = cap;
+    room = std::min(room, cap);
 
     frame::Budget budget(room - 1);
     budget.take(field_bytes(Field{"cmd", "timing", 0}));

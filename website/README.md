@@ -32,4 +32,4 @@ Deployment is `.github/workflows/website.yml` at the repo root: a push to `main`
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE). The rest of the repository is GPL-3.0-only.
+MIT, see [`LICENSE`](LICENSE), the same license as the repository root. Only `firmware/` is GPL-3.0-only.

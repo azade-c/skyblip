@@ -88,7 +88,7 @@ Status AdslUplink::encode(const model::AircraftObs* targets, int n, uint8_t key_
     data[1] = static_cast<uint8_t>(n);
     data[2] = key_index;
     for (int i = 0; i < n; i++) {
-        pack_record(data + kHeaderBytes + i * kRecordBytes, targets[i]);
+        pack_record(data + kHeaderBytes + static_cast<ptrdiff_t>(i) * kRecordBytes, targets[i]);
     }
     uint32_t words[fec::ReedSolomon255::kK / 4];
     std::memcpy(words, data, sizeof(words));
@@ -121,7 +121,7 @@ Status AdslUplink::decode(const uint8_t frame[kFrameBytes], model::AircraftObs* 
     int out = 0;
     for (int i = 0; i < n && out < cap; i++) {
         model::AircraftObs t{};
-        unpack_record(data + kHeaderBytes + i * kRecordBytes, t);
+        unpack_record(data + kHeaderBytes + static_cast<ptrdiff_t>(i) * kRecordBytes, t);
         if (!plausible(t)) {
             stats.rejected++;
             continue;

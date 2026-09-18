@@ -1,5 +1,7 @@
 #include "core/traffic/alarm.h"
 
+#include <algorithm>
+
 #include "core/flight/extrapolate.h"
 #include "core/flight/turn.h"
 #include "core/model/aircraft.h"
@@ -73,10 +75,11 @@ AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs&
     const bool opening = a.closing_mps <= -kClosingFloorMps;
     const int32_t tti = converging ? a.rel_dist_m / a.closing_mps : kNoImpactS;
 
-    uint8_t level = 0;
-    if (a.rel_dist_m <= kInfoDistM) level = 1;
-    if (!opening && (a.rel_dist_m <= kImportantDistM || tti <= kImportantTtiS)) level = 2;
-    if (converging && (a.rel_dist_m <= kUrgentDistM || tti <= kUrgentTtiS)) level = 3;
+    Level level = Level::None;
+    if (a.rel_dist_m <= kInfoDistM) level = Level::Info;
+    if (!opening && (a.rel_dist_m <= kImportantDistM || tti <= kImportantTtiS))
+        level = Level::Important;
+    if (converging && (a.rel_dist_m <= kUrgentDistM || tti <= kUrgentTtiS)) level = Level::Urgent;
     a.level = level;
     return a;
 }
@@ -121,7 +124,7 @@ AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
 // level we last said falls back only after the contact has been calmer than it
 // for a whole re-notification window, so a target oscillating across a ring
 // boundary is announced once, not twice a second.
-bool AlarmTracker::notify_for(Slot& slot, uint8_t level, uint32_t now_ms, bool& escalated) {
+bool AlarmTracker::notify_for(Slot& slot, Level level, uint32_t now_ms, bool& escalated) {
     bool speak = false;
     if (level > slot.notified_level) {
         speak = true;
@@ -201,11 +204,11 @@ void AlarmTracker::forget_stale(uint32_t now_ms) {
     }
 }
 
-uint8_t AlarmTracker::announced_level(uint32_t now_ms) const {
-    uint8_t level = 0;
+Level AlarmTracker::announced_level(uint32_t now_ms) const {
+    Level level = Level::None;
     for (const Slot& s : slots_) {
         if (!s.used || now_ms - s.seen_ms > kAlertMaxAgeMs) continue;
-        if (s.notified_level > level) level = s.notified_level;
+        level = std::max(s.notified_level, level);
     }
     return level;
 }

@@ -1,5 +1,7 @@
 #include "hardware/parts/sx1262/sx1262.h"
 
+#include <algorithm>
+
 namespace skyblip::parts {
 
 Status Sx1262::wait_busy_low(uint32_t max_spins) {
@@ -368,7 +370,7 @@ uint8_t Sx1262::read_payload(uint8_t* rx_buf, uint8_t cap) {
     uint8_t st[2];
     cmd_read(sx::kGetRxBufferStatus, st, 2);
     uint8_t len = st[0];
-    if (len > cap) len = cap;
+    len = std::min(len, cap);
     select_when_ready();
     uint8_t header[3] = {sx::kReadBuffer, st[1], 0};
     spi_.transfer(header, nullptr, sizeof(header));

@@ -103,6 +103,15 @@ size_t mband_payload(uint32_t sync_word, const uint8_t* frame, uint8_t frame_len
 // them, name the system by the sync tail, and shift the frame to byte zero.
 bool receive_mband(const uint8_t* chips, size_t chip_bytes, Frame& out);
 
+// INFO: fc 17sep26 noise decodes half its chip pairs to a pair no transmitter can send
+constexpr uint8_t kNoiseWindowBytes = 12;
+constexpr uint16_t kNoiseBadChips = kNoiseWindowBytes * 8u / 4u;
+
+static_assert(kNoiseWindowBytes <= kSyncTailBytes + kAdslFrameBytes,
+              "the window has to end inside the shortest burst this band carries");
+
+bool framed_noise(const Frame& frame);
+
 // The chips a transmitter puts on the O band: no Manchester (§C.4), so the sync
 // word, the §D.1.1 length byte and the codeword, as they are. Written here
 // beside its M-band twin because encode and decode change together.

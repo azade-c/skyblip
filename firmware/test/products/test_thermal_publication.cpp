@@ -13,8 +13,9 @@ struct Rig {
     platform::host::Clock clock;
     runtime::NullRoles null;
     platform::host::DieTemperature sensor{};
-    ports::Roles roles{clock,          null.rf,          null.link, null.display, null.kv,
-                       null.log_flash, null.annunciator, null.dfu,  sensor,       null.indicator};
+    ports::Roles roles{clock,   null.rf,        null.link,        null.display,
+                       null.kv, null.log_flash, null.annunciator, null.dfu,
+                       sensor,  null.indicator, null.gnss};
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};

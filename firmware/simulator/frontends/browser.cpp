@@ -124,7 +124,9 @@ KEEPALIVE int simulator_speed_q() { return g_simulator.product().state().own.spe
 KEEPALIVE int simulator_track_c9() { return g_simulator.product().state().own.track_c9; }
 KEEPALIVE int simulator_climb_mm_s() { return g_simulator.product().state().own.climb_mm_s; }
 KEEPALIVE int simulator_traffic_count() { return g_simulator.product().state().traffic.count(); }
-KEEPALIVE int simulator_alarm_level() { return g_simulator.product().state().alarm_level; }
+KEEPALIVE int simulator_alarm_level() {
+    return traffic::to_number(g_simulator.product().state().alarm_level);
+}
 KEEPALIVE int simulator_shutdown_phase() {
     return static_cast<int>(g_simulator.product().shutdown().phase());
 }

@@ -262,9 +262,8 @@ size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t
     p.VelAccuracy = 2;
     p.scramble();
     p.set_crc();
-    return protocol::encode_mband(protocol::kAdslSyncWord,
-                                  reinterpret_cast<const uint8_t*>(&p.Version),
-                                  protocol::kAdslFrameBytes, chips);
+    return protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes,
+                                  chips);
 }
 
 // An ALP-TAS aircraft carries a FLARM-taxonomy address, so the address type says
@@ -373,7 +372,8 @@ void World::apply_events(uint32_t now_ms, const bus::State& state) {
             case EventKind::Track: set_track_deg(static_cast<int32_t>(e.value)); break;
             case EventKind::Aircraft: add_threat(); break;
             case EventKind::ExpectAlarmMin:
-                if (state.alarm_level < e.value) fail("alarm level below expectation");
+                if (traffic::to_number(state.alarm_level) < e.value)
+                    fail("alarm level below expectation");
                 break;
             case EventKind::ExpectTrafficMin:
                 if (state.traffic.count() < e.value) fail("traffic count below expectation");
