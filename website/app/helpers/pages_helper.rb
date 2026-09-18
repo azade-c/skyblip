@@ -1,10 +1,10 @@
 module PagesHelper
-  def link_to_page(slug, label: nil, label_type: :title, **html_options)
+  def link_to_page(slug, label: nil, label_type: :title, anchor: nil, **html_options)
     page = find_page(slug)
     label ||= label_type == :nav ? page.nav_label : page.title
 
     lang = page.locale unless page.locale == I18n.locale
-    link_to label, page_url_for(page, only_path: true), { lang: }.merge(html_options)
+    link_to label, page_url_for(page, only_path: true, anchor:), { lang: }.merge(html_options)
   end
 
   def pages_image_tag(path, options = {})

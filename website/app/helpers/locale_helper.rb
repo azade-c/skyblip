@@ -11,13 +11,13 @@ module LocaleHelper
     safe_join(urls.compact.map { |locale, url| tag(:link, rel: "alternate", hreflang: locale, href: url) }, "\n")
   end
 
-  def page_url_for(page, only_path: false)
+  def page_url_for(page, only_path: false, anchor: nil)
     locale = page.locale unless page.locale == I18n.default_locale
 
     if page.base_slug == "index"
-      root_url(locale:, only_path:)
+      root_url(locale:, only_path:, anchor:)
     else
-      page_url(page, locale:, only_path:)
+      page_url(page, locale:, only_path:, anchor:)
     end
   end
 
