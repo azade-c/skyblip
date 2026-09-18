@@ -729,7 +729,7 @@ Airborne or not, from the fix stream: it gates the DFU lockout and the transmit 
 - a landing is a standstill, and a fast rollout is not one yet
   > The rollout is the landing: a stop, and nothing slower than a stop.
 - a lost fix is not a landing, so the ground latch holds airborne
-- a parked receiver's own noise is not a taxi, and a taxi that slows is still one
+- a parked receiver's noise is not a taxi, and a slowing taxi still is
   > The third band: stopped or moving, which is the word the glass prints while ADS-L says OnGround.
 - a takeoff is the speed no taxi holds, and it waits for nothing
   > 23 kt is a speed no aircraft taxis at and every takeoff roll passes it well before it flies.

@@ -7,7 +7,8 @@
 // a continuous tone that runs until silence(), so a level with no off time is a
 // level that never stops: every pattern here ends by itself.
 //
-// INFO: al 02aug26 the pair is SoftRF's fork's look cadence (oss/SoftRF-moshe-braner Buzzer.cpp:172-215)
+// INFO: al 02aug26 the pair is SoftRF's fork's look cadence (oss/SoftRF-moshe-braner
+// Buzzer.cpp:172-215)
 #ifndef SKYBLIP_CORE_ANNUNCIATION_PATTERN_H
 #define SKYBLIP_CORE_ANNUNCIATION_PATTERN_H
 

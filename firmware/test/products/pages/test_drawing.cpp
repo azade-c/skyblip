@@ -104,7 +104,7 @@ TEST_CASE("fb: text advances and draws glyph pixels") {
 TEST_CASE("radar: renders rings, own symbol and plots targets") {
     Glass fb;
     RadarTarget targets[2] = {
-        {2000, 0, 100, Level::Advisory},      // north, above
+        {2000, 0, 100, Level::Advisory},    // north, above
         {0, -3000, -100, Level::Advisory},  // west, below, urgent
     };
     // Mirror-image targets must land mirror-image distances from the centre

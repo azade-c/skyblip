@@ -91,7 +91,7 @@ TEST_CASE("flight: the dilution of precision cannot land an aircraft") {
 }
 
 // The third band: stopped or moving, which is the word the glass prints while ADS-L says OnGround.
-TEST_CASE("flight: a parked receiver's own noise is not a taxi, and a taxi that slows is still one") {
+TEST_CASE("flight: a parked receiver's noise is not a taxi, and a slowing taxi still is") {
     FlightMonitor monitor;
     REQUIRE(hold(monitor, 3, 0.2) == FlightState::OnGround);
     CHECK_FALSE(monitor.rolling());
