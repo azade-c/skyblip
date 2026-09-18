@@ -1,7 +1,5 @@
 #include "ui/screens/radio_log.h"
 
-#include "core/model/aircraft.h"
-#include "core/model/band.h"
 #include "core/util/format.h"
 
 namespace skyblip::ui {
@@ -21,10 +19,10 @@ constexpr int kClockX = kColumn(0);
 constexpr int kWayX = kColumn(10);
 constexpr int kBandX = kColumn(13);
 constexpr int kVerdictX = kColumn(16);
-constexpr int kAddrX = kColumn(18);
-constexpr int kLenX = kColumn(20);
-constexpr int kRssiEnd = kColumn(30);
+constexpr int kAddrX = kColumn(22);
 constexpr int kRightEnd = kColumn(32);
+
+constexpr int kPpsX = kColumn(9);
 
 constexpr uint8_t kFewestSatsForAltitude = 4;
 constexpr uint32_t kUptimeClockWrapS = 10000;
@@ -40,14 +38,15 @@ bool own_burst(radio::Event event) {
 
 bool names_one_emitter(model::Source source) { return source != model::Source::AdslUplink; }
 
+// INFO: fc 17sep26 a transmission that worked prints no verdict, as a reception does not
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
-        case radio::Event::Transmitted: return "SENT";
-        case radio::Event::Lost: return "LOST";
+        case radio::Event::Lost:
+        case radio::Event::Unarmed: return "LOST";
         case radio::Event::Held: return "HELD";
-        case radio::Event::Unarmed: return "ARM";
         case radio::Event::BadCrc: return "CRC";
         case radio::Event::Undecoded: return "DEC";
+        case radio::Event::Transmitted:
         case radio::Event::Received:
         default: return nullptr;
     }
@@ -75,65 +74,76 @@ int fmt_dwell(char* out, const radio::Entry& entry) {
 void draw_title(Framebuffer& fb, const RadioLogSnapshot& snap) {
     fb.draw_text(kLeft, kTitleY, "RADIO LOG", true, 1);
 
-    char buf[20];
+    char buf[32];
     int n = fmt_string(buf, "RX ");
     n += fmt_uint(buf + n, snap.rx_ok);
     n += fmt_string(buf + n, " TX ");
     n += fmt_uint(buf + n, snap.tx_ok);
+    n += fmt_string(buf + n, " NOISE ");
+    n += fmt_uint(buf + n, snap.noise);
     buf[n] = 0;
     right_aligned(fb, kRightEnd, kTitleY, buf, n);
 }
 
-int fmt_dop(char* out, const char* label, uint16_t dop_e2) {
-    if (dop_e2 == 0) return 0;
-    const int n = fmt_string(out, label);
-    return n + fmt_uint(out + n, dop_e2 / 10u, 2, 1);
+int fmt_pps(char* out, const GnssReception& gnss) {
+    int n = fmt_string(out, "PPS ");
+    switch (gnss.pps) {
+        case PpsState::Lock: return n + fmt_string(out + n, "LOCK");
+        case PpsState::Holdover:
+            n += fmt_string(out + n, "HOLD ");
+            return n + fmt_uint(out + n, gnss.pps_age_s);
+        case PpsState::None:
+        default: return n + fmt_string(out + n, "NONE");
+    }
 }
 
-void draw_gnss(Framebuffer& fb, const GnssReception& gnss) {
-    char buf[34];
-    int n = fmt_string(buf, "GNSS ");
+void draw_gnss(Framebuffer& fb, const RadioLogSnapshot& snap) {
+    const GnssReception& gnss = snap.gnss;
+    char buf[32];
+    int n = 0;
     if (!gnss.fix_valid) {
-        n += fmt_string(buf + n, "NO FIX");
+        n = fmt_string(buf, "NO FIX");
     } else {
-        n += fmt_string(buf + n, gnss.sats >= kFewestSatsForAltitude ? "3D " : "2D ");
+        n = fmt_string(buf, gnss.sats >= kFewestSatsForAltitude ? "3D " : "2D ");
         n += fmt_uint(buf + n, gnss.sats);
         n += fmt_string(buf + n, "SV");
-        n += fmt_dop(buf + n, " H", gnss.hdop_e2);
-        n += fmt_dop(buf + n, " V", gnss.vdop_e2);
     }
     buf[n] = 0;
     fb.draw_text(kLeft, kGnssY, buf, true, 1);
 
-    n = fmt_uint(buf, gnss.solutions);
-    n += fmt_string(buf + n, " FIX");
+    n = fmt_pps(buf, gnss);
+    buf[n] = 0;
+    fb.draw_text(kPpsX, kGnssY, buf, true, 1);
+
+    n = fmt_string(buf, "BAND ");
+    n += fmt_int(buf + n, snap.band_dbm, 1, 0, false);
     buf[n] = 0;
     right_aligned(fb, kRightEnd, kGnssY, buf, n);
 }
 
-void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
+void draw_row(Framebuffer& fb, int y, const radio::Entry& entry, bool airborne) {
     char buf[16];
 
     int n = fmt_stamp(buf, entry);
     buf[n] = 0;
     fb.draw_text(kClockX, y, buf, true, 1);
 
-    fb.draw_text(kWayX, y, own_burst(entry.event) ? "TX" : "RX", true, 1);
+    const bool ours = own_burst(entry.event);
+    fb.draw_text(kWayX, y, ours ? "TX" : "RX", true, 1);
 
     n = fmt_dwell(buf, entry);
     buf[n] = 0;
     fb.draw_text(kBandX, y, buf, true, 1);
 
     const char* verdict = verdict_of(entry);
-    if (verdict != nullptr) {
-        fb.draw_text(kVerdictX, y, verdict, true, 1);
-        if (entry.len > 0) {
-            n = fmt_uint(buf, entry.len);
-            n += fmt_string(buf + n, "B");
-            buf[n] = 0;
-            fb.draw_text(kLenX, y, buf, true, 1);
-        }
-    } else {
+    if (verdict != nullptr) fb.draw_text(kVerdictX, y, verdict, true, 1);
+
+    if (ours) {
+        fb.draw_text(kAddrX, y, airborne ? "AIR" : "GND", true, 1);
+        return;
+    }
+
+    if (verdict == nullptr) {
         buf[0] = model::source_letter(entry.source);
         buf[1] = 0;
         fb.draw_text(kVerdictX, y, buf, true, 1);
@@ -144,26 +154,17 @@ void draw_row(Framebuffer& fb, int y, const radio::Entry& entry) {
         }
     }
 
-    if (entry.tx_span_valid) {
-        n = fmt_uint(buf, entry.tx_keyed_us);
-        buf[n] = 0;
-        fb.draw_text(kLenX, y, buf, true, 1);
-        n = fmt_uint(buf, entry.tx_span_us);
-        buf[n] = 0;
-        right_aligned(fb, kRssiEnd, y, buf, n);
-        return;
-    }
     if (!entry.rssi_valid) return;
     n = fmt_int(buf, entry.rssi_dbm, 1, 0, false);
     buf[n] = 0;
-    right_aligned(fb, kRssiEnd, y, buf, n);
+    right_aligned(fb, kRightEnd, y, buf, n);
 }
 
 }  // namespace
 
 void draw_radio_log(Framebuffer& fb, const RadioLogSnapshot& snap) {
     draw_title(fb, snap);
-    draw_gnss(fb, snap.gnss);
+    draw_gnss(fb, snap);
     fb.hline(kLeft, kRuleY, kRightEnd - kLeft, true);
 
     if (snap.log == nullptr || snap.n_rows == 0) {
@@ -172,7 +173,8 @@ void draw_radio_log(Framebuffer& fb, const RadioLogSnapshot& snap) {
     }
 
     const int rows = snap.n_rows < kRadioLogRows ? snap.n_rows : kRadioLogRows;
-    for (int i = 0; i < rows; i++) draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i));
+    for (int i = 0; i < rows; i++)
+        draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i), snap.airborne);
 }
 
 }  // namespace skyblip::ui

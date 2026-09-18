@@ -5,6 +5,7 @@
 #include "core/events/input.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/extrapolate.h"
+#include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/power/cutoff.h"
@@ -19,6 +20,14 @@ namespace skyblip::go {
 namespace {
 bool settled_for_a_double_press(uint32_t now_ms, uint32_t since_ms) {
     return now_ms - since_ms >= ui::ConfirmGesture::kDoublePressMs;
+}
+
+// INFO: fc 17sep26 one edge a second, so a phase older than this is an edge that never came
+constexpr uint32_t kPpsEdgeMissedMs = 1500;
+
+ui::PpsState pps_state(const timing::ClockState& clock) {
+    if (!clock.pps_locked) return ui::PpsState::None;
+    return clock.ms_since_pps >= kPpsEdgeMissedMs ? ui::PpsState::Holdover : ui::PpsState::Lock;
 }
 }  // namespace
 
@@ -437,13 +446,14 @@ void ScreenService::render(uint32_t now_ms) {
         case Page::RadioLog: {
             ui::RadioLogSnapshot snap;
             snap.gnss.fix_valid = own.fix_valid;
-            snap.gnss.utc_valid = own.utc_valid;
             snap.gnss.sats = own.sats;
-            snap.gnss.hdop_e2 = own.hdop_e2;
-            snap.gnss.vdop_e2 = own.vdop_e2;
-            snap.gnss.solutions = context_.state.flight.gnss_solutions;
+            snap.gnss.pps = pps_state(context_.state.clock);
+            snap.gnss.pps_age_s = static_cast<uint16_t>(context_.state.clock.ms_since_pps / 1000);
             snap.rx_ok = context_.state.air.rx_ok;
             snap.tx_ok = context_.state.air.tx_ok;
+            snap.noise = context_.state.air.rx_noise;
+            snap.band_dbm = context_.state.rf.noise_dbm;
+            snap.airborne = flight::airborne(own.flight_state);
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             ui::draw_radio_log(fb_, snap);
