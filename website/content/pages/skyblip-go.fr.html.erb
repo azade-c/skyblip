@@ -1,9 +1,51 @@
 ---
-title: Se servir du bouton et du pavé
-nav_title: Boutons
-slug: boutons
-description: Deux contacts sur skyBlip Go · le pavé du bord haut déplace, le bouton du côté agit. Une tape change de page, une pression ouvre les réglages, deux pressions autorisent, un appui de deux secondes éteint.
+title: skyBlip Go
+nav_title: skyBlip Go
+description: Un skyBlip Go dans votre navigateur, sur le firmware que fait tourner un vrai · le pavé du bord haut déplace, le bouton du côté agit. Une tape change de page, une pression ouvre les réglages, un appui de deux secondes éteint.
 ---
+
+<section id="simulator">
+  <h2 class="kicker">skyBlip Go</h2>
+  <h3>L&rsquo;appareil, dans cette page.</h3>
+  <p class="lede">
+    Ci-dessous, c&rsquo;est le firmware que fait tourner un skyBlip Go, compilé en
+    WebAssembly&nbsp;: même radar, mêmes pages, mêmes contacts anti-rebond, avec
+    des capteurs simulés dessous. Tapez le pavé du bord haut pour parcourir les
+    pages, gardez-le une seconde pour revenir au radar, appuyez sur la touche du
+    côté pour ouvrir les réglages, ou maintenez-la deux secondes et regardez
+    l&rsquo;appareil s&rsquo;éteindre en gardant le logo à l&rsquo;écran. La touche
+    blanche au-dessus, c&rsquo;est <span class="mono">RST</span>, et il redémarre.
+  </p>
+
+  <%= render "shared/simulator",
+        start: "Allumer l’appareil",
+        restart: "Rallumer",
+        traffic: "Mettre un aéronef dans le ciel",
+        on: "en marche",
+        off: "éteint",
+        settings: "réglages",
+        glass: "L’écran e-paper simulé d’un skyBlip Go",
+        key: "Le bouton de l’appareil : une pression ouvre les réglages, un appui de deux secondes éteint",
+        pad: "Le pavé tactile : une tape change de page, un contact d’une seconde ramène le radar",
+        reset: "RST : redémarrer l’appareil",
+        caption: "Les capteurs sont simulés, le firmware ne l’est pas : c’est la version depuis laquelle ce site a été publié.",
+        missing: "Le simulateur ne fait pas partie de cette version du site." %>
+
+  <p>
+    Rien ne vole là-haut tant que vous n&rsquo;en demandez pas. Chaque aéronef
+    ajouté par le bouton sous le boîtier est placé à un relevé, une distance et
+    une altitude qui lui sont propres, puis poursuit sa route en émettant de
+    vraies trames ADS-L que le firmware reçoit, décode et trace comme n&rsquo;importe
+    quel autre trafic.
+  </p>
+  <p>
+    Les deux voyants à côté de l&rsquo;écran sont ceux de l&rsquo;appareil. Seul
+    celui de gauche appartient au firmware, allumé tant qu&rsquo;un contact mérite
+    une alarme. Celui de droite est câblé au chargeur et aucune de nos lignes ne
+    l&rsquo;atteint&nbsp;: dans cette page, où aucun câble n&rsquo;est jamais
+    branché, il reste éteint.
+  </p>
+</section>
 
 <section>
   <h2 class="kicker">Se servir du bouton et du pavé</h2>
@@ -61,31 +103,6 @@ description: Deux contacts sur skyBlip Go · le pavé du bord haut déplace, le 
       </tbody>
     </table>
   </div>
-</section>
-
-<section id="simulator">
-  <h2 class="kicker">Essayez</h2>
-  <h3>Le même firmware, dans cette page.</h3>
-  <p>
-    L&rsquo;appareil ci-dessous, c&rsquo;est le firmware que fait tourner un
-    skyBlip Go, compilé en WebAssembly&nbsp;: même radar, mêmes pages, mêmes
-    contacts anti-rebond. Tapez la bande du bord haut pour parcourir les pages,
-    gardez-la une seconde pour revenir au radar, appuyez sur la touche du côté
-    pour ouvrir les réglages, ou maintenez-la deux secondes et regardez
-    l&rsquo;appareil s&rsquo;éteindre en gardant le logo à l&rsquo;écran.
-  </p>
-
-  <%= render "shared/simulator",
-        start: "Allumer l’appareil",
-        restart: "Rallumer",
-        on: "en marche",
-        off: "éteint",
-        settings: "réglages",
-        glass: "L’écran e-paper simulé d’un skyBlip Go",
-        key: "Le bouton de l’appareil : une pression ouvre les réglages, un appui de deux secondes éteint",
-        pad: "Le pavé tactile : une tape change de page, un contact d’une seconde ramène le radar",
-        caption: "Les capteurs sont simulés, le firmware ne l’est pas : c’est la version depuis laquelle ce site a été publié.",
-        missing: "Le simulateur ne fait pas partie de cette version du site." %>
 </section>
 
 <section>

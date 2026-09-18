@@ -1,8 +1,49 @@
 ---
-title: Using the button and the pad
-nav_title: Buttons
-description: Two contacts on skyBlip Go · the pad on the top edge moves, the button on the side acts. A tap changes page, a press opens the settings, two presses authorise, a two-second hold switches the device off.
+title: skyBlip Go
+nav_title: skyBlip Go
+description: A skyBlip Go running in your browser, on the firmware a real one runs · the pad on the top edge moves, the button on the side acts. A tap changes page, a press opens the settings, a two-second hold switches the device off.
 ---
+
+<section id="simulator">
+  <h2 class="kicker">skyBlip Go</h2>
+  <h3>The device, running in this page.</h3>
+  <p class="lede">
+    Below is the firmware a skyBlip Go runs, compiled to WebAssembly: the same
+    radar, the same pages, the same debounced contacts, with simulated sensors
+    underneath. Tap the pad on the top edge to walk the pages, hold it a second to
+    come back to the radar, press the key on the side to open the settings, or
+    hold that key for two seconds and watch the device switch itself off and keep
+    the wordmark on the glass. The white key above it is
+    <span class="mono">RST</span>, and it reboots.
+  </p>
+
+  <%= render "shared/simulator",
+        start: "Switch the device on",
+        restart: "Switch it back on",
+        traffic: "Put an aircraft in the sky",
+        on: "running",
+        off: "off",
+        settings: "settings",
+        glass: "The simulated e-paper panel of a skyBlip Go",
+        key: "The device button: press to open the settings, hold two seconds to switch off",
+        pad: "The capacitive pad: tap to change page, hold one second to come back to the radar",
+        reset: "RST: reboot the device",
+        caption: "Sensors are simulated, the firmware is not. It is the build this site was published from.",
+        missing: "The simulator is not part of this build of the site." %>
+
+  <p>
+    Nothing is flying out there until you ask for one. Each aircraft the button
+    under the case adds is put at a bearing, a range and a height of its own and
+    then flies on, broadcasting real ADS-L frames that the firmware receives,
+    decodes and plots like any other traffic.
+  </p>
+  <p>
+    The two lamps beside the glass are the device&rsquo;s own. Only the left one
+    is the firmware&rsquo;s, lit while a contact is worth calling an alarm. The
+    right one is wired to the charger and no line of ours reaches it, so in this
+    page, where no cable is ever plugged in, it stays dark.
+  </p>
+</section>
 
 <section>
   <h2 class="kicker">Using the button and the pad</h2>
@@ -60,31 +101,6 @@ description: Two contacts on skyBlip Go · the pad on the top edge moves, the bu
       </tbody>
     </table>
   </div>
-</section>
-
-<section id="simulator">
-  <h2 class="kicker">Try it</h2>
-  <h3>The same firmware, in this page.</h3>
-  <p>
-    The device below is the firmware a skyBlip Go runs, compiled to WebAssembly:
-    the same radar, the same pages, the same debounced contacts. Tap the strip on
-    the top edge to walk the pages, hold it a second to come back to the radar,
-    press the key on the side to open the settings, or hold that key for two
-    seconds and watch the device switch itself off and keep the wordmark on the
-    glass.
-  </p>
-
-  <%= render "shared/simulator",
-        start: "Switch the device on",
-        restart: "Switch it back on",
-        on: "running",
-        off: "off",
-        settings: "settings",
-        glass: "The simulated e-paper panel of a skyBlip Go",
-        key: "The device button: press to open the settings, hold two seconds to switch off",
-        pad: "The capacitive pad: tap to change page, hold one second to come back to the radar",
-        caption: "Sensors are simulated, the firmware is not. It is the build this site was published from.",
-        missing: "The simulator is not part of this build of the site." %>
 </section>
 
 <section>
