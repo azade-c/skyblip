@@ -264,6 +264,12 @@ int32_t bank_deg(int32_t turn_dps, int32_t speed_kt) {
     return (static_cast<int32_t>(iatan2(turn_dps * speed_kt, 1093)) * 360) / kTurn;
 }
 
+const char* flight_word(const SixPackSnapshot& s) {
+    if (!s.data_valid) return "NO FIX";
+    if (s.airborne) return "FLIGHT";
+    return s.taxiing ? "TAXI" : "GROUND";
+}
+
 }  // namespace
 
 void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
@@ -288,8 +294,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
            /*thick=*/false, /*cleared=*/true);
     value_center(fb, kCx[0], 0, s.data_valid, speed, true);
 
-    const char* state = !s.data_valid ? "NO FIX" : (s.airborne ? "FLIGHT" : "GROUND");
-    dial(fb, kCx[1], 0, state, 0);
+    dial(fb, kCx[1], 0, flight_word(s), 0);
     horizon(fb, kCx[1], kCy[0], pitch, bank);
     char clock[8];
     fmt_flight_clock(clock, s.flight_seconds, s.flight_time_valid);

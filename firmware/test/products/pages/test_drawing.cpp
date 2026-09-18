@@ -10,35 +10,13 @@
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/pages/radar.h"
 #include "products/skyblip_go/pages/status.h"
+#include "test/support/glass_text.h"
 
 using namespace skyblip::go;
+using skyblip::reads_in;
 using skyblip::traffic::Level;
 
 namespace {
-
-int length(const char* s) {
-    int n = 0;
-    while (s[n]) n++;
-    return n;
-}
-
-// A case claims "it reads 047", not "there is ink up there".
-bool reads_in(const Glass& fb, const char* text, int x0, int y0, int x1, int y1, int scale = 1) {
-    Glass wanted;
-    wanted.clear(true);
-    wanted.draw_text(0, 0, text, true, scale);
-    const int w = length(text) * 6 * scale - scale, h = 7 * scale;
-    for (int y = y0; y + h <= y1; y++) {
-        for (int x = x0; x + w <= x1; x++) {
-            bool same = true;
-            for (int dy = 0; dy < h && same; dy++)
-                for (int dx = 0; dx < w && same; dx++)
-                    if (fb.get_pixel(x + dx, y + dy) != wanted.get_pixel(dx, dy)) same = false;
-            if (same) return true;
-        }
-    }
-    return false;
-}
 
 int ink_in(const Glass& fb, int x0, int y0, int x1, int y1) {
     int n = 0;
@@ -205,8 +183,7 @@ TEST_CASE("radar: everything is centred on the 99|100 point, not on a pixel") {
 
 TEST_CASE("radar: the range ring is one unbroken stroke, and the only ring on the glass") {
     Glass fb;
-    RadarSnapshot snap;  // no fix: the ring and own ship, nothing plotted
-    draw_radar(fb, snap);
+    draw_radar(fb, flying(0));  // an empty sky in flight: the ring and own ship, nothing else
     int thinnest = 200, thickest = 0, inside_ink = 0;
     for (int y = 60; y <= 140; y++) {
         int stroke = 0;
@@ -697,9 +674,7 @@ TEST_CASE("radar: the footer counts what is on the glass, either side of the clo
 
     RadarSnapshot closer = flying(0);
     closer.range_nm = 2;
-    closer.airborne = false;
     const Glass near = radar(closer);
-    CHECK(reads_in(near, "GROUND", 0, 168, 50, 182));
     CHECK(reads_in(near, "0", 170, 170, 200, 200, 3));
 }
 
@@ -737,15 +712,41 @@ TEST_CASE("radar: the footer sits on one baseline, a margin clear of the glass e
     CHECK(199 - count_bottom >= 4);
 }
 
-TEST_CASE("radar: a device with no fix says so where it reports its flight state") {
+// A pilot must not have to read the footer to learn the plot is not being fed.
+TEST_CASE("radar: anything but a flight is said in the ring, and a flight over the clock") {
     RadarSnapshot searching;
     searching.airborne = true;  // stale from the last flight: no fix outranks it
-    const Glass fb = radar(searching);
+    const Glass no_fix = radar(searching);
+    CHECK(reads_in(no_fix, "NO FIX", 40, 120, 160, 160, 2));
+    CHECK_FALSE(reads_in(no_fix, "NO FIX", 0, 160, 60, 199));
+    CHECK_FALSE(reads_in(no_fix, "FLIGHT", 0, 160, 60, 199));
 
-    CHECK(reads_in(fb, "NO FIX", 0, 168, 50, 182));
-    CHECK_FALSE(reads_in(fb, "FLIGHT", 0, 168, 50, 182));
-    // The picture itself stays empty rather than carrying a second message.
-    CHECK_FALSE(reads_in(fb, "NO FIX", 20, 20, 180, 150));
+    RadarSnapshot parked = flying(0);
+    parked.airborne = false;
+    const Glass ground = radar(parked);
+    CHECK(reads_in(ground, "GROUND", 40, 120, 160, 160, 2));
+    CHECK_FALSE(reads_in(ground, "GROUND", 0, 160, 60, 199));
+
+    RadarSnapshot rolling = parked;
+    rolling.taxiing = true;
+    const Glass taxi = radar(rolling);
+    CHECK(reads_in(taxi, "TAXI", 40, 120, 160, 160, 2));
+    CHECK_FALSE(reads_in(taxi, "GROUND", 0, 0, 200, 199, 2));
+
+    const Glass airborne = radar(flying(0));
+    CHECK(reads_in(airborne, "FLIGHT", 0, 168, 50, 182));
+    CHECK_FALSE(reads_in(airborne, "FLIGHT", 20, 20, 180, 160, 2));
+}
+
+TEST_CASE("radar: a tag lands off the state word rather than erasing it") {
+    // 4428 m behind is 54 px on the 4 NM ring, and the tag over that symbol falls on the word.
+    RadarTarget behind[1] = {{-4428, 0, 100, Level::None}};
+    RadarSnapshot parked = flying(0);
+    parked.airborne = false;
+    parked.n_targets = 1;
+    parked.targets = behind;
+
+    CHECK(reads_in(radar(parked), "GROUND", 40, 120, 160, 160, 2));
 }
 
 TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {

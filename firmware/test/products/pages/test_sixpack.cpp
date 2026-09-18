@@ -358,6 +358,13 @@ TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in")
     CHECK(title_matches(fl, kTiles[1], "GROUND"));
     CHECK(value_matches(fl, kTiles[1], "0:07"));
 
+    SixPackSnapshot rolling = landed;
+    rolling.taxiing = true;
+    Glass fr;
+    draw_sixpack(fr, rolling);
+    CHECK(title_matches(fr, kTiles[1], "TAXI"));
+    CHECK(value_matches(fr, kTiles[1], "0:07"));
+
     SixPackSnapshot parked = landed;
     parked.flight_time_valid = false;
     Glass fp;

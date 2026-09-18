@@ -19,6 +19,7 @@ struct SixPackSnapshot {
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};
     bool airborne{false};
+    bool taxiing{false};
     int16_t lateral_mg{0};  // right-positive, thousandths of g across the wings
     bool inclinometer_fitted{false};
     bool lateral_valid{false};

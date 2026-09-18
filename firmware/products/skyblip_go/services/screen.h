@@ -2,6 +2,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_SCREEN_H
 
 #include "core/comms/config.h"
+#include "core/flight/state.h"
 #include "core/units/units.h"
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/input/controls.h"
@@ -34,6 +35,8 @@ class ScreenService : public runtime::Service {
     // turning the head for. At or above it the settings page gives the glass
     // back on its own: a menu in front of converging traffic is a bug.
     static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Important;
+
+    static constexpr int32_t kTaxiSpeedMps = flight::kLandingMotionE8 / 8;
 
     // The one consumer of bus.input, and therefore the one place a press is
     // given a meaning. The companion link's state machine is handed over here
@@ -109,6 +112,11 @@ class ScreenService : public runtime::Service {
     bool receiver_listening() const {
         return ports::has(context_.roles.capabilities, ports::Capability::Rf) &&
                context_.state.clock.pps_locked;
+    }
+
+    bool taxiing() const {
+        return context_.state.own.fix_valid && !context_.state.flight.running &&
+               to_mps(QuarterMetresPerSec(context_.state.own.speed_q)).v >= kTaxiSpeedMps;
     }
 
     Settings& settings_;

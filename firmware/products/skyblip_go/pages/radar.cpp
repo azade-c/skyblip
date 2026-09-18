@@ -76,6 +76,10 @@ constexpr int kFormationD = 13;
 constexpr int kFormationCorner = 4;
 constexpr int kFormationInset = 3;
 constexpr int kDigitW = 5;
+constexpr int kBannerScale = 2;
+constexpr int kBannerPad = 4;
+constexpr int kOwnShipTail = kNear - ui::kSkyshipRowsToNose + ui::kSkyshipRows;
+constexpr int kBannerY = (kOwnShipTail + kFooterTop - kGlyphH * kBannerScale) / 2;
 constexpr int kMinutesMarked = 2;
 
 int half_chord_in_half_pixels(int r, int b) {
@@ -153,11 +157,18 @@ void range_label(ui::Canvas& fb, const RadarSnapshot& snap) {
     fb.draw_text(x + number_w + kUnitGap, kRangeY + kGlyphH * (kRangeScale - 1), unit, true, 1);
 }
 
-void flight_state(ui::Canvas& fb, const RadarSnapshot& snap) {
-    const char* state = !snap.fix_valid ? "NO FIX" : (snap.airborne ? "FLIGHT" : "GROUND");
+void flight_word(ui::Canvas& fb, const RadarSnapshot& snap) {
+    if (!snap.fix_valid || !snap.airborne) return;
+    const char* state = "FLIGHT";
     clear_behind(fb, kMargin, kStateY, text_width(state, kStateScale), kGlyphH * kStateScale,
                  kLabelPad);
     fb.draw_text(kMargin, kStateY, state, true, kStateScale);
+}
+
+const char* grounded_word(const RadarSnapshot& snap) {
+    if (!snap.fix_valid) return "NO FIX";
+    if (snap.airborne) return nullptr;
+    return snap.taxiing ? "TAXI" : "GROUND";
 }
 
 void aircraft(ui::Canvas& fb, int in_view, bool counting) {
@@ -177,6 +188,18 @@ struct Box {
     int w;
     int h;
 };
+
+Box banner_box(const char* word) {
+    const int w = text_width(word, kBannerScale);
+    return {kCx - w / 2 - kBannerPad, kBannerY - kBannerPad, w + 2 * kBannerPad,
+            kGlyphH * kBannerScale + 2 * kBannerPad};
+}
+
+void state_banner(ui::Canvas& fb, const char* word) {
+    const Box b = banner_box(word);
+    fb.rect(b.x, b.y, b.w, b.h, false, true);
+    fb.draw_text(b.x + kBannerPad, b.y + kBannerPad, word, true, kBannerScale);
+}
 
 struct Plotted {
     int32_t right;
@@ -487,11 +510,12 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
         run[i] = leader_of(snap, *in_view[i], track);
         draw_leader(fb, snap, *in_view[i], track, shown[i], run[i]);
     }
-    Box taken[2 * kMaxRadarTargets + 3 + kMinutesMarked];
+    Box taken[2 * kMaxRadarTargets + 4 + kMinutesMarked];
     int n_taken = 0;
     if (in_ring > 0) n_taken += own_minute_marks(fb, snap, track, taken);
     taken[n_taken++] = footer_band();
     taken[n_taken++] = own_ship_box();
+    if (const char* word = grounded_word(snap)) taken[n_taken++] = banner_box(word);
     if (snap.formation_members > 0) taken[n_taken++] = formation_box();
     for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
 
@@ -522,10 +546,12 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     ui::draw_skyship(fb, kFar, kNear);
     if (snap.formation_members > 0) formation_counts(fb, snap, track);
 
+    if (const char* word = grounded_word(snap)) state_banner(fb, word);
+
     const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
 
     flight_clock(fb, snap);
-    flight_state(fb, snap);
+    flight_word(fb, snap);
     range_label(fb, snap);
     aircraft(fb, in_ring, snap.fix_valid && snap.receiver_listening);
 

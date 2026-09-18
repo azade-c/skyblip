@@ -38,6 +38,7 @@ struct RadarSnapshot {
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};
     bool airborne{false};
+    bool taxiing{false};
     bool receiver_listening{false};
     int n_targets{0};
     const RadarTarget* targets{nullptr};

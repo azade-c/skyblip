@@ -395,6 +395,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
+            snap.taxiing = taxiing();
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
             snap.formation_members = context_.state.formation.members;
@@ -440,6 +441,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
+            snap.taxiing = taxiing();
             snap.inclinometer_fitted =
                 ports::has(context_.roles.capabilities, ports::Capability::Inclinometer);
             snap.lateral_valid = context_.state.slip.valid;

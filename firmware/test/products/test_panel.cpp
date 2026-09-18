@@ -5,6 +5,7 @@
 // widget test and never presented is a page nobody sees.
 #include "doctest/doctest.h"
 #include "products/skyblip_go/pages/boot.h"
+#include "test/support/glass_text.h"
 #include "test/support/product_rig.h"
 #include "ui/widgets/wordmark.h"
 
@@ -252,13 +253,26 @@ TEST_CASE("product: the unit setting reaches the pages that print one") {
           page_ink(go::Units::Nautical, 0, go::Page::Radar));
 }
 
-// F5. The device said nothing when the receiver finally solved, and it
-// transmitted the first solution it got. Both are wrong on the bench and in the
-// air: a cold receiver's first fixes walk, and the pilot is left guessing.
+// The pilot the word is for is looking out of the window, not at the footer.
+TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, parked says GROUND") {
+    auto radar_says = [](const char* word, uint16_t speed_q) {
+        Rig rig;
+        REQUIRE(rig.setup() == Status::Ok);
+        uint32_t t = 100;
+        rig.seconds(t, 20, speed_q, 300);
+        REQUIRE(rig.product.screen().page() == go::Page::Radar);
+        return reads_in(rig.product.screen().framebuffer(), word, 40, 120, 160, 160, 2);
+    };
 
-// B4 + the low-battery warning: two things the status page is the only reader
-// of. Both are drawn from the state the services publish, so this is the wiring
-// test - ui/screens/status.cpp owns what they look like.
+    CHECK(radar_says("GROUND", 0));
+    CHECK(radar_says("TAXI", 12));  // 3 m/s, a tug on the perimeter track
+    CHECK_FALSE(radar_says("GROUND", 12));
+
+    // 2 m/s is the boundary: a parked receiver's own noise is not a taxi.
+    CHECK(radar_says("TAXI", 8));
+    CHECK(radar_says("GROUND", 7));
+}
+
 TEST_CASE("product: the status page carries the device's name and a cell that is low") {
     auto status_ink = [](const char* callsign, uint16_t millivolts, bool on_cable = false) {
         Rig rig;
