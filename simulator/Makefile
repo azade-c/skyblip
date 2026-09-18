@@ -22,7 +22,7 @@ BUILD := build
 build:
 	@$(MAKE) --no-print-directory -C $(FIRMWARE) browser
 	@mkdir -p $(BUILD)/scenarios
-	cp index.html $(BUILD)/
+	cp index.html device.css $(BUILD)/
 	cp $(WASM_DIR)/skyblip_simulator.js $(WASM_DIR)/skyblip_simulator.wasm \
 	   $(WASM_DIR)/embed.js $(BUILD)/
 	# The scenarios are the firmware's, and the page fetches them at runtime, so

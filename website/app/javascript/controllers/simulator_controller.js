@@ -104,8 +104,8 @@ export default class extends Controller {
     const powered = this.sim.powered() === 1
     this.element.classList.toggle("simulator--off", !powered)
     this.statusTarget.textContent = `${this.#screen()} · ${powered ? this.onValue : this.offValue}`
-    this.alarmTarget.classList.toggle("simulator-led--lit", this.sim.alarm() > 0)
-    this.chargeTarget.classList.toggle("simulator-led--lit", this.sim.batteryCharging() === 1)
+    this.alarmTarget.classList.toggle("sb-led--lit", this.sim.alarm() > 0)
+    this.chargeTarget.classList.toggle("sb-led--lit", this.sim.batteryCharging() === 1)
   }
 
   #screen() {

@@ -8,4 +8,8 @@ module SimulatorHelper
   def simulator_module_path
     "/#{SIMULATOR_ROOT}/#{simulator_build}/embed.js" if simulator_build
   end
+
+  def simulator_stylesheet_path
+    "/#{SIMULATOR_ROOT}/#{simulator_build}/device.css" if simulator_build
+  end
 end

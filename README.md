@@ -11,7 +11,7 @@ Open-source electronic conspicuity for general aviation: [ADS-L 4 SRD-860](https
 | Directory | What lives there |
 |---|---|
 | [`firmware/`](firmware) | the C++ tree: `core/`, `ui/`, `ports/`, the Zephyr platform, the host test suite, and the simulator's world |
-| [`simulator/`](simulator) | the development harness page that drives the WASM build of the firmware |
+| [`simulator/`](simulator) | the development harness page that drives the WASM build of the firmware, and `device.css`, the case both it and the site draw the panel in |
 | [`website/`](website) | [skyblip.eu](https://skyblip.eu), a Rails app that Parklife renders to static files |
 | `docs/`, `schemas/`, `scripts/`, `skyship/` | the generated behavior index, the wire schemas, the build and release tooling, the artwork |
 

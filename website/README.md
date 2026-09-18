@@ -20,6 +20,8 @@ Parklife discovers pages by crawling from the root, so **a page nothing links to
 
 Look and layout come from the token sets in `app/assets/stylesheets/`. Colors, spacing and type are CSS variables in `_global.css`; components never hardcode a value.
 
+The one exception is the simulated device. Its case is `simulator/device.css` at the repo root, drawn once for the development harness and for this site, and `bin/simulator-build` copies it into `public/simulator/<commit>/` beside the WASM. The page links it directly, so it is unlayered CSS and the few rules here that override it are unlayered too.
+
 ## Building and deploying
 
 ```sh

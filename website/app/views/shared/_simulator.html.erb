@@ -1,12 +1,16 @@
 <% if simulator_module_path %>
+  <% content_for :head do %>
+    <%= tag :link, rel: "stylesheet", href: simulator_stylesheet_path %>
+  <% end %>
+
   <figure class="simulator"
           data-controller="simulator"
           data-simulator-src-value="<%= simulator_module_path %>"
           data-simulator-on-value="<%= on %>"
           data-simulator-off-value="<%= off %>"
           data-simulator-settings-value="<%= settings %>">
-    <div class="simulator-case">
-      <button class="simulator-pad" type="button" aria-label="<%= pad %>"
+    <div class="sb-case">
+      <button class="sb-pad" type="button" aria-label="<%= pad %>"
               data-action="pointerdown->simulator#touch
                            pointerup->simulator#lift
                            pointerleave->simulator#lift
@@ -14,10 +18,10 @@
                            keydown->simulator#touch
                            keyup->simulator#lift"></button>
 
-      <button class="simulator-reset" type="button" aria-label="<%= reset %>"
+      <button class="sb-key sb-key--reset" type="button" aria-label="<%= reset %>"
               data-action="simulator#restart"></button>
 
-      <button class="simulator-key" type="button" aria-label="<%= key %>"
+      <button class="sb-key sb-key--action" type="button" aria-label="<%= key %>"
               data-action="pointerdown->simulator#hold
                            pointerup->simulator#release
                            pointerleave->simulator#release
@@ -25,17 +29,11 @@
                            keydown->simulator#hold
                            keyup->simulator#release"></button>
 
-      <div class="simulator-well">
-        <div class="simulator-screen">
-          <canvas class="simulator-glass" width="200" height="200"
-                  data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
-        </div>
-      </div>
+      <canvas class="sb-glass" width="200" height="200"
+              data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
 
-      <span class="simulator-led simulator-led--alarm" aria-hidden="true"
-            data-simulator-target="alarm"></span>
-      <span class="simulator-led simulator-led--charge" aria-hidden="true"
-            data-simulator-target="charge"></span>
+      <span class="sb-led sb-led--alarm" aria-hidden="true" data-simulator-target="alarm"></span>
+      <span class="sb-led sb-led--charge" aria-hidden="true" data-simulator-target="charge"></span>
     </div>
 
     <div class="simulator-controls">
