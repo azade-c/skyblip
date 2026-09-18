@@ -181,8 +181,8 @@ void World::update_inertial(uint32_t now_ms) {
         track_ref_deg_ = gnss().track_deg;
     }
 
-    imu().set_angular_rate(static_cast<int16_t>(yaw_cdps_), 0, 0);
-    imu().set_acceleration(-kLevelFlightUpMg, static_cast<int16_t>(-slip_mg_), 0);
+    imu().set_angular_rate(static_cast<int16_t>(-yaw_cdps_), 0, 0);
+    imu().set_acceleration(kLevelFlightUpMg, static_cast<int16_t>(-slip_mg_), 0);
 }
 
 // Every aircraft transmits once per second, at its own instant of the direct

@@ -52,13 +52,13 @@ TEST_CASE("gmeter: the three axes each read their own now, most and least") {
     CHECK(reads_in(fb, "-1.3", 114, 135, 146, 144));
 
     CHECK(reads_in(fb, "LAT", 0, 145, 30, 154));
-    CHECK(reads_in(fb, "-0.4", 35, 145, 68, 154));
-    CHECK(reads_in(fb, "+0.7", 78, 145, 110, 154));
-    CHECK(reads_in(fb, "-0.6", 114, 145, 146, 154));
+    CHECK(reads_in(fb, "L0.4", 35, 145, 68, 154));
+    CHECK(reads_in(fb, "R0.7", 78, 145, 110, 154));
+    CHECK(reads_in(fb, "L0.6", 114, 145, 146, 154));
 
     CHECK(reads_in(fb, "F/A", 0, 177, 30, 186));
-    CHECK(reads_in(fb, "+0.3", 35, 177, 68, 186));
-    CHECK(reads_in(fb, "-0.4", 114, 177, 146, 186));
+    CHECK(reads_in(fb, "F0.3", 35, 177, 68, 186));
+    CHECK(reads_in(fb, "A0.4", 114, 177, 146, 186));
 }
 
 // Pull g and the marker rises, pull left and it goes left.

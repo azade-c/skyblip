@@ -73,7 +73,9 @@ Two honesties are the caller's, not this file's. The bank is the *device's*, so 
 
 ## gload
 
-`GMeter` is the sensor with nothing done to it: normal load up the mast, lateral out the right wing, longitudinal out the nose, in thousandths of g, with the largest and smallest of each held. No fusion, no assumption, no fix required - which makes it the one instrument on this device that cannot be wrong about anything but its own calibration.
+`GMeter` is the sensor with nothing done to it but a sign: the largest and smallest of each axis held, in thousandths of g, with no fusion, no assumption and no fix required. It is the one instrument here that cannot be wrong about anything but its own calibration.
+
+The sign is the instrument's, not the accelerometer's, and it is the ball's. Normal load is the load factor every g-meter shows, positive up, 1 g in level flight. The two horizontal axes are the direction the load throws a loose object, which is minus the measured force: a force to the right throws the ball, the pilot and the marker to the left. Reading them as raw axes instead would put the page and the turn coordinator in opposite languages on the same device, which is exactly how a bench came to read the whole page as inverted.
 
 The peaks reset when the flight timer starts, so they are this flight's, and a unit left on the bench holds what the bench did to it.
 

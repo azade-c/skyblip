@@ -8,13 +8,13 @@
 
 namespace skyblip::boards::t_echo_plus {
 
-// INFO: fc 18sep26 a bench read the ball a quarter turn out, the same turn the panel is mounted at
+// INFO: fc 19sep26 a bench read the g-meter inverted, so the chip is face down as well as turned
 inline events::AccelSample device_frame(const parts::Acceleration& chip, uint32_t now_ms) {
-    return events::AccelSample{chip.y_mg, static_cast<int16_t>(-chip.x_mg), chip.z_mg, now_ms};
+    return events::AccelSample{chip.y_mg, chip.x_mg, static_cast<int16_t>(-chip.z_mg), now_ms};
 }
 
 inline events::RateSample device_rate(const parts::AngularRate& chip, uint32_t now_ms) {
-    return events::RateSample{static_cast<int16_t>(-chip.z_cdps), chip.y_cdps, chip.x_cdps, now_ms};
+    return events::RateSample{chip.z_cdps, chip.y_cdps, static_cast<int16_t>(-chip.x_cdps), now_ms};
 }
 
 }  // namespace skyblip::boards::t_echo_plus

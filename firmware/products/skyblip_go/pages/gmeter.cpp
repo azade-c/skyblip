@@ -39,9 +39,24 @@ constexpr int16_t kLevelFlightMg = flight::kLevelFlightMg;
 
 int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-int fmt_g(char* out, int32_t mg) {
+int32_t tenths(int32_t mg) {
     const int32_t half = mg < 0 ? -kMilliPerTenth / 2 : kMilliPerTenth / 2;
-    const int n = fmt_int(out, (mg + half) / kMilliPerTenth, 1, 1, false);
+    return (mg + half) / kMilliPerTenth;
+}
+
+int fmt_g(char* out, int32_t mg) {
+    const int n = fmt_int(out, tenths(mg), 1, 1, false);
+    out[n] = 0;
+    return n;
+}
+
+// The two axes that follow the ball name the hand they throw a loose object to,
+// because a sign on them is a convention a pilot has to remember.
+int fmt_handed_g(char* out, int32_t mg, char positive, char negative) {
+    const int32_t value = tenths(mg);
+    int n = 0;
+    out[n++] = value < 0 ? negative : positive;
+    n += fmt_uint(out + n, static_cast<uint32_t>(value < 0 ? -value : value), 1, 1);
     out[n] = 0;
     return n;
 }
@@ -53,6 +68,12 @@ void right_aligned(ui::Canvas& fb, int x_end, int y, const char* text, int len, 
 void value_at(ui::Canvas& fb, int x_end, int y, int32_t mg) {
     char buf[8];
     const int n = fmt_g(buf, mg);
+    right_aligned(fb, x_end, y, buf, n);
+}
+
+void handed_at(ui::Canvas& fb, int x_end, int y, int32_t mg, char positive, char negative) {
+    char buf[8];
+    const int n = fmt_handed_g(buf, mg, positive, negative);
     right_aligned(fb, x_end, y, buf, n);
 }
 
@@ -127,6 +148,18 @@ void reading_row(ui::Canvas& fb, int y, const char* label, int32_t now_mg, int32
     value_at(fb, kLeastEnd, y, least_mg);
 }
 
+void handed_row(ui::Canvas& fb, int y, const char* label, int32_t now_mg, int32_t most_mg,
+                int32_t least_mg, bool valid, char positive, char negative) {
+    fb.draw_text(kLeft, y, label, true, 1);
+    if (!valid) {
+        fb.draw_text(kNowEnd - 4 * kCellW, y, "----", true, 1);
+        return;
+    }
+    handed_at(fb, kNowEnd, y, now_mg, positive, negative);
+    handed_at(fb, kMostEnd, y, most_mg, positive, negative);
+    handed_at(fb, kLeastEnd, y, least_mg, positive, negative);
+}
+
 }  // namespace
 
 void draw_gmeter(ui::Canvas& fb, const GMeterSnapshot& s) {
@@ -154,10 +187,10 @@ void draw_gmeter(ui::Canvas& fb, const GMeterSnapshot& s) {
 
     reading_row(fb, kNormalRowY, "NRM", s.now.normal_mg, s.most.normal_mg, s.least.normal_mg,
                 s.valid);
-    reading_row(fb, kLateralRowY, "LAT", s.now.lateral_mg, s.most.lateral_mg, s.least.lateral_mg,
-                s.valid);
-    reading_row(fb, kStripRowY, "F/A", s.now.longitudinal_mg, s.most.longitudinal_mg,
-                s.least.longitudinal_mg, s.valid);
+    handed_row(fb, kLateralRowY, "LAT", s.now.lateral_mg, s.most.lateral_mg, s.least.lateral_mg,
+               s.valid, 'R', 'L');
+    handed_row(fb, kStripRowY, "F/A", s.now.longitudinal_mg, s.most.longitudinal_mg,
+               s.least.longitudinal_mg, s.valid, 'F', 'A');
 }
 
 }  // namespace skyblip::go

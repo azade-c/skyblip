@@ -13,8 +13,8 @@ void stretch(int16_t sample, int16_t& most, int16_t& least) {
 
 void GMeter::observe(const SpecificForce& force, uint32_t at_ms) {
     now_.normal_mg = force.up_mg;
-    now_.lateral_mg = force.right_mg;
-    now_.longitudinal_mg = static_cast<int16_t>(-force.aft_mg);
+    now_.lateral_mg = static_cast<int16_t>(-force.right_mg);
+    now_.longitudinal_mg = force.aft_mg;
 
     if (!seen_) {
         most_ = now_;
