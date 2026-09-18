@@ -27,5 +27,5 @@ once.
 vendored copy entirely and fetch doctest at configure time, which removes 9148
 lines of third-party code from this repo along with the problem.
 
-`.github/workflows/deps-check.yml` reports when upstream moves ahead, since no
+`.github/workflows/firmware-deps.yml` reports when upstream moves ahead, since no
 Dependabot ecosystem can see a vendored header.

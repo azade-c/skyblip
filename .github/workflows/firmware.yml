@@ -1,5 +1,10 @@
-name: ci
+name: firmware
 
+# Everything in this tree that is not the website: firmware/, plus the scripts,
+# schemas and simulator harnesses the firmware is tested through. The site has
+# its own workflow, its dependencies are Dependabot's, and the two C++ pins that
+# Dependabot cannot read are firmware-deps.yml's.
+#
 # A push to a branch with an open PR already fires `pull_request`; main is the
 # post-merge signal, and this repo never commits to it directly.
 on:
@@ -18,7 +23,8 @@ concurrency:
 
 jobs:
   # website/ shares this tree and has its own workflow, so a content commit must
-  # not spend five minutes of Zephyr.
+  # not spend five minutes of Zephyr. `firmware` here means everything else:
+  # scripts/, schemas/ and simulator/ all feed the jobs below.
   #
   # ONE extglob, not `'**'` plus `'!website/**'`: a filter's patterns are OR-ed,
   # so a leading `**` matches everything and no later negation takes it back.

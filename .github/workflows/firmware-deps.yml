@@ -1,4 +1,6 @@
-# Freshness check for the C++ dependencies Dependabot cannot see.
+# Freshness check for the two firmware dependencies Dependabot cannot see:
+# firmware/vendor/doctest/doctest.h and the Zephyr pin in firmware/west.yml.
+# Everything Dependabot CAN read is in .github/dependabot.yml.
 #
 # Dependabot has no general C/C++ ecosystem: it covers `vcpkg` (needs a vcpkg.json
 # this build never consumes) and `git_submodules` (would mean un-vendoring
@@ -9,7 +11,7 @@
 # So: compare what we pin against upstream once a week and keep ONE open issue
 # saying so. A Zephyr minor bump is a deliberate, tested migration, not something
 # to merge automatically - this reports, it does not update.
-name: deps freshness
+name: firmware deps
 
 on:
   schedule:
@@ -60,6 +62,8 @@ jobs:
             bump moves every module with it (hal_nordic, mbedtls, MCUboot), so treat it as a
             migration: build, check the flash budget, and exercise the device before merging."
 
+          # Do NOT reword: the open issue is found by this exact title, and a new
+          # wording opens a duplicate beside the one already tracking the bump.
           title="deps: upstream versions available for the vendored C++ dependencies"
           existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
 
@@ -67,7 +71,7 @@ jobs:
           if [ -z "$body" ]; then
             echo "everything current, nothing to report"
             [ -n "$existing" ] && gh issue close "$existing" \
-              --comment "Both pins match upstream as of $(date -u +%Y-%m-%d). Closed by \`deps-check.yml\`; it reopens a fresh issue when upstream moves ahead again."
+              --comment "Both pins match upstream as of $(date -u +%Y-%m-%d). Closed by \`firmware-deps.yml\`; it reopens a fresh issue when upstream moves ahead again."
             exit 0
           fi
 
@@ -75,5 +79,5 @@ jobs:
             gh issue comment "$existing" --body "Still behind as of $(date -u +%Y-%m-%d):${body}"
           else
             gh issue create --title "$title" \
-              --body "Dependabot cannot see either of these (no C/C++ ecosystem fits how they are vendored), so this is checked weekly by \`.github/workflows/deps-check.yml\`.${body}"
+              --body "Dependabot cannot see either of these (no C/C++ ecosystem fits how they are vendored), so this is checked weekly by \`.github/workflows/firmware-deps.yml\`.${body}"
           fi
