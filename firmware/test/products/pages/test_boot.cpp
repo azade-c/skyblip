@@ -160,7 +160,7 @@ TEST_CASE("boot: a part that could be two parts says which one it is") {
     BootPart parts[] = {
         {"BARO", PartState::Pass, "76"},
         {"PANEL", PartState::Pass, "D67/1942"},
-        {"VIBRO", PartState::Pass, "DRV2605"},
+        {"HAPTIC", PartState::Pass, "DRV2605"},
     };
     Glass fb;
     draw_boot(fb, page(parts, 3, /*flyable=*/true));
@@ -169,7 +169,7 @@ TEST_CASE("boot: a part that could be two parts says which one it is") {
     // expects it: a row reads "what it is", then "how it answered".
     CHECK(reads_from(fb, detail_x("BARO"), boot_row_y(0), "76"));
     CHECK(reads_from(fb, detail_x("PANEL"), boot_row_y(1), "D67/1942"));
-    CHECK(reads_from(fb, detail_x("VIBRO"), boot_row_y(2), "DRV2605"));
+    CHECK(reads_from(fb, detail_x("HAPTIC"), boot_row_y(2), "DRV2605"));
     CHECK(row_reads(fb, 0, "PASS"));
     CHECK(row_reads(fb, 1, "PASS"));
     CHECK(row_reads(fb, 2, "PASS"));

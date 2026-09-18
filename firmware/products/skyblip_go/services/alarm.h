@@ -49,11 +49,11 @@ class AlarmService : public runtime::Service {
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
 
-    static constexpr traffic::Level kVibroFromLevel = traffic::Level::Important;
+    static constexpr traffic::Level kHapticFromLevel = traffic::Level::Important;
     // Long enough to feel through a glove and a harness strap, short enough not
     // to blur into the next escalation.
-    static constexpr uint16_t kVibroImportantMs = 200;
-    static constexpr uint16_t kVibroUrgentMs = 600;
+    static constexpr uint16_t kHapticImportantMs = 200;
+    static constexpr uint16_t kHapticUrgentMs = 600;
 
     // Eight passes through the shortest phase of the fastest pattern: the
     // cadence the ear gets is the cadence written in core/annunciation, to

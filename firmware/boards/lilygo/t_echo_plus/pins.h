@@ -29,7 +29,7 @@ constexpr int kEpdBacklight = kPinNum(1, 11);
 // (hardware/parts/drv2605/). SoftRF identifies a Plus by that part answering
 // (platform/nRF52.cpp:1158-1163) and drives this pin only after configuring it
 // (2112-2133). The name is Meshtastic's PIN_DRV_EN.
-constexpr int kVibro = kPinNum(0, 8);
+constexpr int kHapticEnable = kPinNum(0, 8);
 
 // INFO: fc 19sep26 the button bounces mechanically, the pad flutters under a fingertip
 constexpr uint32_t kButtonDebounceMs = 30;
@@ -63,7 +63,7 @@ static_assert(kEpdDc == SKYBLIP_DEVICETREE_PIN(DT_NODELABEL(epd_dc_gpio)));
 static_assert(kEpdRst == SKYBLIP_DEVICETREE_PIN(DT_NODELABEL(epd_reset_gpio)));
 static_assert(kEpdBusy == SKYBLIP_DEVICETREE_PIN(DT_NODELABEL(epd_busy_gpio)));
 static_assert(kEpdBacklight == SKYBLIP_DEVICETREE_PIN(DT_NODELABEL(epd_backlight_gpio)));
-static_assert(kVibro == SKYBLIP_DEVICETREE_PIN(DT_ALIAS(vibro)));
+static_assert(kHapticEnable == SKYBLIP_DEVICETREE_PIN(DT_ALIAS(haptic_enable)));
 
 #undef SKYBLIP_DEVICETREE_PIN
 #endif

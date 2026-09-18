@@ -68,7 +68,7 @@ class Simulator {
     // What is being announced, gaps included. This is the one to assert on when
     // the question is whether traffic is being called out at all.
     traffic::Level announcing_level() { return product_.alarm().announcing_level(); }
-    uint16_t vibro_ms() { return platform_.annunciator().vibro_ms(); }
+    uint16_t haptic_ms() { return platform_.annunciator().haptic_ms(); }
 
    private:
     parts::Ssd1681& panel_driver() { return product_.board().display(); }

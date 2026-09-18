@@ -131,8 +131,9 @@ class Platform {
 
     // Probe only: what silicon answered, before anything is brought up.
     ports::Capabilities capabilities() const {
-        ports::Capabilities c = ports::Capability::Storage | ports::Capability::Dfu |
-                                ports::Capability::Button | ports::Capability::Link;
+        ports::Capabilities c =
+            ports::Capability::Storage | ports::Capability::Dfu | ports::Capability::Link;
+        if (gpio_is_ready_dt(&button_) && gpio_is_ready_dt(&pad_)) c |= ports::Capability::Contacts;
         if (device_is_ready(epd_spi_dev_)) c |= ports::Capability::Display;
         if (device_is_ready(gnss_uart_dev_)) c |= ports::Capability::Gnss;
         if (device_is_ready(baro76_dev_) || device_is_ready(baro77_dev_))
@@ -181,7 +182,7 @@ class Platform {
     // member{MACRO} nests them one level too deep and the first field eats the
     // whole struct.
     struct pwm_dt_spec buzzer_ = PWM_DT_SPEC_GET(DT_ALIAS(buzzer));
-    struct gpio_dt_spec haptic_enable_ = GPIO_DT_SPEC_GET(DT_ALIAS(vibro), gpios);
+    struct gpio_dt_spec haptic_enable_ = GPIO_DT_SPEC_GET(DT_ALIAS(haptic_enable), gpios);
     struct gpio_dt_spec button_ = GPIO_DT_SPEC_GET(DT_ALIAS(button), gpios);
     struct gpio_dt_spec pad_ = GPIO_DT_SPEC_GET(DT_ALIAS(pad), gpios);
     // _OR, not _GET: a board file with no LED node has to build. That is the seam

@@ -12,28 +12,24 @@ enum class Capability : uint32_t {
     Display = 1u << 2,
     Baro = 1u << 3,
     Buzzer = 1u << 4,
-    Vibro = 1u << 5,
+    Haptic = 1u << 5,
     Link = 1u << 6,
     Storage = 1u << 7,
     Dfu = 1u << 8,
-    Button = 1u << 9,
+    Contacts = 1u << 9,
     Battery = 1u << 10,
     // The SoC's own die sensor (ports/die_temperature.h). Next free shift, and the
     // existing eleven are not renumbered: nothing persists this bitset, but
     // products/skyblip_go/product.h asserts it row by row on the self-test page,
     // and a shift that moved would move a row with it.
     DieTemperature = 1u << 11,
-    // The haptic is an I2C waveform driver (a DRV2605), not a motor on a pin.
-    // Vibro says a pulse can be made at all; this says by what, because the two
-    // need different bring-up and a board wired for one and fitted with the other
-    // reports PASS and stays silent. ports::Inventory carries the same fact for the
-    // bench; this is the half the code branches on.
     HapticDriver = 1u << 12,
     // A status lamp (ports/indicator.h). E-paper holds its last image with the
     // rails down, so on a board without this the device has no way at all to say
     // it is alive. It is granted from the devicetree, not from the board being a
     // Plus: absent, the same table in core/indication runs and lights nothing.
     Indicator = 1u << 13,
+    Inclinometer = 1u << 14,
 };
 
 using Capabilities = Capability;

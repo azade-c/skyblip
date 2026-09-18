@@ -238,19 +238,19 @@ TEST_CASE("simulator: an escalating threat buzzes and, from 'important', vibrate
     REQUIRE(h.setup() == Status::Ok);
     run(h, 0, 2000);
     REQUIRE(h.product().state().own.fix_valid);
-    REQUIRE(h.vibro_ms() == 0);
+    REQUIRE(h.haptic_ms() == 0);
 
     // A distant contact: info level only. Audible, but it must NOT buzz the
     // motor - a pilot who feels every passing glider stops feeling anything.
     h.world().add_aircraft(2500, 0, 0, 20, 90);
     run(h, 2000, 5000);
-    if (h.announcing_level() == traffic::Level::Info) CHECK(h.vibro_ms() == 0);
+    if (h.announcing_level() == traffic::Level::Info) CHECK(h.haptic_ms() == 0);
 
     // Now something close and converging: important or urgent, so it must vibrate.
     h.world().add_threat();
     run(h, 5000, 9000);
     REQUIRE(h.announcing_level() >= traffic::Level::Important);
-    CHECK(h.vibro_ms() >= 200);
+    CHECK(h.haptic_ms() >= 200);
 }
 
 TEST_CASE("simulator: a threat going away does not buzz the motor again") {
@@ -260,16 +260,16 @@ TEST_CASE("simulator: a threat going away does not buzz the motor again") {
     h.world().add_threat();
     run(h, 2000, 6000);
     REQUIRE(h.buzzer_level() >= 2);
-    REQUIRE(h.vibro_ms() >= 200);
+    REQUIRE(h.haptic_ms() >= 200);
 
     // De-escalation is a level CHANGE too, and it must not be mistaken for a new
     // threat: the annunciator records the last duration, so a fresh pulse would
     // show up as a change here.
-    const uint16_t after_escalation = h.vibro_ms();
+    const uint16_t after_escalation = h.haptic_ms();
     h.world().clear_aircraft();
     run(h, 6000, 40000);
     CHECK(h.buzzer_level() == 0);
-    CHECK(h.vibro_ms() == after_escalation);  // unchanged: no pulse on the way down
+    CHECK(h.haptic_ms() == after_escalation);  // unchanged: no pulse on the way down
 }
 
 // The world can connect a phone and take it away again, which is the seam this

@@ -55,7 +55,7 @@ TEST_CASE("board: a haptic that answers the bus is a capability, and it is the p
     bus::Bus bus;
     Board board{platform, bus};
 
-    CHECK(ports::has(board.capabilities(), ports::Capability::Vibro));
+    CHECK(ports::has(board.capabilities(), ports::Capability::Haptic));
     CHECK(board.inventory().haptic == ports::HapticKind::WaveformDriver);
     CHECK(board.haptic().ready());
 
@@ -85,7 +85,7 @@ TEST_CASE("board: a Plus with no haptic driver does not claim a vibration motor"
     bus::Bus bus;
     Board board{platform, bus};
 
-    CHECK_FALSE(ports::has(board.capabilities(), ports::Capability::Vibro));
+    CHECK_FALSE(ports::has(board.capabilities(), ports::Capability::Haptic));
     CHECK(board.inventory().haptic == ports::HapticKind::None);
     CHECK_FALSE(board.inventory().has_i2c_address(kHapticDriverAddress));
 
@@ -138,7 +138,7 @@ TEST_CASE("board: a buzzer pin that follows the pull-up is an empty pad, and the
 
     CHECK_FALSE(ports::has(board.capabilities(), ports::Capability::Buzzer));
     // The haptic is a different part on a different bus and is unaffected...
-    CHECK(ports::has(board.capabilities(), ports::Capability::Vibro));
+    CHECK(ports::has(board.capabilities(), ports::Capability::Haptic));
 
     // ...and still reachable: the annunciator is one role over two parts.
     ports::Roles roles = board.roles();

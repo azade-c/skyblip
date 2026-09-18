@@ -42,8 +42,8 @@ class Annunciator : public ports::Annunciator {
     // so the end is the caller's next tick asking for the time - which is what
     // service() is, driven by the board's poll.
     void vibrate(uint16_t ms) override {
-        vibro_ms_ = ms;
-        vibro_pulses_++;
+        haptic_ms_ = ms;
+        haptic_pulses_++;
         haptic_->start();
         pulse_ends_ms_ = ms;
         pulsing_ = true;
@@ -79,7 +79,7 @@ class Annunciator : public ports::Annunciator {
     uint16_t hz() const { return hz_; }
     bool sounding() const { return sounding_; }
     uint8_t volume() const { return volume_; }
-    uint16_t vibro_ms() const { return vibro_ms_; }
+    uint16_t haptic_ms() const { return haptic_ms_; }
 
     // The real part opens a continuous PWM tone on alarm() and closes it on
     // silence(), so a pattern is countable: these are how a test tells one tone
@@ -87,15 +87,15 @@ class Annunciator : public ports::Annunciator {
     // one buzz of the motor from a motor buzzed on every re-announcement.
     uint32_t tone_commands() const { return tone_commands_; }
     uint32_t silences() const { return silences_; }
-    uint32_t vibro_pulses() const { return vibro_pulses_; }
+    uint32_t haptic_pulses() const { return haptic_pulses_; }
     PinMotor& pin_motor() { return pin_motor_; }
 
    private:
     uint8_t level_{0}, volume_{0};
     uint16_t hz_{0};
     bool sounding_{false};
-    uint16_t vibro_ms_{0};
-    uint32_t tone_commands_{0}, silences_{0}, vibro_pulses_{0};
+    uint16_t haptic_ms_{0};
+    uint32_t tone_commands_{0}, silences_{0}, haptic_pulses_{0};
     PinMotor pin_motor_{};
     ports::Haptic* haptic_{&pin_motor_};
     uint32_t start_ms_{0};

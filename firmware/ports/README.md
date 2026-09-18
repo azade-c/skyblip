@@ -22,6 +22,8 @@ What is missing is stated once, in `capabilities.h`, and read by the code that h
 
 `capabilities.h` is what the board found, `inventory.h` is which part it was. The first is what code branches on; the second is what a bench reads when two footprints ship with different silicon in them.
 
+One word for the thing that shakes, and it is `haptic`. `Capability::Haptic` says a pulse can be made at all; `Capability::HapticDriver` says it is made by a DRV2605 on I2C rather than by a motor on a pin, because the two need different bring-up and a board wired for one and fitted with the other reports PASS and stays silent. `vibro` is LilyGO's and SoftRF's name for the pin, it named one of the two parts, and on the T-Echo Plus it named the wrong one: P0.08 there is a waveform driver's enable, not a motor. `ports::Inventory::haptic` carries the same fact for the bench; the capability is the half the code branches on.
+
 `Capability::Indicator` says a lamp exists, not which colours it can make. A board fitted with one green LED reports the capability and lights nothing on the red rows, and that is survivable because `core/indication` tells its states apart by rhythm as well as by colour: the wink rate carries the reading, the colour confirms it. A lamp set in `capabilities.h` would be a bit nothing branches on today, so there is none until a board differs.
 
 The colours themselves are `indication::Lamp`, declared in `core/indication/lamps.h` rather than here. A colour is what a pilot reads, so the vocabulary belongs to the layer that decides what the device is saying; this port is where it is asked for.

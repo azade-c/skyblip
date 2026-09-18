@@ -180,15 +180,17 @@ Then one row per part, each reading left to right as *what it is*, *which part a
 | `BARO` | the BME280, with the address that answered, ours at 0x76 and LilyGO's at 0x77 |
 | `TEMP` | the nRF52840's own die sensor, which is what the thermal charge limits read |
 | `BATTERY` | the resistor divider into the SAADC the cell voltage is measured on |
-| `BUTTON` | the main button on P1.10, which is also the pin that wakes the device |
+| `CONTACTS` | the button on P1.10, which is also the pin that wakes the device, and the pad on P0.11 |
 | `BUZZER` | the piezo, established from its drive stage holding P0.06 down |
-| `VIBRO` | the DRV2605 haptic driver at 0x5A, or `PIN` for a motor driven directly |
+| `HAPTIC` | the DRV2605 waveform driver at 0x5A, or `PIN` for a motor driven straight off a pin |
 | `LAMP` | the RGB status LEDs, the only thing that says "alive" with the glass parked |
 | `LINK` | Bluetooth LE, the connection a phone or a tablet arrives over |
 | `STORAGE` | the settings in internal NVS and the flight log on the external SPI NOR |
 | `DFU` | MCUboot, the path a firmware update is written through |
 
 Required first, then what the device senses with, then what it says things with, then what it talks and remembers through. `RADIO` and `GNSS` are the two the product cannot fly without (`kRequired`), which is why they are at the top and why only they can read `FAIL`.
+
+`CONTACTS` is the weakest row on the page and it is worth knowing why. A switch answers nothing: released, a button and an empty footprint both read as the pull-up, so presence cannot be probed the way the buzzer's drive stage or the DRV2605 can. What the row reports is that both lines are declared and their GPIO controller is up, which is the same standard `LAMP` is held to, and what it prints is the two pins so a bench knows where to put a probe. Only a press proves a contact, so the press is the test: hold the button and the device begins its power-off count, tap the pad and the page changes. Both pins are on the row because a device with a working button and a dead pad is a device a pilot cannot page.
 
 The last row is the I2C scan, and it reads `I2C IMU RTC HAPTIC BARO`: what answered on the sensor bus, named by the part that sits at each address, ascending, with no verdict. An address the board cannot account for has no name to print, so it prints as its hex, which is the whole point of scanning the bus rather than probing four addresses - `I2C IMU RTC HAPTIC BARO 3C` is a part nobody expected, and it is worth the trip to the bench. The map is `boards/lilygo/t_echo_plus/i2c_scan.h`, next to the addresses it names.
 

@@ -40,7 +40,7 @@ class TEchoPlus {
                t_echo_plus::kEpdRst, t_echo_plus::kEpdBusy, t_echo_plus::kEpdBacklight,
                platform.glass_rotation()),
           gnss_(platform.uart(io::BusId::Gnss), platform.uart_rate(io::BusId::Gnss)),
-          haptic_(platform.i2c(io::BusId::Sensor), platform.gpio(), t_echo_plus::kVibro),
+          haptic_(platform.i2c(io::BusId::Sensor), platform.gpio(), t_echo_plus::kHapticEnable),
           rf_(radio_, platform.clock(), bus.rf),
           capabilities_(platform.capabilities()) {
         platform_.wire(t_echo_plus::kPinMap);
@@ -105,7 +105,7 @@ class TEchoPlus {
             // Buzzer OR haptic: they are one role and two parts, and a board with
             // a dead buzzer pin still owes a pilot the pulse it can make.
             ports::has(capabilities_, ports::Capability::Buzzer) ||
-                    ports::has(capabilities_, ports::Capability::Vibro)
+                    ports::has(capabilities_, ports::Capability::Haptic)
                 ? static_cast<ports::Annunciator&>(platform_.annunciator())
                 : null_.annunciator,
             ports::has(capabilities_, ports::Capability::Dfu)
@@ -241,7 +241,7 @@ class TEchoPlus {
                                       : 0;
     }
 
-    // The haptic is a part on a bus, not a pin. Capability::Vibro is granted by
+    // The haptic is a part on a bus, not a pin. Capability::Haptic is granted by
     // the part answering and identifying itself, never by the board being a Plus:
     // P0.08 high with no DRV2605 behind it is a device that claims a vibration
     // motor and cannot vibrate, which is what the alarm's escalation to haptics
@@ -254,13 +254,13 @@ class TEchoPlus {
     // does not answer, this reports the haptic absent and the alarm loses it
     // honestly, which is still better than the claim that preceded it.
     void establish_haptic() {
-        capabilities_ = without(ports::Capability::Vibro);
+        capabilities_ = without(ports::Capability::Haptic);
         inventory_.haptic = ports::HapticKind::None;
         if (!inventory_.has_i2c_address(t_echo_plus::kHapticDriverAddress)) return;
         if (haptic_.begin() != Status::Ok) return;
         platform_.annunciator().attach_haptic(haptic_);
         inventory_.haptic = ports::HapticKind::WaveformDriver;
-        capabilities_ = capabilities_ | ports::Capability::Vibro | ports::Capability::HapticDriver;
+        capabilities_ = capabilities_ | ports::Capability::Haptic | ports::Capability::HapticDriver;
     }
 
     // INFO: fc 18sep26 a fitted piezo stage holds P0.06 down, an empty pad follows the pull-up up

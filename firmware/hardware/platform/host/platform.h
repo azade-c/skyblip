@@ -125,7 +125,7 @@ class Platform {
     static constexpr ports::Capabilities kFullyFitted =
         ports::Capability::Display | ports::Capability::Gnss | ports::Capability::Baro |
         ports::Capability::Link | ports::Capability::Storage | ports::Capability::Dfu |
-        ports::Capability::Buzzer | ports::Capability::Vibro | ports::Capability::Button |
+        ports::Capability::Buzzer | ports::Capability::Haptic | ports::Capability::Contacts |
         ports::Capability::Battery | ports::Capability::Indicator;
 
     // A host board can be fitted with less than everything, which is how the
@@ -207,7 +207,7 @@ class Platform {
     // a scan that hid them would be a scan nobody could trust.
     void wire_i2c() {
         if (ports::has(fitted_, ports::Capability::Baro)) i2c_.answer(kBaroAddress, true);
-        if (ports::has(fitted_, ports::Capability::Vibro))
+        if (ports::has(fitted_, ports::Capability::Haptic))
             i2c_.attach(models::Drv2605::kAddress, chips_.haptic);
         i2c_.answer(kImuAddress, true);
         i2c_.answer(kRtcAddress, true);

@@ -25,7 +25,7 @@
 		gnss-uart = &uart0;
 		sensor-i2c = &i2c0;
 		buzzer = &buzzer_pwm;
-		vibro = &vibro_gpio;
+		haptic-enable = &haptic_enable_gpio;
 		button = &button_gpio;
 		pad = &pad_gpio;
 		gnss-pps = &gnss_pps_gpio;
@@ -46,9 +46,9 @@
 		compatible = "gpio-keys";
 
 		/* Plus-only haptic driver enable (P0.08). */
-		vibro_gpio: vibro {
+		haptic_enable_gpio: haptic_enable {
 			gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;
-			label = "vibro";
+			label = "haptic-enable";
 		};
 
 		/* Main button (P1.10), active-low with a pull-up. */

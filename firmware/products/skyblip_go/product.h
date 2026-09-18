@@ -25,9 +25,9 @@ namespace skyblip::go {
 // What this product cannot fly without, and what it can lose and keep flying.
 constexpr ports::Capabilities kRequired = ports::Capability::Rf | ports::Capability::Gnss;
 constexpr ports::Capabilities kOptional = ports::Capability::Display | ports::Capability::Baro |
-                                          ports::Capability::Buzzer | ports::Capability::Vibro |
+                                          ports::Capability::Buzzer | ports::Capability::Haptic |
                                           ports::Capability::Link | ports::Capability::Storage |
-                                          ports::Capability::Dfu | ports::Capability::Button |
+                                          ports::Capability::Dfu | ports::Capability::Contacts |
                                           ports::Capability::Battery | ports::Capability::Indicator;
 
 struct BootPartSpec {
@@ -43,9 +43,9 @@ constexpr BootPartSpec kBootParts[] = {
     {"BARO", ports::Capability::Baro, "BME280"},
     {"TEMP", ports::Capability::DieTemperature, "NRF52840"},
     {"BATTERY", ports::Capability::Battery, "DIVIDER"},
-    {"BUTTON", ports::Capability::Button, "P1.10"},
+    {"CONTACTS", ports::Capability::Contacts, "P1.10 P0.11"},
     {"BUZZER", ports::Capability::Buzzer, "PIEZO"},
-    {"VIBRO", ports::Capability::Vibro, "DRV2605"},
+    {"HAPTIC", ports::Capability::Haptic, "DRV2605"},
     {"LAMP", ports::Capability::Indicator, "RGB"},
     {"LINK", ports::Capability::Link, "BLE"},
     {"STORAGE", ports::Capability::Storage, "NVS+NOR"},
@@ -189,7 +189,7 @@ class Product {
                 return ports::has(board_.capabilities(), ports::Capability::Display)
                            ? found.panel
                            : spec.wired_part;
-            case ports::Capability::Vibro:
+            case ports::Capability::Haptic:
                 return found.haptic == ports::HapticKind::PinMotor ? "PIN" : spec.wired_part;
             default: return spec.wired_part;
         }

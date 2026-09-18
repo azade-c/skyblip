@@ -46,9 +46,9 @@ void AlarmService::tick(uint32_t now_ms) {
     // couple of seconds and must not pulse the motor with it - escalated is
     // false on a re-notification, which is what keeps the two apart.
     if (!situation.enabled || !running_) return;
-    if (escalated && speak >= kVibroFromLevel)
-        context_.roles.annunciator.vibrate(speak >= traffic::Level::Urgent ? kVibroUrgentMs
-                                                                           : kVibroImportantMs);
+    if (escalated && speak >= kHapticFromLevel)
+        context_.roles.annunciator.vibrate(speak >= traffic::Level::Urgent ? kHapticUrgentMs
+                                                                           : kHapticImportantMs);
 }
 
 void AlarmService::park(uint32_t now_ms) {

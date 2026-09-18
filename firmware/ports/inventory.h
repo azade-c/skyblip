@@ -15,7 +15,7 @@
 namespace skyblip::ports {
 
 // The haptic actually established at bring-up. Absent is a capability
-// (Capability::Vibro); this says which kind of hardware the pulse goes to, so a
+// (Capability::Haptic); this says which kind of hardware the pulse goes to, so a
 // board that is wired for one and fitted with the other is visible rather than
 // silent.
 enum class HapticKind : uint8_t { None, PinMotor, WaveformDriver };

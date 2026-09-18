@@ -192,11 +192,11 @@ TEST_CASE("product: a standing urgent buzzes the motor once, not on every re-ann
     // Haptics mean "this got worse", so they belong to the escalation and to
     // nothing else. The tone says it again every two seconds; the motor in a
     // pocket doing the same would be a pilot's whole flight.
-    const uint32_t pulses = sky.buzzer().vibro_pulses();
+    const uint32_t pulses = sky.buzzer().haptic_pulses();
     CHECK(pulses >= 1);
 
     sky.run(t, t + 3 * annunciation::kUrgentStandingReannounceMs);
-    CHECK(sky.buzzer().vibro_pulses() == pulses);
+    CHECK(sky.buzzer().haptic_pulses() == pulses);
     CHECK(sky.tone_commands() > 3 * annunciation::kUrgentTrainPulseCount);
 }
 
@@ -232,7 +232,7 @@ TEST_CASE("product: the first fix plays its tune, and traffic takes the buzzer o
     CHECK(sounding_ms <= tone_ms);
     // No haptics: the motor is reserved for traffic that got worse, so a pilot
     // who feels it knows what it means without looking.
-    CHECK(sky.buzzer().vibro_pulses() == 0);
+    CHECK(sky.buzzer().haptic_pulses() == 0);
     CHECK(int(sky.sounding_level()) == 0);
     CHECK(sky.buzzer().silences() == annunciation::kFirstFixNoteCount);
 
@@ -274,7 +274,7 @@ TEST_CASE("product: an escalation reaches the haptic driver's registers") {
     // (hardware/platform/host/io.h), so nothing here could have moved the motor
     // by driving P0.08 - which is what the annunciator used to do.
     CHECK(moved);
-    CHECK(sky.buzzer().vibro_pulses() >= 1);
+    CHECK(sky.buzzer().haptic_pulses() >= 1);
 }
 
 TEST_CASE("product: the motor is not left running after its pulse") {
@@ -295,14 +295,14 @@ TEST_CASE("product: a unit with no haptic driver flies, sounds, and says what is
     // T-Echo that came down the line as a Plus.
     constexpr ports::Capabilities kNoHaptic = static_cast<ports::Capabilities>(
         static_cast<uint32_t>(platform::host::Platform::kFullyFitted) &
-        ~static_cast<uint32_t>(ports::Capability::Vibro));
+        ~static_cast<uint32_t>(ports::Capability::Haptic));
     Rig rig{kNoHaptic};
     REQUIRE(rig.setup() == Status::Ok);
 
     // Optional, so the device flies and says so once.
     CHECK(rig.product.flyable());
-    CHECK_FALSE(ports::has(rig.product.capabilities(), ports::Capability::Vibro));
-    CHECK(ports::has(rig.product.degraded(), ports::Capability::Vibro));
+    CHECK_FALSE(ports::has(rig.product.capabilities(), ports::Capability::Haptic));
+    CHECK(ports::has(rig.product.degraded(), ports::Capability::Haptic));
 
     // And the voice it does have still works: the first fix is chirped by the
     // same service that would have pulsed the motor.

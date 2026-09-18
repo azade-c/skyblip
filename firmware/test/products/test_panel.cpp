@@ -360,7 +360,7 @@ TEST_CASE("product: the self-test page carries what the probes found, not what w
     for (int i = 0; i < go::kBootPartCount; i++) {
         const go::BootPart& row = rig.product.boot_rows()[i];
         if (go::kBootParts[i].capability == ports::Capability::Baro) baro = &row;
-        if (go::kBootParts[i].capability == ports::Capability::Vibro) haptic = &row;
+        if (go::kBootParts[i].capability == ports::Capability::Haptic) haptic = &row;
         if (go::kBootParts[i].capability == ports::Capability::Rf) radio = &row;
     }
     REQUIRE(baro != nullptr);
