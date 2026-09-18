@@ -107,7 +107,7 @@ constexpr unsigned char kBits[kStride * kH] = {
 };
 }  // namespace
 
-void draw_wordmark(Framebuffer& fb, int cx, int cy) {
+void draw_wordmark(Canvas& fb, int cx, int cy) {
     const int x0 = cx - kW / 2, y0 = cy - kMidlineRow;
     for (int y = 0; y < kH; y++)
         for (int x = 0; x < kW; x++)

@@ -1,7 +1,7 @@
 #ifndef SKYBLIP_UI_WIDGETS_SKYSHIP_H
 #define SKYBLIP_UI_WIDGETS_SKYSHIP_H
 
-#include "ui/framebuffer.h"
+#include "ui/canvas.h"
 
 namespace skyblip::ui {
 
@@ -12,7 +12,7 @@ constexpr int kSkyshipRows = 16;
 // skyShip, the ownship symbol, with its hot spot on (cx, cy). Every screen that
 // says "this is you" draws this one, which is why it is a widget and not part of
 // whichever screen happened to need it first.
-void draw_skyship(Framebuffer& fb, int cx, int cy);
+void draw_skyship(Canvas& fb, int cx, int cy);
 
 }  // namespace skyblip::ui
 

@@ -11,8 +11,8 @@
 #include "core/events/sensor.h"
 #include "core/flight/atmosphere.h"
 #include "hardware/platform/host/platform.h"
+#include "products/skyblip_go/input/controls.h"
 #include "products/skyblip_go/product.h"
-#include "ui/input/pad.h"
 
 namespace skyblip {
 
@@ -26,6 +26,8 @@ struct Rig {
         : platform(fitted) {}
 
     Status setup() { return product.setup(); }
+
+    go::Settings& settings() { return product.settings(); }
 
     void run(uint32_t from, uint32_t to, uint32_t step = 50) {
         for (uint32_t t = from; t <= to; t += step) {
@@ -116,8 +118,8 @@ struct Rig {
             events::BaroSample{flight::alt_mm_to_pressure_mpa(alt_cm * 10), at_ms});
     }
 
-    // Held across steps, then released across steps: ui::Button only reports a
-    // press once a level has been stable through its debounce window.
+    // Held across steps, then released across steps: a level has to be stable
+    // through the board's debounce window before it is an edge at all.
     void press(uint32_t& t) {
         platform.board_gpio().button_down = true;
         hold(t);
@@ -133,7 +135,7 @@ struct Rig {
         }
     }
 
-    // The authorising gesture: two presses inside ui::ConfirmGesture's window.
+    // The authorising gesture: two presses inside go::ConfirmGesture's window.
     void double_press(uint32_t& t) {
         press(t);
         press(t);
@@ -143,7 +145,7 @@ struct Rig {
     void tap_pad(uint32_t& t) { touch_pad(t, 200); }
 
     // The pad held on its own, button up: the way back to the radar.
-    void hold_pad(uint32_t& t) { touch_pad(t, ui::Pad::kHoldMs + 200); }
+    void hold_pad(uint32_t& t) { touch_pad(t, go::Controls::kHomeTouchMs + 200); }
 
     void touch_pad(uint32_t& t, uint32_t ms) {
         platform.board_gpio().pad_down = true;

@@ -2,8 +2,8 @@
 #include <string>
 
 #include "doctest/doctest.h"
+#include "products/skyblip_go/pages/installing.h"
 #include "test/support/product_rig.h"
-#include "ui/screens/installing.h"
 
 using namespace skyblip;
 
@@ -31,12 +31,12 @@ int length(const char* s) {
     return n;
 }
 
-bool glass_reads(const ui::Framebuffer& fb, int x, int y, const char* text, int scale) {
-    ui::Framebuffer expected;
+bool glass_reads(const ui::Canvas& fb, int x, int y, const char* text, int scale) {
+    go::Glass expected;
     expected.clear(true);
     expected.draw_text(x, y, text, true, scale);
     for (int dy = 0; dy < 7 * scale; dy++)
-        for (int dx = 0; dx < length(text) * ui::kInstallingCellW * scale; dx++)
+        for (int dx = 0; dx < length(text) * go::kInstallingCellW * scale; dx++)
             if (fb.get_pixel(x + dx, y + dy) != expected.get_pixel(x + dx, y + dy)) return false;
     return true;
 }
@@ -169,8 +169,8 @@ TEST_CASE("product: a confirmed apply parks the device and paints the glass befo
     CHECK_FALSE(attempt_recorded(rig));
 
     rig.run(t, t + power::kParkMs + power::kReleaseSettleMs + 5000);
-    CHECK(glass_reads(rig.platform.chips().epd.framebuffer(), ui::kInstallingLeftX,
-                      ui::kInstallingTitleY, ui::kInstallingTitle, 2));
+    CHECK(glass_reads(rig.platform.chips().epd.framebuffer(), go::kInstallingLeftX,
+                      go::kInstallingTitleY, go::kInstallingTitle, 2));
     CHECK(rig.platform.dfu().triggered == 1);
     CHECK_FALSE(rig.product.ready_to_power_off());
     CHECK(attempt_recorded(rig));

@@ -57,7 +57,7 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     own.utc = solution.utc;
     own.fix_ms = solution_instant(solution, now_ms);
     own.sats = solution.sats;
-    own.aircraft_cat = context_.state.settings.aircraft_type;
+    own.aircraft_cat = settings_.aircraft_type;
 
     context_.state.clock.utc_valid = solution.utc_valid;
     anchor_utc(solution);

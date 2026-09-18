@@ -5,6 +5,7 @@
 #include "core/indication/lamp.h"
 #include "core/traffic/alarm.h"
 #include "ports/indicator.h"
+#include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
 #include "runtime/tasks.h"
 
@@ -22,7 +23,8 @@ namespace skyblip::go {
 // is already called at exactly the right point in the shutdown sequence.
 class AlarmService : public runtime::Service {
    public:
-    using runtime::Service::Service;
+    AlarmService(runtime::Context& context, const Settings& settings)
+        : runtime::Service(context), settings_(settings) {}
 
     void tick(uint32_t now_ms) override;
 
@@ -41,7 +43,7 @@ class AlarmService : public runtime::Service {
     // because they differ in the gaps of a wink and a test has to be able to say
     // which of the two it means.
     indication::Condition indicator_condition() const { return lamp_.condition(); }
-    ports::Lamp lamp() const { return lamp_.lamp(); }
+    indication::Lamp lamp() const { return lamp_.lamp(); }
 
    private:
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
@@ -73,6 +75,7 @@ class AlarmService : public runtime::Service {
     indication::Policy lamp_{};
     bool dirty_{false};
     bool running_{true};
+    const Settings& settings_;
 };
 
 }  // namespace skyblip::go

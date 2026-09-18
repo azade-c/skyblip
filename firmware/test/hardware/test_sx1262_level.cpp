@@ -6,10 +6,10 @@
 // the same public surface either way.
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
-#include "core/settings/settings.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/parts/sx1262/sx1262.h"
+#include "products/skyblip_go/settings.h"
 
 using namespace skyblip;
 using namespace skyblip::parts;
@@ -199,7 +199,7 @@ TEST_CASE("radio: a trim past the band's own limit is clamped, not programmed") 
     // The two bounds are the same number in two layers: what the flash blob
     // accepts and what the PLL word is allowed to carry. If they ever part, a
     // stored value would be silently altered on its way to the synthesiser.
-    CHECK(int(sx::kFreqTrimLimitTenthsPpm) == int(settings::kFreqTrimLimitTenthsPpm));
+    CHECK(int(sx::kFreqTrimLimitTenthsPpm) == int(go::kFreqTrimLimitTenthsPpm));
 
     models::Sx1262 chip;
     Sx1262 r = make(chip);

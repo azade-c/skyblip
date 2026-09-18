@@ -8,6 +8,7 @@
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
 #include "core/timing/transmit.h"
+#include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -16,7 +17,8 @@ namespace skyblip::go {
 // chip
 class RadioService : public runtime::Service {
    public:
-    using runtime::Service::Service;
+    RadioService(runtime::Context& context, const Settings& settings)
+        : runtime::Service(context), settings_(settings) {}
 
     Status setup() override;
     void tick(uint32_t now_ms) override;
@@ -82,6 +84,7 @@ class RadioService : public runtime::Service {
     bool tx_armed_{false};
     bool over_budget_{false};
     bool held_logged_{false};
+    const Settings& settings_;
 };
 
 }  // namespace skyblip::go

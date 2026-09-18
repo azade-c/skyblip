@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_BOARDS_T_ECHO_PLUS_BOARD_H
 #define SKYBLIP_BOARDS_T_ECHO_PLUS_BOARD_H
 
+#include "boards/lilygo/t_echo_plus/glass.h"
 #include "boards/lilygo/t_echo_plus/i2c_scan.h"
 #include "boards/lilygo/t_echo_plus/pins.h"
 #include "core/bus/bus.h"
@@ -8,18 +9,21 @@
 #include "core/events/input.h"
 #include "core/events/link.h"
 #include "core/events/sensor.h"
+#include "core/input/contact.h"
 #include "hardware/parts/drv2605/drv2605.h"
 #include "hardware/parts/l76k/l76k.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/parts/sx1262/sx1262.h"
 #include "ports/inventory.h"
+#include "ports/null.h"
 #include "ports/roles.h"
-#include "runtime/null.h"
 #include "runtime/tasks.h"
-#include "ui/input/button.h"
-#include "ui/input/pad.h"
 
 namespace skyblip::boards {
+
+static_assert(t_echo_plus::kGlassW == parts::Ssd1681::kGlassW &&
+                  t_echo_plus::kGlassH == parts::Ssd1681::kGlassH,
+              "the glass on this board is what its controller drives");
 
 // The T-Echo Plus, assembled once. P is the platform: silicon or host. Swapping
 // it changes which io/ backend the parts talk to and nothing else, so there is
@@ -136,6 +140,14 @@ class TEchoPlus {
                since >= 2 * runtime::kBaroPeriodMs;
     }
 
+    void publish_contact(events::Contact which, input::Contact& contact, bool level,
+                         uint32_t now_ms) {
+        const input::Contact::Edge edge = contact.update(level, now_ms);
+        if (edge == input::Contact::Edge::None) return;
+        bus_.input.push(
+            events::ContactEvent{which, edge == input::Contact::Edge::Down, contact.edge_ms()});
+    }
+
     void poll_battery(uint32_t now_ms) {
         if (!ports::has(capabilities_, ports::Capability::Battery)) return;
         if (now_ms - last_battery_ms_ < runtime::kBatteryPeriodMs) return;
@@ -175,15 +187,8 @@ class TEchoPlus {
 
         poll_battery(now_ms);
 
-        const bool button_down = platform_.button_down();
-        if (button_.update(button_down, now_ms))
-            bus_.input.push(events::ButtonEvent{events::kButtonPressed});
-        switch (pad_.update(platform_.pad_down(), button_down, now_ms)) {
-            case ui::PadEvent::Tap: bus_.input.push(events::ButtonEvent{events::kPadTapped}); break;
-            case ui::PadEvent::Hold: bus_.input.push(events::ButtonEvent{events::kPadHeld}); break;
-            case ui::PadEvent::None:
-            default: break;
-        }
+        publish_contact(events::Contact::Button, button_, platform_.button_down(), now_ms);
+        publish_contact(events::Contact::Pad, pad_, platform_.pad_down(), now_ms);
 
         const uint64_t now_us = platform_.clock().micros();
         state.clock.pps_locked = platform_.pps().locked();
@@ -266,9 +271,9 @@ class TEchoPlus {
     parts::Drv2605 haptic_;
     typename P::Rf rf_;
     ports::Inventory inventory_{};
-    ui::Button button_{};
-    ui::Pad pad_{};
-    runtime::NullRoles null_{};
+    input::Contact button_{t_echo_plus::kButtonDebounceMs};
+    input::Contact pad_{t_echo_plus::kPadSettleMs};
+    ports::NullRoles null_{};
     ports::Capabilities capabilities_;
     uint32_t last_baro_ms_{0};
     uint32_t last_battery_ms_{0};

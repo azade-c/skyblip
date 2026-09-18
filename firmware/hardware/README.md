@@ -29,4 +29,4 @@ The producers the board polls, which are not ports because nothing calls them on
 
 And what the board asks about the unit it is running on: `begin()`, `capabilities()`, `device_addr()`, `glass_rotation()`, `read_panel_signature()`, `buzzer_pin_held_low()`, `watchdog()`, `system_power()`.
 
-A platform that is missing one of these fails as a template error inside `boards/`, pointing at the call rather than at the platform. That is the trade for having no vtable on any of it, and the reason this table exists is that the error does not say which contract was broken.
+A platform that is missing one of these fails at `platform/contract.h`, which both platforms assert themselves against at the bottom of their own header: the error names the member and points at the platform rather than at whichever call in `boards/` happened to need it first. No vtable is involved, the assertions are compile time and the table above is what the file spells out.

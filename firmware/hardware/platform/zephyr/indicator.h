@@ -24,13 +24,13 @@ class Indicator : public ports::Indicator {
     }
 
     void begin() {
-        if (ready()) show(ports::Lamp::None);
+        if (ready()) show(indication::Lamp::None);
     }
 
-    void show(ports::Lamp lamp) override {
-        drive(green_, lamp == ports::Lamp::Green);
-        drive(red_, lamp == ports::Lamp::Red);
-        drive(blue_, lamp == ports::Lamp::Blue);
+    void show(indication::Lamp lamp) override {
+        drive(green_, lamp == indication::Lamp::Green);
+        drive(red_, lamp == indication::Lamp::Red);
+        drive(blue_, lamp == indication::Lamp::Blue);
     }
 
     // Dark AND released. These LEDs hang off the gated peripheral rail - SoftRF's
@@ -45,7 +45,7 @@ class Indicator : public ports::Indicator {
     // buffer powered, which is the microamps this whole exercise is about. The
     // next show() reconfigures as an output, so park() is not one-way.
     void park() override {
-        show(ports::Lamp::None);
+        show(indication::Lamp::None);
         release(green_);
         release(red_);
         release(blue_);

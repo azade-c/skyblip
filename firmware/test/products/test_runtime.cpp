@@ -2,8 +2,8 @@
 // are pinned here rather than discovered on hardware.
 #include "core/events/link.h"
 #include "doctest/doctest.h"
+#include "ports/null.h"
 #include "runtime/loop.h"
-#include "runtime/null.h"
 #include "runtime/tasks.h"
 #include "runtime/watchdog.h"
 
@@ -38,7 +38,7 @@ struct Spy : runtime::Service {
 };
 
 struct Fixture {
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Clock* clock{nullptr};
     bus::Bus bus;
     bus::State state;
@@ -52,7 +52,7 @@ TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
         uint64_t micros() const override { return 0; }
     } clock;
 
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{clock,
                        null.rf,
                        null.link,
@@ -94,7 +94,7 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
         uint64_t micros() const override { return 0; }
     } clock;
 
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{clock,
                        null.rf,
                        null.link,
@@ -123,7 +123,7 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
 }
 
 TEST_CASE("runtime: a null role accepts every call and reports nothing works") {
-    runtime::NullRoles null;
+    ports::NullRoles null;
     CHECK(null.rf.begin() == Status::Down);
     CHECK(null.rf.arm(ports::RfPlan{}) == Status::Down);
     CHECK(null.link.send(events::Endpoint::Nmea, ConstByteSpan{}) == Status::Down);
@@ -204,7 +204,7 @@ TEST_CASE("watchdog: the loop refuses to feed for a service that is not progress
         uint64_t micros() const override { return 0; }
     } clock;
 
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{clock,
                        null.rf,
                        null.link,

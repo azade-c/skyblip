@@ -18,6 +18,7 @@ skyblip_shared_layers()
 
 file(GLOB SKYBLIP_GO_SOURCES
   ${CMAKE_CURRENT_LIST_DIR}/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/pages/*.cpp
   ${CMAKE_CURRENT_LIST_DIR}/services/*.cpp
 )
 target_sources(app PRIVATE ${SKYBLIP_GO_SOURCES})

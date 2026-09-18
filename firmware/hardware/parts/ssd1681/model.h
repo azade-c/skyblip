@@ -8,8 +8,9 @@
 
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
+#include "hardware/parts/ssd1681/ssd1681.h"
 #include "ports/clock.h"
-#include "ui/framebuffer.h"
+#include "ui/canvas.h"
 
 namespace skyblip::models {
 
@@ -101,14 +102,14 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     // What the panel would be showing: RAM read back through the driver's own
     // inversion, so a polarity bug in the driver shows up as an inverted screen
     // in the simulator instead of passing unnoticed.
-    const ui::Framebuffer& framebuffer() const { return panel_; }
+    const parts::Ssd1681Glass& framebuffer() const { return panel_; }
 
     bool save_pgm(const char* path) const {
         FILE* f = std::fopen(path, "wb");
         if (!f) return false;
-        std::fprintf(f, "P5\n%d %d\n255\n", ui::Framebuffer::kW, ui::Framebuffer::kH);
-        for (int y = 0; y < ui::Framebuffer::kH; y++)
-            for (int x = 0; x < ui::Framebuffer::kW; x++) {
+        std::fprintf(f, "P5\n%d %d\n255\n", parts::Ssd1681::kGlassW, parts::Ssd1681::kGlassH);
+        for (int y = 0; y < parts::Ssd1681::kGlassH; y++)
+            for (int x = 0; x < parts::Ssd1681::kGlassW; x++) {
                 uint8_t v = panel_.get_pixel(x, y) ? 0 : 255;
                 std::fwrite(&v, 1, 1, f);
             }
@@ -156,15 +157,16 @@ class Ssd1681 : public io::Spi, public io::Gpio {
     }
 
     void rasterise() {
-        if (ram.size() < ui::Framebuffer::kBytes) return;
+        if (ram.size() < parts::Ssd1681::kGlassBytes) return;
         uint8_t* out = panel_.data();
-        for (size_t i = 0; i < ui::Framebuffer::kBytes; i++) out[i] = static_cast<uint8_t>(~ram[i]);
+        for (size_t i = 0; i < parts::Ssd1681::kGlassBytes; i++)
+            out[i] = static_cast<uint8_t>(~ram[i]);
     }
 
     const ports::Clock* clock_{nullptr};
     uint32_t refresh_since_ms_{0};
     uint32_t refresh_span_ms_{0};
-    ui::Framebuffer panel_{};
+    parts::Ssd1681Glass panel_{};
     uint8_t sequence_{0};
     bool dc_high_{false};
     bool rst_level_{true};

@@ -4,13 +4,14 @@
 #include <cstdint>
 
 namespace skyblip::events {
-struct ButtonEvent {
-    uint8_t id;
-};
 
-constexpr uint8_t kButtonPressed = 0;
-constexpr uint8_t kPadHeld = 1;
-constexpr uint8_t kPadTapped = 2;
+enum class Contact : uint8_t { Button, Pad };
+
+struct ContactEvent {
+    Contact contact{Contact::Button};
+    bool down{false};
+    uint32_t at_ms{0};
+};
 
 }  // namespace skyblip::events
 

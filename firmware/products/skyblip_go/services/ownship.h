@@ -8,6 +8,7 @@
 #include "core/flight/timer.h"
 #include "core/gnss/first_fix.h"
 #include "core/model/ownship.h"
+#include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
 #include "runtime/tasks.h"
 
@@ -17,7 +18,8 @@ namespace skyblip::go {
 // alarm logic and every screen read.
 class OwnshipService : public runtime::Service {
    public:
-    using runtime::Service::Service;
+    OwnshipService(runtime::Context& context, const Settings& settings)
+        : runtime::Service(context), settings_(settings) {}
 
     void tick(uint32_t now_ms) override;
 
@@ -61,6 +63,7 @@ class OwnshipService : public runtime::Service {
     static constexpr uint32_t kTurnWindowMs = 1000;
     static constexpr int32_t kQnhHalfMinuteSamples = 32;
     static constexpr int32_t kQnhSteadyClimbMmS = 4000;
+    const Settings& settings_;
 };
 
 }  // namespace skyblip::go

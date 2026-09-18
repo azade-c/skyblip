@@ -31,6 +31,10 @@ constexpr int kEpdBacklight = kPinNum(1, 11);
 // (2112-2133). The name is Meshtastic's PIN_DRV_EN.
 constexpr int kVibro = kPinNum(0, 8);
 
+// INFO: fc 19sep26 the button bounces mechanically, the pad flutters under a fingertip
+constexpr uint32_t kButtonDebounceMs = 30;
+constexpr uint32_t kPadSettleMs = 30;
+
 // Disputed between our BOM (0x76) and LilyGO's README / SoftRF (0x77): the
 // devicetree declares both and the board takes whichever answers.
 constexpr uint8_t kBaroAddrPrimary = 0x76;

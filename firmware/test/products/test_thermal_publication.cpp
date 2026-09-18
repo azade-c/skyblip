@@ -2,8 +2,9 @@
 #include "doctest/doctest.h"
 #include "hardware/platform/host/clock.h"
 #include "hardware/platform/host/die_temperature.h"
+#include "ports/null.h"
 #include "products/skyblip_go/services/power.h"
-#include "runtime/null.h"
+#include "products/skyblip_go/settings.h"
 
 using namespace skyblip;
 
@@ -11,7 +12,7 @@ namespace {
 
 struct Rig {
     platform::host::Clock clock;
-    runtime::NullRoles null;
+    ports::NullRoles null;
     platform::host::DieTemperature sensor{};
     ports::Roles roles{clock,   null.rf,        null.link,        null.display,
                        null.kv, null.log_flash, null.annunciator, null.dfu,
@@ -19,7 +20,8 @@ struct Rig {
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
-    go::PowerService power{context};
+    go::Settings settings{};
+    go::PowerService power{context, settings};
 
     Rig() { roles.capabilities = ports::Capability::DieTemperature; }
 };

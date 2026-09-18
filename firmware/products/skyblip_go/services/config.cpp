@@ -123,7 +123,7 @@ void ConfigLinkService::flush_settings(uint32_t now_ms) {
 void ConfigLinkService::load() {
     if (loaded_) return;
     load_image_state();
-    context_.state.settings = settings::defaults(context_.roles.device_addr);
+    settings_ = go::defaults(context_.roles.device_addr);
     if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) {
         loaded_ = true;
         return;
@@ -133,9 +133,8 @@ void ConfigLinkService::load() {
     size_t n = 0;
     if (!is_ok(context_.roles.kv.read("settings", blob, sizeof(blob), n))) return;
     loaded_ = true;
-    settings::Settings loaded;
-    if (is_ok(settings::from_blob(blob, n, loaded)) && is_ok(settings::validate(loaded)))
-        context_.state.settings = loaded;
+    go::Settings loaded;
+    if (is_ok(go::from_blob(blob, n, loaded)) && is_ok(go::validate(loaded))) settings_ = loaded;
     if (n <= kBlobCap) {
         std::memcpy(stored_, blob, n);
         stored_len_ = n;
@@ -145,8 +144,8 @@ void ConfigLinkService::load() {
 void ConfigLinkService::persist() {
     if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) return;
     uint8_t blob[kBlobCap];
-    settings::to_blob(context_.state.settings, blob, sizeof(blob));
-    const size_t len = settings::blob_size();
+    go::to_blob(settings_, blob, sizeof(blob));
+    const size_t len = go::blob_size();
     if (stored_len_ == len && std::memcmp(stored_, blob, len) == 0) return;
     if (!is_ok(context_.roles.kv.write("settings", blob, len))) return;
     std::memcpy(stored_, blob, len);

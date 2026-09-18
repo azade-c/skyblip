@@ -18,7 +18,7 @@ void run(simulator::Simulator& h, uint32_t from, uint32_t to) {
     for (uint32_t t = from; t <= to; t += simulator::Simulator::kStepMs) h.step(t);
 }
 
-// A press has to outlast ui::Button's debounce window, held across steps as a thumb would.
+// A press has to outlast the board's debounce window, held across steps as a thumb would.
 uint32_t press(simulator::Simulator& h, uint32_t t) {
     h.world().press_button();
     for (int i = 0; i < 5; i++) {
@@ -28,7 +28,7 @@ uint32_t press(simulator::Simulator& h, uint32_t t) {
     return t;
 }
 
-// A touch has to outlast ui::Pad's settle and end well inside its hold.
+// A touch has to outlast the pad's settle and end well inside go::Controls::kHomeTouchMs.
 uint32_t page(simulator::Simulator& h, uint32_t t) {
     h.world().tap_pad();
     for (int i = 0; i < 5; i++) {
@@ -197,7 +197,7 @@ TEST_CASE("simulator: a modelled turn deflects the six-pack turn coordinator") {
     page_t = page(h, page_t);  // radar -> 6-pack
     run(h, page_t, page_t + 2000);
     REQUIRE(h.product().screen().page() == go::Page::SixPack);
-    const ui::Framebuffer level = h.panel();
+    const parts::Ssd1681Glass level = h.panel();
 
     // A standard-rate turn: 3 deg/s of track change, held four seconds.
     uint32_t t = page_t + 2000;

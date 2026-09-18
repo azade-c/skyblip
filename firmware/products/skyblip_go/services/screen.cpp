@@ -12,22 +12,22 @@
 #include "core/protocol/nmea_out.h"
 #include "core/timing/transmit.h"
 #include "core/units/units.h"
-#include "ui/screens/installing.h"
+#include "products/skyblip_go/pages/installing.h"
 #include "ui/widgets/wordmark.h"
 
 namespace skyblip::go {
 
 namespace {
 bool settled_for_a_double_press(uint32_t now_ms, uint32_t since_ms) {
-    return now_ms - since_ms >= ui::ConfirmGesture::kDoublePressMs;
+    return now_ms - since_ms >= ConfirmGesture::kDoublePressMs;
 }
 
 // INFO: fc 17sep26 one edge a second, so a phase older than this is an edge that never came
 constexpr uint32_t kPpsEdgeMissedMs = 1500;
 
-ui::PpsState pps_state(const timing::ClockState& clock) {
-    if (!clock.pps_locked) return ui::PpsState::None;
-    return clock.ms_since_pps >= kPpsEdgeMissedMs ? ui::PpsState::Holdover : ui::PpsState::Lock;
+PpsState pps_state(const timing::ClockState& clock) {
+    if (!clock.pps_locked) return PpsState::None;
+    return clock.ms_since_pps >= kPpsEdgeMissedMs ? PpsState::Holdover : PpsState::Lock;
 }
 }  // namespace
 
@@ -58,37 +58,43 @@ void ScreenService::handle_input(uint32_t now_ms) {
 
     sync_editor(now_ms);
 
-    events::ButtonEvent event{};
-    while (context_.bus.input.pop(event)) {
-        if (event.id == events::kPadTapped) {
-            if (prompt_ == comms::Pending::None) page_forward(now_ms);
-            continue;
-        }
-        if (event.id == events::kPadHeld) {
-            if (prompt_ == comms::Pending::None) show_radar();
-            continue;
-        }
-        last_press_ms_ = now_ms;
-        pressed_once_ = true;
-        if (prompt_ != comms::Pending::None) {
-            if (gesture_.armed()) resolve(gesture_.press(now_ms));
-            continue;
-        }
-        if (editor_.active()) {
-            if (showing_self_test_)
-                dismiss_self_test(now_ms);
-            else
-                editor_.change(now_ms);
-            continue;
-        }
-        enter_settings(now_ms);
-    }
+    events::ContactEvent event{};
+    while (context_.bus.input.pop(event)) obey(controls_.read(event), now_ms);
+    obey(controls_.tick(now_ms), now_ms);
 
     if (prompt_ != comms::Pending::None) {
         resolve(gesture_.tick(now_ms));
         return;
     }
     step_editor(now_ms);
+}
+
+void ScreenService::obey(Command command, uint32_t now_ms) {
+    switch (command) {
+        case Command::Next:
+            if (prompt_ == comms::Pending::None) page_forward(now_ms);
+            return;
+        case Command::Home:
+            if (prompt_ == comms::Pending::None) show_radar();
+            return;
+        case Command::Act: break;
+        case Command::None: return;
+    }
+
+    last_press_ms_ = now_ms;
+    pressed_once_ = true;
+    if (prompt_ != comms::Pending::None) {
+        if (gesture_.armed()) resolve(gesture_.press(now_ms));
+        return;
+    }
+    if (editor_.active()) {
+        if (showing_self_test_)
+            dismiss_self_test(now_ms);
+        else
+            editor_.change(now_ms);
+        return;
+    }
+    enter_settings(now_ms);
 }
 
 // INFO: cf 02aug26 the settings mode owns the button until a prompt takes it away unasked
@@ -149,14 +155,14 @@ void ScreenService::leave_settings() {
 void ScreenService::step_editor(uint32_t now_ms) {
     if (!editor_.active()) return;
 
-    ui::SettingsValues current;
-    current.settings = context_.state.settings;
+    SettingsValues current;
+    current.settings = settings_;
     current.qnh_pa = context_.state.baro.qnh_pa;
-    ui::SettingsValues next;
+    SettingsValues next;
 
     switch (editor_.tick(now_ms, current, next)) {
-        case ui::SettingsAction::Changed:
-            context_.state.settings = next.settings;
+        case SettingsAction::Changed:
+            settings_ = next.settings;
             context_.state.baro.qnh_pa = next.qnh_pa;
             // INFO: cf 02aug26 One owner of the flash blob. The page changes the
             // struct the config service was already given a reference to and
@@ -166,24 +172,24 @@ void ScreenService::step_editor(uint32_t now_ms) {
             config_.note_settings_changed();
             dirty_ = true;
             break;
-        case ui::SettingsAction::Moved: dirty_ = true; break;
-        case ui::SettingsAction::Leave: leave_settings(); break;
-        case ui::SettingsAction::None:
+        case SettingsAction::Moved: dirty_ = true; break;
+        case SettingsAction::Leave: leave_settings(); break;
+        case SettingsAction::None:
         default: break;
     }
 }
 
 // INFO: cf 02aug26 where the settings mode hands the glass back: the first page the mask leaves
 Page ScreenService::traffic_page() const {
-    const uint8_t mask = context_.state.settings.page_mask;
+    const uint8_t mask = settings_.page_mask;
     for (int i = 0; i < static_cast<int>(Page::kCount); i++)
         if (mask & (1u << i)) return static_cast<Page>(i);
     return Page::Radar;
 }
 
-void ScreenService::resolve(ui::Gesture gesture) {
-    if (gesture == ui::Gesture::None) return;
-    if (gesture == ui::Gesture::Confirm)
+void ScreenService::resolve(Gesture gesture) {
+    if (gesture == Gesture::None) return;
+    if (gesture == Gesture::Confirm)
         config_.confirm();
     else
         config_.cancel();
@@ -228,7 +234,7 @@ void ScreenService::tick(uint32_t now_ms) {
     render(now_ms);
 
     const bool changed = !presented_once_ || change_ == Change::Wiped ||
-                         std::memcmp(fb_.data(), presented_.data(), ui::Framebuffer::kBytes) != 0;
+                         std::memcmp(fb_.data(), presented_.data(), Glass::kBytes) != 0;
     if (!changed) return;
 
     context_.roles.display.present(fb_, ports::Refresh::Partial, now_ms);
@@ -261,7 +267,7 @@ void ScreenService::wipe_glass(uint32_t now_ms) {
 
 void ScreenService::note_presented(uint32_t now_ms) {
     change_ = Change::None;
-    std::memcpy(presented_.data(), fb_.data(), ui::Framebuffer::kBytes);
+    std::memcpy(presented_.data(), fb_.data(), Glass::kBytes);
     presented_once_ = true;
     context_.state.panel_presented = true;
     prompt_on_glass_ = prompt_ != comms::Pending::None;
@@ -272,7 +278,7 @@ void ScreenService::next_page() {
     const int n = static_cast<int>(Page::kCount);
     for (int i = 1; i <= n; i++) {
         const int cand = (static_cast<int>(page_) + i) % n;
-        if (context_.state.settings.page_mask & (1u << cand)) {
+        if (settings_.page_mask & (1u << cand)) {
             page_ = static_cast<Page>(cand);
             break;
         }
@@ -321,13 +327,13 @@ void ScreenService::settle_park(uint32_t now_ms) {
 
 void ScreenService::draw_park_frame(ParkFrame frame) {
     switch (frame) {
-        case ParkFrame::Installing: ui::draw_installing(fb_); return;
+        case ParkFrame::Installing: draw_installing(fb_); return;
         // INFO: fc 12sep26 months of one image is the ghosting an e-paper never fully loses
         case ParkFrame::Blank: fb_.clear(/*white=*/true); return;
         case ParkFrame::Wordmark:
         default:
             fb_.clear(/*white=*/true);
-            ui::draw_wordmark(fb_, ui::Framebuffer::kW / 2, ui::Framebuffer::kH / 2);
+            ui::draw_wordmark(fb_, kGlassW / 2, kGlassH / 2);
             return;
     }
 }
@@ -344,19 +350,19 @@ void ScreenService::park_for_install() { park(ParkFrame::Installing); }
 void ScreenService::park_for_stow() { park(ParkFrame::Blank); }
 
 void ScreenService::draw_prompt() {
-    ui::ConfirmSnapshot snapshot;
+    ConfirmSnapshot snapshot;
     snapshot.title = comms::pending_title(prompt_);
     snapshot.detail = comms::pending_detail(prompt_);
     snapshot.timeout_s = comms::kConfirmWindowMs / 1000;
-    ui::draw_confirm(fb_, snapshot);
+    draw_confirm(fb_, snapshot);
 }
 
 void ScreenService::draw_settings_page() {
-    ui::SettingsSnapshot snapshot;
-    snapshot.values.settings = context_.state.settings;
+    SettingsSnapshot snapshot;
+    snapshot.values.settings = settings_;
     snapshot.values.qnh_pa = context_.state.baro.qnh_pa;
     snapshot.focus = editor_.focus();
-    ui::draw_settings(fb_, snapshot);
+    draw_settings(fb_, snapshot);
 }
 
 void ScreenService::render(uint32_t now_ms) {
@@ -366,7 +372,7 @@ void ScreenService::render(uint32_t now_ms) {
     }
     if (mode_ == Mode::Settings) {
         if (showing_self_test_)
-            ui::draw_boot(fb_, self_test_);
+            draw_boot(fb_, self_test_);
         else
             draw_settings_page();
         return;
@@ -375,11 +381,11 @@ void ScreenService::render(uint32_t now_ms) {
     fb_.clear(/*white=*/true);
 
     const model::OwnState& own = context_.state.own;
-    const settings::Settings& settings = context_.state.settings;
+    const go::Settings& settings = settings_;
 
     switch (page_) {
         case Page::Radar: {
-            ui::RadarSnapshot snap;
+            RadarSnapshot snap;
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.range_nm = range_nm_;
@@ -413,11 +419,11 @@ void ScreenService::render(uint32_t now_ms) {
             }
             snap.n_targets = n;
             snap.targets = targets_;
-            ui::draw_radar(fb_, snap);
+            draw_radar(fb_, snap);
             break;
         }
         case Page::SixPack: {
-            ui::SixPackSnapshot snap;
+            SixPackSnapshot snap;
             snap.data_valid = own.fix_valid;
             snap.units = settings.units;
             // 1 m/s = 1.94384 kt, from quarter-m/s.
@@ -429,22 +435,22 @@ void ScreenService::render(uint32_t now_ms) {
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
-            ui::draw_sixpack(fb_, snap);
+            draw_sixpack(fb_, snap);
             break;
         }
         case Page::Signal: {
-            ui::SignalSnapshot snap;
+            SignalSnapshot snap;
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
             snap.n_rows =
-                traffic::rank_by_range(context_.state.traffic, own, signal_rows_, ui::kSignalRows);
+                traffic::rank_by_range(context_.state.traffic, own, signal_rows_, kSignalRows);
             snap.rows = signal_rows_;
-            ui::draw_signal(fb_, snap);
+            draw_signal(fb_, snap);
             break;
         }
         case Page::RadioLog: {
-            ui::RadioLogSnapshot snap;
+            RadioLogSnapshot snap;
             snap.gnss.fix_valid = own.fix_valid;
             snap.gnss.sats = own.sats;
             snap.gnss.pps = pps_state(context_.state.clock);
@@ -456,12 +462,12 @@ void ScreenService::render(uint32_t now_ms) {
             snap.airborne = flight::airborne(own.flight_state);
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
-            ui::draw_radio_log(fb_, snap);
+            draw_radio_log(fb_, snap);
             break;
         }
         case Page::Status:
         default: {
-            ui::StatusSnapshot snap;
+            StatusSnapshot snap;
             snap.device_addr = settings.device_addr;
             snap.callsign = settings.callsign;
             snap.fix_valid = own.fix_valid;
@@ -495,7 +501,7 @@ void ScreenService::render(uint32_t now_ms) {
                 snap.alt_qnh_m = flight::alt_cm_on_setting(pa, context_.state.baro.qnh_pa) / 100;
                 snap.alt_std_m = flight::pressure_to_alt_cm(pa) / 100;
             }
-            ui::draw_status(fb_, snap);
+            draw_status(fb_, snap);
             break;
         }
     }

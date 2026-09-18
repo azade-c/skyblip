@@ -9,7 +9,6 @@
 #include "core/power/charging.h"
 #include "core/power/cutoff.h"
 #include "core/radio/log.h"
-#include "core/settings/settings.h"
 #include "core/timing/channel.h"
 #include "core/timing/durable_write.h"
 #include "core/timing/slot.h"
@@ -63,7 +62,6 @@ struct BaroState {
 };
 
 struct State {
-    settings::Settings settings{};
     model::OwnState own{};
     timing::ClockState clock{};
     traffic::TrafficTable traffic{};

@@ -25,7 +25,7 @@
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/platform/host/clock.h"
-#include "runtime/null.h"
+#include "ports/null.h"
 #include "test/support/product_rig.h"
 #include "test/support/rf_channel.h"
 
@@ -149,7 +149,7 @@ void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 100,
 // claims to do.
 struct FeatureRig {
     platform::host::Clock clock;
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator,

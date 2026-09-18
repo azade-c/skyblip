@@ -62,7 +62,7 @@ Neither figure is on the page. Both are microseconds of this CPU and of the chip
 
 A reception is dated where the radio raised it: the executor stamps the instant it saw DIO1 go up, or the instant it began the status read, never the instant the read-out ended. Reading 58 chip-bytes out of the buffer costs milliseconds on a bench, and it used to sit between the burst and its own timestamp, which is what made one link's two stamps read 2 to 3 ms apart. DIO1 stays a level, not an edge: a dwell is driven by a deadline (`boards/lilygo/t_echo_plus/t_echo_plus.dts`).
 
-The capacity is what one screen holds. Nothing is kept that could not be shown: this is a tape of what is happening now, not a history to scroll back through. `ui/screens/radio_log.cpp` draws exactly `Log::kCapacity` rows for that reason.
+The capacity is what one screen holds. Nothing is kept that could not be shown: this is a tape of what is happening now, not a history to scroll back through. `products/skyblip_go/pages/radio_log.cpp` draws exactly `Log::kCapacity` rows for that reason.
 
 ## Who writes what
 

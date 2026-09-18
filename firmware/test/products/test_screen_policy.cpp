@@ -124,7 +124,8 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
-    rig.bus.input.push(events::ButtonEvent{events::kButtonPressed});
+    rig.bus.input.push(events::ContactEvent{events::Contact::Button, true, t});
+    rig.bus.input.push(events::ContactEvent{events::Contact::Button, false, t + 100});
     rig.run_seconds(t, 2);
     REQUIRE(rig.screen.mode() == go::Mode::Settings);
     REQUIRE(rig.screen.editor().active());

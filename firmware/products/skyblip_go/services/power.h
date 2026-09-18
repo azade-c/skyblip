@@ -6,6 +6,7 @@
 #include "core/power/cutoff.h"
 #include "ports/capabilities.h"
 #include "ports/die_temperature.h"
+#include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -17,7 +18,8 @@ namespace skyblip::go {
 // cell is nearly gone is the one place that says so.
 class PowerService : public runtime::Service {
    public:
-    using runtime::Service::Service;
+    PowerService(runtime::Context& context, const Settings& settings)
+        : runtime::Service(context), settings_(settings) {}
 
     void tick(uint32_t now_ms) override;
 
@@ -76,6 +78,7 @@ class PowerService : public runtime::Service {
     int16_t die_dc_{0};
     bool die_valid_{false};
     bool die_sampled_{false};
+    const Settings& settings_;
 };
 
 }  // namespace skyblip::go

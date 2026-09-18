@@ -7,6 +7,7 @@
 #include "core/power/wake.h"
 #include "core/util/format.h"
 #include "products/skyblip_go/features.h"
+#include "products/skyblip_go/pages/boot.h"
 #include "products/skyblip_go/services/alarm.h"
 #include "products/skyblip_go/services/config.h"
 #include "products/skyblip_go/services/flight_log.h"
@@ -16,8 +17,8 @@
 #include "products/skyblip_go/services/radio.h"
 #include "products/skyblip_go/services/screen.h"
 #include "products/skyblip_go/services/traffic.h"
+#include "products/skyblip_go/settings.h"
 #include "runtime/loop.h"
-#include "ui/screens/boot.h"
 
 namespace skyblip::go {
 
@@ -52,7 +53,7 @@ constexpr BootPartSpec kBootParts[] = {
 };
 
 constexpr int kBootPartCount = static_cast<int>(sizeof(kBootParts) / sizeof(kBootParts[0]));
-static_assert(kBootPartCount <= ui::kBootRows, "the self-test page would drop a part");
+static_assert(kBootPartCount <= kBootRows, "the self-test page would drop a part");
 
 // skyBlip Go: one board, one service list. The shell around it only decides how
 // often step() is called and where the pixels go.
@@ -134,10 +135,10 @@ class Product {
     // setup() and performs the second one.
     power::BootPath boot_path() const { return boot_path_; }
     const power::BootCell& boot_cell() const { return boot_cell_; }
-    const ui::Framebuffer& boot_page() const { return boot_fb_; }
+    const Glass& boot_page() const { return boot_fb_; }
     // The rows behind that page, so a test can read what a part answered instead
     // of reading pixels back off the glass to find out.
-    const ui::BootPart* boot_rows() const { return boot_parts_; }
+    const BootPart* boot_rows() const { return boot_parts_; }
 
     power::ShutdownSequencer& shutdown() { return shutdown_; }
     const power::ShutdownSequencer& shutdown() const { return shutdown_; }
@@ -160,6 +161,8 @@ class Product {
     Board& board() { return board_; }
     bus::Bus& bus() { return bus_; }
     bus::State& state() { return state_; }
+    Settings& settings() { return settings_; }
+    const Settings& settings() const { return settings_; }
     const bus::State& state() const { return state_; }
 
     OwnshipService& ownship() { return ownship_; }
@@ -198,7 +201,7 @@ class Product {
         if (!ports::has(board_.capabilities(), ports::Capability::Battery)) return cell;
         uint16_t raw_mv = 0;
         cell.valid = platform_.read_battery_mv(raw_mv);
-        cell.millivolts = power::calibrated_mv(raw_mv, state_.settings.battery_offset_mv);
+        cell.millivolts = power::calibrated_mv(raw_mv, settings_.battery_offset_mv);
         cell.external_power = platform_.external_power();
         return cell;
     }
@@ -214,9 +217,9 @@ class Product {
         for (int i = 0; i < kBootPartCount; i++) {
             const BootPartSpec& spec = kBootParts[i];
             boot_parts_[i].name = spec.name;
-            boot_parts_[i].state = ports::has(fitted, spec.capability)      ? ui::PartState::Pass
-                                   : ports::has(kRequired, spec.capability) ? ui::PartState::Fail
-                                                                            : ui::PartState::Absent;
+            boot_parts_[i].state = ports::has(fitted, spec.capability)      ? PartState::Pass
+                                   : ports::has(kRequired, spec.capability) ? PartState::Fail
+                                                                            : PartState::Absent;
             boot_parts_[i].detail = boot_detail(spec.capability);
         }
 
@@ -229,7 +232,7 @@ class Product {
         boot_snapshot_.battery_mv = boot_cell_.millivolts;
         boot_snapshot_.i2c_addresses = board_.inventory().i2c_addresses;
         boot_snapshot_.n_i2c_addresses = board_.inventory().i2c_count;
-        ui::draw_boot(boot_fb_, boot_snapshot_);
+        draw_boot(boot_fb_, boot_snapshot_);
     }
 
     void drive_shutdown(uint32_t now_ms) {
@@ -270,8 +273,9 @@ class Product {
 
     bus::Bus bus_{};
     bus::State state_{};
-    ui::Framebuffer boot_fb_{};
-    ui::BootSnapshot boot_snapshot_{};
+    Settings settings_{};
+    Glass boot_fb_{};
+    BootSnapshot boot_snapshot_{};
     P& platform_;
     Board board_;
     ports::Roles roles_{board_.roles()};
@@ -279,15 +283,15 @@ class Product {
 
     // Declared before the config service, which is handed it: the settings writer
     // asks core/power whether the cell will survive a write before it makes one.
-    PowerService power_{ctx_};
-    ConfigLinkService config_{ctx_, power_};
-    OwnshipService ownship_{ctx_};
-    RadioService radio_{ctx_};
+    PowerService power_{ctx_, settings_};
+    ConfigLinkService config_{ctx_, settings_, power_};
+    OwnshipService ownship_{ctx_, settings_};
+    RadioService radio_{ctx_, settings_};
     TrafficService traffic_{ctx_, kFeatures};
-    AlarmService alarm_{ctx_};
+    AlarmService alarm_{ctx_, settings_};
     NmeaService nmea_{ctx_, kFeatures, config_.config()};
     FlightLogService flight_log_{ctx_, config_.config()};
-    ScreenService screen_{ctx_, config_.config(), boot_snapshot_};
+    ScreenService screen_{ctx_, settings_, config_.config(), boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
     // published the slot plan it defers to, and before the screen, which is the
@@ -302,9 +306,9 @@ class Product {
         "config", "ownship", "power", "radio", "traffic", "alarm", "nmea", "flight_log", "screen"};
     runtime::Loop loop_{services_, kServiceCount, kServiceNames};
 
-    ui::BootPart boot_parts_[kBootPartCount]{};
+    BootPart boot_parts_[kBootPartCount]{};
     // The barometer's address as the page prints it. A member and not a local:
-    // ui::BootPart holds a pointer, and the page is drawn after boot_detail()
+    // BootPart holds a pointer, and the page is drawn after boot_detail()
     // has returned.
     char baro_address_[3]{};
     power::ShutdownSequencer shutdown_{};

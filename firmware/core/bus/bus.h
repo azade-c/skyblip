@@ -64,7 +64,7 @@ struct Bus {
     // while-pop, so a log command sharing that queue would be read and dropped
     // by the wrong service.
     Queue<events::RxFrame, 2> log_rx;
-    Queue<events::ButtonEvent, 4> input;
+    Queue<events::ContactEvent, 8> input;
     Queue<events::BatterySample, 2> battery;
 };
 

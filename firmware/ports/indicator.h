@@ -28,13 +28,9 @@
 
 #include <cstdint>
 
-namespace skyblip::ports {
+#include "core/indication/lamps.h"
 
-// Which lamp is lit. One at a time and primaries only: two LEDs lit together to
-// make a colour cost twice the current for a hue nobody can name through a
-// diffuser, and the states are told apart by colour AND rhythm anyway
-// (core/indication/lamp.h).
-enum class Lamp : uint8_t { None, Green, Red, Blue };
+namespace skyblip::ports {
 
 class Indicator {
    public:
@@ -42,7 +38,7 @@ class Indicator {
 
     // Called only when the answer changes: an LED re-driven on every pass of the
     // loop is the same register write a hundred times a second for no light.
-    virtual void show(Lamp lamp) { (void)lamp; }
+    virtual void show(indication::Lamp lamp) { (void)lamp; }
 
     // Dark, and the pins released. After this the indicator is inert until the
     // next show().

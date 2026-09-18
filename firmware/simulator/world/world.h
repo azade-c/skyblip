@@ -122,7 +122,7 @@ class World {
     void apply_events(uint32_t now_ms, const bus::State& state);
     void fail(const char* what);
 
-    // A modelled press has to last longer than ui::Button's debounce window or
+    // A modelled press has to last longer than the board's debounce window or
     // the firmware is right to ignore it.
     static constexpr uint32_t kPressMs = 60;
     static constexpr double kThreatSinkMps = -3;

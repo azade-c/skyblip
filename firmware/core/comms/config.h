@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_CORE_COMMS_CONFIG_H
 #define SKYBLIP_CORE_COMMS_CONFIG_H
 
+#include "core/comms/config_store.h"
 #include "core/comms/diagnostics.h"
 #include "core/comms/timing_report.h"
 #include "core/dfu/update.h"
@@ -9,7 +10,6 @@
 #include "core/power/battery.h"
 #include "core/power/cutoff.h"
 #include "core/power/reset_reason.h"
-#include "core/settings/settings.h"
 #include "core/timing/durable_write.h"
 #include "core/timing/timing_stats.h"
 #include "ports/dfu.h"
@@ -50,9 +50,9 @@ constexpr int kSmallestSupportedPayload = 182;
 
 class ConfigService {
    public:
-    ConfigService(ports::Link& link, settings::Settings& s, ports::Dfu* dfu = nullptr,
+    ConfigService(ports::Link& link, ConfigStore& store, ports::Dfu* dfu = nullptr,
                   const timing::SlotTimingStats* timing_stats = nullptr)
-        : link_(link), settings_(s), dfu_(dfu), timing_stats_(timing_stats) {}
+        : link_(link), store_(store), dfu_(dfu), timing_stats_(timing_stats) {}
 
     // INFO: cf 02aug26 OnGround opens this door, latched in core/flight/ground.h
     void set_flight_state(flight::FlightState fs);
@@ -241,7 +241,7 @@ class ConfigService {
     bool on_ground() const { return flight_ == flight::FlightState::OnGround; }
 
     ports::Link& link_;
-    settings::Settings& settings_;
+    ConfigStore& store_;
     ports::Dfu* dfu_;
     const timing::SlotTimingStats* timing_stats_;
     const timing::DurableWriteWindow* writes_{nullptr};

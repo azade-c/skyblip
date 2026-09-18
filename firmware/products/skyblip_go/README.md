@@ -1,6 +1,10 @@
 # products/skyblip_go
 
-One board, one service list. `product.h` wires it; the shell around it (`main.cpp` on silicon, the simulator on the host) only decides how often `step()` is called and where the pixels go.
+One board, one service list, one set of pages. `product.h` wires it; the shell around it (`main.cpp` on silicon, the simulator on the host) only decides how often `step()` is called and where the pixels go.
+
+`pages/` is the glass half of the product and carries its own README, `input/` is what a press means here. `glass.h` is where the panel this device draws on is named: the size comes from the board (`boards/lilygo/t_echo_plus/glass.h`), and `go::Glass` is the `ui::Panel` every page and the screen service is written against.
+
+`settings.h` is the list of values a pilot of this device can change, its defaults, what it refuses and how an older flash layout migrates forward. The framing under it is `core/settings/blob.h` and the identity rules are `core/settings/address.h`, because neither is this product's to decide. `settings_store.h` is the two calls `comms::ConfigService` needs to answer a phone, and it is the only thing that couples the companion link to this struct. The settings do not live on `bus::State`: the blackboard is core's and a product's field list cannot sit on it, so the product owns them and hands a reference to the services that read them.
 
 ## What a service is
 

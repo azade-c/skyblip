@@ -1,0 +1,240 @@
+#include "products/skyblip_go/pages/status.h"
+
+#include "core/units/units.h"
+#include "core/util/format.h"
+
+namespace skyblip::go {
+
+namespace {
+constexpr int kLeft = 4;
+constexpr int kLineH = 16;
+constexpr int kCellW = 6;  // the 5x7 font's advance at scale 1
+constexpr int kColumn(int cell) { return kLeft + cell * kCellW; }
+
+// One grid, in character cells: 4 label, 1 space, 5 value, 4 unit, 3 space,
+// 5 value, 4 unit. Every unit string carries its own leading space, which is
+// what keeps a five-character value off it. km/h then runs one cell past the
+// field, which is what it costs to have every unit start in the same column.
+constexpr int kValueX = kColumn(5);
+constexpr int kAeroNumberEnd = kColumn(10);
+constexpr int kAeroUnitX = kColumn(10);
+constexpr int kAeroUnitEnd = kColumn(15);  // past a leading space and four characters
+constexpr int kSiNumberEnd = kColumn(22);
+constexpr int kSiUnitX = kColumn(22);
+
+constexpr uint8_t kSatellitesForAltitude = 4;
+
+// 1 m/s = 1.94384 kt, from quarter-m/s.
+int32_t knots(uint16_t speed_q) { return (static_cast<int32_t>(speed_q) * 194384) / (4 * 100000); }
+
+// 1 m/s = 3.6 km/h, from quarter-m/s.
+int32_t kilometres_per_hour(uint16_t speed_q) {
+    return (static_cast<int32_t>(speed_q) * 36) / (4 * 10);
+}
+
+// Draw "LABEL  value" on one row.
+void row(ui::Canvas& fb, int y, const char* label, const char* value) {
+    fb.draw_text(kLeft, y, label, true, 1);
+    fb.draw_text(kValueX, y, value, true, 1);
+}
+
+void right_aligned(ui::Canvas& fb, int x_end, int y, const char* text, int len) {
+    fb.draw_text(x_end - len * kCellW, y, text, true, 1);
+}
+
+int length(const char* s) {
+    int n = 0;
+    while (s[n]) n++;
+    return n;
+}
+
+// The same two columns as the numbers, for the rows whose values are words: the
+// value right-aligned on the column, its unit left-aligned after it.
+void text_row(ui::Canvas& fb, int y, const char* label, const char* value, const char* unit,
+              const char* value2 = "", const char* unit2 = "") {
+    fb.draw_text(kLeft, y, label, true, 1);
+    right_aligned(fb, kAeroNumberEnd, y, value, length(value));
+    fb.draw_text(kAeroUnitX, y, unit, true, 1);
+    right_aligned(fb, kSiNumberEnd, y, value2, length(value2));
+    fb.draw_text(kSiUnitX, y, unit2, true, 1);
+}
+
+struct Quantity {
+    int32_t value{0};
+    uint8_t decimals{0};
+    const char* unit{""};
+};
+
+// Aeronautical unit in the first column, SI in the second: the pilot reads the
+// left, the engineer checks the right.
+void dual_row(ui::Canvas& fb, int y, const char* label, Quantity aero, Quantity si, bool no_plus) {
+    char buf[16];
+    fb.draw_text(kLeft, y, label, true, 1);
+
+    int n = fmt_int(buf, aero.value, 1, aero.decimals, no_plus);
+    buf[n] = 0;
+    right_aligned(fb, kAeroNumberEnd, y, buf, n);
+    fb.draw_text(kAeroUnitX, y, aero.unit, true, 1);
+
+    n = fmt_int(buf, si.value, 1, si.decimals, no_plus);
+    buf[n] = 0;
+    right_aligned(fb, kSiNumberEnd, y, buf, n);
+    fb.draw_text(kSiUnitX, y, si.unit, true, 1);
+}
+
+// Both pressures on one line, in the two number columns: what the sensor reads,
+// and the subscale the altitudes below are read against. Neither is aero-vs-SI,
+// so they share the one unit.
+void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa) {
+    char baro[12];
+    int n = fmt_uint(baro, pressure_mpa / 100, 1, 3);
+    baro[n] = 0;
+
+    char qnh[8];
+    n = fmt_string(qnh, "Q");
+    if (qnh_pa != 0)
+        n += fmt_uint(qnh + n, (qnh_pa + 50) / 100, 1);
+    else
+        n += fmt_string(qnh + n, "----");
+    qnh[n] = 0;
+
+    fb.draw_text(kLeft, y, "BARO", true, 1);
+    right_aligned(fb, kAeroUnitEnd, y, baro, length(baro));
+    right_aligned(fb, kSiNumberEnd, y, qnh, length(qnh));
+    fb.draw_text(kSiUnitX, y, " hPa", true, 1);
+}
+
+// Volts and state of charge, and the fact that decides which of the two curves
+// the percentage came from. A pilot who cannot see "CHG" cannot tell a cell that
+// is filling from one that is holding 4.1 V on its way down.
+void battery_row(ui::Canvas& fb, int y, const StatusSnapshot& s) {
+    if (!s.battery_valid) {
+        row(fb, y, "BAT", "no sensor");
+        return;
+    }
+
+    // Centivolts, so the two decimals a cell is judged on fit the value field.
+    char volts[8];
+    int n = fmt_uint(volts, (s.battery_mv + 5u) / 10u, 1, 2);
+    volts[n] = 0;
+
+    char percent[8];
+    n = fmt_uint(percent, s.battery_percent, 1);
+    percent[n] = 0;
+
+    // A cell on the cable is not low whatever it reads, so the charger wins the
+    // marker. Off it, the warning is the whole reason this row is on the page.
+    const char* mark = s.charge == power::ChargeCondition::TooHot    ? " % HOT"
+                       : s.charge == power::ChargeCondition::TooCold ? " % CLD"
+                       : s.charging                                  ? " % CHG"
+                       : s.battery_low                               ? " % LOW"
+                                                                     : " %";
+    text_row(fb, y, "BAT", volts, " V", percent, mark);
+}
+}  // namespace
+
+void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
+    fb.clear(true);
+
+    char buf[32];
+
+    // Header: device address (the ADS-L identity) + the name the pilot gave it.
+    int n = fmt_string(buf, "ID ");
+    n += fmt_hex(buf + n, s.device_addr, 6);
+    buf[n] = 0;
+    fb.draw_text(kLeft, 3, buf, true, 2);
+    if (s.callsign != nullptr && s.callsign[0] != 0)
+        right_aligned(fb, kGlassW - kLeft, 8, s.callsign, length(s.callsign));
+    fb.hline(kLeft, 21, kGlassW - 2 * kLeft, true);
+
+    // Everything that is one free-form string first, then the block where every
+    // number lines up in its column.
+    int y = 27;
+
+    n = fmt_string(buf, " ");
+    if (s.utc_valid)
+        n += fmt_seconds_of_day(buf + n, s.utc);
+    else
+        n += fmt_string(buf + n, "--:--:--");
+    buf[n] = 0;
+
+    if (s.fix_valid) {
+        char sats[4];
+        n = fmt_uint(sats, s.sats, 2);
+        sats[n] = 0;
+        text_row(fb, y, "GNSS", sats, " SAT", "UTC", buf);
+        fb.draw_text(kValueX, y, s.sats >= kSatellitesForAltitude ? "3D" : "2D", true, 1);
+    } else {
+        text_row(fb, y, "GNSS", "", "", "UTC", buf);
+        fb.draw_text(kValueX, y, "NO FIX", true, 1);
+    }
+    y += kLineH;
+
+    // Full 1e-7 degrees on both, which is what the fix carries. A signed
+    // three-digit longitude is then 16 cells wide with its label, so the
+    // longitude block is anchored to the right margin rather than to a column:
+    // at seven decimals nothing narrower fits every position on earth.
+    if (s.fix_valid) {
+        // Ten characters of latitude do not fit a five-cell value field, so it
+        // ends where the first column's unit does: level with TRUE above it.
+        n = fmt_int(buf, s.lat_1e7, 1, 7, true);
+        buf[n] = 0;
+        fb.draw_text(kLeft, y, "LAT", true, 1);
+        right_aligned(fb, kAeroUnitEnd, y, buf, n);
+
+        n = fmt_string(buf, "LON ");
+        n += fmt_int(buf + n, s.lon_1e7, 1, 7, true);
+        buf[n] = 0;
+        right_aligned(fb, kGlassW - kLeft, y, buf, n);
+    } else {
+        row(fb, y, "LAT", "no fix");
+    }
+    y += kLineH;
+
+    n = fmt_uint(buf, to_degrees(Cordic9(s.track_c9)).v, 3);
+    buf[n] = 0;
+    text_row(fb, y, "TRK", buf, " TRUE");
+    y += kLineH;
+
+    char count[8];
+    n = fmt_uint(count, static_cast<uint32_t>(s.n_targets), 1);
+    count[n] = 0;
+    text_row(fb, y, "TFC", count, "", "TX", s.transmitting ? " ON" : " OFF");
+    y += kLineH;
+
+    // The aligned block: the pressures the altitudes depend on, then altitude on
+    // the subscale that was set, the geometric one, and pressure altitude on the
+    // 1013.25 hPa standard setting - the one a flight level counts in hundreds
+    // of feet. Then the motion pair.
+    if (s.baro_valid) {
+        pressure_row(fb, y, s.pressure_mpa, s.qnh_pa);
+        y += kLineH;
+
+        dual_row(fb, y, "ALT", {to_feet(Metres(s.alt_qnh_m)).v, 0, " ft"}, {s.alt_qnh_m, 0, " m"},
+                 true);
+        y += kLineH;
+    } else {
+        row(fb, y, "BARO", "no sensor");
+        y += kLineH * 2;
+    }
+
+    dual_row(fb, y, "GNSS", {to_feet(Metres(s.alt_m)).v, 0, " ft"}, {s.alt_m, 0, " m"}, true);
+    y += kLineH;
+
+    if (s.baro_valid)
+        dual_row(fb, y, "STD", {to_feet(Metres(s.alt_std_m)).v, 0, " ft"}, {s.alt_std_m, 0, " m"},
+                 true);
+    y += kLineH;
+
+    dual_row(fb, y, "SPD", {knots(s.speed_q), 0, " kt"},
+             {kilometres_per_hour(s.speed_q), 0, " km/h"}, true);
+    y += kLineH;
+
+    dual_row(fb, y, "VS", {to_feet_per_minute(MillimetresPerSec(s.climb_mm_s)).v, 0, " fpm"},
+             {s.climb_mm_s / 10, 2, " m/s"}, false);
+    y += kLineH;
+
+    battery_row(fb, y, s);
+}
+
+}  // namespace skyblip::go

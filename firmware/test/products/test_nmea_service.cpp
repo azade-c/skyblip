@@ -33,12 +33,13 @@
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/air.h"
-#include "core/settings/settings.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/platform/host/clock.h"
 #include "hardware/platform/host/link.h"
-#include "runtime/null.h"
+#include "ports/null.h"
+#include "products/skyblip_go/settings.h"
+#include "products/skyblip_go/settings_store.h"
 #include "test/support/product_rig.h"
 
 using namespace skyblip;
@@ -487,7 +488,7 @@ namespace {
 struct FeatureRig {
     platform::host::Clock clock;
     platform::host::Link link;
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          link,     null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu, null.die_temperature, null.indicator,
@@ -495,8 +496,9 @@ struct FeatureRig {
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
-    settings::Settings settings{};
-    comms::ConfigService config{link, settings};
+    go::Settings settings{};
+    go::SettingsStore store{settings};
+    comms::ConfigService config{link, store};
     go::NmeaService nmea;
 
     FeatureRig(go::Feature declared, ports::Capabilities fitted = ports::Capability::Link)

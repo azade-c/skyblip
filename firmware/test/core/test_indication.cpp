@@ -44,9 +44,9 @@ Situation everything_at_once() {
 // What a lamp would have done, from the commands the policy issued. It integrates
 // the lit time because duty cycle is the whole power argument and a claim about
 // duty that nothing measures is a comment.
-struct Lamp {
+struct LampRig {
     Policy policy{};
-    ports::Lamp shown{ports::Lamp::None};
+    indication::Lamp shown{indication::Lamp::None};
     uint32_t shows{0};
     uint32_t lit_ms{0};
     uint32_t total_ms{0};
@@ -54,11 +54,11 @@ struct Lamp {
 
     void step(const Situation& situation, uint32_t now_ms) {
         const Command command = policy.update(situation, now_ms);
-        if (shown != ports::Lamp::None) lit_ms += kStepMs;
+        if (shown != indication::Lamp::None) lit_ms += kStepMs;
         total_ms += kStepMs;
         if (!command.changed) return;
         shows++;
-        if (command.lamp != ports::Lamp::None && shown == ports::Lamp::None) flashes++;
+        if (command.lamp != indication::Lamp::None && shown == indication::Lamp::None) flashes++;
         shown = command.lamp;
     }
 
@@ -99,7 +99,7 @@ TEST_CASE("indication: no row spends more of the pack than the budget it declare
         if (row.budget != Budget::Corded && row.budget != Budget::Dark)
             CHECK(row.indication.off_ms > 0);
         // A flash the eye would miss is a lamp that costs and says nothing.
-        if (row.indication.lamp != ports::Lamp::None)
+        if (row.indication.lamp != indication::Lamp::None)
             CHECK(row.indication.on_ms >= kShortestFlashEyeCanCatchMs);
     }
 }
@@ -110,7 +110,7 @@ TEST_CASE("indication: an alarm during charging shows the alarm") {
     // the warning.
     Situation s = everything_at_once();
     CHECK(condition_for(s) == Condition::Alarm);
-    CHECK(indication_for(Condition::Alarm).lamp == ports::Lamp::Red);
+    CHECK(indication_for(Condition::Alarm).lamp == indication::Lamp::Red);
 
     // And level 1 does not: it is heard dozens of times in one thermal.
     s.alarm_level = Level::Info;
@@ -166,7 +166,7 @@ TEST_CASE("indication: alive is a wink, not an LED left on") {
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = true;
 
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 30000);
     CHECK(lamp.policy.condition() == Condition::Alive);
     // Thirty seconds of a healthy device: ten winks, and the lamp is dark for
@@ -181,11 +181,11 @@ TEST_CASE("indication: no fix is the same wink in another colour") {
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = false;
 
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 30000);
     CHECK(lamp.policy.condition() == Condition::NoFix);
     CHECK(lamp.duty_permille() <= kSteadyDutyCeilingPermille);
-    CHECK(indication_for(Condition::NoFix).lamp == ports::Lamp::Blue);
+    CHECK(indication_for(Condition::NoFix).lamp == indication::Lamp::Blue);
     // Same rhythm, so a pilot reads the colour and not a count of flashes.
     CHECK(indication_for(Condition::NoFix).on_ms == indication_for(Condition::Alive).on_ms);
     CHECK(indication_for(Condition::NoFix).off_ms == indication_for(Condition::Alive).off_ms);
@@ -202,7 +202,7 @@ TEST_CASE("indication: a low cell keeps SoftRF's blink rate at a tenth of its du
 
     Situation s{};
     s.power_level = power::PowerLevel::Low;
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 6000);
     CHECK(lamp.policy.condition() == Condition::Low);
     CHECK(lamp.flashes >= 9);
@@ -212,17 +212,17 @@ TEST_CASE("indication: a low cell keeps SoftRF's blink rate at a tenth of its du
 TEST_CASE("indication: the two charge rows are the only held ones, and a cable pays for them") {
     for (int i = 0; i < kRowCount; i++) {
         const bool held =
-            kTable[i].indication.off_ms == 0 && kTable[i].indication.lamp != ports::Lamp::None;
+            kTable[i].indication.off_ms == 0 && kTable[i].indication.lamp != indication::Lamp::None;
         const bool corded = kTable[i].budget == Budget::Corded;
         CHECK(held == corded);
     }
 
     Situation s{};
     s.external_power = true;
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 5000);
     CHECK(lamp.policy.condition() == Condition::Charging);
-    CHECK(lamp.shown == ports::Lamp::Red);
+    CHECK(lamp.shown == indication::Lamp::Red);
     // Held means told once: an LED re-driven every pass is a register write a
     // hundred times a second for no light.
     CHECK(lamp.shows == 1);
@@ -230,47 +230,47 @@ TEST_CASE("indication: the two charge rows are the only held ones, and a cable p
     s.charge_complete = true;
     lamp.run(s, 5000, 10000);
     CHECK(lamp.policy.condition() == Condition::Charged);
-    CHECK(lamp.shown == ports::Lamp::Green);
+    CHECK(lamp.shown == indication::Lamp::Green);
     CHECK(lamp.shows == 2);
 }
 
 TEST_CASE("indication: the lamp goes dark the moment the device starts going down") {
     Situation s{};
     s.external_power = true;
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 1000);
-    REQUIRE(lamp.shown == ports::Lamp::Red);
+    REQUIRE(lamp.shown == indication::Lamp::Red);
 
     s.running = false;
     lamp.step(s, 1010);
-    CHECK(lamp.shown == ports::Lamp::None);
+    CHECK(lamp.shown == indication::Lamp::None);
     CHECK(lamp.policy.condition() == Condition::Off);
     // And it stays dark: nothing about the cell or the sky brings it back while
     // the device is on its way down.
     s.alarm_level = Level::Urgent;
     lamp.run(s, 1010, 5000);
-    CHECK(lamp.shown == ports::Lamp::None);
+    CHECK(lamp.shown == indication::Lamp::None);
 }
 
 TEST_CASE("indication: a change shows itself at once, not at the end of the cycle") {
     Situation s{};
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = true;
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 1000);
     // Mid-cycle: the wink is long over and the lamp is dark for another 2 s.
-    REQUIRE(lamp.shown == ports::Lamp::None);
+    REQUIRE(lamp.shown == indication::Lamp::None);
 
     s.alarm_level = Level::Urgent;
     lamp.step(s, 1010);
-    CHECK(lamp.shown == ports::Lamp::Red);
+    CHECK(lamp.shown == indication::Lamp::Red);
 }
 
 TEST_CASE("indication: the lamp is told only when the answer changes") {
     Situation s{};
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = true;
-    Lamp lamp;
+    LampRig lamp;
     lamp.run(s, 0, 30000);
     // Ten winks in thirty seconds is twenty commands, not three thousand.
     CHECK(lamp.shows <= 2 * (lamp.flashes + 1));
@@ -286,7 +286,7 @@ TEST_CASE("indication: the millisecond counter wrapping costs one flash, not a s
     s.power_level = power::PowerLevel::Normal;
     s.fix_valid = true;
 
-    Lamp lamp;
+    LampRig lamp;
     uint32_t now_ms = kJustBeforeWrap;
     for (uint32_t elapsed = 0; elapsed < kMsAcrossTheWrap; elapsed += kStepMs, now_ms += kStepMs)
         lamp.step(s, now_ms);
@@ -301,5 +301,5 @@ TEST_CASE("indication: every condition has a name and a lamp that can be named")
         CHECK(std::string(to_string(kTable[i].condition)) != "?");
         CHECK(std::string(to_string(kTable[i].indication.lamp)) != "?");
     }
-    CHECK(std::string(to_string(ports::Lamp::None)) == "dark");
+    CHECK(std::string(to_string(indication::Lamp::None)) == "dark");
 }

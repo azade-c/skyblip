@@ -27,12 +27,12 @@ const char* to_string(Condition condition) {
     }
 }
 
-const char* to_string(ports::Lamp lamp) {
+const char* to_string(indication::Lamp lamp) {
     switch (lamp) {
-        case ports::Lamp::Green: return "green";
-        case ports::Lamp::Red: return "red";
-        case ports::Lamp::Blue: return "blue";
-        case ports::Lamp::None:
+        case indication::Lamp::Green: return "green";
+        case indication::Lamp::Red: return "red";
+        case indication::Lamp::Blue: return "blue";
+        case indication::Lamp::None:
         default: return "dark";
     }
 }
@@ -59,13 +59,13 @@ Command Policy::update(const Situation& situation, uint32_t now_ms) {
         // A condition that has just changed shows itself immediately: the flash a
         // pilot is owed is the one that follows the event, not the one that
         // follows the rest of the previous cycle.
-        lit_ = indication_for(condition_).lamp != ports::Lamp::None;
+        lit_ = indication_for(condition_).lamp != indication::Lamp::None;
     } else {
         advance(now_ms);
     }
 
     Command command{};
-    command.lamp = lit_ ? indication_for(condition_).lamp : ports::Lamp::None;
+    command.lamp = lit_ ? indication_for(condition_).lamp : indication::Lamp::None;
     command.changed = command.lamp != shown_;
     shown_ = command.lamp;
     return command;
@@ -73,7 +73,7 @@ Command Policy::update(const Situation& situation, uint32_t now_ms) {
 
 void Policy::advance(uint32_t now_ms) {
     const Indication& indication = indication_for(condition_);
-    if (indication.lamp == ports::Lamp::None || indication.on_ms == 0) {
+    if (indication.lamp == indication::Lamp::None || indication.on_ms == 0) {
         lit_ = false;
         return;
     }

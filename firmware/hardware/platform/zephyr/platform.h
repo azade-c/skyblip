@@ -13,6 +13,7 @@
 
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
+#include "hardware/platform/contract.h"
 #include "hardware/platform/zephyr/annunciator.h"
 #include "hardware/platform/zephyr/baro.h"
 #include "hardware/platform/zephyr/battery.h"
@@ -229,6 +230,8 @@ class Platform {
     zephyr::Watchdog watchdog_{};
     zephyr::SystemPower system_power_{button_};
 };
+
+static_assert(fills_the_platform_contract<Platform>());
 
 }  // namespace skyblip::platform::zephyr
 #endif  // __ZEPHYR__

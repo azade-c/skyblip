@@ -16,8 +16,12 @@ A receiver, a barometer, a divider and a button are called by nobody. The world 
 
 ## Absent is a role, not a null
 
-Every field of `Roles` is a reference. A board with no lamp, no die sensor and no radio still fills all eleven, because a port whose methods do nothing is a smaller thing than a pointer every caller has to check. Some ports are their own absent part: `Indicator`, `DieTemperature` and `Gnss` are concrete, and the base class is what a board without one is handed. The rest have a null in `runtime/null.h`.
+Every field of `Roles` is a reference. A board with no lamp, no die sensor and no radio still fills all eleven, because a port whose methods do nothing is a smaller thing than a pointer every caller has to check. Some ports are their own absent part: `Indicator`, `DieTemperature` and `Gnss` are concrete, and the base class is what a board without one is handed. The rest have a null in `null.h`, next to the role it fills rather than in the loop that steps them.
 
 What is missing is stated once, in `capabilities.h`, and read by the code that has something to say about it: the self-test page prints the row, a service skips the work. Never by dereferencing.
 
 `capabilities.h` is what the board found, `inventory.h` is which part it was. The first is what code branches on; the second is what a bench reads when two footprints ship with different silicon in them.
+
+`Capability::Indicator` says a lamp exists, not which colours it can make. A board fitted with one green LED reports the capability and lights nothing on the red rows, and that is survivable because `core/indication` tells its states apart by rhythm as well as by colour: the wink rate carries the reading, the colour confirms it. A lamp set in `capabilities.h` would be a bit nothing branches on today, so there is none until a board differs.
+
+The colours themselves are `indication::Lamp`, declared in `core/indication/lamps.h` rather than here. A colour is what a pilot reads, so the vocabulary belongs to the layer that decides what the device is saying; this port is where it is asked for.

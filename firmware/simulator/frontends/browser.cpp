@@ -87,9 +87,9 @@ KEEPALIVE int simulator_aircraft_count() { return g_simulator.world().aircraft_c
 
 // Layout: byte = fb[y*stride + (x>>3)], black if (byte & (0x80 >> (x&7))).
 KEEPALIVE const unsigned char* simulator_fb() { return g_simulator.panel().data(); }
-KEEPALIVE int simulator_fb_w() { return ui::Framebuffer::kW; }
-KEEPALIVE int simulator_fb_h() { return ui::Framebuffer::kH; }
-KEEPALIVE int simulator_fb_stride() { return ui::Framebuffer::kStride; }
+KEEPALIVE int simulator_fb_w() { return g_simulator.panel().width(); }
+KEEPALIVE int simulator_fb_h() { return g_simulator.panel().height(); }
+KEEPALIVE int simulator_fb_stride() { return go::Glass::kStride; }
 
 KEEPALIVE int simulator_panel_refreshing() { return g_simulator.panel_refreshing() ? 1 : 0; }
 KEEPALIVE int simulator_panel_refresh_is_full() {

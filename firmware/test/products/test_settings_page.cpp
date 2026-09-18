@@ -7,19 +7,19 @@
 // doing it cannot spend the other two things the one button says - the double
 // press that authorises a firmware upload, and the hold that switches the
 // device off.
-#include "core/settings/settings.h"
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
+#include "products/skyblip_go/input/gesture.h"
+#include "products/skyblip_go/pages/confirm.h"
+#include "products/skyblip_go/pages/settings.h"
+#include "products/skyblip_go/settings.h"
 #include "test/support/product_rig.h"
-#include "ui/input/gesture.h"
-#include "ui/screens/confirm.h"
-#include "ui/screens/settings.h"
 
 using namespace skyblip;
 
 namespace {
 
-constexpr uint32_t kWindow = ui::ConfirmGesture::kDoublePressMs;
+constexpr uint32_t kWindow = go::ConfirmGesture::kDoublePressMs;
 
 // Long enough for a press to have finished meaning one thing before the next
 // one is made: the pairing window, and a little.
@@ -84,8 +84,8 @@ void run_past_the_write_settle(Rig& rig, uint32_t& t) {
     t += ms;
 }
 
-void focus_on(Rig& rig, uint32_t& t, ui::SettingsRow row) {
-    for (int i = 0; i < ui::kSettingsRowCount; i++) {
+void focus_on(Rig& rig, uint32_t& t, go::SettingsRow row) {
+    for (int i = 0; i < go::kSettingsRowCount; i++) {
         if (rig.product.screen().editor().focus() == row) break;
         move(rig, t);
     }
@@ -101,20 +101,20 @@ void hold_button(Rig& rig, uint32_t& t, uint32_t ms, bool down = true) {
     }
 }
 
-bool stored_settings(Rig& rig, settings::Settings& out) {
+bool stored_settings(Rig& rig, go::Settings& out) {
     uint8_t blob[64];
     size_t n = 0;
     if (rig.platform.kv().read("settings", blob, sizeof(blob), n) != Status::Ok) return false;
-    return settings::from_blob(blob, n, out) == Status::Ok;
+    return go::from_blob(blob, n, out) == Status::Ok;
 }
 
-ui::Framebuffer expected_page(Rig& rig) {
-    ui::SettingsSnapshot snapshot;
-    snapshot.values.settings = rig.state().settings;
+go::Glass expected_page(Rig& rig) {
+    go::SettingsSnapshot snapshot;
+    snapshot.values.settings = rig.settings();
     snapshot.values.qnh_pa = rig.state().baro.qnh_pa;
     snapshot.focus = rig.product.screen().editor().focus();
-    ui::Framebuffer fb;
-    ui::draw_settings(fb, snapshot);
+    go::Glass fb;
+    go::draw_settings(fb, snapshot);
     return fb;
 }
 
@@ -134,12 +134,12 @@ TEST_CASE("product: a press on any traffic page opens the settings mode") {
     // On the rows the pad still navigates: it walks them one at a time.
     rig.tap_pad(t);
     settle(rig, t);
-    REQUIRE(rig.product.screen().editor().focus() == ui::SettingsRow::Identity);
+    REQUIRE(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
     move(rig, t);
-    CHECK(rig.product.screen().editor().focus() == ui::SettingsRow::AircraftType);
+    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::AircraftType);
 
     // The button on the Leave row hands the glass back.
-    focus_on(rig, t, ui::SettingsRow::Leave);
+    focus_on(rig, t, go::SettingsRow::Leave);
     change(rig, t);
     CHECK(rig.product.screen().mode() == go::Mode::Traffic);
     CHECK(rig.product.screen().page() == go::Page::Radar);
@@ -176,7 +176,7 @@ TEST_CASE("product: the settings mode opens on the self test and a press walks i
 
     CHECK(rig.product.screen().showing_self_test());
     CHECK(std::memcmp(rig.product.screen().framebuffer().data(), rig.product.boot_page().data(),
-                      ui::Framebuffer::kBytes) == 0);
+                      go::Glass::kBytes) == 0);
     CHECK(rig.platform.chips().epd.framebuffer().count_black() ==
           rig.product.boot_page().count_black());
 
@@ -185,24 +185,24 @@ TEST_CASE("product: the settings mode opens on the self test and a press walks i
     rig.run(t, t + 4000);
     t += 4000;
     CHECK_FALSE(rig.product.screen().showing_self_test());
-    CHECK(rig.product.screen().editor().focus() == ui::SettingsRow::Identity);
-    const ui::Framebuffer rows = expected_page(rig);
-    CHECK(std::memcmp(rig.product.screen().framebuffer().data(), rows.data(),
-                      ui::Framebuffer::kBytes) == 0);
+    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
+    const go::Glass rows = expected_page(rig);
+    CHECK(std::memcmp(rig.product.screen().framebuffer().data(), rows.data(), go::Glass::kBytes) ==
+          0);
 }
 
 TEST_CASE("product: the settings page reaches the glass, drawn from what the device is running") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.state().settings.aircraft_type = 4;
+    rig.settings().aircraft_type = 4;
     open_settings(rig, t);
     rig.run(t, t + 4000);
     t += 4000;
 
-    const ui::Framebuffer expected = expected_page(rig);
+    const go::Glass expected = expected_page(rig);
     CHECK(std::memcmp(rig.product.screen().framebuffer().data(), expected.data(),
-                      ui::Framebuffer::kBytes) == 0);
+                      go::Glass::kBytes) == 0);
     // Not just in the buffer: on the panel, which is the only place a pilot
     // with no phone can read it.
     CHECK(rig.platform.chips().epd.framebuffer().count_black() == expected.count_black());
@@ -213,18 +213,18 @@ TEST_CASE("product: the alarm volume a pilot sets on the panel is the one that s
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    REQUIRE(rig.state().settings.alarm_volume == 3);
+    REQUIRE(rig.settings().alarm_volume == 3);
 
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
+    focus_on(rig, t, go::SettingsRow::Volume);
     change(rig, t);
     rig.run(t, t + 500);
     t += 500;
-    CHECK(rig.state().settings.alarm_volume == 4);
+    CHECK(rig.settings().alarm_volume == 4);
 
     // The screen did not write the flash: it said the settings had changed and
     // the service that owns the blob wrote it, exactly as it does for a phone.
-    settings::Settings stored{};
+    go::Settings stored{};
     REQUIRE(stored_settings(rig, stored));
     CHECK(stored.alarm_volume == 4);
 
@@ -235,23 +235,23 @@ TEST_CASE("product: the alarm volume a pilot sets on the panel is the one that s
     REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
     REQUIRE(again.platform.kv().write("settings", blob, n) == Status::Ok);
     REQUIRE(again.setup() == Status::Ok);
-    CHECK(again.state().settings.alarm_volume == 4);
+    CHECK(again.settings().alarm_volume == 4);
 }
 
 TEST_CASE("product: the aircraft type set on the panel is the one that goes on the air") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    REQUIRE(rig.state().settings.aircraft_type == settings::kAircraftTypeLight);
+    REQUIRE(rig.settings().aircraft_type == go::kAircraftTypeLight);
 
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::AircraftType);
+    focus_on(rig, t, go::SettingsRow::AircraftType);
     change(rig, t);
     change(rig, t);
     run_past_the_write_settle(rig, t);
-    CHECK(rig.state().settings.aircraft_type == 3);
+    CHECK(rig.settings().aircraft_type == 3);
 
-    settings::Settings stored{};
+    go::Settings stored{};
     REQUIRE(stored_settings(rig, stored));
     CHECK(stored.aircraft_type == 3);
 
@@ -267,21 +267,21 @@ TEST_CASE("product: walking the rows without changing one writes nothing at all"
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    const settings::Settings before = rig.state().settings;
+    const go::Settings before = rig.settings();
 
     open_settings(rig, t);
-    for (int i = 0; i < ui::kSettingsRowCount; i++) move(rig, t);
+    for (int i = 0; i < go::kSettingsRowCount; i++) move(rig, t);
 
     // Off the last row and back to the traffic picture the pad pages through.
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
-    CHECK(rig.state().settings.aircraft_type == before.aircraft_type);
-    CHECK(rig.state().settings.alarm_volume == before.alarm_volume);
-    CHECK(rig.state().settings.page_mask == before.page_mask);
+    CHECK(rig.settings().aircraft_type == before.aircraft_type);
+    CHECK(rig.settings().alarm_volume == before.alarm_volume);
+    CHECK(rig.settings().page_mask == before.page_mask);
 
     // Nothing was staged, so there was nothing to write: the flash has never
     // been touched and the device cannot be half edited.
-    settings::Settings stored{};
+    go::Settings stored{};
     CHECK_FALSE(stored_settings(rig, stored));
 
     rig.tap_pad(t);
@@ -293,10 +293,10 @@ TEST_CASE("product: a page nobody presses gives the traffic picture back on its 
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
+    focus_on(rig, t, go::SettingsRow::Volume);
 
-    rig.run(t, t + ui::SettingsEditor::kIdleReturnMs + 2000);
-    t += ui::SettingsEditor::kIdleReturnMs + 2000;
+    rig.run(t, t + go::SettingsEditor::kIdleReturnMs + 2000);
+    t += go::SettingsEditor::kIdleReturnMs + 2000;
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
 }
@@ -306,15 +306,15 @@ TEST_CASE("product: the settings mode is reachable whatever the page mask says")
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     // Every traffic page hidden, and the mode that undoes it still one gesture away.
-    rig.state().settings.page_mask = 0;
+    rig.settings().page_mask = 0;
     open_settings(rig, t);
 
-    focus_on(rig, t, ui::SettingsRow::Pages);
+    focus_on(rig, t, go::SettingsRow::Pages);
     change(rig, t);
-    CHECK(rig.state().settings.page_mask == ui::kPageMaskAll);
+    CHECK(rig.settings().page_mask == go::kPageMaskAll);
 
     // ... and leaving now lands on the radar, because the mask says it exists.
-    focus_on(rig, t, ui::SettingsRow::Leave);
+    focus_on(rig, t, go::SettingsRow::Leave);
     move(rig, t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
 }
@@ -323,18 +323,18 @@ TEST_CASE("product: an invalid setting is never written by the page that could n
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    // Whatever got it there, this struct is one settings::validate refuses.
-    rig.state().settings.aircraft_type = 200;
-    REQUIRE(settings::validate(rig.state().settings) != Status::Ok);
+    // Whatever got it there, this struct is one go::validate refuses.
+    rig.settings().aircraft_type = 200;
+    REQUIRE(go::validate(rig.settings()) != Status::Ok);
 
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
+    focus_on(rig, t, go::SettingsRow::Volume);
     change(rig, t);
     change(rig, t);
     rig.run(t, t + 500);
 
-    CHECK(rig.state().settings.alarm_volume == 3);
-    settings::Settings stored{};
+    CHECK(rig.settings().alarm_volume == 3);
+    go::Settings stored{};
     CHECK_FALSE(stored_settings(rig, stored));
 }
 
@@ -347,8 +347,8 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
     uint32_t t = 100;
     on_ground(rig, t);
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
-    const uint8_t volume = rig.state().settings.alarm_volume;
+    focus_on(rig, t, go::SettingsRow::Volume);
+    const uint8_t volume = rig.settings().alarm_volume;
 
     // A phone asks to overwrite the firmware while the pilot is tapping a value
     // up. The prompt takes the glass at once.
@@ -369,19 +369,19 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
     t += 200;
     CHECK(rig.product.config().config().pending() == comms::Pending::Dfu);
     CHECK_FALSE(rig.product.config().config().upload_allowed());
-    CHECK(rig.state().settings.alarm_volume == volume);
+    CHECK(rig.settings().alarm_volume == volume);
 
     // The pilot stops, and the question is on the glass where it can be read.
     rig.run(t, t + 4000);
     t += 4000;
-    ui::ConfirmSnapshot expect;
+    go::ConfirmSnapshot expect;
     expect.title = comms::pending_title(comms::Pending::Dfu);
     expect.detail = comms::pending_detail(comms::Pending::Dfu);
     expect.timeout_s = comms::kConfirmWindowMs / 1000;
-    ui::Framebuffer prompt_page;
-    ui::draw_confirm(prompt_page, expect);
+    go::Glass prompt_page;
+    go::draw_confirm(prompt_page, expect);
     CHECK(std::memcmp(rig.product.screen().framebuffer().data(), prompt_page.data(),
-                      ui::Framebuffer::kBytes) == 0);
+                      go::Glass::kBytes) == 0);
     CHECK(rig.platform.chips().epd.framebuffer().count_black() == prompt_page.count_black());
 
     // Only now is it answerable, and only by the gesture: physical presence,
@@ -394,7 +394,7 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
 
     // Back on the rows, at the top: the pilot was reading something else in between.
     CHECK(rig.product.screen().mode() == go::Mode::Settings);
-    CHECK(rig.product.screen().editor().focus() == ui::SettingsRow::Identity);
+    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
 }
 
 TEST_CASE("product: a long press in the middle of an edit still switches the device off") {
@@ -402,8 +402,8 @@ TEST_CASE("product: a long press in the middle of an edit still switches the dev
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
-    const uint8_t volume = rig.state().settings.alarm_volume;
+    focus_on(rig, t, go::SettingsRow::Volume);
+    const uint8_t volume = rig.settings().alarm_volume;
 
     hold_button(rig, t, power::kLongPressMs + 300);
     CHECK(rig.product.shutdown().reason() == power::ShutdownReason::LongPress);
@@ -411,8 +411,8 @@ TEST_CASE("product: a long press in the middle of an edit still switches the dev
     CHECK_FALSE(rig.product.screen().powered());
 
     // A hold makes no press edge at all, so the row the pilot was standing on is untouched.
-    CHECK(rig.state().settings.alarm_volume == volume);
-    settings::Settings stored{};
+    CHECK(rig.settings().alarm_volume == volume);
+    go::Settings stored{};
     CHECK_FALSE(stored_settings(rig, stored));
 }
 
@@ -429,19 +429,19 @@ TEST_CASE("product: the volume can be turned up in the air, where a phone is ref
     rig.run(t, t + 300);
     t += 300;
     CHECK(rig.product.config().config().pending() == comms::Pending::None);
-    CHECK(rig.state().settings.alarm_volume == 3);
+    CHECK(rig.settings().alarm_volume == 3);
 
     // The pilot, on the panel, can. Presence is the thing the phone lacks, and
     // an alarm that is too quiet under a headset is a thing you find out about
     // in the air.
     open_settings(rig, t);
-    focus_on(rig, t, ui::SettingsRow::Volume);
+    focus_on(rig, t, go::SettingsRow::Volume);
     change(rig, t);
     change(rig, t);
     run_past_the_write_settle(rig, t);
-    CHECK(rig.state().settings.alarm_volume == 5);
+    CHECK(rig.settings().alarm_volume == 5);
 
-    settings::Settings stored{};
+    go::Settings stored{};
     REQUIRE(stored_settings(rig, stored));
     CHECK(stored.alarm_volume == 5);
 }
@@ -461,14 +461,14 @@ TEST_CASE("product: a screen change wipes the glass, and no keypress asks for a 
     CHECK_FALSE(rig.platform.chips().epd.last_full);
     CHECK(rig.platform.chips().epd.present_count >= 3);  // boot, the black frame, then the page
 
-    focus_on(rig, t, ui::SettingsRow::Volume);
+    focus_on(rig, t, go::SettingsRow::Volume);
     change(rig, t);
     change(rig, t);
     rig.run(t, t + 2000);
     t += 2000;
     CHECK_FALSE(rig.platform.chips().epd.last_full);
 
-    focus_on(rig, t, ui::SettingsRow::Leave);
+    focus_on(rig, t, go::SettingsRow::Leave);
     move(rig, t);
     REQUIRE(rig.product.screen().page() == go::Page::Radar);
     rig.run(t, t + 4000);

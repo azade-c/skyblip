@@ -1,0 +1,323 @@
+// The page a bench reads: what it draws per burst, and what it refuses to invent.
+#include <cstring>
+
+#include "core/model/aircraft.h"
+#include "core/model/band.h"
+#include "doctest/doctest.h"
+#include "products/skyblip_go/glass.h"
+#include "products/skyblip_go/pages/radio_log.h"
+
+using namespace skyblip;
+using namespace skyblip::go;
+
+namespace {
+
+constexpr int kFirstRowY = 27;
+constexpr int kLineH = 10;
+
+// Text read back off the glass: the same string on a scratch panel, compared where it lands.
+bool shows(const Glass& fb, int x, int y, const char* text) {
+    Glass expected;
+    const int width = expected.draw_text(x, y, text, true, 1) - x;
+    for (int row = y; row < y + 8; row++)
+        for (int col = x; col < x + width; col++)
+            if (fb.get_pixel(col, row) != expected.get_pixel(col, row)) return false;
+    return true;
+}
+
+int ink_in_row(const Glass& fb, int index) {
+    const int y0 = kFirstRowY + index * kLineH;
+    int n = 0;
+    for (int y = y0; y < y0 + 8; y++)
+        for (int x = 0; x < Glass::kW; x++)
+            if (fb.get_pixel(x, y)) n++;
+    return n;
+}
+
+radio::Entry entry_of(radio::Event event) {
+    radio::Entry e{};
+    e.event = event;
+    e.band = model::Band::M;
+    e.at_s = 45296;  // 12:34:56
+    e.into_ms = 462;
+    e.phase_valid = true;
+    e.utc = true;
+    return e;
+}
+
+radio::Entry received(uint32_t addr, int8_t rssi) {
+    radio::Entry e = entry_of(radio::Event::Received);
+    e.source = model::Source::AdslDirect;
+    e.addr = addr;
+    e.rssi_dbm = rssi;
+    e.rssi_valid = true;
+    return e;
+}
+
+RadioLogSnapshot with(const radio::Log& log) {
+    RadioLogSnapshot snap;
+    snap.gnss.fix_valid = true;
+    snap.gnss.sats = 9;
+    snap.gnss.pps = PpsState::Lock;
+    snap.noise = 42;
+    snap.band_dbm = -109;
+    snap.n_rows = log.count();
+    snap.log = &log;
+    return snap;
+}
+
+}  // namespace
+
+TEST_CASE("radio log page: a received frame shows when, from whom, and how loud") {
+    radio::Log log;
+    log.record(received(0x3FA21C, -87));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56.462"));
+    CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "RX"));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY, "M0"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "A"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "3FA21C"));
+    CHECK(shows(fb, 4 + 29 * 6, kFirstRowY, "-87"));
+}
+
+// The reading two devices are compared on: the same burst, sent at one phase and heard at another.
+TEST_CASE("radio log page: the phase a burst landed at is printed to the millisecond") {
+    radio::Log log;
+    radio::Entry e = received(0x3FA21C, -87);
+    e.into_ms = 7;
+    log.record(e);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56.007"));
+}
+
+// A phase against an edge nothing latched would be a number the reader could act on wrongly.
+TEST_CASE("radio log page: a burst with no phase measured shows the second alone") {
+    radio::Log log;
+    radio::Entry e = received(0x3FA21C, -87);
+    e.phase_valid = false;
+    log.record(e);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "34:56"));
+    CHECK_FALSE(shows(fb, 4, kFirstRowY, "34:56."));
+}
+
+// §C.2.5 alternates the two M-band channels: a receiver on one hears half its neighbours.
+TEST_CASE("radio log page: the M band's two channels read apart, and the O band has none") {
+    radio::Log log;
+    radio::Entry second = received(0x3FA21C, -87);
+    second.channel = 1;
+    log.record(second);
+    radio::Entry uplink = received(0x3FA21C, -87);
+    uplink.band = model::Band::O;
+    log.record(uplink);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY, "O"));
+    CHECK_FALSE(shows(fb, 4 + 13 * 6, kFirstRowY, "O0"));
+    CHECK(shows(fb, 4 + 13 * 6, kFirstRowY + kLineH, "M1"));
+}
+
+// Sixteen rows of SENT is sixteen rows a reader scans past to find the one that failed.
+TEST_CASE("radio log page: a transmission that worked prints no verdict at all") {
+    radio::Log log;
+    radio::Entry e = entry_of(radio::Event::Transmitted);
+    e.tx_keyed_us = 1523;
+    e.tx_span_us = 6344;
+    e.tx_span_valid = true;
+    log.record(e);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "SENT"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "1523"));
+    CHECK_FALSE(shows(fb, 4 + 25 * 6, kFirstRowY, "6344"));
+}
+
+// §G.1.16: one burst a second in the air, one in ten on the ground, and a device
+// that thinks it is flying on a bench says so here rather than in a burst count.
+TEST_CASE("radio log page: a sent burst names the schedule it went out on") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Transmitted));
+
+    Glass fb;
+    RadioLogSnapshot snap = with(log);
+    draw_radio_log(fb, snap);
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "GND"));
+
+    Glass flying;
+    snap.airborne = true;
+    draw_radio_log(flying, snap);
+    CHECK(shows(flying, 4 + 22 * 6, kFirstRowY, "AIR"));
+}
+
+// The one row that separates an empty sky from a receiver that frames nothing.
+TEST_CASE("radio log page: a burst that never framed says so instead of naming an aircraft") {
+    radio::Log log;
+    radio::Entry bad = entry_of(radio::Event::BadCrc);
+    bad.rssi_dbm = -101;
+    bad.rssi_valid = true;
+    bad.addr = 0x3FA21C;
+    log.record(bad);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "CRC"));
+    CHECK_FALSE(shows(fb, 4 + 22 * 6, kFirstRowY, "3FA21C"));
+}
+
+// A transmitter the page shows nothing for reads as a dead one, whatever refused the burst.
+TEST_CASE("radio log page: the hour's refusal reads apart from a burst that never left") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Held));
+    log.record(entry_of(radio::Event::Unarmed));
+    log.record(entry_of(radio::Event::Lost));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "LOST"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "LOST"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + 2 * kLineH, "HELD"));
+}
+
+// Bits the air corrupted and bits nothing here knew what to do with are different faults.
+TEST_CASE("radio log page: an integrity failure and an undecodable frame read apart") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Undecoded));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "DEC"));
+}
+
+// The M band reads a fixed 58 bytes whatever arrived, so the count was never a fact about the air.
+TEST_CASE("radio log page: a failed burst spends no column on the length every burst has") {
+    radio::Log log;
+    radio::Entry bad = entry_of(radio::Event::BadCrc);
+    bad.len = 58;
+    log.record(bad);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK_FALSE(shows(fb, 4 + 20 * 6, kFirstRowY, "58B"));
+}
+
+// A transmission that failed, read as a bad reception, sends a reader after the wrong fault.
+TEST_CASE("radio log page: own-ship's two outcomes read apart, and both read as TX") {
+    struct Case {
+        radio::Event event;
+        const char* verdict;
+    };
+    const Case cases[] = {{radio::Event::Lost, "LOST"},
+                          {radio::Event::Held, "HELD"},
+                          {radio::Event::Unarmed, "LOST"}};
+    for (const Case& c : cases) {
+        radio::Log log;
+        log.record(entry_of(c.event));
+        Glass fb;
+        draw_radio_log(fb, with(log));
+        CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
+        CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, c.verdict));
+    }
+}
+
+// A level nothing measured is a level the page does not print.
+TEST_CASE("radio log page: a burst with no level reported shows none") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::BadCrc));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK_FALSE(shows(fb, 4 + 29 * 6, kFirstRowY, "+0"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "CRC"));
+}
+
+TEST_CASE("radio log page: the newest burst is the top row and the rest fall away") {
+    radio::Log log;
+    for (int i = 0; i < radio::Log::kCapacity + 3; i++)
+        log.record(received(static_cast<uint32_t>(0xA00000 + i), -80));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "A00012"));
+    CHECK(ink_in_row(fb, kRadioLogRows - 1) > 0);
+    CHECK(ink_in_row(fb, kRadioLogRows) == 0);
+}
+
+// Before a fix the stamp is not a wall clock, and does not pretend to be one.
+TEST_CASE("radio log page: without UTC the stamp counts from boot") {
+    radio::Log log;
+    radio::Entry e = received(0x3FA21C, -87);
+    e.utc = false;
+    e.at_s = 412;
+    log.record(e);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY, "T+412"));
+}
+
+// Without a latched edge nothing may transmit and no row carries a phase, so the
+// state of the receiver's one wire explains the whole tape under it.
+TEST_CASE("radio log page: the second line is the fix, the edge and the band") {
+    radio::Log log;
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, 13, "3D 9SV"));
+    CHECK(shows(fb, 4 + 9 * 6, 13, "PPS LOCK"));
+    CHECK(shows(fb, 196 - 9 * 6, 13, "BAND -109"));
+}
+
+TEST_CASE("radio log page: an edge that stopped arriving reads as holdover, with its age") {
+    radio::Log log;
+    RadioLogSnapshot snap = with(log);
+    snap.gnss.pps = PpsState::Holdover;
+    snap.gnss.pps_age_s = 12;
+
+    Glass fb;
+    draw_radio_log(fb, snap);
+    CHECK(shows(fb, 4 + 9 * 6, 13, "PPS HOLD 12"));
+}
+
+TEST_CASE("radio log page: no edge at all is stated rather than left blank") {
+    radio::Log log;
+    RadioLogSnapshot snap = with(log);
+    snap.gnss.pps = PpsState::None;
+
+    Glass fb;
+    draw_radio_log(fb, snap);
+    CHECK(shows(fb, 4 + 9 * 6, 13, "PPS NONE"));
+}
+
+TEST_CASE("radio log page: no fix is stated rather than left blank") {
+    radio::Log log;
+    RadioLogSnapshot snap = with(log);
+    snap.gnss.fix_valid = false;
+    snap.gnss.sats = 0;
+
+    Glass fb;
+    draw_radio_log(fb, snap);
+    CHECK(shows(fb, 4, 13, "NO FIX"));
+}
+
+// The false syncs are the proof the receiver is listening when nothing arrives.
+TEST_CASE("radio log page: the bursts the band's own noise framed are counted, not listed") {
+    radio::Log log;
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 196 - 18 * 6, 2, "RX 0 TX 0 NOISE 42"));
+}
+
+TEST_CASE("radio log page: a silent band says so rather than showing an empty grid") {
+    radio::Log log;
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4, kFirstRowY + kLineH, "NOTHING ON AIR YET"));
+}

@@ -5,6 +5,7 @@
 #include "core/power/cutoff.h"
 #include "core/timing/durable_write.h"
 #include "products/skyblip_go/services/power.h"
+#include "products/skyblip_go/settings_store.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -32,9 +33,11 @@ namespace skyblip::go {
 // again; what is protected is every setting they ever made.
 class ConfigLinkService : public runtime::Service {
    public:
-    ConfigLinkService(runtime::Context& ctx, const PowerService& power)
+    ConfigLinkService(runtime::Context& ctx, Settings& settings, const PowerService& power)
         : runtime::Service(ctx),
-          config_(ctx.roles.link, ctx.state.settings, &ctx.roles.dfu, &ctx.state.rf.timing_stats),
+          settings_(settings),
+          store_(settings),
+          config_(ctx.roles.link, store_, &ctx.roles.dfu, &ctx.state.rf.timing_stats),
           power_(power) {
         config_.set_durable_writes(&writes_);
     }
@@ -87,6 +90,8 @@ class ConfigLinkService : public runtime::Service {
     bool may_persist() const { return power_.may_write(power::DurableWrite::Settings); }
     bool hold_for_power();
 
+    Settings& settings_;
+    SettingsStore store_;
     comms::ConfigService config_;
     const PowerService& power_;
     timing::DurableWriteWindow writes_{};

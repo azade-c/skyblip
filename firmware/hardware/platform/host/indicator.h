@@ -13,21 +13,21 @@ namespace skyblip::platform::host {
 // a register write a hundred times a second on no light.
 class Indicator : public ports::Indicator {
    public:
-    void show(ports::Lamp lamp) override {
+    void show(indication::Lamp lamp) override {
         lamp_ = lamp;
         shows_++;
-        if (lamp != ports::Lamp::None) lightings_++;
+        if (lamp != indication::Lamp::None) lightings_++;
         parked_ = false;
     }
 
     void park() override {
-        lamp_ = ports::Lamp::None;
+        lamp_ = indication::Lamp::None;
         parked_ = true;
         parks_++;
     }
 
-    ports::Lamp lamp() const { return lamp_; }
-    bool lit() const { return lamp_ != ports::Lamp::None; }
+    indication::Lamp lamp() const { return lamp_; }
+    bool lit() const { return lamp_ != indication::Lamp::None; }
     // True once park() has run and until the next show(). The silicon adapter has
     // let go of the pins at that point; here it is the fact a test asserts.
     bool parked() const { return parked_; }
@@ -36,7 +36,7 @@ class Indicator : public ports::Indicator {
     uint32_t parks() const { return parks_; }
 
    private:
-    ports::Lamp lamp_{ports::Lamp::None};
+    indication::Lamp lamp_{indication::Lamp::None};
     uint32_t shows_{0};
     uint32_t lightings_{0};
     uint32_t parks_{0};

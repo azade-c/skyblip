@@ -6,8 +6,9 @@
 #include "hardware/parts/ssd1681/model.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/host/clock.h"
+#include "ports/null.h"
 #include "products/skyblip_go/services/screen.h"
-#include "runtime/null.h"
+#include "products/skyblip_go/settings_store.h"
 
 using namespace skyblip;
 
@@ -20,7 +21,7 @@ struct Rig {
     models::Ssd1681 chip;
     parts::Ssd1681 epd{chip, chip, chip.dc, chip.rst, chip.busy};
     platform::host::Clock clock;
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,        null.link,        epd,  // epd fills Display
         null.kv,        null.log_flash, null.annunciator, null.dfu, null.die_temperature,
@@ -28,9 +29,11 @@ struct Rig {
     bus::Bus bus{};
     bus::State state{};
     runtime::Context context{roles, bus, state};
-    comms::ConfigService config{null.link, state.settings};
-    ui::BootSnapshot self_test{};
-    go::ScreenService screen{context, config, self_test};
+    go::Settings settings{};
+    go::SettingsStore store{settings};
+    comms::ConfigService config{null.link, store};
+    go::BootSnapshot self_test{};
+    go::ScreenService screen{context, settings, config, self_test};
 
     Rig() {
         chip.attach_clock(clock);
@@ -66,7 +69,7 @@ struct Rig {
     }
 
     bool glass_all_black() const {
-        return chip.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH;
+        return chip.framebuffer().count_black() == go::kGlassW * go::kGlassH;
     }
 
     void alarm(traffic::Level level) { state.alarm_level = level; }

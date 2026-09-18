@@ -182,7 +182,7 @@ void ConfigService::on_rx(const events::RxFrame& frame) {
         char buf[kSmallestSupportedPayload + 1];
         json::Writer w(buf, sizeof(buf));
         w.kv_str("cmd", "config");
-        settings::write_json_fields(w, settings_);
+        store_.write_fields(w);
         const int reply_len = w.finish();
         if (w.overflowed()) {
             diag_.link_drops++;
@@ -311,7 +311,7 @@ void ConfigService::confirm() {
             ack(false, "low_power");
             return;
         }
-        Status st = settings::apply_json(settings_, pending_buf_, pending_len_);
+        Status st = store_.apply(pending_buf_, pending_len_);
         pending_ = Pending::None;
         pending_len_ = 0;
         if (st == Status::Ok) {

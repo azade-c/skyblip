@@ -4,6 +4,7 @@
 #include "hardware/parts/bme280/model.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
+#include "hardware/platform/contract.h"
 #include "hardware/platform/host/annunciator.h"
 #include "hardware/platform/host/clock.h"
 #include "hardware/platform/host/die_temperature.h"
@@ -240,6 +241,8 @@ class Platform {
     ports::Capabilities fitted_;
     bool buzzer_pin_held_low_{false};
 };
+
+static_assert(fills_the_platform_contract<Platform>());
 
 }  // namespace skyblip::platform::host
 

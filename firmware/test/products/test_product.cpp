@@ -18,7 +18,7 @@ TEST_CASE("product: setup brings the radio to Rx and reports its capabilities") 
     CHECK(rig.state().started);
     CHECK(ports::has(rig.product.capabilities(), ports::Capability::Rf | ports::Capability::Gnss));
     CHECK(rig.product.degraded() == ports::Capability::None);
-    CHECK(rig.state().settings.device_addr == platform::host::Platform::kDeviceAddr);
+    CHECK(rig.settings().device_addr == platform::host::Platform::kDeviceAddr);
 }
 
 TEST_CASE("product: a missing optional capability is degraded, a required one refuses") {
@@ -73,15 +73,15 @@ TEST_CASE("product: the e-paper refreshes on change, not on cadence") {
 
 TEST_CASE("product: persisted settings are loaded on setup") {
     Rig rig;
-    settings::Settings s = settings::defaults(0x223344);
+    go::Settings s = go::defaults(0x223344);
     s.alarm_volume = 1;
     uint8_t blob[64];
-    settings::to_blob(s, blob, sizeof(blob));
-    REQUIRE(rig.platform.kv().write("settings", blob, settings::blob_size()) == Status::Ok);
+    go::to_blob(s, blob, sizeof(blob));
+    REQUIRE(rig.platform.kv().write("settings", blob, go::blob_size()) == Status::Ok);
 
     REQUIRE(rig.setup() == Status::Ok);
-    CHECK(rig.state().settings.alarm_volume == 1);
-    CHECK(rig.state().settings.device_addr == 0x223344);
+    CHECK(rig.settings().alarm_volume == 1);
+    CHECK(rig.settings().device_addr == 0x223344);
 }
 
 TEST_CASE("product: barometric pressure drives vertical speed") {
@@ -252,7 +252,7 @@ TEST_CASE("product: a board with no battery sense says so instead of reporting e
 TEST_CASE("product: settings changed over the link are persisted") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    rig.state().settings.alarm_volume = 5;
+    rig.settings().alarm_volume = 5;
     // The only way the device can be told it is on the ground: one stationary
     // solution, which core/flight answers OnGround to and the link's gate reads.
     rig.push_fix(/*alt_m=*/0, /*updates=*/1);
@@ -274,8 +274,8 @@ TEST_CASE("product: settings changed over the link are persisted") {
     uint8_t blob[64];
     size_t n = 0;
     REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
-    settings::Settings stored{};
-    REQUIRE(settings::from_blob(blob, n, stored) == Status::Ok);
+    go::Settings stored{};
+    REQUIRE(go::from_blob(blob, n, stored) == Status::Ok);
     CHECK(stored.alarm_volume == 2);
 }
 
@@ -457,13 +457,13 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
     // This unit reads 60 mV high, measured once on the line against a bench
     // supply and written into settings.
     Rig trimmed;
-    settings::Settings s = settings::defaults(0x223344);
+    go::Settings s = go::defaults(0x223344);
     s.battery_offset_mv = -60;
     uint8_t blob[64];
-    settings::to_blob(s, blob, sizeof(blob));
-    REQUIRE(trimmed.platform.kv().write("settings", blob, settings::blob_size()) == Status::Ok);
+    go::to_blob(s, blob, sizeof(blob));
+    REQUIRE(trimmed.platform.kv().write("settings", blob, go::blob_size()) == Status::Ok);
     REQUIRE(trimmed.setup() == Status::Ok);
-    REQUIRE(trimmed.state().settings.battery_offset_mv == -60);
+    REQUIRE(trimmed.settings().battery_offset_mv == -60);
 
     // A reading the raw sample puts above the low-battery warning and the real
     // cell puts below it.
@@ -487,14 +487,14 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
 
 // Taken before any service runs, so it is the reader that could have been raw.
 TEST_CASE("product: the boot lockout reads the trimmed cell, not the raw divider") {
-    settings::Settings s = settings::defaults(0x223344);
+    go::Settings s = go::defaults(0x223344);
     s.battery_offset_mv = -60;
     uint8_t blob[64];
-    settings::to_blob(s, blob, sizeof(blob));
+    go::to_blob(s, blob, sizeof(blob));
 
     // 3440 raw is above the lockout, 3380 trimmed is below it.
     Rig trimmed;
-    REQUIRE(trimmed.platform.kv().write("settings", blob, settings::blob_size()) == Status::Ok);
+    REQUIRE(trimmed.platform.kv().write("settings", blob, go::blob_size()) == Status::Ok);
     trimmed.platform.battery().millivolts = 3440;
     REQUIRE(trimmed.setup() == Status::Ok);
     CHECK(trimmed.product.boot_cell().millivolts == 3380);

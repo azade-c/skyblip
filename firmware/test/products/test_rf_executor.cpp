@@ -15,6 +15,7 @@
 #include "core/timing/transmit.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/services/traffic.h"
+#include "products/skyblip_go/settings.h"
 #include "simulator/simulator.h"
 
 using namespace skyblip;
@@ -34,14 +35,15 @@ struct Pass {
     bus::Bus bus{};
     bus::State state{};
     platform::host::Rf rf{radio, platform.clock(), bus.rf};
-    runtime::NullRoles null{};
+    ports::NullRoles null{};
     ports::Roles roles{platform.clock(), rf,        null.link,
                        null.display,     null.kv,   null.log_flash,
                        null.annunciator, null.dfu,  null.die_temperature,
                        null.indicator,   null.gnss, ports::Capability::Rf,
                        0x5B7E57};
     runtime::Context context{roles, bus, state};
-    go::RadioService radio_service{context};
+    go::Settings settings{};
+    go::RadioService radio_service{context, settings};
     go::TrafficService traffic_service{context, go::kFeatures};
 
     Status begin() {
@@ -473,7 +475,7 @@ struct Armings {
     } rf{};
     bus::Bus bus{};
     bus::State state{};
-    runtime::NullRoles null{};
+    ports::NullRoles null{};
     ports::Roles roles{clock,
                        rf,
                        null.link,
@@ -488,7 +490,8 @@ struct Armings {
                        ports::Capability::Rf,
                        0x5B7E57};
     runtime::Context context{roles, bus, state};
-    go::RadioService radio{context};
+    go::Settings settings{};
+    go::RadioService radio{context, settings};
 
     static constexpr uint64_t kEdgeUs = 30000000;
 

@@ -51,13 +51,13 @@ TEST_CASE("product: a running device with no fix winks blue, and green once it h
 
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::NoFix);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Blue);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Blue);
 
     rig.push_fix(/*alt_m=*/500, /*updates=*/1);
     settle(rig, t, 500);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Green);
 }
 
 TEST_CASE("product: a healthy device holds its lamp dark almost all the time") {
@@ -99,7 +99,7 @@ TEST_CASE("product: a cell below the warning level blinks the lamp red") {
     REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Low);
     REQUIRE(step_until_lit(rig, t, 1000) > 0);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
 }
 
 TEST_CASE("product: a divider that reads nothing does not blink like a flat cell") {
@@ -130,11 +130,11 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
     // Held, not winked: external power is paying, and a pilot holding the cable
     // wants an answer that does not need watching for three seconds.
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
     const uint32_t shows = lamp_of(rig).shows();
     settle(rig, t, 5000);
     CHECK(lamp_of(rig).shows() == shows);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
 
     // The charger has stopped pushing current and is holding the float voltage.
     rig.platform.battery().millivolts = power::kChargeCompleteMv + 5;
@@ -142,7 +142,7 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     REQUIRE_FALSE(rig.state().power.battery.charging);
     REQUIRE(rig.state().power.battery.external_power);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charged);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Green);
 }
 
 TEST_CASE("product: a low cell on the cable shows charging, not low") {
@@ -159,7 +159,7 @@ TEST_CASE("product: a low cell on the cable shows charging, not low") {
     rig.platform.battery().external_power = true;
     settle(rig, t, 5000);
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Red);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
 }
 
 TEST_CASE("product: a device on its way down darkens the lamp and lets go of the pins") {
@@ -219,14 +219,14 @@ TEST_CASE("product: switching alarms off silences the buzzer and does not darken
     // a field in core/indication's situation at all.
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    rig.state().settings.alarm_enabled = false;
+    rig.settings().alarm_enabled = false;
     rig.push_fix(/*alt_m=*/500, /*updates=*/1);
     uint32_t t = 0;
     settle(rig, t);
 
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
     REQUIRE(step_until_lit(rig, t, 3500) > 0);
-    CHECK(lamp_of(rig).lamp() == ports::Lamp::Green);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Green);
     CHECK_FALSE(rig.product.alarm().sounding());
 }
 
@@ -245,7 +245,7 @@ TEST_CASE("product: an urgent contact takes the lamp off the charger") {
 
     run(0, 2000);
     REQUIRE(simulator.product().alarm().indicator_condition() == indication::Condition::Charging);
-    REQUIRE(lamp.lamp() == ports::Lamp::Red);
+    REQUIRE(lamp.lamp() == indication::Lamp::Red);
 
     simulator.world().add_threat();
     run(2000, 6000);

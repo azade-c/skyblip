@@ -55,7 +55,7 @@ class Simulator {
     bool companion_connected() { return product_.config().config().link_up(); }
     int companion_frames(events::Endpoint endpoint) { return platform_.link().count_on(endpoint); }
 
-    const ui::Framebuffer& panel() { return platform_.chips().epd.framebuffer(); }
+    const parts::Ssd1681Glass& panel() { return platform_.chips().epd.framebuffer(); }
     // Firmware intent: the panel itself deep-sleeps between refreshes.
     bool panel_powered() { return product_.screen().powered(); }
     bool backlight() { return platform_.chips().epd.backlight; }

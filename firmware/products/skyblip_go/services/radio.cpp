@@ -162,7 +162,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     // The one setting on this device that is a property of the unit's own
     // reference rather than of the pilot: it belongs to every dwell, on both
     // bands, receiving as well as transmitting (core/settings/settings.h).
-    plan.freq_corr_e1_ppm = context_.state.settings.freq_trim_e1_ppm;
+    plan.freq_corr_e1_ppm = settings_.freq_trim_e1_ppm;
     listen_for(slot.band, plan);
     const int opens_in_ms = ms_until(slot.start_ms, phase);
     const int closes_in_ms = ms_until(slot.end_ms, phase);
@@ -191,8 +191,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         a.go && burst_in_ms >= 0 && tx_at_us >= plan.start_us && tx_at_us < plan.end_us;
     if (carries_tx) {
         protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
-                           context_.state.settings.addr_table, context_.state.own.aircraft_cat,
-                           context_.state.settings.stealth,
+                           settings_.addr_table, context_.state.own.aircraft_cat, settings_.stealth,
                            burst_instant(a, tx_at_us, slot_utc(now_ms)));
         outgoing_.scramble();
         outgoing_.set_crc();

@@ -8,7 +8,6 @@
 #include "doctest/doctest.h"
 #include "hardware/parts/ssd1681/model.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
-#include "ui/framebuffer.h"
 
 using namespace skyblip;
 
@@ -22,7 +21,7 @@ parts::Ssd1681 make_turned(models::Ssd1681& f) {
 
 // One pixel of panel RAM, addressed as the controller does: a source on a gate line, black at 0.
 bool ram_black(const models::Ssd1681& f, int source, int gate) {
-    const size_t byte = size_t(gate) * ui::Framebuffer::kStride + size_t(source >> 3);
+    const size_t byte = size_t(gate) * parts::Ssd1681Glass::kStride + size_t(source >> 3);
     return byte < f.ram.size() && (f.ram[byte] & (0x80 >> (source & 7))) == 0;
 }
 
@@ -54,7 +53,7 @@ TEST_CASE("epd: the reset pulse is held low, not glitched") {
     d.begin();
     CHECK(f.reads_while_in_reset >= parts::epd::kResetHoldSpins);
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     d.present(fb, ports::Refresh::Full, 0);
     settle(d, 0);
@@ -71,11 +70,11 @@ TEST_CASE("epd: present() writes a full framebuffer with correct black/white pol
     parts::Ssd1681 d = make(f);
     d.begin();
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(/*white=*/true);
     d.present(fb, ports::Refresh::Full, 0);
 
-    CHECK(f.ram.size() == ui::Framebuffer::kBytes);
+    CHECK(f.ram.size() == parts::Ssd1681Glass::kBytes);
     // An all-white framebuffer becomes all 0xFF in panel RAM (inverted).
     bool all_ff = true;
     for (uint8_t b : f.ram)
@@ -90,7 +89,7 @@ TEST_CASE("epd: a black pixel flips the corresponding RAM bit to 0") {
     parts::Ssd1681 d = make(f);
     d.begin();
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     fb.set_pixel(0, 0, /*black=*/true);
     d.present(fb, ports::Refresh::Full, 0);
@@ -104,14 +103,14 @@ TEST_CASE("epd: an unturned glass takes framebuffer rows as gate lines") {
     parts::Ssd1681 d = make(f);
     d.begin();
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     fb.set_pixel(0, 0, true);
     fb.set_pixel(199, 0, true);
     fb.set_pixel(3, 8, true);
     d.present(fb, ports::Refresh::Full, 0);
 
-    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
+    REQUIRE(f.ram.size() == parts::Ssd1681Glass::kBytes);
     CHECK(ram_black(f, 0, 0));
     CHECK(ram_black(f, 199, 0));
     CHECK(ram_black(f, 3, 8));
@@ -124,14 +123,14 @@ TEST_CASE("epd: a glass turned 270 degrees takes framebuffer columns as gate lin
     parts::Ssd1681 d = make_turned(f);
     d.begin();
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     fb.set_pixel(0, 0, true);
     fb.set_pixel(199, 0, true);
     fb.set_pixel(3, 8, true);
     d.present(fb, ports::Refresh::Full, 0);
 
-    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
+    REQUIRE(f.ram.size() == parts::Ssd1681Glass::kBytes);
     // (x, y) lands on source y of gate line 199 - x.
     CHECK(ram_black(f, 0, 199));
     CHECK(ram_black(f, 0, 0));
@@ -144,14 +143,14 @@ TEST_CASE("epd: a turned glass writes the same count of black pixels it was hand
     parts::Ssd1681 d = make_turned(f);
     d.begin();
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     for (int i = 0; i < 200; i++) fb.set_pixel(i, i / 2, true);
     d.present(fb, ports::Refresh::Full, 0);
 
     int black = 0;
-    for (int gate = 0; gate < ui::Framebuffer::kH; gate++)
-        for (int source = 0; source < ui::Framebuffer::kW; source++)
+    for (int gate = 0; gate < parts::Ssd1681::kGlassH; gate++)
+        for (int source = 0; source < parts::Ssd1681::kGlassW; source++)
             if (ram_black(f, source, gate)) black++;
     CHECK(black == fb.count_black());
 }
@@ -161,7 +160,7 @@ TEST_CASE("epd: the first present after begin() is a full refresh, whatever was 
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Partial, 0);
@@ -180,11 +179,11 @@ TEST_CASE("epd: paint_black drives every pixel from white, on the partial wavefo
 
     d.paint_black(0);
     CHECK_FALSE(f.last_full);
-    REQUIRE(f.ram_previous.size() == ui::Framebuffer::kBytes);
-    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
+    REQUIRE(f.ram_previous.size() == parts::Ssd1681Glass::kBytes);
+    REQUIRE(f.ram.size() == parts::Ssd1681Glass::kBytes);
     for (uint8_t b : f.ram_previous) REQUIRE(b == 0xFF);  // panel RAM 1 is white
     for (uint8_t b : f.ram) REQUIRE(b == 0x00);
-    CHECK(f.framebuffer().count_black() == ui::Framebuffer::kW * ui::Framebuffer::kH);
+    CHECK(f.framebuffer().count_black() == parts::Ssd1681::kGlassW * parts::Ssd1681::kGlassH);
 }
 
 // The wipe is never the last frame: the page behind it spends the rails it left up.
@@ -197,7 +196,7 @@ TEST_CASE("epd: paint_black leaves the rails up, and the frame behind it takes t
     CHECK(f.rails_on);
     CHECK(d.ready(parts::Ssd1681::kReadyAfterPartialMs));
 
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     d.present(fb, ports::Refresh::Partial, 1000);
     CHECK_FALSE(f.rails_on);
@@ -223,7 +222,7 @@ TEST_CASE("epd: a paint_black leaves the glass known, and the page after it is a
 
     d.paint_black(0);
     CHECK(d.ready(parts::Ssd1681::kReadyAfterPartialMs));
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     d.present(fb, ports::Refresh::Partial, 1000);
     CHECK_FALSE(f.last_full);
@@ -235,7 +234,7 @@ TEST_CASE("epd: the panel says which refresh is in flight, and for how long") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
     CHECK_FALSE(d.refreshing());
 
@@ -259,13 +258,13 @@ TEST_CASE("epd: present() rewrites the previous-image bank so the panel diffs th
     parts::Ssd1681 d = make(f);
     d.begin();
 
-    ui::Framebuffer first;
+    parts::Ssd1681Glass first;
     first.clear(true);
     first.set_pixel(10, 10, true);
     d.present(first, ports::Refresh::Full, 0);
     settle(d, 0);
 
-    ui::Framebuffer second;
+    parts::Ssd1681Glass second;
     second.clear(true);
     second.set_pixel(20, 20, true);
     d.present(second, ports::Refresh::Partial, 5000);
@@ -273,10 +272,10 @@ TEST_CASE("epd: present() rewrites the previous-image bank so the panel diffs th
     // Bank 0x26 must hold what the glass shows (the first frame) and bank
     // 0x24 the new one, both in panel polarity. A stale or empty 0x26 is the
     // classic partial-update ghosting bug.
-    REQUIRE(f.ram_previous.size() == ui::Framebuffer::kBytes);
-    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
-    ui::Framebuffer glass;
-    for (size_t i = 0; i < ui::Framebuffer::kBytes; i++)
+    REQUIRE(f.ram_previous.size() == parts::Ssd1681Glass::kBytes);
+    REQUIRE(f.ram.size() == parts::Ssd1681Glass::kBytes);
+    parts::Ssd1681Glass glass;
+    for (size_t i = 0; i < parts::Ssd1681Glass::kBytes; i++)
         glass.data()[i] = static_cast<uint8_t>(~f.ram_previous[i]);
     CHECK(glass.get_pixel(10, 10));
     CHECK_FALSE(glass.get_pixel(20, 20));
@@ -288,17 +287,17 @@ TEST_CASE("epd: a full refresh puts the new frame in both banks, not the old one
     parts::Ssd1681 d = make(f);
     d.begin();
 
-    ui::Framebuffer first;
+    parts::Ssd1681Glass first;
     first.clear(true);
     first.set_pixel(10, 10, true);
     d.present(first, ports::Refresh::Full, 0);
     settle(d, 0);
 
-    ui::Framebuffer second;
+    parts::Ssd1681Glass second;
     second.clear(true);
     second.set_pixel(20, 20, true);
     d.present(second, ports::Refresh::Full, 5000);
-    REQUIRE(f.ram.size() == ui::Framebuffer::kBytes);
+    REQUIRE(f.ram.size() == parts::Ssd1681Glass::kBytes);
     CHECK(f.ram_previous == f.ram);
 }
 
@@ -307,7 +306,7 @@ TEST_CASE("epd: the border follows the waveform on a wash and is held at VCOM on
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -324,7 +323,7 @@ TEST_CASE("epd: every refresh ends with the rails down, the partial as well as t
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -347,7 +346,7 @@ TEST_CASE("epd: a run of partials costs one reset, not one per refresh") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -369,7 +368,7 @@ TEST_CASE("epd: present() is non-blocking and ready() settles the panel without 
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     CHECK(d.ready(0));
@@ -390,7 +389,7 @@ TEST_CASE("epd: a present after deep sleep wakes the panel with a reset pulse") 
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -410,7 +409,7 @@ TEST_CASE("epd: a hung BUSY line times out, re-initialises, and forces the next 
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -436,7 +435,7 @@ TEST_CASE("epd: the panel a hung BUSY left mid-refresh is re-initialised with it
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Partial, 0);
@@ -452,7 +451,7 @@ TEST_CASE("epd: a panel that never released BUSY loses its shadow, so the next r
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -471,7 +470,7 @@ TEST_CASE("epd: power_off() sleeps the panel whatever waveform ran last") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -488,7 +487,7 @@ TEST_CASE("epd: power_off() after the full park frame leaves nothing powered") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -504,7 +503,7 @@ TEST_CASE("epd: power_off() parks a sleeping panel without touching it twice") {
     models::Ssd1681 f;
     parts::Ssd1681 d = make(f);
     d.begin();
-    ui::Framebuffer fb;
+    parts::Ssd1681Glass fb;
     fb.clear(true);
 
     d.present(fb, ports::Refresh::Full, 0);
@@ -575,4 +574,20 @@ TEST_CASE("epd: the identity is a name the self-test page can print") {
         const char* name = parts::panel_name(static_cast<parts::Panel>(i));
         CHECK(std::string(name).size() <= 8);
     }
+}
+
+// A canvas of another size would be written as if it were this glass: same bank,
+// same window, rows sheared by the stride it does not have.
+TEST_CASE("epd: a canvas that is not this glass never reaches the panel") {
+    models::Ssd1681 f;
+    parts::Ssd1681 d = make(f);
+    d.begin();
+
+    ui::Panel<128, 64> other;
+    other.clear(/*white=*/false);
+    const int presents = f.present_count;
+    d.present(other, ports::Refresh::Full, 0);
+
+    CHECK_FALSE(parts::Ssd1681::drives(other));
+    CHECK(f.present_count == presents);
 }

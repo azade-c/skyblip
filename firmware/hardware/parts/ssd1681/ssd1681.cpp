@@ -32,8 +32,9 @@ constexpr uint8_t kSequenceWipe = 0xFC;
 constexpr uint8_t kBorderFollowLut1 = 0x05;
 constexpr uint8_t kBorderVcom = 0x80;
 
-constexpr int kW = ui::Framebuffer::kW;
-constexpr int kH = ui::Framebuffer::kH;
+constexpr int kW = Ssd1681::kGlassW;
+constexpr int kH = Ssd1681::kGlassH;
+constexpr int kStride = Ssd1681::kGlassStride;
 
 // INFO: fc 01aug25 panel RAM is 1=white, the framebuffer 1=black
 constexpr uint8_t kRamWhite = 0xFF;
@@ -51,11 +52,12 @@ void Ssd1681::begin() {
 }
 
 // INFO: fc 09mar26 GxEPD2 writes the new frame into both banks before a full refresh
-const uint8_t* Ssd1681::previous_bank(const ui::Framebuffer& fb, bool full) const {
+const uint8_t* Ssd1681::previous_bank(const ui::Canvas& fb, bool full) const {
     return full ? fb.data() : shadow_;
 }
 
-void Ssd1681::present(const ui::Framebuffer& fb, ports::Refresh mode, uint32_t now_ms) {
+void Ssd1681::present(const ui::Canvas& fb, ports::Refresh mode, uint32_t now_ms) {
+    if (!drives(fb)) return;
     ensure_awake();
 
     const bool full = mode == ports::Refresh::Full || !glass_known_;
@@ -65,7 +67,7 @@ void Ssd1681::present(const ui::Framebuffer& fb, ports::Refresh mode, uint32_t n
     data(full ? kBorderFollowLut1 : kBorderVcom);
     write_bank(kWriteRamPrevious, previous_bank(fb, full));
     write_bank(kWriteRam, fb.data());
-    std::memcpy(shadow_, fb.data(), ui::Framebuffer::kBytes);
+    std::memcpy(shadow_, fb.data(), kGlassBytes);
 
     activate(full ? kSequenceFull : kSequencePartial, full, now_ms);
 }
@@ -200,7 +202,7 @@ void Ssd1681::data(uint8_t d) {
 void Ssd1681::fill_bank(uint8_t command, uint8_t ram_value) {
     set_cursor(0, 0);
     cmd(command);
-    uint8_t gate_line[ui::Framebuffer::kStride];
+    uint8_t gate_line[kStride];
     std::memset(gate_line, ram_value, sizeof(gate_line));
     gpio_.set(dc_, true);
     spi_.select(true);
@@ -211,11 +213,11 @@ void Ssd1681::fill_bank(uint8_t command, uint8_t ram_value) {
 void Ssd1681::write_bank(uint8_t command, const uint8_t* fb_bytes) {
     set_cursor(0, 0);
     cmd(command);
-    uint8_t gate_line[ui::Framebuffer::kStride];
+    uint8_t gate_line[kStride];
     gpio_.set(dc_, true);
     spi_.select(true);
     for (int gate = 0; gate < kH; gate++) {
-        for (int column = 0; column < ui::Framebuffer::kStride; column++)
+        for (int column = 0; column < kStride; column++)
             gate_line[column] = static_cast<uint8_t>(~ram_byte(fb_bytes, gate, column));
         spi_.transfer(gate_line, nullptr, sizeof(gate_line));
     }
@@ -223,12 +225,12 @@ void Ssd1681::write_bank(uint8_t command, const uint8_t* fb_bytes) {
 }
 
 uint8_t Ssd1681::ram_byte(const uint8_t* fb_bytes, int gate, int column) const {
-    if (rotation_ == GlassRotation::Deg0) return fb_bytes[gate * ui::Framebuffer::kStride + column];
+    if (rotation_ == GlassRotation::Deg0) return fb_bytes[gate * kStride + column];
     const int x = kW - 1 - gate;
     uint8_t bits = 0;
     for (int source = 0; source < 8; source++) {
         const int y = column * 8 + source;
-        if (fb_bytes[y * ui::Framebuffer::kStride + (x >> 3)] & (0x80 >> (x & 7)))
+        if (fb_bytes[y * kStride + (x >> 3)] & (0x80 >> (x & 7)))
             bits |= static_cast<uint8_t>(0x80 >> source);
     }
     return bits;

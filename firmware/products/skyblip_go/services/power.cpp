@@ -43,8 +43,7 @@ void PowerService::tick(uint32_t now_ms) {
         // cutoff that fired 40 mV early on a trimmed unit would be the
         // calibration causing the failure it exists to prevent. See
         // core/power/battery.h for what the offset is and where it comes from.
-        const events::BatterySample sample =
-            power::calibrated(raw, context_.state.settings.battery_offset_mv);
+        const events::BatterySample sample = power::calibrated(raw, settings_.battery_offset_mv);
         gauge_.apply(sample);
         cutoff_.apply(sample);
     }

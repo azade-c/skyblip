@@ -144,7 +144,7 @@ TEST_CASE("product: switching alarms off silences the buzzer on the pass it is s
     REQUIRE(t > 0);
     const uint32_t silences = sky.buzzer().silences();
 
-    sky.simulator.product().state().settings.alarm_enabled = false;
+    sky.simulator.product().settings().alarm_enabled = false;
     sky.simulator.step(t + kStepMs);
     CHECK(int(sky.sounding_level()) == 0);
     CHECK(sky.buzzer().silences() == silences + 1);
@@ -156,7 +156,7 @@ TEST_CASE("product: switching alarms off silences the buzzer on the pass it is s
     CHECK(int(sky.announcing_level()) == 0);
 
     // And audible again the moment the pilot turns it back on.
-    sky.simulator.product().state().settings.alarm_enabled = true;
+    sky.simulator.product().settings().alarm_enabled = true;
     sky.run(t + 10000, t + 13000);
     CHECK(sky.tone_commands() > before);
 }

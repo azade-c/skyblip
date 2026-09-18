@@ -35,7 +35,7 @@ void AlarmService::tick(uint32_t now_ms) {
     situation.level = tracker_.announced_level(now_ms);
     situation.escalated = escalated;
     situation.first_fix = context_.state.own.fix_acquired;
-    situation.enabled = context_.state.settings.alarm_enabled;
+    situation.enabled = settings_.alarm_enabled;
     situation.running = running_;
     drive(situation, now_ms);
     drive_lamp(now_ms, running_);
@@ -92,7 +92,7 @@ void AlarmService::drive(const annunciation::Situation& situation, uint32_t now_
         context_.roles.annunciator.silence();
         return;
     }
-    const uint8_t volume = context_.state.settings.alarm_volume;
+    const uint8_t volume = settings_.alarm_volume;
     if (command.tone_hz != 0)
         context_.roles.annunciator.tone(command.tone_hz, volume);
     else

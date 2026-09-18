@@ -10,9 +10,9 @@
 #include "core/events/link.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/platform.h"
+#include "products/skyblip_go/pages/confirm.h"
 #include "products/skyblip_go/product.h"
 #include "runtime/tasks.h"
-#include "ui/screens/confirm.h"
 
 using namespace skyblip;
 
@@ -54,7 +54,7 @@ struct Rig {
         hold_button(t, 80, /*down=*/false);
     }
 
-    // The authorising gesture: two presses well inside ui::ConfirmGesture's
+    // The authorising gesture: two presses well inside go::ConfirmGesture's
     // window. Each press() above advances the clock by ~200 ms, so the pair
     // lands at a gap a thumb actually produces.
     void double_press(uint32_t& t) {
@@ -418,16 +418,16 @@ TEST_CASE("product: paging does not authorise a firmware upload") {
 
     // The prompt owns the glass: the pad neither turns the page nor answers it.
     rig.tap_pad(t);
-    rig.run(t, t + ui::ConfirmGesture::kDoublePressMs + 200);
-    t += ui::ConfirmGesture::kDoublePressMs + 200;
+    rig.run(t, t + go::ConfirmGesture::kDoublePressMs + 200);
+    t += go::ConfirmGesture::kDoublePressMs + 200;
     CHECK_FALSE(rig.config().upload_allowed());
     CHECK(rig.config().pending() == comms::Pending::Dfu);
     CHECK(rig.product.screen().page() == go::Page::SixPack);
 
     // The button at a prompt is the answer, and one press alone refuses.
     rig.press(t);
-    rig.run(t, t + ui::ConfirmGesture::kDoublePressMs + 200);
-    t += ui::ConfirmGesture::kDoublePressMs + 200;
+    rig.run(t, t + go::ConfirmGesture::kDoublePressMs + 200);
+    t += go::ConfirmGesture::kDoublePressMs + 200;
     CHECK_FALSE(rig.config().upload_allowed());
     CHECK(rig.config().pending() == comms::Pending::None);
     CHECK(rig.product.screen().mode() == go::Mode::Traffic);
@@ -481,14 +481,14 @@ TEST_CASE("product: the panel names the operation while it waits, and stops cycl
     t += 6000;
     REQUIRE(rig.product.screen().prompt() == comms::Pending::PowerOff);
 
-    ui::ConfirmSnapshot expect;
+    go::ConfirmSnapshot expect;
     expect.title = comms::pending_title(comms::Pending::PowerOff);
     expect.detail = comms::pending_detail(comms::Pending::PowerOff);
     expect.timeout_s = comms::kConfirmWindowMs / 1000;
-    ui::Framebuffer expected;
-    ui::draw_confirm(expected, expect);
+    go::Glass expected;
+    go::draw_confirm(expected, expect);
     CHECK(std::memcmp(rig.product.screen().framebuffer().data(), expected.data(),
-                      ui::Framebuffer::kBytes) == 0);
+                      go::Glass::kBytes) == 0);
 
     // It reached the glass, not just the buffer: the pilot being asked can see
     // the question before the button can answer it.

@@ -6,8 +6,8 @@
 #include "core/protocol/air.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/clock.h"
+#include "ports/null.h"
 #include "products/skyblip_go/services/traffic.h"
-#include "runtime/null.h"
 
 using namespace skyblip;
 
@@ -34,7 +34,7 @@ constexpr uint16_t kIntoMs = 437;
 
 struct Rig {
     platform::host::Clock clock;
-    runtime::NullRoles null;
+    ports::NullRoles null;
     ports::Roles roles{
         clock,          null.rf,          null.link, null.display,         null.kv,
         null.log_flash, null.annunciator, null.dfu,  null.die_temperature, null.indicator,

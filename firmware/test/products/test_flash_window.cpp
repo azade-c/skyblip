@@ -12,9 +12,9 @@
 #include "core/events/link.h"
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
+#include "products/skyblip_go/input/gesture.h"
+#include "products/skyblip_go/pages/settings.h"
 #include "test/support/product_rig.h"
-#include "ui/input/gesture.h"
-#include "ui/screens/settings.h"
 
 using namespace skyblip;
 
@@ -43,7 +43,7 @@ void fly(Rig& rig, uint32_t& t) { rig.seconds(t, 16, /*speed_q=*/200, 1200); }
 // arrive at the same flag: comms::ConfigService is the single writer of the blob
 // and this is how both editors say the struct moved.
 void change_volume(Rig& rig, uint8_t to) {
-    rig.state().settings.alarm_volume = to;
+    rig.settings().alarm_volume = to;
     rig.product.config().config().note_settings_changed();
 }
 
@@ -119,8 +119,8 @@ TEST_CASE("flash window: six rapid changes are one write") {
     uint8_t blob[64];
     size_t n = 0;
     REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
-    settings::Settings stored{};
-    REQUIRE(settings::from_blob(blob, n, stored) == Status::Ok);
+    go::Settings stored{};
+    REQUIRE(go::from_blob(blob, n, stored) == Status::Ok);
     CHECK(stored.alarm_volume == 5);
 }
 
@@ -137,17 +137,17 @@ TEST_CASE("flash window: a thumb stepping the volume on the panel writes flash o
     rig.tap_pad(t);  // off the self test, onto the rows
 
     // Down to the volume row: a tap of the pad moves the focus.
-    while (rig.product.screen().editor().focus() != ui::SettingsRow::Volume) rig.tap_pad(t);
+    while (rig.product.screen().editor().focus() != go::SettingsRow::Volume) rig.tap_pad(t);
 
     const uint32_t before = writes(rig);
-    const uint8_t started_at = rig.state().settings.alarm_volume;
+    const uint8_t started_at = rig.settings().alarm_volume;
     // Five presses walk the volume off where it started, which is five accepted changes.
     for (int press = 0; press < 5; press++) {
         rig.press(t);
         rig.run(t, t + 120);
         t += 120;
     }
-    REQUIRE(rig.state().settings.alarm_volume != started_at);
+    REQUIRE(rig.settings().alarm_volume != started_at);
     REQUIRE(rig.product.config().durable_writes().requests() == 5);
 
     rig.run(t, t + 3000);
@@ -169,7 +169,7 @@ TEST_CASE("flash window: a change is never held past the bound, at any phase") {
     for (int offset = 0; offset < 1000; offset += 70) {
         step_until(rig, t, (t / 1000 + 1) * 1000 + static_cast<uint32_t>(offset));
         const uint32_t asked_at = t;
-        volume = static_cast<uint8_t>((volume + 1) % (ui::kMaxAlarmVolume + 1));
+        volume = static_cast<uint8_t>((volume + 1) % (go::kMaxAlarmVolume + 1));
         change_volume(rig, volume);
         const uint32_t at_ms = wait_for_write(rig, t, timing::DurableWriteWindow::kMaxDeferMs);
         REQUIRE(at_ms != 0);
@@ -284,7 +284,7 @@ TEST_CASE("flash window: a hundred patches cost one write") {
     uint32_t t = 0;
     fly(rig, t);
     const uint32_t before = writes(rig);
-    REQUIRE(rig.state().settings.alarm_volume == 3);
+    REQUIRE(rig.settings().alarm_volume == 3);
 
     // Every pass, which is faster than a thumb and faster than a keystroke, and
     // the whole hundred inside the bound.
@@ -304,8 +304,8 @@ TEST_CASE("flash window: a hundred patches cost one write") {
     uint8_t blob[64];
     size_t n = 0;
     REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
-    settings::Settings stored{};
-    REQUIRE(settings::from_blob(blob, n, stored) == Status::Ok);
+    go::Settings stored{};
+    REQUIRE(go::from_blob(blob, n, stored) == Status::Ok);
     CHECK(stored.alarm_volume == 5);
 }
 
@@ -346,8 +346,8 @@ TEST_CASE("flash window: a change is held, not written, while the cell is below 
     uint8_t blob[64];
     size_t n = 0;
     REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
-    settings::Settings stored{};
-    REQUIRE(settings::from_blob(blob, n, stored) == Status::Ok);
+    go::Settings stored{};
+    REQUIRE(go::from_blob(blob, n, stored) == Status::Ok);
     CHECK(stored.alarm_volume == 5);
 }
 

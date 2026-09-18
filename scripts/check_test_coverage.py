@@ -17,11 +17,13 @@ REQUIRED_MODULES = [
     "core/util", "core/fec", "core/protocol", "core/gnss", "core/timing",
     "core/traffic", "core/settings", "core/comms", "core/flight", "core/bus",
     "core/power", "core/annunciation", "core/indication", "core/dfu", "core/radio",
-    "ui/screens", "ui/widgets", "ui/input", "runtime", "simulator",
+    "core/input",
+    "products/skyblip_go/pages", "products/skyblip_go/input", "ui/widgets", "runtime",
+    "simulator",
 ]
 
-TEST_DIRS = ("test", "test/core", "test/ui", "test/products", "test/hardware",
-             "test/boards")
+TEST_DIRS = ("test", "test/core", "test/ui", "test/products", "test/products/pages",
+             "test/hardware", "test/boards")
 
 PART_TEST_DIR = "test/hardware"
 

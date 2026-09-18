@@ -44,12 +44,12 @@ void render(simulator::Simulator& s) {
         std::fflush(stdout);
         return;
     }
-    const ui::Framebuffer& fb = s.panel();
+    const go::Glass& fb = s.panel();
     constexpr int step = 4;
     std::printf("\033[2J\033[H+----------------------------------------------------+\n");
-    for (int y = 0; y < ui::Framebuffer::kH; y += step) {
+    for (int y = 0; y < go::kGlassH; y += step) {
         std::printf("|");
-        for (int x = 0; x < ui::Framebuffer::kW; x += step) {
+        for (int x = 0; x < go::kGlassW; x += step) {
             bool black = false;
             for (int dy = 0; dy < step && !black; dy++)
                 for (int dx = 0; dx < step && !black; dx++)

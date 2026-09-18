@@ -4,7 +4,7 @@
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "ports/display.h"
-#include "ui/framebuffer.h"
+#include "ui/canvas.h"
 
 namespace skyblip::parts {
 
@@ -34,7 +34,17 @@ class Ssd1681 : public ports::Display {
     Panel panel() const { return panel_; }
     const char* panel_name() const { return parts::panel_name(panel_); }
 
-    void present(const ui::Framebuffer& fb, ports::Refresh mode, uint32_t now_ms) override;
+    // INFO: fc 19sep26 SSD1681 drives 200 source x 200 gate lines, datasheet 6.1
+    static constexpr int kGlassW = 200;
+    static constexpr int kGlassH = 200;
+    static constexpr int kGlassStride = (kGlassW + 7) / 8;
+    static constexpr size_t kGlassBytes = static_cast<size_t>(kGlassStride) * kGlassH;
+
+    static bool drives(const ui::Canvas& fb) {
+        return fb.width() == kGlassW && fb.height() == kGlassH;
+    }
+
+    void present(const ui::Canvas& fb, ports::Refresh mode, uint32_t now_ms) override;
     void paint_black(uint32_t now_ms) override;
     bool ready(uint32_t now_ms) override;
     void power_off() override;
@@ -60,7 +70,7 @@ class Ssd1681 : public ports::Display {
     void abort_refresh();
     void finish_refresh();
     void enter_sleep();
-    const uint8_t* previous_bank(const ui::Framebuffer& fb, bool full) const;
+    const uint8_t* previous_bank(const ui::Canvas& fb, bool full) const;
     void cmd(uint8_t c);
     void data(uint8_t d);
     void write_bank(uint8_t command, const uint8_t* fb_bytes);
@@ -75,7 +85,7 @@ class Ssd1681 : public ports::Display {
     int dc_, rst_, busy_, backlight_;
     GlassRotation rotation_;
     // INFO: fc 01aug25 the glass image, into bank 0x26 each present, so a partial diffs on truth
-    uint8_t shadow_[ui::Framebuffer::kBytes]{};
+    uint8_t shadow_[kGlassBytes]{};
     bool glass_known_{false};
     bool asleep_{false};
     bool refreshing_{false};
@@ -84,6 +94,8 @@ class Ssd1681 : public ports::Display {
     uint32_t ready_at_ms_{0};
     uint32_t timeout_at_ms_{0};
 };
+
+using Ssd1681Glass = ui::Panel<Ssd1681::kGlassW, Ssd1681::kGlassH>;
 
 namespace epd {
 // INFO: fc 04sep26 GxEPD2, Good Display, SoftRF hold RES# 10 ms; only this reset ends deep sleep

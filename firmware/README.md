@@ -1,6 +1,8 @@
 # firmware
 
-The C++ tree: `core/` is the portable logic, `ports/` the roles a product needs from a board, `hardware/` the parts and platforms that fill them, `ui/` the pages, `products/` the services that wire a device together, `boards/` the Zephyr board, `test/` the host suite, `simulator/` the world it flies in. Each directory carries its own README for what it decides.
+The C++ tree: `core/` is the portable logic, `ports/` the roles a product needs from a board, `hardware/` the parts and platforms that fill them, `ui/` the drawing kit, `products/` the pages and services that make one device what it is, `boards/` the Zephyr board, `test/` the host suite, `simulator/` the world it flies in. Each directory carries its own README for what it decides.
+
+A file lives in the narrowest layer that decides its content. A spec, a physical law or arithmetic is `core/`; what the core needs done for it is `ports/`; a datasheet is `hardware/`; a schematic is `boards/`; which pages exist, what a press means and which settings a pilot gets is the product's; pixels that any product would draw the same way are `ui/`.
 
 `ports/` is a port layer, not a hardware abstraction layer, and it is named for what it is: it declares the roles the core needs filled, in the core's own vocabulary, and `hardware/` is where a part or a platform fills one. A port is what the core calls; what the world does to a sensor arrives as an `events::` value on a queue instead, and `hardware/README.md` is where that half of the contract is written down. Register code belongs there, never here. `core/` and `ui/` compile with no framework headers at all, which is what buys the host suite and the WASM simulator; Zephyr is used freely below `ports/` and never above it.
 

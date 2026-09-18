@@ -4,8 +4,8 @@
 // image an e-paper wears once its rails are down. A page that is right in a
 // widget test and never presented is a page nobody sees.
 #include "doctest/doctest.h"
+#include "products/skyblip_go/pages/boot.h"
 #include "test/support/product_rig.h"
-#include "ui/screens/boot.h"
 #include "ui/widgets/wordmark.h"
 
 using namespace skyblip;
@@ -62,7 +62,7 @@ TEST_CASE("product: a long touch comes back to the radar from wherever the pilot
 TEST_CASE("product: page_mask disables pages so the pad skips them") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    rig.state().settings.page_mask = 0x05;  // radar + status only
+    rig.settings().page_mask = 0x05;  // radar + status only
     uint32_t t = 100;
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Status);
@@ -82,9 +82,9 @@ TEST_CASE("product: powering the panel down leaves the wordmark on it") {
     REQUIRE(rig.setup() == Status::Ok);
     rig.run(0, 1000);
 
-    ui::Framebuffer expected;
+    go::Glass expected;
     expected.clear(true);
-    ui::draw_wordmark(expected, ui::Framebuffer::kW / 2, ui::Framebuffer::kH / 2);
+    ui::draw_wordmark(expected, go::kGlassW / 2, go::kGlassH / 2);
 
     rig.product.screen().set_power(false);
     rig.run(1000, 7000);
@@ -205,28 +205,28 @@ TEST_CASE("product: the self-test page names the part, not just the failure") {
 
     // Row 1 is GNSS (products/skyblip_go/product.h::kBootParts). The two pages
     // differ there and nowhere else in that row's band.
-    const ui::Framebuffer& bad = missing.product.boot_page();
-    const ui::Framebuffer& good = whole.product.boot_page();
+    const go::Glass& bad = missing.product.boot_page();
+    const go::Glass& good = whole.product.boot_page();
     int row_difference = 0;
-    for (int y = ui::boot_row_y(1); y < ui::boot_row_y(1) + 8; y++)
-        for (int x = 0; x < ui::Framebuffer::kW; x++)
+    for (int y = go::boot_row_y(1); y < go::boot_row_y(1) + 8; y++)
+        for (int x = 0; x < go::kGlassW; x++)
             row_difference += bad.get_pixel(x, y) != good.get_pixel(x, y) ? 1 : 0;
     CHECK(row_difference > 0);
 
     // The radio row is identical on both: only the part that failed changed.
     int radio_difference = 0;
-    for (int y = ui::boot_row_y(0); y < ui::boot_row_y(0) + 8; y++)
-        for (int x = 0; x < ui::Framebuffer::kW; x++)
+    for (int y = go::boot_row_y(0); y < go::boot_row_y(0) + 8; y++)
+        for (int x = 0; x < go::kGlassW; x++)
             radio_difference += bad.get_pixel(x, y) != good.get_pixel(x, y) ? 1 : 0;
     CHECK(radio_difference == 0);
 }
 
 // B4. The setting is handed to every page that prints a distance or a speed.
 TEST_CASE("product: the unit setting reaches the pages that print one") {
-    auto page_ink = [](settings::Units units, int taps, go::Page page) {
+    auto page_ink = [](go::Units units, int taps, go::Page page) {
         Rig rig;
         REQUIRE(rig.setup() == Status::Ok);
-        rig.state().settings.units = units;
+        rig.settings().units = units;
         uint32_t t = 100;
         for (int i = 0; i < taps; i++) rig.tap_pad(t);
         rig.run(t, t + 3000);
@@ -234,10 +234,10 @@ TEST_CASE("product: the unit setting reaches the pages that print one") {
         return rig.product.screen().framebuffer().count_black();
     };
 
-    CHECK(page_ink(settings::Units::Metric, 1, go::Page::SixPack) !=
-          page_ink(settings::Units::Nautical, 1, go::Page::SixPack));
-    CHECK(page_ink(settings::Units::Metric, 0, go::Page::Radar) !=
-          page_ink(settings::Units::Nautical, 0, go::Page::Radar));
+    CHECK(page_ink(go::Units::Metric, 1, go::Page::SixPack) !=
+          page_ink(go::Units::Nautical, 1, go::Page::SixPack));
+    CHECK(page_ink(go::Units::Metric, 0, go::Page::Radar) !=
+          page_ink(go::Units::Nautical, 0, go::Page::Radar));
 }
 
 // F5. The device said nothing when the receiver finally solved, and it
@@ -253,8 +253,7 @@ TEST_CASE("product: the status page carries the device's name and a cell that is
         REQUIRE(rig.setup() == Status::Ok);
         rig.platform.battery().millivolts = millivolts;
         rig.platform.battery().external_power = on_cable;
-        for (int i = 0; callsign[i] != 0 && i < 9; i++)
-            rig.state().settings.callsign[i] = callsign[i];
+        for (int i = 0; callsign[i] != 0 && i < 9; i++) rig.settings().callsign[i] = callsign[i];
         uint32_t t = 100;
         rig.tap_pad(t);  // radar -> six-pack
         rig.tap_pad(t);  // -> status
@@ -343,11 +342,11 @@ TEST_CASE("product: the self-test page carries what the probes found, not what w
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
 
-    const ui::BootPart* baro = nullptr;
-    const ui::BootPart* haptic = nullptr;
-    const ui::BootPart* radio = nullptr;
+    const go::BootPart* baro = nullptr;
+    const go::BootPart* haptic = nullptr;
+    const go::BootPart* radio = nullptr;
     for (int i = 0; i < go::kBootPartCount; i++) {
-        const ui::BootPart& row = rig.product.boot_rows()[i];
+        const go::BootPart& row = rig.product.boot_rows()[i];
         if (go::kBootParts[i].capability == ports::Capability::Baro) baro = &row;
         if (go::kBootParts[i].capability == ports::Capability::Vibro) haptic = &row;
         if (go::kBootParts[i].capability == ports::Capability::Rf) radio = &row;
@@ -379,8 +378,8 @@ TEST_CASE("product: a footprint nothing answered prints no address") {
 
     for (int i = 0; i < go::kBootPartCount; i++) {
         if (go::kBootParts[i].capability != ports::Capability::Baro) continue;
-        const ui::BootPart& row = rig.product.boot_rows()[i];
-        CHECK(row.state == ui::PartState::Absent);
+        const go::BootPart& row = rig.product.boot_rows()[i];
+        CHECK(row.state == go::PartState::Absent);
         CHECK(row.detail == nullptr);
     }
 }
