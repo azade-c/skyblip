@@ -9,7 +9,10 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 | `timer` | how long this flight has been running |
 | `atmosphere` | the standard atmosphere as integer math: pressure altitude, subscales, vertical speed |
 | `turn` | rate of turn from two reported tracks |
+| `rate` | rate of turn from the gyroscope, about the earth's vertical, and the zero it is read from |
+| `bank` | how far the wings are over, which a turning accelerometer cannot say on its own |
 | `slip` | where the ball hangs, from the acceleration the case measures |
+| `gload` | what the airframe is pulling, now and at its worst |
 | `extrapolate` | where an aircraft is now, when the fix it came from is older than now |
 | `arc` | where an aircraft will be, out to the look-ahead the radar draws and the alarm grades |
 | `log_record`, `log_session` | what a flight leaves behind, and when a session runs |
@@ -45,6 +48,34 @@ The sign is the reading, and it is the opposite of the axis. A case accelerating
 Below 200 mg of resultant there is nothing to hang from, and the reading is refused rather than scaled: in free fall a real ball floats, and a fraction of nothing is noise at full amplitude.
 
 The second is the damping. A real ball is a mass in a damped tube and it does not chatter; this one is sampled at 12.5 Hz and drawn on e-paper, where a jittering figure costs a partial refresh a second for nothing. `SlipBall` is a first-order filter over eight samples, about two thirds of a second, which settles to within a pixel of a step and turns turbulence into a ball that leans rather than one that rattles. `valid()` expires two seconds after the last sample, so a hub that stops answering takes the ball off the glass instead of freezing it somewhere plausible.
+
+## rate
+
+`turn` differentiates the GNSS track and that is the instrument this device flew with first. It has two faults a gyroscope does not: the track is a cordic9 word, 45/64 of a degree, differenced over a second, so the smallest turn it can express is 0.7 deg/s, and the number is always a second old. It is also a *track* rate, so a changing wind moves it without the aircraft turning.
+
+The gyroscope measures the airframe's own rotation, twenty times a second and with no lag. What it does not measure is the instrument: a turn coordinator reads the rate about the earth's vertical, and the airframe's yaw axis only points that way with the wings level. `vertical_rate_cdps` projects the body rates onto the direction the accelerometer calls down, which is the same arithmetic the ball uses for gravity and is exact wherever the wings are. Below 200 mg of resultant there is no down to project onto and the answer is refused, as in `slip`.
+
+What a MEMS gyroscope cannot do is hold a zero. Its offset walks with temperature, and a degree a second of it is a third of a standard rate turn. `TurnRate` keeps a single trim on the projected rate and learns it from whatever the caller can prove: standing still, where the truth is zero, and in flight, where the truth is the GNSS track rate that `turn` already computes. The time constant is 64 samples, about thirteen seconds at the 5 Hz the hub is drained at, which is slow enough that a real turn passes through untouched and fast enough that a walking zero never reaches the glass.
+
+That trim is also the fallback. A gyroscope reporting nothing while the aircraft turns is dragged onto the track rate within those thirteen seconds, so the instrument degrades to the one this device had before rather than to a lie. A part that is not fitted at all never produces a sample, `valid()` stays false, and `products/skyblip_go/services/ownship` publishes the GNSS rate unchanged.
+
+`own.turn_cdps` is what the gyroscope is worth: hundredths, where `own.turn_dps` rounds to whole degrees a second for the ADS-L extrapolation and the alarm's arcs, which is all those need.
+
+## bank
+
+An accelerometer in a coordinated turn measures nothing useful about bank. The specific force lines up with the aircraft's own vertical - that is what coordinated means, and it is why the ball sits centred at 45 degrees - so levelling on gravity says wings level at every bank there is. Integrating the gyroscope instead drifts away within the minute. Neither sensor alone is an attitude reference, and this is the oldest trap in the subject.
+
+What breaks the tie is the GNSS. The force the turn generates is the ground speed times the rate of turn, `centripetal_mg`, and subtracting it from the measured specific force leaves the gravity vector the aircraft would have felt standing still. The subtraction is done in the frame the filter already believes it is in, so the sines and cosines come from the held bank, which makes the correction exact for a steady turn rather than a small-angle approximation of one.
+
+`BankAngle` is then the usual complementary filter: the roll rate integrated for the fast movement, the corrected gravity blended in over eight samples for the truth. The limit is 90 degrees, past which the arithmetic wraps and the instrument this feeds has clamped at 60 anyway, and the answer expires two seconds after the last sample like every other inertial reading here.
+
+Two honesties are the caller's, not this file's. The bank is the *device's*, so a unit that is not aligned with the airframe reads its own mounting, which is the assumption the ball already makes. And without a fix there is no centripetal correction, so `products/skyblip_go/services/ownship` publishes the bank as valid only while the fix is.
+
+## gload
+
+`GMeter` is the sensor with nothing done to it: normal load up the mast, lateral out the right wing, longitudinal out the nose, in thousandths of g, with the largest and smallest of each held. No fusion, no assumption, no fix required - which makes it the one instrument on this device that cannot be wrong about anything but its own calibration.
+
+The peaks reset when the flight timer starts, so they are this flight's, and a unit left on the bench holds what the bench did to it.
 
 ## arc
 

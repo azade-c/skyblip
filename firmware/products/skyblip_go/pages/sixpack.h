@@ -16,7 +16,9 @@ struct SixPackSnapshot {
     int32_t vs_fpm{0};
     bool vs_valid{false};
     uint16_t track_deg{0};
-    int16_t turn_dps{0};  // degrees per second, positive = right
+    int16_t turn_cdps{0};  // rate of turn in hundredths of a degree a second, positive = right
+    int16_t bank_deg{0};   // measured, right wing down positive
+    bool bank_valid{false};
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};
     bool airborne{false};

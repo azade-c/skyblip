@@ -54,6 +54,7 @@ struct Bus {
     Queue<gnss::GnssSolution, 2> gnss;
     Queue<events::BaroSample, 2> baro;
     Queue<events::AccelSample, 2> accel;
+    Queue<events::RateSample, 2> rate;
     Queue<events::RfEvent, 8> rf;
     // The connection itself, ahead of the bytes that travel over it: the config
     // service is the single reader, because it is the one that holds what a link

@@ -49,6 +49,12 @@ class Bhi260 : public io::I2c {
         z_mg = z;
     }
 
+    void set_angular_rate(int16_t x, int16_t y, int16_t z) {
+        x_cdps = x;
+        y_cdps = y;
+        z_cdps = z;
+    }
+
     void report_meta_event(uint8_t event, uint8_t first, uint8_t second) {
         meta_event_ = event;
         meta_first_ = first;
@@ -58,6 +64,7 @@ class Bhi260 : public io::I2c {
     }
 
     bool running() const { return booted && sample_rate_hz > 0; }
+    bool gyro_streaming() const { return booted && gyro_rate_hz > 0; }
     uint32_t uploaded() const { return uploaded_; }
 
     uint8_t address{kAddress};
@@ -66,6 +73,7 @@ class Bhi260 : public io::I2c {
     uint8_t product_id{0x89};
     bool announces_itself{true};
     bool accel_present{true};
+    bool gyro_present{true};
     bool accepts_configuration{true};
     uint8_t error_value{0};
     bool host_interface_ready{true};
@@ -73,11 +81,17 @@ class Bhi260 : public io::I2c {
     bool verify_error{false};
     uint8_t accel_sensor_id{0};
     uint16_t accel_range_g{0};
+    uint8_t gyro_sensor_id{0};
+    uint16_t gyro_range_dps{0};
+    float gyro_rate_hz{0};
     float sample_rate_hz{0};
     uint32_t latency_ms{0};
     int16_t x_mg{0};
     int16_t y_mg{1000};
     int16_t z_mg{0};
+    int16_t x_cdps{0};
+    int16_t y_cdps{0};
+    int16_t z_cdps{0};
     int resets{0};
 
    private:
@@ -106,6 +120,7 @@ class Bhi260 : public io::I2c {
     static constexpr uint16_t kCmdConfigureSensor = 0x000D;
     static constexpr uint16_t kCmdChangeRange = 0x000E;
     static constexpr uint8_t kSensorAccelerometer = 0x04;
+    static constexpr uint8_t kSensorGyroscope = 0x0D;
     static constexpr uint8_t kSysIdTimestampSmallDelta = 251;
     static constexpr uint8_t kSysIdMetaEvent = 254;
     static constexpr uint8_t kSysIdMetaEventWakeup = 248;
@@ -123,6 +138,7 @@ class Bhi260 : public io::I2c {
         received_ = 0;
         payload_bytes_ = 0;
         sample_rate_hz = 0;
+        gyro_rate_hz = 0;
         announced_ = false;
         status_len_ = 0;
         status_pos_ = 0;
@@ -171,24 +187,30 @@ class Bhi260 : public io::I2c {
                 if (booted && announces_itself) report_meta_event(kMetaEventInitialised, 0, 0);
                 break;
             case kCmdChangeRange:
-                if (!announced_) break;
-                if (payload_bytes_ >= 3 && payload_[0] == kSensorAccelerometer)
+                if (!announced_ || payload_bytes_ < 3) break;
+                if (payload_[0] == kSensorAccelerometer)
                     accel_range_g = static_cast<uint16_t>(payload_[1] | (payload_[2] << 8));
+                if (payload_[0] == kSensorGyroscope)
+                    gyro_range_dps = static_cast<uint16_t>(payload_[1] | (payload_[2] << 8));
                 break;
-            case kCmdConfigureSensor:
-                if (!announced_ || !accepts_configuration) break;
-                if (payload_bytes_ >= 8) {
-                    accel_sensor_id = payload_[0];
-                    uint32_t bits = 0;
-                    for (int i = 0; i < 4; i++)
-                        bits |= static_cast<uint32_t>(payload_[1 + i]) << (8 * i);
-                    float rate = 0;
-                    std::memcpy(&rate, &bits, sizeof(rate));
-                    sample_rate_hz = rate;
-                    latency_ms = static_cast<uint32_t>(payload_[5] | (payload_[6] << 8) |
-                                                       (payload_[7] << 16));
+            case kCmdConfigureSensor: {
+                if (!announced_ || !accepts_configuration || payload_bytes_ < 8) break;
+                uint32_t bits = 0;
+                for (int i = 0; i < 4; i++)
+                    bits |= static_cast<uint32_t>(payload_[1 + i]) << (8 * i);
+                float rate = 0;
+                std::memcpy(&rate, &bits, sizeof(rate));
+                if (payload_[0] == kSensorGyroscope) {
+                    gyro_sensor_id = payload_[0];
+                    gyro_rate_hz = rate;
+                    break;
                 }
+                accel_sensor_id = payload_[0];
+                sample_rate_hz = rate;
+                latency_ms =
+                    static_cast<uint32_t>(payload_[5] | (payload_[6] << 8) | (payload_[7] << 16));
                 break;
+            }
             default:
                 if (command_ & kParamReadMask) answer_parameter(command_ & ~kParamReadMask);
                 break;
@@ -233,8 +255,10 @@ class Bhi260 : public io::I2c {
         if (param == kParamSensorsPresent) {
             n = kSensorsPresentBytes;
             if (accel_present)
-                payload[kSensorAccelerometer / 8] =
+                payload[kSensorAccelerometer / 8] |=
                     static_cast<uint8_t>(1 << (kSensorAccelerometer % 8));
+            if (gyro_present)
+                payload[kSensorGyroscope / 8] |= static_cast<uint8_t>(1 << (kSensorGyroscope % 8));
         } else if (param == kParamSensorConfig + kSensorAccelerometer) {
             n = kSensorConfigBytes;
             uint32_t bits = 0;
@@ -272,7 +296,7 @@ class Bhi260 : public io::I2c {
         const bool wakeup = &stream == &wakeup_;
         stream.len = 0;
         stream.pos = 0;
-        uint8_t events[16];
+        uint8_t events[32];
         int n = 0;
         bool& pending = wakeup ? meta_pending_wakeup_ : meta_pending_;
         if (pending) {
@@ -287,18 +311,23 @@ class Bhi260 : public io::I2c {
             events[n++] = kSysIdTimestampSmallDelta;
             events[n++] = 1;
             events[n++] = kSensorAccelerometer;
-            n += put_counts(events + n, x_mg);
-            n += put_counts(events + n, y_mg);
-            n += put_counts(events + n, z_mg);
+            n += put_counts(events + n, x_mg, accel_range_g == 0 ? 1 : accel_range_g, 1000);
+            n += put_counts(events + n, y_mg, accel_range_g == 0 ? 1 : accel_range_g, 1000);
+            n += put_counts(events + n, z_mg, accel_range_g == 0 ? 1 : accel_range_g, 1000);
+        }
+        if (gyro_streaming() && !wakeup) {
+            events[n++] = kSensorGyroscope;
+            n += put_counts(events + n, x_cdps, gyro_range_dps == 0 ? 1 : gyro_range_dps, 100);
+            n += put_counts(events + n, y_cdps, gyro_range_dps == 0 ? 1 : gyro_range_dps, 100);
+            n += put_counts(events + n, z_cdps, gyro_range_dps == 0 ? 1 : gyro_range_dps, 100);
         }
         stream.bytes[stream.len++] = static_cast<uint8_t>(n & 0xFF);
         stream.bytes[stream.len++] = static_cast<uint8_t>(n >> 8);
         for (int i = 0; i < n; i++) stream.bytes[stream.len++] = events[i];
     }
 
-    int put_counts(uint8_t* out, int16_t milli_g) const {
-        const int range = accel_range_g == 0 ? 1 : accel_range_g;
-        const int32_t counts = static_cast<int32_t>(milli_g) * kCountsPerRange / (range * 1000);
+    static int put_counts(uint8_t* out, int16_t value, int range, int per_unit) {
+        const int32_t counts = static_cast<int32_t>(value) * kCountsPerRange / (range * per_unit);
         out[0] = static_cast<uint8_t>(counts & 0xFF);
         out[1] = static_cast<uint8_t>((counts >> 8) & 0xFF);
         return 2;

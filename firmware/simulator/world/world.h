@@ -51,6 +51,7 @@ class World {
     explicit World(platform::host::Platform& platform) : platform_(platform) {}
 
     void step(uint32_t now_ms, const bus::State& state);
+    void update_inertial(uint32_t now_ms);
 
     void load(const Scenario& scenario);
 
@@ -86,9 +87,7 @@ class World {
     // The weather, not a setting: the sea-level pressure of the air the aircraft
     // is flying through. The barometer reads what that implies at its altitude.
     void set_airmass_qnh_pa(uint32_t pa) { airmass_qnh_pa_ = pa; }
-    void set_slip_mg(int32_t mg) {
-        imu().set_acceleration(static_cast<int16_t>(-mg), kLevelFlightUpMg, 0);
-    }
+    void set_slip_mg(int32_t mg) { slip_mg_ = mg; }
     void set_pps_locked(bool on) { platform_.pps().set_locked(on); }
     // The cell as the world holds it: what the divider reads, and whether a
     // cable is in. Everything else about the battery is the firmware's opinion.
@@ -149,6 +148,12 @@ class World {
     uint32_t start_ms_{0};
     uint32_t last_aircraft_ms_{0};
     uint32_t airmass_qnh_pa_{flight::kIsaSeaLevelPa};
+    int32_t slip_mg_{0};
+    double track_ref_deg_{0};
+    uint32_t track_ref_ms_{0};
+    int32_t yaw_cdps_{0};
+
+    static constexpr uint32_t kInertialWindowMs = 1000;
     uint32_t press_since_ms_{0};
     uint32_t tap_since_ms_{0};
     int32_t origin_lat_1e7_{0};

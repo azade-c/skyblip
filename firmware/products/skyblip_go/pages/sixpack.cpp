@@ -201,8 +201,9 @@ void horizon(ui::Canvas& fb, int cx, int cy, int32_t pitch_deg, int32_t bank_deg
     fb.circle(cx, cy, kRefDotR, true, true);
 }
 
-int32_t rate_deflection_deg(int32_t turn_dps) {
-    return clampi((turn_dps * kRateMarkDeg) / kStandardRateDps, -kRateFullDeg, kRateFullDeg);
+int32_t rate_deflection_deg(int32_t turn_cdps) {
+    return clampi((turn_cdps * kRateMarkDeg) / (kStandardRateDps * 100), -kRateFullDeg,
+                  kRateFullDeg);
 }
 
 void inclinometer(ui::Canvas& fb, int cx, int cy, const SixPackSnapshot& s) {
@@ -215,8 +216,8 @@ void inclinometer(ui::Canvas& fb, int cx, int cy, const SixPackSnapshot& s) {
     fb.circle(cx + static_cast<int>((swing * kBallTravel) / kSlipFullMg), y, kBallR, true, true);
 }
 
-void turn_coordinator(ui::Canvas& fb, int cx, int cy, int32_t turn_dps) {
-    const int16_t a = c16(rate_deflection_deg(turn_dps));
+void turn_coordinator(ui::Canvas& fb, int cx, int cy, int32_t turn_cdps) {
+    const int16_t a = c16(rate_deflection_deg(turn_cdps));
     const int32_t s = isin(a), c = icos(a);
     const int wx = radial(kWingHalf, c);
     const int wy = radial(kWingHalf, s);
@@ -258,8 +259,8 @@ int32_t flight_path_deg(int32_t vs_fpm, int32_t speed_kt) {
 }
 
 // Coordinated turn: tan(bank) = omega * V / g, which in deg/s and knots is
-// turn_dps * kt / 1093.
-int32_t bank_deg(int32_t turn_dps, int32_t speed_kt) {
+// turn_dps * kt / 1093. What the horizon shows when nothing measured the bank.
+int32_t inferred_bank_deg(int32_t turn_dps, int32_t speed_kt) {
     if (speed_kt <= 0) return 0;
     return (static_cast<int32_t>(iatan2(turn_dps * speed_kt, 1093)) * 360) / kTurn;
 }
@@ -278,9 +279,10 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
     const int32_t kt = s.data_valid ? clampi(s.speed_kt, 0, 999) : 0;
     const int32_t alt_ft = s.data_valid ? s.alt_ft : 0;
     const int32_t vs_fpm = s.vs_valid ? s.vs_fpm : 0;
-    const int32_t turn_dps = s.data_valid ? s.turn_dps : 0;
+    const int32_t turn_cdps = s.data_valid ? s.turn_cdps : 0;
+    const int32_t turn_dps = (turn_cdps + (turn_cdps < 0 ? -50 : 50)) / 100;
     const int32_t track = s.data_valid ? s.track_deg % 360 : 0;
-    const int32_t bank = bank_deg(turn_dps, kt);
+    const int32_t bank = s.bank_valid ? s.bank_deg : inferred_bank_deg(turn_dps, kt);
     const int32_t pitch = flight_path_deg(vs_fpm, kt);
 
     const bool metric = s.units == go::Units::Metric;
@@ -310,7 +312,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
     value_center(fb, kCx[2], 0, s.data_valid, alt_ft, true);
 
     dial(fb, kCx[0], 1, "TURN D/S", 0);
-    turn_coordinator(fb, kCx[0], kCy[1], turn_dps);
+    turn_coordinator(fb, kCx[0], kCy[1], turn_cdps);
     inclinometer(fb, kCx[0], kCy[1], s);
     value_center(fb, kCx[0], 1, s.data_valid, turn_dps, false);
 

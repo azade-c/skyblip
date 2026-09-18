@@ -76,7 +76,7 @@ SixPackSnapshot flying() {
     s.vs_fpm = 500;
     s.vs_valid = true;
     s.track_deg = 270;
-    s.turn_dps = 3;
+    s.turn_cdps = 300;
     s.flight_seconds = 7 * 60;
     s.flight_time_valid = true;
     s.airborne = true;
@@ -265,7 +265,7 @@ TEST_CASE("sixpack: the middle number is the time since takeoff, in hours and mi
 TEST_CASE("sixpack: the turn coordinator flies an aeroplane between four marks") {
     const Tile turn = kTiles[3];
     SixPackSnapshot level = flying();
-    level.turn_dps = 0;
+    level.turn_cdps = 0;
     Glass fb;
     draw_sixpack(fb, level);
 
@@ -331,7 +331,7 @@ TEST_CASE("sixpack: the turn coordinator puts a standard rate turn on its index 
     CHECK_FALSE(fb.get_pixel(turn.cx + 21, turn.cy));
 
     SixPackSnapshot left = flying();
-    left.turn_dps = -3;
+    left.turn_cdps = -300;
     Glass fl;
     draw_sixpack(fl, left);
     CHECK(fl.get_pixel(turn.cx - 21, turn.cy + 8));
@@ -348,7 +348,7 @@ TEST_CASE("sixpack: the turn coordinator puts a standard rate turn on its index 
 TEST_CASE("sixpack: the horizon carries two wing bars and a dot, clear of each other") {
     const Tile att = kTiles[1];
     SixPackSnapshot climbing = flying();
-    climbing.turn_dps = 0;
+    climbing.turn_cdps = 0;
     climbing.vs_fpm = 1000;  // 8 degrees up at 90 kt, so the ground is well below the bars
     Glass fb;
     draw_sixpack(fb, climbing);
@@ -417,10 +417,10 @@ TEST_CASE("sixpack: a track due north reads 360") {
 TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
     SixPackSnapshot level = flying();
     level.speed_kt = 100;
-    level.turn_dps = 0;
+    level.turn_cdps = 0;
     level.vs_fpm = 0;
     SixPackSnapshot turning = level;
-    turning.turn_dps = 3;  // standard rate at 100 kt is ~15 deg of bank
+    turning.turn_cdps = 300;  // standard rate at 100 kt is ~15 deg of bank
     SixPackSnapshot climbing = level;
     climbing.vs_fpm = 1000;
 
@@ -526,14 +526,14 @@ TEST_CASE("sixpack: the vertical speed dial is marked every 500 fpm and shaded p
 // A rate of zero is a rate, not a direction: +0 and -0 are both noise on a glance.
 TEST_CASE("sixpack: a zero rate carries no sign") {
     SixPackSnapshot s = flying();
-    s.turn_dps = 0;
+    s.turn_cdps = 0;
     s.vs_fpm = 0;
     Glass fb;
     draw_sixpack(fb, s);
     CHECK(value_matches(fb, kTiles[3], "0"));
     CHECK(value_matches(fb, kTiles[5], "0"));
 
-    s.turn_dps = -2;
+    s.turn_cdps = -200;
     s.vs_fpm = -200;
     Glass signed_fb;
     draw_sixpack(signed_fb, s);

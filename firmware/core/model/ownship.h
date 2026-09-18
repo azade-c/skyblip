@@ -28,6 +28,9 @@ struct OwnState {
     // to the transmit instant needs it, so it is own-ship state and not a
     // display value.
     int16_t turn_dps;
+    // The same rate in hundredths, which is what the inertial sensor can resolve
+    // and the six-pack's needle is drawn from. Zero when nothing measured it.
+    int16_t turn_cdps;
     uint32_t utc;
     // When the fix that made this state arrived. ADS-L G.1.16 refuses to
     // transmit a navigation solution older than 500 ms.

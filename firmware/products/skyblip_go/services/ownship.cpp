@@ -1,6 +1,7 @@
 #include "products/skyblip_go/services/ownship.h"
 
 #include "core/events/sensor.h"
+#include "core/flight/arc.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/turn.h"
 #include "core/model/ownship.h"
@@ -24,8 +25,9 @@ void OwnshipService::tick(uint32_t now_ms) {
 
     events::AccelSample specific_force{};
     while (context_.bus.accel.pop(specific_force)) apply_accel(specific_force);
-    context_.state.slip.valid = ball_.valid(now_ms);
-    context_.state.slip.lateral_mg = ball_.mg();
+    events::RateSample rotation{};
+    while (context_.bus.rate.pop(rotation)) apply_rate(rotation, now_ms);
+    publish_inertial(now_ms);
 
     timer_.update(flight_.state(), now_ms);
     context_.state.flight.confirmed_state = ground_.state();
@@ -141,6 +143,44 @@ void OwnshipService::apply_baro(const events::BaroSample& sample) {
 
 void OwnshipService::apply_accel(const events::AccelSample& sample) {
     ball_.update(sample.right_mg, sample.up_mg, sample.aft_mg, sample.at_ms);
+    force_ = flight::SpecificForce{sample.right_mg, sample.up_mg, sample.aft_mg};
+    force_seen_ = true;
+    gmeter_.observe(force_, sample.at_ms);
+}
+
+void OwnshipService::apply_rate(const events::RateSample& sample, uint32_t now_ms) {
+    if (!force_seen_) return;
+    const flight::BodyRate rate{sample.roll_cdps, sample.pitch_cdps, sample.yaw_cdps};
+    const model::OwnState& own = context_.state.own;
+
+    gyro_turn_.observe(rate, force_, sample.at_ms);
+    if (flight_.state() == flight::FlightState::OnGround && own.speed_q <= flight::kGroundSpeedQ)
+        gyro_turn_.trim_to(0);
+
+    const int32_t speed_mps = own.fix_valid ? own.speed_q / 4 : 0;
+    const int32_t turn_cdps = gyro_turn_.valid(now_ms) ? gyro_turn_.cdps() : 0;
+    bank_.observe(rate, force_, speed_mps, turn_cdps, sample.at_ms);
+}
+
+void OwnshipService::publish_inertial(uint32_t now_ms) {
+    context_.state.slip.valid = ball_.valid(now_ms);
+    context_.state.slip.lateral_mg = ball_.mg();
+
+    context_.state.bank.valid = bank_.valid(now_ms) && context_.state.own.fix_valid;
+    context_.state.bank.deg = bank_.deg();
+
+    context_.state.gload.valid = gmeter_.valid(now_ms);
+    context_.state.gload.now = gmeter_.now();
+    context_.state.gload.most = gmeter_.most();
+    context_.state.gload.least = gmeter_.least();
+
+    const bool flying = timer_.running();
+    if (flying && !flying_) gmeter_.reset();
+    flying_ = flying;
+
+    if (!gyro_turn_.valid(now_ms)) return;
+    context_.state.own.turn_cdps = gyro_turn_.cdps();
+    context_.state.own.turn_dps = static_cast<int16_t>(gyro_turn_.cdps() / kCentiPerUnit);
 }
 
 void OwnshipService::adopt_climb(int32_t mm_s) {
@@ -182,9 +222,18 @@ void OwnshipService::update_turn_rate(uint32_t now_ms) {
     const uint32_t dt = now_ms - turn_ref_ms_;
     if (dt < kTurnWindowMs) return;
 
-    context_.state.own.turn_dps = flight::turn_rate_dps(track_c9, turn_ref_track_c9_, dt);
+    const int16_t gnss_dps =
+        flight::clamped_turn_dps(flight::turn_rate_dps(track_c9, turn_ref_track_c9_, dt));
     turn_ref_ms_ = now_ms;
     turn_ref_track_c9_ = track_c9;
+
+    if (gyro_turn_.valid(now_ms)) {
+        if (flight_.airborne() && context_.state.own.fix_valid)
+            gyro_turn_.trim_to(static_cast<int16_t>(gnss_dps * kCentiPerUnit));
+        return;
+    }
+    context_.state.own.turn_dps = gnss_dps;
+    context_.state.own.turn_cdps = static_cast<int16_t>(gnss_dps * kCentiPerUnit);
 }
 
 bool OwnshipService::vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,

@@ -16,6 +16,15 @@ struct AccelSample {
     uint32_t at_ms;
 };
 
+// Body rates in hundredths of a degree a second, named the way a pilot names
+// them: roll is right wing down, pitch is nose up, yaw is nose right.
+struct RateSample {
+    int16_t roll_cdps;
+    int16_t pitch_cdps;
+    int16_t yaw_cdps;
+    uint32_t at_ms;
+};
+
 // The cell's terminal voltage, and whether something is feeding the charger.
 // What that pair means is core/power's problem, not the board's.
 struct BatterySample {

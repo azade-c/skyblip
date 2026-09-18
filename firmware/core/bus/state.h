@@ -3,6 +3,7 @@
 
 #include "core/events/rf.h"
 #include "core/flight/atmosphere.h"
+#include "core/flight/gload.h"
 #include "core/flight/ground.h"
 #include "core/gnss/acquisition.h"
 #include "core/gnss/sky.h"
@@ -81,6 +82,18 @@ struct SlipState {
     bool valid{false};
 };
 
+struct BankState {
+    int16_t deg{0};
+    bool valid{false};
+};
+
+struct GLoadState {
+    flight::GLoad now{};
+    flight::GLoad most{};
+    flight::GLoad least{};
+    bool valid{false};
+};
+
 struct ImuState {
     const char* stage{"NONE"};
     const char* fault{""};
@@ -104,6 +117,8 @@ struct State {
     GnssStatus gnss{};
     BaroState baro{};
     SlipState slip{};
+    BankState bank{};
+    GLoadState gload{};
     ImuState imu{};
     FormationState formation{};
 

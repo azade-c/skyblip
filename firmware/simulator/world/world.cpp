@@ -33,6 +33,7 @@ void World::step(uint32_t now_ms, const bus::State& state) {
     baro().set_pressure_mpa(flight::alt_mm_to_pressure_mpa(
         alt_msl_mm + flight::pressure_to_alt_mm(airmass_qnh_pa_ * 1000)));
 
+    update_inertial(now_ms);
     service_button(now_ms);
     service_pad(now_ms);
     service_aircraft(now_ms, state.own);
@@ -159,6 +160,29 @@ void World::service_aircraft(uint32_t now_ms, const model::OwnState& own) {
         while (a.track_deg >= 360.0) a.track_deg -= 360.0;
         while (a.track_deg < 0.0) a.track_deg += 360.0;
     }
+}
+
+// The hub senses the path the aircraft actually flies, not the turn the scenario
+// asked for: a track set from the outside is a turn too, and a gyroscope would
+// feel it. The chip is fed the inverse of the mount's quarter turn
+// (boards/lilygo/t_echo_plus/imu_mount.h), so the firmware turns it back.
+void World::update_inertial(uint32_t now_ms) {
+    if (track_ref_ms_ == 0) {
+        track_ref_ms_ = now_ms;
+        track_ref_deg_ = gnss().track_deg;
+    }
+    const uint32_t dt_ms = now_ms - track_ref_ms_;
+    if (dt_ms >= kInertialWindowMs) {
+        double swing = gnss().track_deg - track_ref_deg_;
+        while (swing > 180.0) swing -= 360.0;
+        while (swing < -180.0) swing += 360.0;
+        yaw_cdps_ = static_cast<int32_t>(swing * 100.0 * 1000.0 / dt_ms);
+        track_ref_ms_ = now_ms;
+        track_ref_deg_ = gnss().track_deg;
+    }
+
+    imu().set_angular_rate(static_cast<int16_t>(yaw_cdps_), 0, 0);
+    imu().set_acceleration(-kLevelFlightUpMg, static_cast<int16_t>(-slip_mg_), 0);
 }
 
 // Every aircraft transmits once per second, at its own instant of the direct

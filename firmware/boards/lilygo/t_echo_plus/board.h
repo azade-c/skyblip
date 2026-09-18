@@ -305,6 +305,7 @@ class TEchoPlus {
         if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
         imu_.service(now_ms);
         if (imu_.poll()) bus_.accel.push(t_echo_plus::device_frame(imu_.acceleration(), now_ms));
+        if (imu_.poll_rate()) bus_.rate.push(t_echo_plus::device_rate(imu_.angular_rate(), now_ms));
     }
 
     P& platform_;

@@ -51,6 +51,7 @@ void Bhi260::load(ConstByteSpan image, uint32_t now_ms) {
     fresh_ = false;
     fault_ = Status::Ok;
     meta_event_ = 0;
+    gyroscope_ = false;
     sensor_error_ = 0;
     errored_sensor_ = 0;
     interrupt_ = 0;
@@ -87,6 +88,12 @@ void Bhi260::service(uint32_t now_ms) {
 bool Bhi260::poll() {
     const bool fresh = fresh_;
     fresh_ = false;
+    return fresh;
+}
+
+bool Bhi260::poll_rate() {
+    const bool fresh = fresh_rate_;
+    fresh_rate_ = false;
     return fresh;
 }
 
@@ -246,16 +253,22 @@ void Bhi260::check_accelerometer_present(uint32_t now_ms) {
         fail(Status::Down);
         return;
     }
-    if (code == kParamSensorsPresent && n == kSensorsPresentBytes &&
-        !bit_set(present, kSensorAccelerometer)) {
-        fail(Status::NotFound);
-        return;
+    if (code == kParamSensorsPresent && n == kSensorsPresentBytes) {
+        if (!bit_set(present, kSensorAccelerometer)) {
+            fail(Status::NotFound);
+            return;
+        }
+        gyroscope_ = bit_set(present, kSensorGyroscope);
     }
     send_configuration(now_ms);
 }
 
 void Bhi260::send_configuration(uint32_t now_ms) {
-    if (!configure_accelerometer()) {
+    if (!configure_sensor(kSensorAccelerometer, kRangeG)) {
+        fail(Status::Down);
+        return;
+    }
+    if (gyroscope_ && !configure_sensor(kSensorGyroscope, kRangeDps)) {
         fail(Status::Down);
         return;
     }
@@ -314,12 +327,12 @@ int Bhi260::read_status_channel(uint16_t& code, uint8_t* out, uint16_t max) {
     return len;
 }
 
-bool Bhi260::configure_accelerometer() {
-    const uint8_t range[4] = {kSensorAccelerometer, static_cast<uint8_t>(kRangeG & 0xFF),
-                              static_cast<uint8_t>(kRangeG >> 8), 0};
+bool Bhi260::configure_sensor(uint8_t sensor, int32_t range_units) {
+    const uint8_t range[4] = {sensor, static_cast<uint8_t>(range_units & 0xFF),
+                              static_cast<uint8_t>(range_units >> 8), 0};
     if (!command(kCmdChangeRange, range, sizeof(range))) return false;
 
-    const uint8_t config[8] = {kSensorAccelerometer,
+    const uint8_t config[8] = {sensor,
                                static_cast<uint8_t>(kSampleRateBits & 0xFF),
                                static_cast<uint8_t>((kSampleRateBits >> 8) & 0xFF),
                                static_cast<uint8_t>((kSampleRateBits >> 16) & 0xFF),
@@ -401,6 +414,12 @@ uint16_t Bhi260::parse_fifo(Fifo& fifo, uint16_t len, uint32_t now_ms) {
             sample_.z_mg = to_milli_g(data + pos + 5);
             sample_.at_ms = now_ms;
             fresh_ = true;
+        } else if (id == kSensorGyroscope) {
+            rate_.x_cdps = to_centi_dps(data + pos + 1);
+            rate_.y_cdps = to_centi_dps(data + pos + 3);
+            rate_.z_cdps = to_centi_dps(data + pos + 5);
+            rate_.at_ms = now_ms;
+            fresh_rate_ = true;
         } else if (id == kSysIdMetaEvent || id == kSysIdMetaEventWakeup) {
             note_meta_event(data + pos + 1);
         }
@@ -419,6 +438,7 @@ void Bhi260::note_meta_event(const uint8_t* event) {
 uint8_t Bhi260::event_bytes(uint8_t id) {
     if (id == kSysIdPadding) return 1;
     if (id == kSensorAccelerometer) return kAccelEventBytes;
+    if (id == kSensorGyroscope) return kGyroEventBytes;
     if (id >= kSysIdFirst) return kSysEventBytes[id - kSysIdFirst];
     return 0;
 }
@@ -426,6 +446,11 @@ uint8_t Bhi260::event_bytes(uint8_t id) {
 int16_t Bhi260::to_milli_g(const uint8_t* le16_bytes) {
     const int32_t raw = static_cast<int16_t>(le16(le16_bytes));
     return static_cast<int16_t>(raw * kRangeG * 1000 / kCountsPerRange);
+}
+
+int16_t Bhi260::to_centi_dps(const uint8_t* le16_bytes) {
+    const int32_t raw = static_cast<int16_t>(le16(le16_bytes));
+    return static_cast<int16_t>(raw * kRangeDps * 100 / kCountsPerRange);
 }
 
 bool Bhi260::write_registers(uint8_t reg, const uint8_t* data, uint16_t len) {

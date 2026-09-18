@@ -33,6 +33,16 @@ bool last_sample(bus::Bus& bus, events::AccelSample& out) {
     return any;
 }
 
+bool last_rate(bus::Bus& bus, events::RateSample& out) {
+    bool any = false;
+    events::RateSample sample{};
+    while (bus.rate.pop(sample)) {
+        out = sample;
+        any = true;
+    }
+    return any;
+}
+
 }  // namespace
 
 TEST_CASE("board: a sensor hub that answers and names itself is an inclinometer") {
@@ -98,6 +108,24 @@ TEST_CASE("board: the hub is booted from the loop, and reports once it runs") {
     CHECK(sample.up_mg == doctest::Approx(990).epsilon(0.02));
     CHECK(sample.aft_mg == doctest::Approx(20).epsilon(0.1));
     CHECK(sample.at_ms < t);
+}
+
+// Roll about the nose, pitch about the right wing, yaw about the mast, each
+// positive the way an aircraft moves.
+TEST_CASE("board: the chip's rotation rates reach the bus as body rates") {
+    platform::host::Platform platform;
+    platform.chips().imu.set_angular_rate(700, 300, -500);
+    bus::Bus bus;
+    Board board{platform, bus};
+    bus::State state;
+
+    run(platform, board, state, 0, 2000);
+
+    events::RateSample rate{};
+    REQUIRE(last_rate(bus, rate));
+    CHECK(rate.yaw_cdps == doctest::Approx(700).epsilon(0.02));
+    CHECK(rate.pitch_cdps == doctest::Approx(300).epsilon(0.02));
+    CHECK(rate.roll_cdps == doctest::Approx(500).epsilon(0.02));
 }
 
 TEST_CASE("board: nothing is asked of a bus with no hub on it") {

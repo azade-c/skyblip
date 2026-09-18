@@ -438,7 +438,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.vs_fpm = climb_fpm();
             snap.vs_valid = climb_measured();
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
-            snap.turn_dps = own.turn_dps;
+            snap.turn_cdps = own.turn_cdps;
+            snap.bank_deg = context_.state.bank.deg;
+            snap.bank_valid = context_.state.bank.valid;
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
