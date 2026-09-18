@@ -58,6 +58,7 @@ class AlarmTracker {
         AlarmAssessment assessment{};
         bool notify{false};
         bool escalated{false};
+        bool dismissed{false};
     };
 
     Decision update(const model::OwnState& own, const model::AircraftObs& target,
@@ -67,8 +68,8 @@ class AlarmTracker {
     void forget_stale(uint32_t now_ms);
     void withdraw(uint8_t addr_table, uint32_t addr);
 
-    void dismiss() { dismissed_ = true; }
-    bool dismissed() const { return dismissed_; }
+    void dismiss();
+    bool dismissed() const;
 
     Level announced_level(uint32_t now_ms) const;
 
@@ -81,6 +82,7 @@ class AlarmTracker {
         uint32_t seen_ms{0};
         Level notified_level{Level::None};
         uint32_t notified_ms{0};
+        bool dismissed{false};
         bool falling{false};
         uint32_t falling_since_ms{0};
     };
@@ -89,7 +91,6 @@ class AlarmTracker {
     static bool notify_for(Slot& slot, Level level, uint32_t now_ms, bool& escalated);
 
     std::array<Slot, kTrackedTargets> slots_{};
-    bool dismissed_{false};
 };
 
 }  // namespace skyblip::traffic

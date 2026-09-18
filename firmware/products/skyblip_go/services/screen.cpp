@@ -205,11 +205,12 @@ void ScreenService::tick(uint32_t now_ms) {
     last_tick_ms_ = now_ms;
     handle_input(now_ms);
 
-    if (context_.state.alarm_level != last_alarm_ ||
-        context_.state.alarm_dismissed != last_dismissed_) {
-        last_alarm_ = context_.state.alarm_level;
-        last_dismissed_ = context_.state.alarm_dismissed;
+    if (context_.state.alarm_live != last_live_) {
+        const bool escalated_into_glass =
+            alarm_takes_glass() && context_.state.alarm_live > last_live_;
+        last_live_ = context_.state.alarm_live;
         dirty_ = true;
+        if (escalated_into_glass) show_radar();
     }
 
     if (mode_ == Mode::Settings && alarm_takes_glass()) leave_settings();
@@ -408,8 +409,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.airborne = context_.state.flight.running;
             snap.taxiing = taxiing();
             snap.receiver_listening = receiver_listening();
-            snap.max_alarm = context_.state.alarm_level;
-            snap.alarm_dismissed = context_.state.alarm_dismissed;
             snap.alarm_flash = alarm_flash_;
             snap.formation_members = context_.state.formation.members;
             int n = 0;
@@ -425,6 +424,7 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].east_m = east;
                     targets_[n].up_m = up;
                     targets_[n].alarm_level = t->alarm_level;
+                    targets_[n].alarm_dismissed = t->alarm_dismissed;
                     targets_[n].climb_e8 = obs.climb_e8;
                     targets_[n].climb_valid = obs.climb_valid;
                     targets_[n].speed_mps =

@@ -119,6 +119,30 @@ TEST_CASE("screen policy: the loudest alarm standing still gets the page its bla
     CHECK_FALSE(rig.chip.last_full);
 }
 
+// A pilot reading the sixpack is a pilot who cannot see the bearing the alarm is about.
+TEST_CASE("screen policy: converging traffic takes any page back to the radar") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.screen.next_page();
+    rig.run_seconds(t, 2);
+    REQUIRE(rig.screen.page() != go::Page::Radar);
+
+    // An advisory leaves the page a pilot chose alone.
+    rig.alarm(traffic::Level::Info);
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() != go::Page::Radar);
+
+    rig.alarm(go::ScreenService::kAlarmTakesGlass);
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() == go::Page::Radar);
+
+    // Taken back once, not held: the pages are still a pilot's to walk under a standing alarm.
+    rig.screen.next_page();
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() != go::Page::Radar);
+}
+
 // The settings mode keeps the button to itself, so it has to give it back unasked.
 TEST_CASE("screen policy: converging traffic takes the settings mode back off the glass") {
     Rig rig;
@@ -173,7 +197,7 @@ TEST_CASE("screen policy: an alarm flashes the wedge at a flip a second") {
     CHECK(flips <= 11);
 
     // Dismissed, the picture stands still: one last frame, then nothing.
-    rig.state.alarm_dismissed = true;
+    rig.dismiss();
     for (int i = 0; i < 20; i++) rig.tick(t += 100);
     const int held = rig.chip.present_count;
     for (int i = 0; i < 100; i++) rig.tick(t += 100);

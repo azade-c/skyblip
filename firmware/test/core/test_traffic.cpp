@@ -330,7 +330,26 @@ TEST_CASE("alarm: a dismissed contact stops re-announcing itself") {
     // The same five seconds that says it twice when nobody has dismissed it.
     CHECK(spoken == 0);
     CHECK(tracker.dismissed());
-    CHECK(tracker.announced_level(t) == Level::Urgent);
+    CHECK(tracker.announced_level(t) == Level::None);
+}
+
+// One gesture covers the sky the pilot has looked at, not the aeroplane behind them.
+TEST_CASE("alarm: a dismissal is spent per aircraft, and a newcomer keeps its own voice") {
+    AlarmTracker tracker;
+    const model::OwnState own = flying(30, 0);
+
+    uint32_t t = 1000;
+    REQUIRE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).notify);
+    tracker.dismiss();
+
+    t += 100;
+    model::AircraftObs stranger = neighbour(own, 0, 400, 0, 30, 270, t);
+    stranger.addr = 0x271828;
+    CHECK(tracker.update(own, stranger, t).notify);
+
+    // The aircraft already seen stays silent through the newcomer's alarm.
+    CHECK(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).dismissed);
+    CHECK_FALSE(tracker.update(own, neighbour(own, 400, 0, 0, 30, 180, t), t).notify);
 }
 
 TEST_CASE("alarm: an aircraft that gets worse takes the dismissal back") {

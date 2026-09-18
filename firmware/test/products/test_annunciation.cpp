@@ -148,8 +148,10 @@ TEST_CASE("product: a long touch of the pad dismisses a standing alarm") {
 
     CHECK(int(sky.announcing_level()) == 0);
     CHECK(int(sky.sounding_level()) == 0);
-    CHECK(sky.simulator.product().state().alarm_dismissed);
-    // Still urgent, still plotted: what was dismissed is the noise.
+    CHECK(int(sky.simulator.product().state().alarm_live) == 0);
+    // The lamp goes with the buzzer: nothing is left saying look.
+    CHECK(sky.simulator.product().alarm().indicator_condition() != indication::Condition::Alarm);
+    // Still urgent, still plotted: what was dismissed is the saying, not the sky.
     CHECK(int(sky.simulator.product().state().alarm_level) == 3);
 
     const uint32_t before = sky.tone_commands();

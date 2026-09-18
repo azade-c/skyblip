@@ -112,11 +112,11 @@ class ScreenService : public runtime::Service {
                (context_.state.own.fix_valid || context_.state.baro.active);
     }
 
-    bool alarm_takes_glass() const { return context_.state.alarm_level >= kAlarmTakesGlass; }
+    bool alarm_takes_glass() const { return context_.state.alarm_live >= kAlarmTakesGlass; }
 
-    bool alarm_stands() const { return context_.state.alarm_level != traffic::Level::None; }
+    bool alarm_stands() const { return context_.state.alarm_live != traffic::Level::None; }
 
-    bool alarm_flashing() const { return alarm_stands() && !context_.state.alarm_dismissed; }
+    bool alarm_flashing() const { return alarm_stands(); }
 
     void flash_alarm();
 
@@ -159,8 +159,7 @@ class ScreenService : public runtime::Service {
     uint32_t last_tick_ms_{0};
     uint32_t last_render_ms_{0};
     uint32_t last_present_ms_{0};
-    traffic::Level last_alarm_{traffic::Level::None};
-    bool last_dismissed_{false};
+    traffic::Level last_live_{traffic::Level::None};
     bool alarm_flash_{false};
     bool dirty_{true};
     Change change_{Change::Asked};

@@ -24,7 +24,7 @@ With any graded contact standing, the way home also dismisses it (`core/traffic/
 
 It is the pad and not the button. The button's hold is already the way the device switches off, and a pilot silencing an alarm must never be a thumb away from stowing the device that raised it. The press the button does have here opens the settings, which is a page the same alarm has just taken off the glass.
 
-What a dismissal costs if it was an accident is one flight's worth of nothing: the grade stands, the wedge stays on the bearing, and anything worse speaks again. That is what makes a single 1 s hold the right price rather than a gesture a pilot has to be taught.
+What a dismissal costs if it was an accident is one flight's worth of nothing: the grade stands, the traffic stays plotted, and anything worse speaks again with its sector and the lamp back. The touch covers the aircraft the device has already spoken about and no others, so the next one heard arrives with its own voice. That is what makes a single 1 s hold the right price rather than a gesture a pilot has to be taught.
 
 ## The button's third meaning
 

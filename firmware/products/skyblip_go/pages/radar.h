@@ -26,6 +26,7 @@ struct RadarTarget {
     int16_t turn_dps{0};
     bool turn_valid{false};
     bool in_formation{false};
+    bool alarm_dismissed{false};
 };
 
 struct RadarSnapshot {
@@ -42,8 +43,6 @@ struct RadarSnapshot {
     bool receiver_listening{false};
     int n_targets{0};
     const RadarTarget* targets{nullptr};
-    traffic::Level max_alarm{traffic::Level::None};
-    bool alarm_dismissed{false};
     bool alarm_flash{false};
     int formation_members{0};
 };

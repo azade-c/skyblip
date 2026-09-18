@@ -14,6 +14,7 @@ bool AlarmService::silenced(traffic::Target& target, formation::State state,
     }
     tracker_.withdraw(target.obs.addr_table, target.obs.addr);
     target.alarm_level = traffic::Level::None;
+    target.alarm_dismissed = false;
     return true;
 }
 
@@ -27,6 +28,7 @@ formation::State AlarmService::watch_formation(traffic::Target& target, uint32_t
 
 void AlarmService::tick(uint32_t now_ms) {
     traffic::Level worst = traffic::Level::None;
+    traffic::Level live = traffic::Level::None;
     traffic::Level speak = traffic::Level::None;
     bool escalated = false;
     if (context_.state.own.fix_valid) {
@@ -37,8 +39,10 @@ void AlarmService::tick(uint32_t now_ms) {
             const traffic::AlarmTracker::Decision d =
                 tracker_.update(context_.state.own, t->obs, t->turn.dps, t->turn.valid, now_ms);
             t->alarm_level = d.assessment.level;
+            t->alarm_dismissed = d.dismissed;
             if (silenced(*t, f, d.assessment, now_ms)) continue;
             worst = std::max(d.assessment.level, worst);
+            if (!d.dismissed) live = std::max(d.assessment.level, live);
             if (!d.notify) continue;
             speak = std::max(d.assessment.level, speak);
             escalated = escalated || d.escalated;
@@ -48,10 +52,9 @@ void AlarmService::tick(uint32_t now_ms) {
     formation_.forget_stale(now_ms);
     context_.state.formation.members = formation_.members();
 
-    const bool dismissed = tracker_.dismissed();
-    if (worst != context_.state.alarm_level || dismissed != context_.state.alarm_dismissed) {
+    if (worst != context_.state.alarm_level || live != context_.state.alarm_live) {
         context_.state.alarm_level = worst;
-        context_.state.alarm_dismissed = dismissed;
+        context_.state.alarm_live = live;
         dirty_ = true;
     }
 
@@ -59,7 +62,7 @@ void AlarmService::tick(uint32_t now_ms) {
     // Not the raw worst: what is being announced, which the tracker already
     // holds through a contact bouncing across a ring boundary, and which falls
     // to nothing when the target that caused it stops being heard.
-    situation.level = dismissed ? traffic::Level::None : tracker_.announced_level(now_ms);
+    situation.level = tracker_.announced_level(now_ms);
     situation.escalated = escalated;
     situation.first_fix = context_.state.own.fix_acquired;
     situation.enabled = settings_.alarm_enabled;
@@ -100,7 +103,7 @@ void AlarmService::drive_lamp(uint32_t now_ms, bool running) {
     const power::BatteryState& battery = context_.state.power.battery;
     indication::Situation situation{};
     situation.running = running;
-    situation.alarm_level = context_.state.alarm_level;
+    situation.alarm_level = context_.state.alarm_live;
     situation.external_power = battery.external_power;
     // core/power/battery.h: charging is external power AND a cell still below the
     // float voltage, so the cable in with charging false is a charge that finished.

@@ -141,8 +141,9 @@ AlarmTracker::Decision AlarmTracker::update(const model::OwnState& own,
 
     if (now_ms - slot->seen_ms <= kAlertMaxAgeMs)
         d.notify = notify_for(*slot, d.assessment.level, now_ms, d.escalated);
-    if (d.escalated) dismissed_ = false;
-    if (dismissed_) d.notify = false;
+    if (d.escalated) slot->dismissed = false;
+    if (slot->dismissed) d.notify = false;
+    d.dismissed = slot->dismissed;
     return d;
 }
 
@@ -205,7 +206,23 @@ void AlarmTracker::withdraw(uint8_t addr_table, uint32_t addr) {
         if (!s.used || s.addr != addr || s.addr_table != addr_table) continue;
         s.notified_level = Level::None;
         s.falling = false;
+        s.dismissed = false;
     }
+}
+
+void AlarmTracker::dismiss() {
+    for (Slot& s : slots_)
+        if (s.used && s.notified_level != Level::None) s.dismissed = true;
+}
+
+bool AlarmTracker::dismissed() const {
+    bool any = false;
+    for (const Slot& s : slots_) {
+        if (!s.used || s.notified_level == Level::None) continue;
+        if (!s.dismissed) return false;
+        any = true;
+    }
+    return any;
 }
 
 void AlarmTracker::forget_stale(uint32_t now_ms) {
@@ -217,7 +234,7 @@ void AlarmTracker::forget_stale(uint32_t now_ms) {
 Level AlarmTracker::announced_level(uint32_t now_ms) const {
     Level level = Level::None;
     for (const Slot& s : slots_) {
-        if (!s.used || now_ms - s.seen_ms > kAlertMaxAgeMs) continue;
+        if (!s.used || s.dismissed || now_ms - s.seen_ms > kAlertMaxAgeMs) continue;
         level = std::max(s.notified_level, level);
     }
     return level;

@@ -74,7 +74,19 @@ struct Rig {
         return chip.framebuffer().count_black() == go::kGlassW * go::kGlassH;
     }
 
-    void alarm(traffic::Level level) { state.alarm_level = level; }
+    void alarm(traffic::Level level) {
+        state.alarm_level = level;
+        state.alarm_live = level;
+    }
+
+    // The long touch as the alarm service publishes it: the sky stands, nothing is live.
+    void dismiss() {
+        state.alarm_live = traffic::Level::None;
+        for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
+            traffic::Target* t = state.traffic.at(i);
+            if (t && t->used) t->alarm_dismissed = true;
+        }
+    }
 
     // A contact at a bearing, graded by hand, for the page to point at.
     void threat(traffic::Level level, int32_t north_m, int32_t east_m, uint32_t now_ms) {
