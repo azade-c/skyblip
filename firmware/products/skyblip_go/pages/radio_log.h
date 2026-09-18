@@ -25,7 +25,6 @@ struct RadioLogSnapshot {
     uint32_t tx_ok{0};
     uint32_t noise{0};
     int8_t band_dbm{0};
-    bool airborne{false};
     int n_rows{0};
     const radio::Log* log{nullptr};
 };

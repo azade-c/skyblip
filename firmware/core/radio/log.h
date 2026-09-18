@@ -25,6 +25,7 @@ struct Entry {
     uint8_t len{0};
     bool rssi_valid{false};
     bool utc{false};
+    bool airborne{false};
     bool phase_valid{false};
     bool tx_span_valid{false};
 };

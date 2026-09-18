@@ -234,6 +234,7 @@ void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slo
     entry.into_ms = stamp.into_ms;
     entry.phase_valid = stamp.phase_valid;
     entry.utc = state.own.utc_valid;
+    entry.airborne = flight::airborne(state.own.flight_state);
     context_.state.radio_log.record(entry);
 }
 

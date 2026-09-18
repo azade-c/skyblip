@@ -1,6 +1,7 @@
 #include "products/skyblip_go/services/traffic.h"
 
 #include "core/events/rf.h"
+#include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/timing/slot.h"
@@ -72,6 +73,7 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
     entry.into_ms = stamp.into_ms;
     entry.phase_valid = stamp.phase_valid;
     entry.utc = state.own.utc_valid;
+    entry.airborne = flight::airborne(state.own.flight_state);
     entry.rssi_dbm = event.rssi_dbm;
     entry.rssi_valid = event.rssi_valid;
     if (event.type == events::RfEventType::RxDone) entry.len = event.len;

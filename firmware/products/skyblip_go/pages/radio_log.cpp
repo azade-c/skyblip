@@ -121,7 +121,7 @@ void draw_gnss(ui::Canvas& fb, const RadioLogSnapshot& snap) {
     right_aligned(fb, kRightEnd, kGnssY, buf, n);
 }
 
-void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry, bool airborne) {
+void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry) {
     char buf[16];
 
     int n = fmt_stamp(buf, entry);
@@ -139,7 +139,7 @@ void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry, bool airborne) {
     if (verdict != nullptr) fb.draw_text(kVerdictX, y, verdict, true, 1);
 
     if (ours) {
-        fb.draw_text(kAddrX, y, airborne ? "AIR" : "GND", true, 1);
+        fb.draw_text(kAddrX, y, entry.airborne ? "AIR" : "GND", true, 1);
         return;
     }
 
@@ -174,7 +174,7 @@ void draw_radio_log(ui::Canvas& fb, const RadioLogSnapshot& snap) {
 
     const int rows = snap.n_rows < kRadioLogRows ? snap.n_rows : kRadioLogRows;
     for (int i = 0; i < rows; i++)
-        draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i), snap.airborne);
+        draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i));
 }
 
 }  // namespace skyblip::go

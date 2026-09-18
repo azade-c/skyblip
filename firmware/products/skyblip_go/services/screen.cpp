@@ -500,7 +500,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.tx_ok = context_.state.air.tx_ok;
             snap.noise = context_.state.air.rx_noise;
             snap.band_dbm = context_.state.rf.noise_dbm;
-            snap.airborne = flight::airborne(own.flight_state);
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             draw_radio_log(fb_, snap);

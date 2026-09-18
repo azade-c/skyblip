@@ -38,6 +38,8 @@ The page spends no row on the difference between `Lost` and `Unarmed`: both read
 
 `Lost` and `Unframed` are both `rx_bad` on the counters, which is wrong of the counters: `messages::RfEventType::Missed` is only ever emitted for a dwell or a transmission of ours that did not complete, never for a reception. The log is split because a transmit failure reported as a bad reception sends a reader hunting the wrong fault, which is the exact thing this page exists to stop. The counter keeps its old meaning until it is given one of its own: [#61](https://github.com/fcatuhe/skyblip/issues/61).
 
+`Entry::airborne` is own-ship's flight state when the row was written, and the page prints it as `AIR` or `GND` on every burst of ours. It is per entry for the same reason the date is: §G.1.16 transmits at 1 Hz in the air and 0.1 Hz on the ground, and the tape outlives a takeoff. The page used to draw the live flag on all sixteen rows, so one takeoff rewrote the schedule the whole tape claimed to have gone out on.
+
 `Entry::at_s` is UTC once the receiver has given us a second, and time since boot before that. Which of the two is a flag per entry rather than a flag on the log, because the log outlives a first fix and the entries either side of one are dated differently. The second itself comes from the PPS edge the clock last latched (`timing::ClockState::utc_s`), not from the sentence that names it: see `core/timing/README.md`.
 
 ## The phase, and what two devices read across it
