@@ -328,7 +328,7 @@ The sensor hub on the board: probed, booted while the device flies, then read.
 - an address that answers and is not a BHI260 is no inclinometer
 - nothing is asked of a bus with no hub on it
 - the chip's axes are turned into the case's before anything reads them
-  > The chip is a quarter turn from the case: its +X is the case's up, its +Y the case's left.
+  > The chip is a quarter turn from the case: its +X is the case's down, its +Y the case's right.
 - the hub is booted from the loop, and reports once it runs
 
 ### test/boards/test_board_probe.cpp

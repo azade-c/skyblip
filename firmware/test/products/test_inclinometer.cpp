@@ -13,9 +13,9 @@ constexpr int kTurnCoordinatorCy = 133;
 constexpr int kBallY = kTurnCoordinatorCy + 18;
 constexpr uint32_t kBootToBall = 4000;
 
-// The chip is a quarter turn from the case (imu_mount.h): its +X is up, its +Y is left.
+// The chip is a quarter turn from the case (imu_mount.h): its +X is down, its +Y is right.
 void fly_uncoordinated(Rig& rig, int16_t right_mg) {
-    rig.platform.chips().imu.set_acceleration(1000, static_cast<int16_t>(-right_mg), 0);
+    rig.platform.chips().imu.set_acceleration(-1000, right_mg, 0);
 }
 
 bool ink_between(const go::Glass& fb, int from_x, int to_x, int y) {
