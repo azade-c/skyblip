@@ -141,7 +141,8 @@ TEST_CASE("radio log page: a transmission that worked prints no verdict at all")
     CHECK_FALSE(shows(fb, 4 + 25 * 6, kFirstRowY, "6344"));
 }
 
-// §G.1.16: one burst a second in the air and one in ten on the ground, so rows either side of a takeoff read differently.
+// §G.1.16: one burst a second in the air and one in ten on the ground, so rows either side of a
+// takeoff read differently.
 TEST_CASE("radio log page: a sent burst names the schedule it went out on") {
     radio::Log log;
     log.record(entry_of(radio::Event::Transmitted));

@@ -173,8 +173,7 @@ void draw_radio_log(ui::Canvas& fb, const RadioLogSnapshot& snap) {
     }
 
     const int rows = snap.n_rows < kRadioLogRows ? snap.n_rows : kRadioLogRows;
-    for (int i = 0; i < rows; i++)
-        draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i));
+    for (int i = 0; i < rows; i++) draw_row(fb, kFirstRowY + i * kLineH, snap.log->newest(i));
 }
 
 }  // namespace skyblip::go
