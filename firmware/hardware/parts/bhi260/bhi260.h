@@ -62,6 +62,8 @@ class Bhi260 {
     uint16_t kernel_version() const { return kernel_version_; }
     uint32_t uploaded_bytes() const { return uploaded_; }
     uint32_t unparsed_events() const { return unparsed_; }
+    uint32_t fifo_bytes() const { return fifo_bytes_; }
+    uint8_t hub_error() const { return error_; }
 
    private:
     static constexpr uint8_t kRegCommand = 0x00;
@@ -72,6 +74,7 @@ class Bhi260 {
     static constexpr uint8_t kRegProductId = 0x1C;
     static constexpr uint8_t kRegKernelVersion = 0x20;
     static constexpr uint8_t kRegBootStatus = 0x25;
+    static constexpr uint8_t kRegErrorValue = 0x2E;
 
     static constexpr uint16_t kCmdUploadToProgramRam = 0x0002;
     static constexpr uint16_t kCmdBootProgramRam = 0x0003;
@@ -117,6 +120,8 @@ class Bhi260 {
     uint32_t polled_ms_{0};
     uint32_t uploaded_{0};
     uint32_t unparsed_{0};
+    uint32_t fifo_bytes_{0};
+    uint8_t error_{0};
     uint16_t fifo_remaining_{0};
     uint16_t kernel_version_{0};
     Acceleration sample_{};

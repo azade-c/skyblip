@@ -287,6 +287,9 @@ class TEchoPlus {
     void poll_inclinometer(bus::State& state, uint32_t now_ms) {
         state.imu.stage = imu_.stage_text();
         state.imu.fault = imu_.fault_text();
+        state.imu.fifo_bytes = imu_.fifo_bytes();
+        state.imu.unparsed = imu_.unparsed_events();
+        state.imu.error = imu_.hub_error();
         if (!ports::has(capabilities_, ports::Capability::Inclinometer)) return;
         if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
         imu_.service(now_ms);

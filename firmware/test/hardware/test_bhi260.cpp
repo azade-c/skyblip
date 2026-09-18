@@ -162,6 +162,24 @@ TEST_CASE("bhi260: a running part reports acceleration in milli-g") {
     CHECK_FALSE(imu.poll());
 }
 
+// A hub that boots and reports nothing is the failure the stage word cannot see.
+TEST_CASE("bhi260: a running part counts what came out of the FIFO and reads the hub's error") {
+    models::Bhi260 chip;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+    uint32_t now_ms = bring_up(imu);
+    REQUIRE(imu.stage() == Stage::Running);
+    CHECK(imu.fifo_bytes() == 0);
+
+    chip.error_value = 0x1A;
+    now_ms += parts::Bhi260::kSamplePeriodMs;
+    imu.service(now_ms);
+
+    CHECK(imu.fifo_bytes() > 0);
+    CHECK(imu.unparsed_events() == 0);
+    CHECK(int(imu.hub_error()) == 0x1A);
+}
+
 TEST_CASE("bhi260: a part that stops answering stops reporting") {
     models::Bhi260 chip;
     parts::Bhi260 imu{chip};

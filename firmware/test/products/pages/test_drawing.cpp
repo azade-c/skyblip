@@ -852,13 +852,31 @@ TEST_CASE("status: the IMU field reads the hub's own bring-up word and the ball 
     quiet.slip_valid = false;
     Glass no_data;
     draw_status(no_data, quiet);
-    CHECK(reads_in(no_data, "IMU RUN", 0, 55, 200, 70));
+    CHECK(reads_in(no_data, "IMU RUN B0", 0, 55, 200, 70));
     CHECK_FALSE(reads_in(no_data, "mg", 0, 55, 200, 70));
 
     StatusSnapshot absent;
     Glass none;
     draw_status(none, absent);
     CHECK(reads_in(none, "IMU NONE", 0, 55, 200, 70));
+}
+
+// A silent hub and one whose FIFO nobody can step through are two different faults.
+TEST_CASE("status: a hub reporting nothing says what the FIFO gave it") {
+    StatusSnapshot s;
+    s.imu_stage = "RUN";
+    s.imu_fifo_bytes = 4096;
+    Glass feeding;
+    draw_status(feeding, s);
+    CHECK(reads_in(feeding, "IMU RUN B99", 0, 55, 200, 70));
+
+    StatusSnapshot stuck = s;
+    stuck.imu_unparsed = 3;
+    stuck.imu_error = 0x1A;
+    Glass unparsed;
+    draw_status(unparsed, stuck);
+    CHECK(reads_in(unparsed, "IMU RUN U3 E1A", 0, 55, 200, 70));
+    CHECK(reads_in(unparsed, "TRUE", 0, 55, 200, 70));
 }
 
 TEST_CASE("status: the widest IMU failure still leaves the track's datum readable") {

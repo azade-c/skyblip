@@ -209,6 +209,7 @@ bool Bhi260::configure_accelerometer() {
 void Bhi260::step_running(uint32_t now_ms) {
     if (now_ms - polled_ms_ < kSamplePeriodMs) return;
     polled_ms_ = now_ms;
+    read_registers(kRegErrorValue, &error_, 1);
     drain_fifo(now_ms);
 }
 
@@ -236,6 +237,7 @@ void Bhi260::drain_fifo(uint32_t now_ms) {
         return;
     }
     fifo_remaining_ = static_cast<uint16_t>(fifo_remaining_ - want);
+    fifo_bytes_ += want;
     if (resync_) return;
 
     const uint16_t len = static_cast<uint16_t>(carried_ + want);

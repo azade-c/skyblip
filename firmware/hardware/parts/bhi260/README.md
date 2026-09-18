@@ -21,7 +21,7 @@ That is the whole reason this driver is a state machine rather than four registe
 | `Configuring` | reads `KERNEL_VERSION`, sets the range, configures the virtual sensor | `Down` if the kernel version reads zero |
 | `Running` | drains the FIFO every 200 ms | `Down` the moment the bus stops answering |
 
-Every one of those stages has a word, and `status` prints it beside the ball it is waiting for: `stage_text()` is where it is or, once it has failed, where it stopped, and `fault_text()` is why. That pair is the only account the device gives of a bring-up nobody can watch, and it is what a bench reads instead of guessing from an empty cage.
+Every one of those stages has a word, and `status` prints it beside the ball it is waiting for: `stage_text()` is where it is or, once it has failed, where it stopped, and `fault_text()` is why. `Running` has a second failure the stage cannot show - a part that boots, answers and reports nothing - so `fifo_bytes()`, `unparsed_events()` and the error register the part reads every pass (`hub_error()`, 0x2E) are on the same field. That pair is the only account the device gives of a bring-up nobody can watch, and it is what a bench reads instead of guessing from an empty cage.
 
 Nothing here blocks or sleeps. Every wait is a deadline against the `now_ms` the board already passes down, which is what lets a host test walk the whole bring-up under a clock it advances, and what keeps the upload out of the service loop's way.
 

@@ -73,6 +73,9 @@ struct SlipState {
 struct ImuState {
     const char* stage{"NONE"};
     const char* fault{""};
+    uint32_t fifo_bytes{0};
+    uint32_t unparsed{0};
+    uint8_t error{0};
 };
 
 struct State {

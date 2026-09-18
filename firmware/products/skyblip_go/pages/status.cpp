@@ -23,6 +23,7 @@ constexpr int kSiNumberEnd = kColumn(22);
 constexpr int kSiUnitX = kColumn(22);
 
 constexpr uint8_t kSatellitesForAltitude = 4;
+constexpr uint32_t kImuCountCeiling = 99;
 
 // 1 m/s = 1.94384 kt, from quarter-m/s.
 int32_t knots(uint16_t speed_q) { return (static_cast<int32_t>(speed_q) * 194384) / (4 * 100000); }
@@ -104,6 +105,19 @@ void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa)
     fb.draw_text(kSiUnitX, y, " hPa", true, 1);
 }
 
+uint32_t at_most(uint32_t value, uint32_t ceiling) { return value > ceiling ? ceiling : value; }
+
+int imu_traffic(char* out, const StatusSnapshot& s) {
+    const bool stuck = s.imu_unparsed != 0;
+    int n = fmt_string(out, stuck ? " U" : " B");
+    n += fmt_uint(out + n, at_most(stuck ? s.imu_unparsed : s.imu_fifo_bytes, kImuCountCeiling), 1);
+    if (s.imu_error != 0) {
+        n += fmt_string(out + n, " E");
+        n += fmt_hex(out + n, s.imu_error, 2);
+    }
+    return n;
+}
+
 void imu_field(ui::Canvas& fb, int y, const StatusSnapshot& s) {
     char buf[24];
     int n = fmt_string(buf, "IMU ");
@@ -111,11 +125,12 @@ void imu_field(ui::Canvas& fb, int y, const StatusSnapshot& s) {
     if (s.imu_fault != nullptr && s.imu_fault[0] != 0) {
         n += fmt_string(buf + n, " ");
         n += fmt_string(buf + n, s.imu_fault);
-    }
-    if (s.slip_valid) {
+    } else if (s.slip_valid) {
         n += fmt_string(buf + n, " ");
         n += fmt_int(buf + n, s.slip_mg, 1, 0, false);
         n += fmt_string(buf + n, "mg");
+    } else {
+        n += imu_traffic(buf + n, s);
     }
     buf[n] = 0;
     right_aligned(fb, kGlassW - kLeft, y, buf, n);

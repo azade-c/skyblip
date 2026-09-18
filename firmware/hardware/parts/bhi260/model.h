@@ -48,6 +48,7 @@ class Bhi260 : public io::I2c {
     bool answers{true};
     bool accepts_firmware{true};
     uint8_t product_id{0x89};
+    uint8_t error_value{0};
     bool host_interface_ready{true};
     bool booted{false};
     bool verify_error{false};
@@ -67,6 +68,7 @@ class Bhi260 : public io::I2c {
     static constexpr uint8_t kRegProductId = 0x1C;
     static constexpr uint8_t kRegKernelVersion = 0x20;
     static constexpr uint8_t kRegBootStatus = 0x25;
+    static constexpr uint8_t kRegErrorValue = 0x2E;
     static constexpr uint8_t kBootHostInterfaceReady = 0x10;
     static constexpr uint8_t kBootFirmwareVerifyDone = 0x20;
     static constexpr uint8_t kBootFirmwareVerifyError = 0x40;
@@ -161,6 +163,7 @@ class Bhi260 : public io::I2c {
             case kRegKernelVersion: return booted ? (kKernelVersion & 0xFF) : 0;
             case kRegKernelVersion + 1: return booted ? (kKernelVersion >> 8) : 0;
             case kRegBootStatus: return boot_status();
+            case kRegErrorValue: return error_value;
             default: return 0;
         }
     }

@@ -508,6 +508,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.n_targets = context_.state.traffic.count();
             snap.imu_stage = context_.state.imu.stage;
             snap.imu_fault = context_.state.imu.fault;
+            snap.imu_fifo_bytes = context_.state.imu.fifo_bytes;
+            snap.imu_unparsed = context_.state.imu.unparsed;
+            snap.imu_error = context_.state.imu.error;
             snap.slip_valid = context_.state.slip.valid;
             snap.slip_mg = context_.state.slip.lateral_mg;
             snap.baro_valid = context_.state.baro.active;
