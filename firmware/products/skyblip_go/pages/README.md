@@ -271,9 +271,9 @@ The panel half of "a pilot with no phone can change the things that matter", and
 |---|---|
 | `radar` | `ID`, `AIRCRAFT`, `ALARM`, `VOLUME`, `RANGE`, `UNITS`, `STEALTH` |
 | `nearby` | `RADIO LOG`, `SATELLITES`, `STATUS`, `SELF TEST` |
-| `sixpack` | `QNH FROM GNSS`, and the subscale between its two steps |
+| `sixpack` | `G METER`, `QNH FROM GNSS`, and the subscale between its two steps |
 
-A row either steps a value or opens a page, and the nearby menu is the second kind: the three diagnostic pages and the self test are off the pad's walk entirely, opened by name from the picture they explain, and a tap of the pad on one of them comes back to `nearby` rather than walking on to a fourth picture. That is what took the walk from six pages to three. A pilot cycling the glass in flight passes the plot, the list and the instruments, and never the satellite bars.
+A row either steps a value or opens a page, and the nearby menu is mostly the second kind: the three diagnostic pages and the self test are off the pad's walk entirely, opened by name from the picture they explain, and a tap of the pad on one of them comes back to `nearby` rather than walking on to a fourth picture. `G METER` is the same arrangement one menu over: it is an instrument, so it hangs off the instruments, and the pad hands it back to `sixpack`. What a page off the walk returns to is the menu that opened it (`menu_owner`), which is the rule that keeps a pilot's thumb where they left it. That is what took the walk from six pages to three. A pilot cycling the glass in flight passes the plot, the list and the instruments, and never the satellite bars.
 
 The values sit under the page they change: the ring's range and the alarm that watches it belong to the radar, the altimeter subscale belongs to the page with the altimeter on it. `RANGE` steps 1, 2, 4 and 8 NM and comes round again - four rings a thumb can reach in three presses, from a circuit to the whole of what this radio hears - and it is the one menu value that is not stored, so a device comes up on the 4 NM the page is designed around. `ID` is first on the radar's menu and cannot be changed, so a pilot who lands on the menu and presses out of impatience presses on nothing (`MenuRow`), and `STEALTH` is last because it is the one row that makes this aircraft harder for others to see.
 
@@ -282,6 +282,18 @@ The values sit under the page they change: the ring's range and the alarm that w
 The two contacts mean here what they mean everywhere else: a tap of the pad moves the focus down a row, a press of the button acts on the row the focus is on, and every further press steps the same field again, which is what makes a subscale settable with a thumb. No timing to get right, so nothing here can be produced by accident out of the hold that switches the device off, and a standing prompt takes the button away from a menu entirely before the gesture that answers it can be armed.
 
 A pilot cannot get stuck here: the rows only ever advance, the tap past the last one lands back on the page the menu belongs to, a long touch of the pad goes back to the radar, and a menu nobody has touched for `kIdleReturnMs` gives the picture back on its own. There is no `Leave` row, because the pad already leaves and a row that only said "done" was a row to walk past on the way to the one a pilot wanted.
+
+## gmeter
+
+The accelerometer read as an accelerometer, with nothing inferred from it. No fix is needed, no filter runs, and no assumption sits behind any figure on the page: it is the one instrument here that can only be wrong about its own calibration.
+
+The field is the two axes a wing works against. Normal load runs up it, one g at the centre where level flight sits, sixteen pixels to the g, from +4 at the top to -2 at the bottom; lateral load runs across it, a g to each edge, which is a lot of sideways for an aeroplane and the right width for a page that must also show a skid. The marker is where the airframe is now. The box around it is where it has been: its top and bottom are the most and least normal load, its sides the most to each hand, so a glance says both what this flight has pulled and how untidily.
+
+Fore and aft is on its own strip below, because it is not a wing load at all. Braking, the push of a full-power takeoff and the snatch of a rough landing share an axis with nothing else on this page, and drawing them as a third direction in the same field would invite a pilot to read a diagonal that means nothing. Same scale as the lateral axis, a g each way, with the two peaks as marks and the present value as a bar.
+
+Three rows carry the numbers in tenths of a g: what it reads now, the most and the least, one row per axis, with the normal load repeated large at the top because it is the one a limit is written against. The peaks reset when the flight timer starts (`core/flight/gload.h`), so they belong to this flight; on the ground they are whatever has happened since the device came on, which is what a unit dropped into a flight bag reads.
+
+A device with no inertial sensor prints no scale, the way the turn coordinator draws no cage: the page says `NO SENSOR` and stops. A hub that has not reported yet has the scale, an empty field and dashes for the figures, because the scale is true and the reading is not there yet.
 
 ## sats
 

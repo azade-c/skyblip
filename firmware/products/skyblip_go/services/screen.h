@@ -9,6 +9,7 @@
 #include "products/skyblip_go/input/gesture.h"
 #include "products/skyblip_go/pages/boot.h"
 #include "products/skyblip_go/pages/confirm.h"
+#include "products/skyblip_go/pages/gmeter.h"
 #include "products/skyblip_go/pages/menu.h"
 #include "products/skyblip_go/pages/nearby.h"
 #include "products/skyblip_go/pages/page.h"

@@ -5,7 +5,17 @@
 
 namespace skyblip::go {
 
-enum class Page : uint8_t { Radar, Nearby, SixPack, Status, Sats, RadioLog, SelfTest, kCount };
+enum class Page : uint8_t {
+    Radar,
+    Nearby,
+    SixPack,
+    Status,
+    Sats,
+    RadioLog,
+    SelfTest,
+    GMeter,
+    kCount
+};
 
 constexpr int kPageCount = static_cast<int>(Page::kCount);
 
@@ -24,11 +34,15 @@ constexpr const char* page_title(Page page) {
         case Page::Sats: return "SATELLITES";
         case Page::RadioLog: return "RADIO LOG";
         case Page::SelfTest: return "SELF TEST";
+        case Page::GMeter: return "G METER";
         default: return "";
     }
 }
 
-constexpr Page menu_owner(Page page) { return walked(page) ? page : Page::Nearby; }
+constexpr Page menu_owner(Page page) {
+    if (walked(page)) return page;
+    return page == Page::GMeter ? Page::SixPack : Page::Nearby;
+}
 
 // INFO: fc 18sep26 a page off the walk was opened from a menu, so the pad hands it back there
 constexpr Page page_after(Page page) {

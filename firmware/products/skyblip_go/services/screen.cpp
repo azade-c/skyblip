@@ -477,6 +477,16 @@ void ScreenService::render(uint32_t now_ms) {
             break;
         }
         case Page::SelfTest: draw_boot(fb_, self_test_); break;
+        case Page::GMeter: {
+            GMeterSnapshot snap;
+            snap.fitted = ports::has(context_.roles.capabilities, ports::Capability::Inclinometer);
+            snap.valid = context_.state.gload.valid;
+            snap.now = context_.state.gload.now;
+            snap.most = context_.state.gload.most;
+            snap.least = context_.state.gload.least;
+            draw_gmeter(fb_, snap);
+            break;
+        }
         case Page::RadioLog: {
             RadioLogSnapshot snap;
             snap.gnss.fix_valid = own.fix_valid;
