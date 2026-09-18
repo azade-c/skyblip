@@ -46,7 +46,7 @@ description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.S
     test suite generates a behavior index,
     <a href="https://github.com/fcatuhe/skyblip/blob/main/docs/BEHAVIOR.md"><code>docs/BEHAVIOR.md</code></a>,
     which lists what the firmware is checked to do and is regenerated from the
-    tests themselves.
+    tests themselves. Conformance has a suite of its own, below.
   </p>
 </section>
 
@@ -109,10 +109,69 @@ description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.S
     </table>
   </div>
 
+</section>
+
+<section>
+  <h2 class="kicker">Conformance</h2>
+  <h3>The specification is a test suite here, read clause by clause.</h3>
+
+  <p>
+    Issue 2 has 80 numbered clauses.
+    <a href="https://github.com/fcatuhe/skyblip/tree/main/firmware/test/adsl"><code>firmware/test/adsl/</code></a>
+    holds at least one case for each of them, named after the clause it reads,
+    and <code>scripts/check_adsl_clauses.py</code> fails the build if a clause
+    has no case or if a case names a clause the document does not contain.
+    Where the specification prints an algorithm or a worked example, the case
+    carries the document&rsquo;s own version of it rather than restating ours:
+    E.2&rsquo;s XXTEA, E.3.1&rsquo;s CRC-24, G.1.6&rsquo;s exponential encoder
+    and the example tables of G.1.7 to G.1.9.
+  </p>
+  <p>
+    104 cases, of which <strong>64 run and pass</strong> and 40 are skipped. A
+    skipped case is written as the clause requires it and skipped over a
+    one-line note saying why, so what this device does not do is a list rather
+    than a silence. Fourteen of the skips are clauses with nothing executable in
+    them, such as the block diagram and the OSI table, and two are duties of the
+    manufacturer rather than of the device. The rest is the honest part:
+  </p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Clause</th><th>What is missing, and why</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>G.2, G.2.1 to G.2.11 &mdash; Status payload</th>
+          <td>not transmitted. It is the next protocol work, and soft versioning (B.5) waits on it.</td>
+        </tr>
+        <tr>
+          <th>C.3 to C.3.2 &mdash; O-band LDR</th>
+          <td>not received. One radio, and the second is already spent on the two M-band channels and the O-band HDR uplink slot.</td>
+        </tr>
+        <tr>
+          <th>E.4 to E.4.2 &mdash; secure signature</th>
+          <td>no Ed25519 key is held, generated or transmitted.</td>
+        </tr>
+        <tr>
+          <th>G.4, G.5 &mdash; FIS-B and Remote Identification</th>
+          <td>neither received nor sent. RID is a UAV payload this aircraft device has no use for.</td>
+        </tr>
+        <tr>
+          <th>D.3 &mdash; media access</th>
+          <td>a deliberate deviation, not an omission: no listen-before-talk. The burst instant is drawn at random inside the slot and re-keyed every second, and the 1&nbsp;% hourly duty cycle is the channel-access route. The argument is written out in <code>core/timing/README.md</code>, and none of the reference implementations cancels a burst either.</td>
+        </tr>
+        <tr>
+          <th>G.1.17 &mdash; quality indicators</th>
+          <td>this firmware transmits SIL 1 and a DOP-derived NIC, which was the Issue 1 reading. Issue 2 asks an uncertified device with no protection bound for 0 in both. Being aligned.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <p class="note">
-    Not implemented yet: the Status payload (type 3). It is the next protocol
-    work, and the declaration of conformity will follow it rather than precede
-    it.
+    The whole list, with the note on every skip, is the suite&rsquo;s own output:
+    <code>build/skyblip_tests --no-skip --test-case=&quot;ADS-L*&quot;</code>.
   </p>
 </section>
 
