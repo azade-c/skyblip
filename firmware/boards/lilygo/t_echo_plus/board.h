@@ -297,6 +297,9 @@ class TEchoPlus {
         state.imu.fifo_bytes = imu_.fifo_bytes();
         state.imu.unparsed = imu_.unparsed_events();
         state.imu.error = imu_.hub_error();
+        state.imu.meta = imu_.meta_event();
+        state.imu.sensor_error = imu_.sensor_error();
+        state.imu.errored_sensor = imu_.errored_sensor();
         if (!ports::has(capabilities_, ports::Capability::Inclinometer)) return;
         if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
         imu_.service(now_ms);

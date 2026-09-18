@@ -41,6 +41,13 @@ class Bhi260 : public io::I2c {
         z_mg = z;
     }
 
+    void report_meta_event(uint8_t event, uint8_t first, uint8_t second) {
+        meta_event_ = event;
+        meta_first_ = first;
+        meta_second_ = second;
+        meta_pending_ = true;
+    }
+
     bool running() const { return booted && sample_rate_hz > 0; }
     uint32_t uploaded() const { return uploaded_; }
 
@@ -78,6 +85,7 @@ class Bhi260 : public io::I2c {
     static constexpr uint16_t kCmdChangeRange = 0x000E;
     static constexpr uint8_t kSensorAccelerometer = 0x04;
     static constexpr uint8_t kSysIdTimestampSmallDelta = 251;
+    static constexpr uint8_t kSysIdMetaEvent = 254;
     static constexpr int kCountsPerRange = 32768;
 
     void reset() {
@@ -187,6 +195,13 @@ class Bhi260 : public io::I2c {
         stream_pos_ = 0;
         uint8_t events[16];
         int n = 0;
+        if (meta_pending_) {
+            events[n++] = kSysIdMetaEvent;
+            events[n++] = meta_event_;
+            events[n++] = meta_first_;
+            events[n++] = meta_second_;
+            meta_pending_ = false;
+        }
         if (running()) {
             events[n++] = kSysIdTimestampSmallDelta;
             events[n++] = 1;
@@ -216,6 +231,10 @@ class Bhi260 : public io::I2c {
     uint16_t magic_{0};
     uint8_t payload_[8]{};
     size_t payload_bytes_{0};
+    uint8_t meta_event_{0};
+    uint8_t meta_first_{0};
+    uint8_t meta_second_{0};
+    bool meta_pending_{false};
     uint8_t stream_[kMaxStream]{};
     size_t stream_len_{0};
     size_t stream_pos_{0};

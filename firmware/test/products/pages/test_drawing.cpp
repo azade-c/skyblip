@@ -902,6 +902,37 @@ TEST_CASE("status: a hub reporting nothing says what the FIFO gave it") {
     CHECK(reads_in(unparsed, "TRUE", 0, 55, 200, 70));
 }
 
+// The bench run that asked for this: a hub up, 18 bytes drained and no ball.
+TEST_CASE("status: a silent hub reports the last thing it said about itself") {
+    StatusSnapshot s;
+    s.imu_stage = "RUN";
+    s.imu_fifo_bytes = 18;
+    s.imu_meta = 16;
+    Glass initialized;
+    draw_status(initialized, s);
+    CHECK(reads_in(initialized, "IMU RUN B18 M16", 0, 55, 200, 70));
+
+    StatusSnapshot errored = s;
+    errored.imu_errored_sensor = 4;
+    errored.imu_sensor_error = 0x23;
+    Glass refused;
+    draw_status(refused, errored);
+    CHECK(reads_in(refused, "IMU RUN SE4:23", 0, 55, 200, 70));
+    CHECK(reads_in(refused, "TRUE", 0, 55, 200, 70));
+}
+
+TEST_CASE("status: the widest sensor error still leaves the track's datum readable") {
+    StatusSnapshot s;
+    s.imu_stage = "RUN";
+    s.imu_errored_sensor = 255;
+    s.imu_sensor_error = 0xFF;
+    Glass fb;
+    draw_status(fb, s);
+
+    CHECK(reads_in(fb, "IMU RUN SE255:FF", 0, 55, 200, 70));
+    CHECK(reads_in(fb, "TRUE", 0, 55, 200, 70));
+}
+
 TEST_CASE("status: the widest IMU failure still leaves the track's datum readable") {
     StatusSnapshot s;
     s.imu_stage = "LOAD";

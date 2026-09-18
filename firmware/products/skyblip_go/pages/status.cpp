@@ -123,13 +123,26 @@ void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa)
 
 uint32_t at_most(uint32_t value, uint32_t ceiling) { return value > ceiling ? ceiling : value; }
 
+int imu_sensor_error(char* out, const StatusSnapshot& s) {
+    int n = fmt_string(out, " SE");
+    n += fmt_uint(out + n, s.imu_errored_sensor, 1);
+    out[n++] = ':';
+    n += fmt_hex(out + n, s.imu_sensor_error, 2);
+    return n;
+}
+
 int imu_traffic(char* out, const StatusSnapshot& s) {
+    if (s.imu_sensor_error != 0) return imu_sensor_error(out, s);
+
     const bool stuck = s.imu_unparsed != 0;
     int n = fmt_string(out, stuck ? " U" : " B");
     n += fmt_uint(out + n, at_most(stuck ? s.imu_unparsed : s.imu_fifo_bytes, kImuCountCeiling), 1);
     if (s.imu_error != 0) {
         n += fmt_string(out + n, " E");
         n += fmt_hex(out + n, s.imu_error, 2);
+    } else if (s.imu_meta != 0) {
+        n += fmt_string(out + n, " M");
+        n += fmt_uint(out + n, s.imu_meta, 1);
     }
     return n;
 }

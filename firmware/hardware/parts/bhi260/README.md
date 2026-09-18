@@ -23,6 +23,12 @@ That is the whole reason this driver is a state machine rather than four registe
 
 Every one of those stages has a word, and `status` prints it beside the ball it is waiting for: `stage_text()` is where it is or, once it has failed, where it stopped, and `fault_text()` is why. `Running` has a second failure the stage cannot show - a part that boots, answers and reports nothing - so `fifo_bytes()`, `unparsed_events()` and the error register the part reads every pass (`hub_error()`, 0x2E) are on the same field. That pair is the only account the device gives of a bring-up nobody can watch, and it is what a bench reads instead of guessing from an empty cage.
 
+### What the hub says about itself
+
+A silent hub is rarely silent about why. Meta events (system ids 254 and 248, four bytes each) are the firmware's own commentary, and `meta_event()` keeps the last one: 16 is `Initialized`, 12 a FIFO overflow, 19 a reset nobody asked for. Meta event 11 is a sensor error and it carries the two bytes that end the investigation, which virtual sensor and which code: `errored_sensor()` and `sensor_error()`, read against the list in `examples/common/common.c` of the reference. An accelerometer the hub refused to start reads there as sensor 4 and a code in the 0x20s, where the FIFO can only report an absence.
+
+One error code never reaches `hub_error()`. 0x77 is `Host Download Channel Empty`, which is the hub's answer to a FIFO read with nothing in it - the Plus leaves HIRQ unconnected, so every pass over an idle FIFO earns one, and reporting it would put a permanent error on the glass that means nothing more than "we polled". Every other code stands.
+
 Nothing here blocks or sleeps. Every wait is a deadline against the `now_ms` the board already passes down, which is what lets a host test walk the whole bring-up under a clock it advances, and what keeps the upload out of the service loop's way.
 
 ### Why the upload is paced, and why the bus runs at 400 kHz

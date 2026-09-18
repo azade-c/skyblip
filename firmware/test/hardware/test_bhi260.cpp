@@ -180,6 +180,49 @@ TEST_CASE("bhi260: a running part counts what came out of the FIFO and reads the
     CHECK(int(imu.hub_error()) == 0x1A);
 }
 
+// Polling a FIFO with nothing in it is what a board with no HIRQ line does.
+TEST_CASE("bhi260: an empty download channel is the poll, not an error to report") {
+    models::Bhi260 chip;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+    uint32_t now_ms = bring_up(imu);
+    REQUIRE(imu.stage() == Stage::Running);
+
+    chip.error_value = 0x77;
+    now_ms += parts::Bhi260::kSamplePeriodMs;
+    imu.service(now_ms);
+
+    CHECK(int(imu.hub_error()) == 0);
+}
+
+// A hub that boots and never streams says why in a meta event this used to drop.
+TEST_CASE("bhi260: the hub's meta events are read, and a sensor error names its sensor") {
+    models::Bhi260 chip;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+    uint32_t now_ms = bring_up(imu);
+    REQUIRE(imu.stage() == Stage::Running);
+    CHECK(int(imu.meta_event()) == 0);
+
+    constexpr uint8_t kInitialized = 16;
+    chip.report_meta_event(kInitialized, 0, 0);
+    now_ms += parts::Bhi260::kSamplePeriodMs;
+    imu.service(now_ms);
+
+    CHECK(int(imu.meta_event()) == kInitialized);
+    CHECK(int(imu.sensor_error()) == 0);
+
+    constexpr uint8_t kSensorError = 11;
+    chip.report_meta_event(kSensorError, 4, 0x23);
+    now_ms += parts::Bhi260::kSamplePeriodMs;
+    imu.service(now_ms);
+
+    CHECK(int(imu.meta_event()) == kSensorError);
+    CHECK(int(imu.errored_sensor()) == 4);
+    CHECK(int(imu.sensor_error()) == 0x23);
+    CHECK(imu.unparsed_events() == 0);
+}
+
 TEST_CASE("bhi260: a part that stops answering stops reporting") {
     models::Bhi260 chip;
     parts::Bhi260 imu{chip};

@@ -64,6 +64,9 @@ class Bhi260 {
     uint32_t unparsed_events() const { return unparsed_; }
     uint32_t fifo_bytes() const { return fifo_bytes_; }
     uint8_t hub_error() const { return error_; }
+    uint8_t meta_event() const { return meta_event_; }
+    uint8_t sensor_error() const { return sensor_error_; }
+    uint8_t errored_sensor() const { return errored_sensor_; }
 
    private:
     static constexpr uint8_t kRegCommand = 0x00;
@@ -86,6 +89,7 @@ class Bhi260 {
     static constexpr uint8_t kBootFirmwareVerifyError = 0x40;
 
     static constexpr uint16_t kFirmwareMagic = 0x662B;
+    static constexpr uint8_t kErrorHostChannelEmpty = 0x77;
     static constexpr uint8_t kSensorAccelerometer = 0x04;
     static constexpr uint8_t kAccelEventBytes = 7;
     static constexpr int32_t kCountsPerRange = 32768;
@@ -105,8 +109,10 @@ class Bhi260 {
     void step_running(uint32_t now_ms);
 
     bool configure_accelerometer();
+    void read_hub_error();
     void drain_fifo(uint32_t now_ms);
     uint16_t parse_fifo(const uint8_t* data, uint16_t len, uint32_t now_ms);
+    void note_meta_event(const uint8_t* event);
     static uint8_t event_bytes(uint8_t id);
     static int16_t to_milli_g(const uint8_t* le16);
 
@@ -122,6 +128,9 @@ class Bhi260 {
     uint32_t unparsed_{0};
     uint32_t fifo_bytes_{0};
     uint8_t error_{0};
+    uint8_t meta_event_{0};
+    uint8_t sensor_error_{0};
+    uint8_t errored_sensor_{0};
     uint16_t fifo_remaining_{0};
     uint16_t kernel_version_{0};
     Acceleration sample_{};

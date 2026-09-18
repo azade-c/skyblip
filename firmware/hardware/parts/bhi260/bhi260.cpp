@@ -7,6 +7,9 @@ namespace {
 constexpr uint8_t kSysIdPadding = 0x00;
 constexpr uint8_t kSysIdFirst = 245;
 constexpr uint8_t kSysEventBytes[] = {2, 3, 6, 4, 0, 18, 2, 3, 6, 4, 1};
+constexpr uint8_t kSysIdMetaEventWakeup = 248;
+constexpr uint8_t kSysIdMetaEvent = 254;
+constexpr uint8_t kMetaEventSensorError = 11;
 
 uint16_t le16(const uint8_t* bytes) { return static_cast<uint16_t>(bytes[0] | (bytes[1] << 8)); }
 
@@ -37,6 +40,9 @@ void Bhi260::load(ConstByteSpan image, uint32_t now_ms) {
     carried_ = 0;
     fresh_ = false;
     fault_ = Status::Ok;
+    meta_event_ = 0;
+    sensor_error_ = 0;
+    errored_sensor_ = 0;
 
     if (image.size() < kCommandHeaderBytes || le16(image.data()) != kFirmwareMagic) {
         fail(Status::Invalid);
@@ -209,8 +215,14 @@ bool Bhi260::configure_accelerometer() {
 void Bhi260::step_running(uint32_t now_ms) {
     if (now_ms - polled_ms_ < kSamplePeriodMs) return;
     polled_ms_ = now_ms;
-    read_registers(kRegErrorValue, &error_, 1);
+    read_hub_error();
     drain_fifo(now_ms);
+}
+
+void Bhi260::read_hub_error() {
+    uint8_t value = 0;
+    if (!read_registers(kRegErrorValue, &value, 1)) return;
+    error_ = value == kErrorHostChannelEmpty ? 0 : value;
 }
 
 void Bhi260::drain_fifo(uint32_t now_ms) {
@@ -263,10 +275,19 @@ uint16_t Bhi260::parse_fifo(const uint8_t* data, uint16_t len, uint32_t now_ms) 
             sample_.z_mg = to_milli_g(data + pos + 5);
             sample_.at_ms = now_ms;
             fresh_ = true;
+        } else if (id == kSysIdMetaEvent || id == kSysIdMetaEventWakeup) {
+            note_meta_event(data + pos + 1);
         }
         pos = static_cast<uint16_t>(pos + size);
     }
     return pos;
+}
+
+void Bhi260::note_meta_event(const uint8_t* event) {
+    meta_event_ = event[0];
+    if (event[0] != kMetaEventSensorError) return;
+    errored_sensor_ = event[1];
+    sensor_error_ = event[2];
 }
 
 uint8_t Bhi260::event_bytes(uint8_t id) {

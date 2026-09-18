@@ -536,6 +536,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.imu_fifo_bytes = context_.state.imu.fifo_bytes;
             snap.imu_unparsed = context_.state.imu.unparsed;
             snap.imu_error = context_.state.imu.error;
+            snap.imu_meta = context_.state.imu.meta;
+            snap.imu_sensor_error = context_.state.imu.sensor_error;
+            snap.imu_errored_sensor = context_.state.imu.errored_sensor;
             snap.slip_valid = context_.state.slip.valid;
             snap.slip_mg = context_.state.slip.lateral_mg;
             snap.baro_valid = context_.state.baro.active;
