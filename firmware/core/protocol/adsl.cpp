@@ -295,7 +295,7 @@ uint8_t AdslPacket::velocity_accuracy_code(uint8_t horizontal_code) {
 // 12 = Rc < 7.5 m, 11 = < 25 m, 10 = < 75 m, 9 = < 0.1 NM, down to 1.
 uint8_t AdslPacket::navigation_integrity_code(uint32_t containment_cm) {
     static constexpr uint32_t kLimitCm[] = {750,    2500,   7500,   18520,   37040,  111120,
-                                            185200, 370400, 740800, 1481600, 3703000};
+                                            185200, 370400, 740800, 1481600, 3704000};
     for (int i = 0; i < 11; i++)
         if (containment_cm < kLimitCm[i]) return static_cast<uint8_t>(12 - i);
     return 1;

@@ -412,7 +412,7 @@ TEST_CASE("adsl: navigation integrity code sits on the G.1.13 boundaries") {
     CHECK(int(AdslPacket::navigation_integrity_code(2500)) == 10);
     CHECK(int(AdslPacket::navigation_integrity_code(7499)) == 10);
     CHECK(int(AdslPacket::navigation_integrity_code(7500)) == 9);
-    CHECK(int(AdslPacket::navigation_integrity_code(3703000)) == 1);
+    CHECK(int(AdslPacket::navigation_integrity_code(3704000)) == 1);
 }
 
 // A degrading fix walks the codes down together, and a hopeless one claims
