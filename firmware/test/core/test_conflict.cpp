@@ -1,6 +1,5 @@
-// Two projected paths and the volume neither may enter: the one geometry the alarm grades and the glass draws.
+// Two projected paths and the volume neither may enter: one geometry, alarmed on and drawn.
 #include "core/traffic/conflict.h"
-
 #include "doctest/doctest.h"
 
 using namespace skyblip;

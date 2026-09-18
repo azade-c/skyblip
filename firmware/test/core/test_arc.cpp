@@ -1,6 +1,5 @@
-// Where an aircraft will be if it keeps doing what it is doing: the one path the radar draws and the alarm measures against.
+// Where an aircraft will be if it keeps doing what it is doing: one path, drawn and alarmed on.
 #include "core/flight/arc.h"
-
 #include "core/util/intmath.h"
 #include "doctest/doctest.h"
 

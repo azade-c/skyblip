@@ -365,7 +365,7 @@ TEST_CASE("alarm: the announced level rises with the contact and falls only when
     CHECK(tracker.announced_level(t + kAlertMaxAgeMs + 1) == Level::None);
 }
 
-// Two arcs on one circle never meet, so the silence is the geometry's and not a flying style the firmware knows.
+// Two arcs on one circle never meet, so the silence is the geometry's, not a flying style.
 TEST_CASE("alarm: two gliders circling the same thermal stop shouting at each other") {
     AlarmTracker tracker;
     const int16_t own_turn = 14;
@@ -416,8 +416,8 @@ TEST_CASE("alarm: a head-on inside the thermal still alarms") {
     CHECK(spoke);
 }
 
-// Two parallel paths never meet, so it takes no six seconds of range history to know a neighbour is not arriving.
-TEST_CASE("alarm: a neighbour holding station is quiet from the first fix, and turning in undoes it") {
+// Two parallel paths never meet: no six seconds of range history needed to know that.
+TEST_CASE("alarm: a neighbour holding station is quiet, and turning in undoes it") {
     AlarmTracker tracker;
     const model::OwnState own = flying(30, 0);
     AlarmTracker::Decision d{};
@@ -440,7 +440,7 @@ TEST_CASE("alarm: a neighbour holding station is quiet from the first fix, and t
     CHECK(d.notify);
 }
 
-// Decision 5.3 settled: cores 75 m apart, 34 deg out of phase, 15 m pass, and the arcs say so before it happens.
+// Decision 5.3 settled: cores 75 m apart, a 15 m pass, and the arcs say so before it happens.
 TEST_CASE("alarm: two gliders on offset circles converge to 15 m and are alarmed on") {
     AlarmTracker tracker;
     const double kPi = 3.14159265358979;

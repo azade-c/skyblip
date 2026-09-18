@@ -146,7 +146,7 @@ The annunciation policy on its own: given a level, whether it just got worse, an
 
 ### test/core/test_arc.cpp
 
-Where an aircraft will be if it keeps doing what it is doing: the one path the radar draws and the alarm measures against.
+Where an aircraft will be if it keeps doing what it is doing: one path, drawn and alarmed on.
 
 **arc**
 
@@ -207,7 +207,7 @@ The charger runs on its own, so knowing, saying and counting is all there is.
 
 ### test/core/test_conflict.cpp
 
-Two projected paths and the volume neither may enter: the one geometry the alarm grades and the glass draws.
+Two projected paths and the volume neither may enter: one geometry, alarmed on and drawn.
 
 **conflict**
 
@@ -825,8 +825,8 @@ The table is finite and the sky is not, so every entry that arrives asks which o
 - a contact is announced and forgotten across the 49.7-day wrap
 - a head-on inside the thermal still alarms
   > Suppressing a real head-on is worse than any nuisance alarm, so the thermal is not a quiet zone: an aircraft crossing it in a straight line is not circling with us, and nothing about our own bank suppresses it.
-- a neighbour holding station is quiet from the first fix, and turning in undoes it
-  > Two parallel paths never meet, so it takes no six seconds of range history to know a neighbour is not arriving.
+- a neighbour holding station is quiet, and turning in undoes it
+  > Two parallel paths never meet: no six seconds of range history needed to know that.
 - a target is announced once per level, and again when it gets worse
   > The annunciator is not the alarm level: a target already announced at a level must not re-drive it every pass of the service loop. SoftRF keeps one notification per address (oss/SoftRF-lyusupov .../src/TrafficHelper.cpp:236-260).
 - a target that has gone quiet stops driving the annunciator
@@ -844,9 +844,9 @@ The table is finite and the sky is not, so every entry that arrives asks which o
 - the announced level rises with the contact and falls only when it has
   > What the buzzer follows. notify says "say it now"; this says "and this is what still stands", which is the difference between a tone with a cadence and a tone nobody remembers to stop.
 - two gliders circling the same thermal stop shouting at each other
-  > Two arcs on one circle never meet, so the silence is the geometry's and not a flying style the firmware knows.
+  > Two arcs on one circle never meet, so the silence is the geometry's, not a flying style.
 - two gliders on offset circles converge to 15 m and are alarmed on
-  > Decision 5.3 settled: cores 75 m apart, 34 deg out of phase, 15 m pass, and the arcs say so before it happens.
+  > Decision 5.3 settled: cores 75 m apart, a 15 m pass, and the arcs say so before it happens.
 - urgency is what the geometry says, not what the range ring says
   > A target inside the urgent ring that is running away is not urgent, and the one crossing our nose 2 km out at 80 m/s of closure is.
 
