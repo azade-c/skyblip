@@ -8,9 +8,9 @@
 
 namespace skyblip::boards::t_echo_plus {
 
-// INFO: fc 18sep26 the BHI260AP's rotation in the case is unmeasured, a bench corrects it here
+// INFO: fc 18sep26 a bench read the ball a quarter turn out, the same turn the panel is mounted at
 inline events::AccelSample device_frame(const parts::Acceleration& chip, uint32_t now_ms) {
-    return events::AccelSample{chip.x_mg, chip.y_mg, chip.z_mg, now_ms};
+    return events::AccelSample{static_cast<int16_t>(-chip.y_mg), chip.x_mg, chip.z_mg, now_ms};
 }
 
 }  // namespace skyblip::boards::t_echo_plus

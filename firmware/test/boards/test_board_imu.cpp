@@ -64,9 +64,26 @@ TEST_CASE("board: a plain T-Echo has nothing at 0x28 and no inclinometer") {
     CHECK_FALSE(board.inventory().has_i2c_address(boards::t_echo_plus::kImuAddress));
 }
 
+// The chip is a quarter turn from the case: its +X is the case's up, its +Y the case's left.
+TEST_CASE("board: the chip's axes are turned into the case's before anything reads them") {
+    platform::host::Platform platform;
+    platform.chips().imu.set_acceleration(990, 150, 20);
+    bus::Bus bus;
+    Board board{platform, bus};
+    bus::State state;
+
+    run(platform, board, state, 0, 2000);
+
+    events::AccelSample sample{};
+    REQUIRE(last_sample(bus, sample));
+    CHECK(sample.right_mg == doctest::Approx(-150).epsilon(0.02));
+    CHECK(sample.up_mg == doctest::Approx(990).epsilon(0.02));
+    CHECK(sample.aft_mg == doctest::Approx(20).epsilon(0.1));
+}
+
 TEST_CASE("board: the hub is booted from the loop, and reports once it runs") {
     platform::host::Platform platform;
-    platform.chips().imu.set_acceleration(-150, 990, 20);
+    platform.chips().imu.set_acceleration(990, 150, 20);
     bus::Bus bus;
     Board board{platform, bus};
     bus::State state;
