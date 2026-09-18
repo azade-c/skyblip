@@ -75,12 +75,7 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
             if (prompt_ == comms::Pending::None) page_forward(now_ms);
             return;
         case Command::Home:
-            if (prompt_ != comms::Pending::None) return;
-            if (alarm_stands()) {
-                alarm_.dismiss();
-                return;
-            }
-            show_radar();
+            if (prompt_ == comms::Pending::None) go_home();
             return;
         case Command::Act: break;
         case Command::None: return;
@@ -143,10 +138,31 @@ void ScreenService::page_forward(uint32_t now_ms) {
         editor_.next_row(now_ms);
 }
 
-void ScreenService::show_radar() {
-    if (mode_ != Mode::Settings && page_ == Page::Radar) return;
+void ScreenService::next_page() { show_page(page_after(page_)); }
+
+Page ScreenService::page_after(Page page) const {
+    const int n = static_cast<int>(Page::kCount);
+    for (int i = 1; i <= n; i++) {
+        const int cand = (static_cast<int>(page) + i) % n;
+        if (settings_.page_mask & (1u << cand)) return static_cast<Page>(cand);
+    }
+    return page;
+}
+
+void ScreenService::go_home() {
+    if (alarm_stands()) {
+        alarm_.dismiss();
+        return;
+    }
+    show_radar();
+}
+
+void ScreenService::show_radar() { show_page(Page::Radar); }
+
+void ScreenService::show_page(Page page) {
     if (mode_ == Mode::Settings) leave_settings();
-    page_ = Page::Radar;
+    if (page_ == page) return;
+    page_ = page;
     change_screen();
 }
 
@@ -288,18 +304,6 @@ void ScreenService::note_presented(uint32_t now_ms) {
     context_.state.panel_presented = true;
     prompt_on_glass_ = prompt_ != comms::Pending::None;
     last_present_ms_ = now_ms;
-}
-
-void ScreenService::next_page() {
-    const int n = static_cast<int>(Page::kCount);
-    for (int i = 1; i <= n; i++) {
-        const int cand = (static_cast<int>(page_) + i) % n;
-        if (settings_.page_mask & (1u << cand)) {
-            page_ = static_cast<Page>(cand);
-            break;
-        }
-    }
-    change_screen();
 }
 
 void ScreenService::set_backlight(bool on) {

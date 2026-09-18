@@ -87,7 +87,10 @@ class ScreenService : public runtime::Service {
     void enter_settings(uint32_t now_ms);
     void leave_settings();
     void page_forward(uint32_t now_ms);
+    void go_home();
     void show_radar();
+    void show_page(Page page);
+    Page page_after(Page page) const;
     void handle_input(uint32_t now_ms);
     void obey(Command command, uint32_t now_ms);
     void sync_editor(uint32_t now_ms);

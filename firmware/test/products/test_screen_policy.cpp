@@ -207,6 +207,21 @@ TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe an
     CHECK(rig.screen.page() == go::Page::Radar);
 }
 
+// The wipe belongs to the page that changed, and with one page left in the mask none does.
+TEST_CASE("screen policy: a tap that has nowhere to go costs no wipe") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.settings.page_mask = 0x01;  // the radar alone
+    rig.run_seconds(t, 3);
+    const int settled = rig.chip.present_count;
+
+    rig.screen.next_page();
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() == go::Page::Radar);
+    CHECK_FALSE(rig.glass_all_black());
+    CHECK(rig.chip.present_count == settled);
+}
+
 // A page is asked for by name, and the radar asked for from the radar is a page already there.
 TEST_CASE("screen policy: the long touch on the radar leaves the glass standing") {
     Rig rig;
