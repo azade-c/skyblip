@@ -1,9 +1,8 @@
-// ADS-L 4 SRD-860 issue 2 Subparts B and C, clause by clause, against what this firmware puts on
-// air.
+// ADS-L 4 SRD-860 issue 2 Subpart C, the physical layer: the bands, the coding and the second's
+// slots.
 #include <cstdint>
 
 #include "core/fec/manchester.h"
-#include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
@@ -21,106 +20,12 @@ uint16_t chips_of(uint8_t byte) {
     return static_cast<uint16_t>((coded[0] << 8) | coded[1]);
 }
 
-protocol::AdslPacket traffic_packet() {
-    model::OwnState own{};
-    own.fix_valid = true;
-    own.utc_valid = true;
-    own.climb_valid = true;
-    own.lat_1e7 = 481234500;
-    own.lon_1e7 = 81234500;
-    own.alt_m = 1234;
-    own.speed_q = 180;
-    own.climb_e8 = -44;
-    own.track_c9 = 256;
-    own.hdop_e2 = 90;
-    own.vdop_e2 = 150;
-    own.flight_state = 2;
-    protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false);
-    return p;
-}
 }  // namespace
 
-// The clause's own Example 1: 1328922 (0x14471A) leaves as 0x1A, 0x47, 0x14.
-TEST_CASE("ADS-L.4.SRD860.B.3: an integer rides the air least significant byte first") {
-    uint8_t three[3] = {0, 0, 0};
-    protocol::AdslPacket::set3(three, 0x14471Au);
-    CHECK(three[0] == 0x1A);
-    CHECK(three[1] == 0x47);
-    CHECK(three[2] == 0x14);
-    CHECK(protocol::AdslPacket::get3(three) == 0x14471Au);
-
-    uint8_t four[4] = {0, 0, 0, 0};
-    protocol::AdslPacket::set4(four, 0x89ABCDEFu);
-    CHECK(four[0] == 0xEF);
-    CHECK(four[3] == 0x89);
-    CHECK(protocol::AdslPacket::get4(four) == 0x89ABCDEFu);
-}
-
-// Example 2's packing rule, read off the Meta block G.1 puts at payload offset 0.
-TEST_CASE("ADS-L.4.SRD860.B.3: a field starts at the bit its offset names, counting from bit 0") {
-    protocol::AdslPacket p{};
-    p.init();
-    p.TimeStamp = 0x2A;
-    p.FlightState = 2;
-    p.AcftCat = 0x15;
-    p.Emergency = 5;
-    const uint8_t* meta = &p.Address[4];
-    CHECK(meta[0] == static_cast<uint8_t>(0x2A | (2u << 6)));
-    CHECK(meta[1] == static_cast<uint8_t>(0x15 | (5u << 5)));
-}
-
-TEST_CASE("ADS-L.4.SRD860.B.3: a byte goes out most significant bit first") {
-    CHECK(chips_of(0x80) == 0x6AAA);
-    CHECK(chips_of(0x01) == 0xAAA9);
-    CHECK(chips_of(0x80) == protocol::manchester_chips(0x80));
-}
-
-// The preamble is the radio's, so what the firmware hands it runs from the sync word to the last
-// packet byte.
-TEST_CASE("ADS-L.4.SRD860.B.4: a transmission is the sync word and the packet, nothing behind it") {
-    protocol::AdslPacket p = traffic_packet();
-    p.scramble();
-    p.set_crc();
-
-    uint8_t chips[protocol::kTxChipBytes] = {0};
-    const size_t len =
-        protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes, chips);
-    CHECK(len == 2u * (protocol::kSyncWordBytes + protocol::kAdslFrameBytes));
-
-    uint8_t decoded[protocol::kSyncWordBytes + protocol::kAdslFrameBytes] = {0};
-    uint8_t err[sizeof(decoded)] = {0};
-    fec::manchester_decode(chips, sizeof(decoded), decoded, err);
-    for (uint8_t e : err) CHECK(e == 0);
-    CHECK(decoded[1] == 0x72);
-    CHECK(decoded[2] == 0x4B);
-    CHECK(decoded[3] == protocol::kAdslFrameBytes);
-    for (int i = 0; i < protocol::kAdslFrameBytes; i++)
-        CHECK(decoded[protocol::kSyncWordBytes + i] == p.Data[i]);
-}
-
-// Both reserved bits of a Traffic transmission are set: header offset 38, and the one closing the
-// payload.
-TEST_CASE("ADS-L.4.SRD860.B.6: a reserved bit a sender filled changes nothing a receiver reads") {
-    protocol::AdslPacket clean = traffic_packet();
-    protocol::AdslPacket noisy = clean;
-    noisy.Address[3] |= 0x40;
-    noisy.Reserved = 1;
-
-    model::AircraftObs from_clean{};
-    model::AircraftObs from_noisy{};
-    REQUIRE(protocol::to_obs(clean, events::Stamp{}, -80, model::Source::AdslDirect, from_clean));
-    REQUIRE(protocol::to_obs(noisy, events::Stamp{}, -80, model::Source::AdslDirect, from_noisy));
-
-    CHECK(from_noisy.addr == from_clean.addr);
-    CHECK(from_noisy.addr_table == from_clean.addr_table);
-    CHECK(from_noisy.lat_1e7 == from_clean.lat_1e7);
-    CHECK(from_noisy.lon_1e7 == from_clean.lon_1e7);
-    CHECK(from_noisy.alt_m == from_clean.alt_m);
-    CHECK(from_noisy.speed_q == from_clean.speed_q);
-    CHECK(from_noisy.climb_e8 == from_clean.climb_e8);
-    CHECK(from_noisy.track_c9 == from_clean.track_c9);
-    CHECK(from_noisy.aircraft_cat == from_clean.aircraft_cat);
+// INFO: fc 18sep26 prose, but its two bands are the tables below, and those are checked
+TEST_CASE("ADS-L.4.SRD860.C.1: ADS-L runs on an M band of two channels and an O band" *
+          doctest::skip()) {
+    FAIL("prose: an introduction to the bands, whose parameters are C.2, C.3 and C.4");
 }
 
 TEST_CASE("ADS-L.4.SRD860.C.2: the M band is modulated as the table prints it") {
@@ -151,8 +56,7 @@ TEST_CASE("ADS-L.4.SRD860.C.2.1: a one is sent as 01 and a zero as 10") {
     }
 }
 
-// The radio sends eight repetitions; the last four and both 1001s are the leading sync byte,
-// Manchester-coded.
+// The radio sends eight repetitions; the last four and both 1001s are the leading sync byte.
 TEST_CASE("ADS-L.4.SRD860.C.2.3: the preamble is at most twelve 01s and then two 1001s") {
     const uint8_t lead = static_cast<uint8_t>(protocol::kAdslSyncWord >> 24);
     CHECK(chips_of(lead) == 0x5599);
@@ -192,6 +96,16 @@ TEST_CASE("ADS-L.4.SRD860.C.2.5: consecutive Traffic transmissions change freque
 TEST_CASE("ADS-L.4.SRD860.C.3: the O-band LDR channel is 38.4 kbps behind sync word 0xB4 0x2B" *
           doctest::skip()) {
     FAIL("O-band LDR is not implemented: nothing tunes 869.525 MHz at 38.4 kbps");
+}
+
+// TODO: fc 18sep26 no O-band LDR, so neither its sync word nor its preamble is ever sent
+TEST_CASE("ADS-L.4.SRD860.C.3.1: the O-band LDR sync word is 0xB4 0x2B" * doctest::skip()) {
+    FAIL("O-band LDR is not implemented: no sync word is armed for that channel");
+}
+
+// TODO: fc 18sep26 no O-band LDR, so nothing emits its 40 repetitions either
+TEST_CASE("ADS-L.4.SRD860.C.3.2: the O-band LDR preamble is 10, forty times" * doctest::skip()) {
+    FAIL("O-band LDR is not implemented: no preamble is emitted on that channel");
 }
 
 TEST_CASE("ADS-L.4.SRD860.C.4: the O-band HDR channel is modulated as the table prints it") {
@@ -245,14 +159,6 @@ TEST_CASE("ADS-L.4.SRD860.C.5: own-ship transmits inside the Direct slot and now
             }
         }
     }
-}
-
-// The appendix's airborne transmitter: 12 to 14 dBm e.r.p. on the M band, and half a second of
-// latency.
-TEST_CASE("ADS-L.4.SRD860.APPENDIX: the transmitter sits inside the nominal power and latency") {
-    CHECK(parts::sx::kResultingErpCentiDb >= 1200);
-    CHECK(parts::sx::kResultingErpCentiDb <= 1400);
-    CHECK(timing::Transmitter::kFixLagMaxMs <= 500);
 }
 
 TEST_CASE("ADS-L.4.SRD860.C.5: the Uplink slot is listened to on the O band, inside its edges") {

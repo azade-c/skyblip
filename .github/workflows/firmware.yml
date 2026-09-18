@@ -60,6 +60,10 @@ jobs:
         run: make test
       - name: test-coverage structural gate
         run: python3 scripts/check_test_coverage.py
+      # firmware/test/adsl/ reads the published specification clause by clause, and a
+      # clause nobody read is the one a product is found non-conformant on.
+      - name: every ADS-L clause has a case
+        run: python3 scripts/check_adsl_clauses.py
       # All that stands between a partition edit and an install that erases the
       # factory bootloader. Stdlib only, so it runs here and not on the slow job.
       - name: mkuf2 range guards

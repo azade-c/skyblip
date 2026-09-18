@@ -30,6 +30,7 @@ OUTPUT = os.path.join(ROOT, "docs", "BEHAVIOR.md")
 SUBJECT_SEPARATOR = ": "
 
 LAYERS = {
+    "adsl": "ads-l - ADS-L 4 SRD-860 issue 2, read clause by clause",
     "core": "core - the logic the radio and the screen are built on",
     "ui": "ui - screens, widgets and input",
     "hardware": "hardware - one folder per part, driver against model",

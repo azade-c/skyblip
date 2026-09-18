@@ -1,0 +1,136 @@
+// ADS-L 4 SRD-860 issue 2 Subpart B, the overview: bit order, transmission sequence and versioning.
+#include <cstdint>
+
+#include "core/fec/manchester.h"
+#include "core/model/ownship.h"
+#include "core/protocol/adsl.h"
+#include "core/protocol/air.h"
+#include "doctest/doctest.h"
+
+using namespace skyblip;
+
+namespace {
+uint16_t chips_of(uint8_t byte) {
+    uint8_t coded[2] = {0, 0};
+    fec::manchester_encode(&byte, 1, coded);
+    return static_cast<uint16_t>((coded[0] << 8) | coded[1]);
+}
+
+protocol::AdslPacket traffic_packet() {
+    model::OwnState own{};
+    own.fix_valid = true;
+    own.utc_valid = true;
+    own.climb_valid = true;
+    own.lat_1e7 = 481234500;
+    own.lon_1e7 = 81234500;
+    own.alt_m = 1234;
+    own.speed_q = 180;
+    own.climb_e8 = -44;
+    own.track_c9 = 256;
+    own.hdop_e2 = 90;
+    own.vdop_e2 = 150;
+    own.flight_state = 2;
+    protocol::AdslPacket p{};
+    protocol::from_own(p, own, 0x123456, 6, 4, false);
+    return p;
+}
+}  // namespace
+
+// INFO: fc 18sep26 prose: a GNSS receiver, a host processor and an RF front end, so this board
+TEST_CASE("ADS-L.4.SRD860.B.1: an implementation is GNSS, a host processor and an RF front end" *
+          doctest::skip()) {
+    FAIL("prose: a block diagram, with nothing a device executes");
+}
+
+// INFO: fc 18sep26 prose: ISO/IEC 7498-1 layers 1 to 3 and 6 to 7, which are Subparts C to G
+TEST_CASE("ADS-L.4.SRD860.B.2: ADS-L is a stateless broadcast protocol over five OSI layers" *
+          doctest::skip()) {
+    FAIL("prose: an architecture table, with nothing a device executes");
+}
+
+// The clause's own Example 1: 1328922 (0x14471A) leaves as 0x1A, 0x47, 0x14.
+TEST_CASE("ADS-L.4.SRD860.B.3: an integer rides the air least significant byte first") {
+    uint8_t three[3] = {0, 0, 0};
+    protocol::AdslPacket::set3(three, 0x14471Au);
+    CHECK(three[0] == 0x1A);
+    CHECK(three[1] == 0x47);
+    CHECK(three[2] == 0x14);
+    CHECK(protocol::AdslPacket::get3(three) == 0x14471Au);
+
+    uint8_t four[4] = {0, 0, 0, 0};
+    protocol::AdslPacket::set4(four, 0x89ABCDEFu);
+    CHECK(four[0] == 0xEF);
+    CHECK(four[3] == 0x89);
+    CHECK(protocol::AdslPacket::get4(four) == 0x89ABCDEFu);
+}
+
+// Example 2's packing rule, read off the Meta block G.1 puts at payload offset 0.
+TEST_CASE("ADS-L.4.SRD860.B.3: a field starts at the bit its offset names, counting from bit 0") {
+    protocol::AdslPacket p{};
+    p.init();
+    p.TimeStamp = 0x2A;
+    p.FlightState = 2;
+    p.AcftCat = 0x15;
+    p.Emergency = 5;
+    const uint8_t* meta = &p.Address[4];
+    CHECK(meta[0] == static_cast<uint8_t>(0x2A | (2u << 6)));
+    CHECK(meta[1] == static_cast<uint8_t>(0x15 | (5u << 5)));
+}
+
+TEST_CASE("ADS-L.4.SRD860.B.3: a byte goes out most significant bit first") {
+    CHECK(chips_of(0x80) == 0x6AAA);
+    CHECK(chips_of(0x01) == 0xAAA9);
+    CHECK(chips_of(0x80) == protocol::manchester_chips(0x80));
+}
+
+// The preamble is the radio's: what the firmware hands it runs from the sync word to the last byte.
+TEST_CASE("ADS-L.4.SRD860.B.4: a transmission is the sync word and the packet, nothing behind it") {
+    protocol::AdslPacket p = traffic_packet();
+    p.scramble();
+    p.set_crc();
+
+    uint8_t chips[protocol::kTxChipBytes] = {0};
+    const size_t len =
+        protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes, chips);
+    CHECK(len == 2u * (protocol::kSyncWordBytes + protocol::kAdslFrameBytes));
+
+    uint8_t decoded[protocol::kSyncWordBytes + protocol::kAdslFrameBytes] = {0};
+    uint8_t err[sizeof(decoded)] = {0};
+    fec::manchester_decode(chips, sizeof(decoded), decoded, err);
+    for (uint8_t e : err) CHECK(e == 0);
+    CHECK(decoded[1] == 0x72);
+    CHECK(decoded[2] == 0x4B);
+    CHECK(decoded[3] == protocol::kAdslFrameBytes);
+    for (int i = 0; i < protocol::kAdslFrameBytes; i++)
+        CHECK(decoded[protocol::kSyncWordBytes + i] == p.Data[i]);
+}
+
+// TODO: fc 18sep26 soft versioning needs G.2's Max Protocol Version, neither sent nor tracked
+TEST_CASE("ADS-L.4.SRD860.B.5: the version transmitted is one every close neighbour can read" *
+          doctest::skip()) {
+    FAIL(
+        "no peer's Max Protocol Version is tracked, so nothing lowers the version for a neighbour");
+}
+
+// Both reserved bits set: the one at header offset 38, and the one closing the payload.
+TEST_CASE("ADS-L.4.SRD860.B.6: a reserved bit a sender filled changes nothing a receiver reads") {
+    protocol::AdslPacket clean = traffic_packet();
+    protocol::AdslPacket noisy = clean;
+    noisy.Address[3] |= 0x40;
+    noisy.Reserved = 1;
+
+    model::AircraftObs from_clean{};
+    model::AircraftObs from_noisy{};
+    REQUIRE(protocol::to_obs(clean, events::Stamp{}, -80, model::Source::AdslDirect, from_clean));
+    REQUIRE(protocol::to_obs(noisy, events::Stamp{}, -80, model::Source::AdslDirect, from_noisy));
+
+    CHECK(from_noisy.addr == from_clean.addr);
+    CHECK(from_noisy.addr_table == from_clean.addr_table);
+    CHECK(from_noisy.lat_1e7 == from_clean.lat_1e7);
+    CHECK(from_noisy.lon_1e7 == from_clean.lon_1e7);
+    CHECK(from_noisy.alt_m == from_clean.alt_m);
+    CHECK(from_noisy.speed_q == from_clean.speed_q);
+    CHECK(from_noisy.climb_e8 == from_clean.climb_e8);
+    CHECK(from_noisy.track_c9 == from_clean.track_c9);
+    CHECK(from_noisy.aircraft_cat == from_clean.aircraft_cat);
+}

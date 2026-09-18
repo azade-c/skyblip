@@ -54,12 +54,11 @@ TEST_CASE("ADS-L.4.SRD860.F.2: the header is a type byte, 30 bits of sender, res
     CHECK(((protocol::AdslPacket::get4(p.Address) >> 6) & 0x00FFFFFFu) == 0x123456u);
 }
 
-TEST_CASE(
-    "ADS-L.4.SRD860.F.2.1: a Traffic payload is type 2, and the top of the range is unicast") {
+TEST_CASE("ADS-L.4.SRD860.F.2.1: a Traffic payload is type 2, in the broadcast half of the range") {
     protocol::AdslPacket p = traffic_packet();
     CHECK(p.Type == 0x02);
     CHECK(p.is_position());
-    CHECK((p.Type & 0x80) == 0);
+    CHECK(p.Type < 0x80);
 }
 
 // Issue 2 puts Status, Remote ID and the uplinks on this band, and none of them is an aeroplane.
@@ -119,8 +118,15 @@ TEST_CASE("ADS-L.4.SRD860.F.2.4: privacy mode selects table 0, the random one") 
 // TODO: fc 18sep26 privacy reuses the device address, so the identity it hides is still constant
 TEST_CASE("ADS-L.4.SRD860.F.2.4: a privacy address is drawn at random once per start-up" *
           doctest::skip()) {
-    protocol::AdslPacket hidden = traffic_packet(0x3C0A11u, 5, /*stealth=*/true);
-    CHECK(hidden.address() != settings::safe_device_address(0x3C0A11u));
+    FAIL("privacy keeps the configured address: nothing is drawn at start-up, so it never changes");
+}
+
+// TODO: fc 18sep26 validate() takes any address under any table, ICAO included
+TEST_CASE("ADS-L.4.SRD860.F.2.3: a table the configured address does not belong to is refused" *
+          doctest::skip()) {
+    FAIL(
+        "settings accept table 5 with an address no registry issued, and the clause asks for that "
+        "inconsistency to be refused");
 }
 
 // Every ADS-L data block has to be scramblable, and XXTEA works on whole 32-bit words.

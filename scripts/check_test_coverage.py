@@ -22,7 +22,7 @@ REQUIRED_MODULES = [
     "simulator",
 ]
 
-TEST_DIRS = ("test", "test/core", "test/ui", "test/products", "test/products/pages",
+TEST_DIRS = ("test", "test/adsl", "test/core", "test/ui", "test/products", "test/products/pages",
              "test/hardware", "test/boards")
 
 PART_TEST_DIR = "test/hardware"

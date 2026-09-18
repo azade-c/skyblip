@@ -1,4 +1,4 @@
-// ADS-L 4 SRD-860 issue 2 Subparts D and E: how a packet is framed, scrambled and parity-checked.
+// ADS-L 4 SRD-860 issue 2 Subpart E, the network layer: header, scrambler, parity and signature.
 #include <cstdint>
 #include <cstring>
 
@@ -6,9 +6,7 @@
 #include "core/fec/scramble.h"
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
-#include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
-#include "core/timing/channel.h"
 #include "doctest/doctest.h"
 
 using namespace skyblip;
@@ -72,65 +70,6 @@ uint32_t spec_crc24(const uint8_t* data, size_t len) {
 }
 }  // namespace
 
-// The length byte rides in the sync word, which is why a burst of any other length never frames.
-TEST_CASE(
-    "ADS-L.4.SRD860.D.1.1: the Packet Length field counts the message behind it, not itself") {
-    protocol::AdslPacket p = traffic_packet();
-    const int network_header = 1;
-    const int adsl_data = 20;
-    const int parity = 3;
-    CHECK(int(p.Length) == network_header + adsl_data + parity);
-    CHECK(int(p.Length) == protocol::AdslPacket::kDataBytes);
-    CHECK(int(p.Length) == int(protocol::kAdslSyncWord & 0xFFu));
-    CHECK(protocol::kUplinkSync[2] == protocol::kUplinkFrameBytes);
-}
-
-// TODO: fc 18sep26 no O-band LDR radio here: the dwell map carries M-band and O-band HDR only
-TEST_CASE(
-    "ADS-L.4.SRD860.D.1.2: the O-band LDR packet is a 6-byte header, 24 bytes of data and a "
-    "CRC8" *
-    doctest::skip()) {
-    FAIL("O-band LDR is not implemented: no header, no CRC8, no 38.4 kbps dwell");
-}
-
-// The parity covers the scrambled form, so a receiver checks it before it can read a single field.
-TEST_CASE("ADS-L.4.SRD860.D.2: data, then scrambling, then parity over the network header too") {
-    protocol::AdslPacket p = traffic_packet();
-    const protocol::AdslPacket plain = p;
-    p.scramble();
-    p.set_crc();
-    CHECK(std::memcmp(p.Byte, plain.Byte, 20) != 0);
-    CHECK(p.check_crc() == 0);
-
-    protocol::AdslPacket flipped = p;
-    flipped.Version ^= 0x01;
-    CHECK(flipped.check_crc() != 0);
-
-    protocol::AdslPacket descrambled = p;
-    descrambled.descramble();
-    CHECK(descrambled.check_crc() != 0);
-    CHECK(std::memcmp(descrambled.Byte, plain.Byte, 20) == 0);
-}
-
-// TODO: fc 18sep26 no listen-before-talk: the hour's duty cycle is the only rule refusing a burst
-TEST_CASE("ADS-L.4.SRD860.D.3: a burst waits on a carrier sense before it goes out" *
-          doctest::skip()) {
-    FAIL("listen-before-talk is not implemented, EN 300 220's duty-cycle route is taken instead");
-}
-
-// The route taken instead of D.3's polite spectrum access, and the one thing that does refuse a
-// burst.
-TEST_CASE("ADS-L.4.SRD860.D.3: the band's hourly duty cycle is what a burst is refused by") {
-    timing::AirTime air;
-    CHECK(timing::AirTime::kLimitPermille == 10u);
-    const uint32_t budget_ms = timing::AirTime::kBudgetMs;
-    air.spend(0, budget_ms);
-    CHECK_FALSE(air.may_spend(0, 1));
-    CHECK(air.may_spend(timing::AirTime::kWindowMs + 1, 1));
-}
-
-// A receiver reads the four header fields out of one byte, and everything this device sends is zero
-// in all four.
 TEST_CASE("ADS-L.4.SRD860.E.1: the network header is one byte, and this one claims nothing") {
     protocol::AdslPacket p = traffic_packet();
     const uint8_t version = p.Version & 0x0F;
@@ -144,9 +83,8 @@ TEST_CASE("ADS-L.4.SRD860.E.1: the network header is one byte, and this one clai
     CHECK(p.Version == 0x00);
 }
 
-// Issue 2 is version 1, but its Traffic payload encodes exactly as Issue 1's iConspicuity did, and
-// the clause asks for the lowest.
-TEST_CASE("ADS-L.4.SRD860.E.1.1: the version transmitted is the lowest that encodes this payload") {
+// Issue 2 is version 1, but this payload encodes as Issue 1's did, and the clause wants the lowest.
+TEST_CASE("ADS-L.4.SRD860.E.1.1: version 0 goes out, and a version 1 payload reads the same way") {
     protocol::AdslPacket p = traffic_packet();
     CHECK((p.Version & 0x0F) == 0);
 
@@ -162,8 +100,7 @@ TEST_CASE("ADS-L.4.SRD860.E.1.1: the version transmitted is the lowest that enco
     CHECK(as_received.alt_m == as_sent.alt_m);
 }
 
-// Flag clear means no signature field, so the packet ends at its parity: 27 bytes of air, sync word
-// included.
+// No signature promised, so the packet ends at its parity: 27 bytes of air, sync word included.
 TEST_CASE("ADS-L.4.SRD860.E.1.2: no signature is promised, so nothing follows the parity") {
     protocol::AdslPacket p = traffic_packet();
     CHECK(((p.Version >> 4) & 0x01) == 0);
@@ -184,7 +121,8 @@ TEST_CASE("ADS-L.4.SRD860.E.1.3: key 0 is the scrambling key, and it is the key 
     for (int i = 0; i < 5; i++) CHECK(words[i] == mirror[i]);
 }
 
-// The clause's code over the block F.1 makes of a Traffic packet: 5 words, 6 rounds, zero key.
+// E.2's table prints num_data_words 6, F.1 makes a Traffic packet 5 words, and 5 is what is
+// scrambled.
 TEST_CASE("ADS-L.4.SRD860.E.2: the scrambler is XXTEA over the ADS-L data, six rounds") {
     protocol::AdslPacket p = traffic_packet();
     uint32_t mirror[5];
@@ -201,8 +139,14 @@ TEST_CASE("ADS-L.4.SRD860.E.2: the scrambler is XXTEA over the ADS-L data, six r
     CHECK(std::memcmp(p.Byte, again.Byte, 20) == 0);
 }
 
-// The Mode-S polynomial, over the network header and the scrambled data, transmitted most
-// significant byte first.
+// INFO: fc 18sep26 prose: the layer's remit, and the note that issue 1 defined only the CRC variant
+TEST_CASE("ADS-L.4.SRD860.E.3: error control is a CRC or an FEC, named by the header bit" *
+          doctest::skip()) {
+    FAIL("prose: the choice between E.3.1 and E.3.2, which the header's error control bit names");
+}
+
+// Four header fields in one byte, and this device sends a zero in every one of them.
+// The Mode-S polynomial over the header and the scrambled data, most significant byte first.
 TEST_CASE("ADS-L.4.SRD860.E.3.1: the parity is the 24-bit CRC the clause prints") {
     protocol::AdslPacket p = traffic_packet();
     p.scramble();
@@ -223,13 +167,12 @@ TEST_CASE("ADS-L.4.SRD860.E.3.2: the forward error correction is Reed-Solomon ov
     CHECK(fec::ReedSolomon255::kMaxErrors == 16);
 }
 
-// TODO: fc 18sep26 the generator roots are alpha^0.., the clause wants primitive element 11 from
-// root 121
+// TODO: fc 18sep26 the roots here are alpha^0 up, the clause wants element 11 from root 121
 TEST_CASE("ADS-L.4.SRD860.E.3.2: the code is generated from the roots the clause names" *
           doctest::skip()) {
     FAIL(
-        "the Reed-Solomon parity here is not the clause's: a ground station's frame would not "
-        "decode");
+        "neither the roots nor the zero-prefixed 223-byte block are the clause's, so a ground "
+        "station's frame would not decode");
 }
 
 // Optional, and not taken: no key is held, so no packet is signed and none claims to be.
@@ -244,4 +187,16 @@ TEST_CASE("ADS-L.4.SRD860.E.4: nothing is signed, and nothing says it is") {
     const size_t len =
         protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes, chips);
     CHECK(len == 2u * (protocol::kSyncWordBytes + protocol::kAdslFrameBytes));
+}
+
+// TODO: fc 18sep26 no signature, so no UNIX timestamp is appended to one either
+TEST_CASE("ADS-L.4.SRD860.E.4.1: a signature carries the UTC second it was made in" *
+          doctest::skip()) {
+    FAIL("no secure signature is produced, so there is no timestamp field to fill");
+}
+
+// TODO: fc 18sep26 no Ed25519 key is held, generated or stored on this device
+TEST_CASE("ADS-L.4.SRD860.E.4.2: the signature is Ed25519 over the header, the data and the time" *
+          doctest::skip()) {
+    FAIL("no Ed25519 key is held, so nothing signs a packet");
 }
