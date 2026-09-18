@@ -197,6 +197,27 @@ description: A skyBlip Go running in your browser, on the firmware a real one ru
 </section>
 
 <section>
+  <h2 class="kicker">In your navigation app</h2>
+  <h3>It appears by name, and more than one screen can read it.</h3>
+  <p>
+    The device advertises itself as <span class="mono">skyBlip Go - 5B5AFE</span>:
+    the product, then its own 24-bit address, the same one the status page shows.
+    Nothing to pair and no code to type. It carries the FLARM NMEA stream on both
+    of the Bluetooth serial profiles navigation software looks for, so an app
+    built for a Nordic UART device and an app built for a FLARM-style
+    <span class="mono">FFE0</span> find the same sentences.
+  </p>
+  <p>
+    Up to three devices can be connected at once, and they all read the same
+    traffic: the tablet on the yoke, the phone in a pocket, the passenger&rsquo;s
+    iPad. Configuration is the one thing that is not shared. The first app to ask
+    for it keeps it until it disconnects, and a second one is told who has it
+    rather than left guessing, because two apps writing settings to one device is
+    two apps disagreeing about what is stored.
+  </p>
+</section>
+
+<section>
   <h2 class="kicker">Answering the device</h2>
   <h3>Two presses allow, one press refuses.</h3>
   <p>
