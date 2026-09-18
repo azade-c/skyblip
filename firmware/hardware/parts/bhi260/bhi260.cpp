@@ -46,8 +46,8 @@ Status Bhi260::probe() {
 void Bhi260::load(ConstByteSpan image, uint32_t now_ms) {
     image_ = image;
     uploaded_ = 0;
-    fifo_remaining_ = 0;
-    carried_ = 0;
+    wakeup_ = Fifo{kRegFifoWakeup};
+    non_wakeup_ = Fifo{kRegFifoNonWakeup};
     fresh_ = false;
     fault_ = Status::Ok;
     meta_event_ = 0;
@@ -198,7 +198,7 @@ void Bhi260::step_initialise(uint32_t now_ms) {
     if (now_ms - polled_ms_ < kStatusPollMs) return;
     polled_ms_ = now_ms;
 
-    drain_fifo(now_ms);
+    drain_fifos(now_ms);
     if (stage_ != Stage::Initialising) return;
     if (meta_event_ == kMetaEventInitialised || now_ms - since_ms_ >= kInitialisedTimeoutMs) {
         stage_ = Stage::Configuring;
@@ -334,7 +334,7 @@ void Bhi260::step_running(uint32_t now_ms) {
     if (now_ms - polled_ms_ < kSamplePeriodMs) return;
     polled_ms_ = now_ms;
     read_hub_error();
-    drain_fifo(now_ms);
+    drain_fifos(now_ms);
 }
 
 void Bhi260::read_hub_error() {
@@ -344,47 +344,54 @@ void Bhi260::read_hub_error() {
     read_registers(kRegInterruptStatus, &interrupt_, 1);
 }
 
-void Bhi260::drain_fifo(uint32_t now_ms) {
-    if (fifo_remaining_ == 0) {
+void Bhi260::drain_fifos(uint32_t now_ms) {
+    drain_fifo(non_wakeup_, now_ms);
+    if (stage_ == Stage::Failed) return;
+    drain_fifo(wakeup_, now_ms);
+}
+
+void Bhi260::drain_fifo(Fifo& fifo, uint32_t now_ms) {
+    if (fifo.remaining == 0) {
         uint8_t available[2] = {0, 0};
-        if (!read_registers(kRegFifoNonWakeup, available, sizeof(available))) {
+        if (!read_registers(fifo.reg, available, sizeof(available))) {
             fail(Status::Down);
             return;
         }
-        fifo_remaining_ = le16(available);
-        resync_ = false;
-        carried_ = 0;
-        if (fifo_remaining_ == 0) return;
+        fifo.remaining = le16(available);
+        fifo.resync = false;
+        fifo.carried = 0;
+        if (fifo.remaining == 0) return;
     }
 
-    const uint16_t room = static_cast<uint16_t>(kFifoReadBytes - carried_);
-    const uint16_t want = fifo_remaining_ < room ? fifo_remaining_ : room;
+    const uint16_t room = static_cast<uint16_t>(kFifoReadBytes - fifo.carried);
+    const uint16_t want = fifo.remaining < room ? fifo.remaining : room;
     if (want == 0) {
-        carried_ = 0;
+        fifo.carried = 0;
         return;
     }
-    if (!read_registers(kRegFifoNonWakeup, fifo_ + carried_, want)) {
+    if (!read_registers(fifo.reg, fifo.bytes + fifo.carried, want)) {
         fail(Status::Down);
         return;
     }
-    fifo_remaining_ = static_cast<uint16_t>(fifo_remaining_ - want);
+    fifo.remaining = static_cast<uint16_t>(fifo.remaining - want);
     fifo_bytes_ += want;
-    if (resync_) return;
+    if (fifo.resync) return;
 
-    const uint16_t len = static_cast<uint16_t>(carried_ + want);
-    const uint16_t used = parse_fifo(fifo_, len, now_ms);
-    carried_ = static_cast<uint16_t>(len - used);
-    for (uint16_t i = 0; i < carried_; i++) fifo_[i] = fifo_[used + i];
+    const uint16_t len = static_cast<uint16_t>(fifo.carried + want);
+    const uint16_t used = parse_fifo(fifo, len, now_ms);
+    fifo.carried = static_cast<uint16_t>(len - used);
+    for (uint16_t i = 0; i < fifo.carried; i++) fifo.bytes[i] = fifo.bytes[used + i];
 }
 
-uint16_t Bhi260::parse_fifo(const uint8_t* data, uint16_t len, uint32_t now_ms) {
+uint16_t Bhi260::parse_fifo(Fifo& fifo, uint16_t len, uint32_t now_ms) {
+    const uint8_t* data = fifo.bytes;
     uint16_t pos = 0;
     while (pos < len) {
         const uint8_t id = data[pos];
         const uint8_t size = event_bytes(id);
         if (size == 0) {
             unparsed_++;
-            resync_ = true;
+            fifo.resync = true;
             return len;
         }
         if (pos + size > len) break;

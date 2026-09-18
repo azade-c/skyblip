@@ -271,6 +271,21 @@ TEST_CASE("bhi260: the hub's meta events are read, and a sensor error names its 
     CHECK(imu.unparsed_events() == 0);
 }
 
+// A wakeup FIFO nobody reads holds the hub's copy of every meta event for ever.
+TEST_CASE("bhi260: both FIFOs are drained, so nothing is left holding the hub's interrupt") {
+    models::Bhi260 chip;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+    uint32_t now_ms = bring_up(imu);
+    REQUIRE(imu.stage() == Stage::Running);
+
+    now_ms += parts::Bhi260::kSamplePeriodMs;
+    imu.service(now_ms);
+
+    constexpr uint8_t kWakeupFifoField = 0x06;
+    CHECK((imu.interrupt_status() & kWakeupFifoField) == 0);
+}
+
 TEST_CASE("bhi260: a part that stops answering stops reporting") {
     models::Bhi260 chip;
     parts::Bhi260 imu{chip};

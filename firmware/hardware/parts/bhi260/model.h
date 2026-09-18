@@ -15,6 +15,12 @@ class Bhi260 : public io::I2c {
     static constexpr uint16_t kKernelVersion = 0x1234;
     static constexpr int kMaxStream = 64;
 
+    struct Stream {
+        uint8_t bytes[kMaxStream]{};
+        size_t len{0};
+        size_t pos{0};
+    };
+
     bool write(uint8_t addr, const uint8_t* data, size_t len) override {
         if (addr != address || !answers) return false;
         if (len == 0) return true;
@@ -29,7 +35,8 @@ class Bhi260 : public io::I2c {
 
     bool read(uint8_t addr, uint8_t* data, size_t len) override {
         if (addr != address || !answers) return false;
-        if (pointer == kRegFifoNonWakeup) return read_fifo(data, len);
+        if (pointer == kRegFifoWakeup) return read_fifo(wakeup_, data, len);
+        if (pointer == kRegFifoNonWakeup) return read_fifo(non_wakeup_, data, len);
         if (pointer == kRegStatusChannel) return read_status(data, len);
         for (size_t i = 0; i < len; i++)
             data[i] = register_value(static_cast<uint8_t>(pointer + i));
@@ -47,6 +54,7 @@ class Bhi260 : public io::I2c {
         meta_first_ = first;
         meta_second_ = second;
         meta_pending_ = true;
+        meta_pending_wakeup_ = true;
     }
 
     bool running() const { return booted && sample_rate_hz > 0; }
@@ -74,6 +82,7 @@ class Bhi260 : public io::I2c {
 
    private:
     static constexpr uint8_t kRegCommand = 0x00;
+    static constexpr uint8_t kRegFifoWakeup = 0x01;
     static constexpr uint8_t kRegFifoNonWakeup = 0x02;
     static constexpr uint8_t kRegStatusChannel = 0x03;
     static constexpr uint8_t kRegResetRequest = 0x14;
@@ -99,7 +108,9 @@ class Bhi260 : public io::I2c {
     static constexpr uint8_t kSensorAccelerometer = 0x04;
     static constexpr uint8_t kSysIdTimestampSmallDelta = 251;
     static constexpr uint8_t kSysIdMetaEvent = 254;
+    static constexpr uint8_t kSysIdMetaEventWakeup = 248;
     static constexpr uint8_t kMetaEventInitialised = 16;
+    static constexpr uint8_t kInterruptFifoWakeup = 0x02;
     static constexpr int kCountsPerRange = 32768;
 
     void reset() {
@@ -115,8 +126,8 @@ class Bhi260 : public io::I2c {
         announced_ = false;
         status_len_ = 0;
         status_pos_ = 0;
-        stream_len_ = 0;
-        stream_pos_ = 0;
+        wakeup_ = Stream{};
+        non_wakeup_ = Stream{};
     }
 
     bool accept_command(const uint8_t* data, size_t len) {
@@ -209,9 +220,12 @@ class Bhi260 : public io::I2c {
     uint8_t interrupt_status() const {
         uint8_t status = 0;
         if (status_pos_ < status_len_) status |= kInterruptStatusChannel;
-        if (running() || meta_pending_) status |= kInterruptFifoNonWakeup;
+        if (running() || meta_pending_ || holding(non_wakeup_)) status |= kInterruptFifoNonWakeup;
+        if (meta_pending_wakeup_ || holding(wakeup_)) status |= kInterruptFifoWakeup;
         return status;
     }
+
+    static bool holding(const Stream& stream) { return stream.pos < stream.len; }
 
     void answer_parameter(uint16_t param) {
         uint8_t payload[kSensorsPresentBytes] = {};
@@ -247,27 +261,29 @@ class Bhi260 : public io::I2c {
         return true;
     }
 
-    bool read_fifo(uint8_t* data, size_t len) {
-        if (stream_pos_ >= stream_len_) fill_stream();
+    bool read_fifo(Stream& stream, uint8_t* data, size_t len) {
+        if (stream.pos >= stream.len) fill_stream(stream);
         for (size_t i = 0; i < len; i++)
-            data[i] = stream_pos_ < stream_len_ ? stream_[stream_pos_++] : 0;
+            data[i] = stream.pos < stream.len ? stream.bytes[stream.pos++] : 0;
         return true;
     }
 
-    void fill_stream() {
-        stream_len_ = 0;
-        stream_pos_ = 0;
+    void fill_stream(Stream& stream) {
+        const bool wakeup = &stream == &wakeup_;
+        stream.len = 0;
+        stream.pos = 0;
         uint8_t events[16];
         int n = 0;
-        if (meta_pending_) {
-            events[n++] = kSysIdMetaEvent;
+        bool& pending = wakeup ? meta_pending_wakeup_ : meta_pending_;
+        if (pending) {
+            events[n++] = wakeup ? kSysIdMetaEventWakeup : kSysIdMetaEvent;
             events[n++] = meta_event_;
             events[n++] = meta_first_;
             events[n++] = meta_second_;
-            meta_pending_ = false;
-            if (meta_event_ == kMetaEventInitialised) announced_ = true;
+            pending = false;
+            if (meta_event_ == kMetaEventInitialised && !wakeup) announced_ = true;
         }
-        if (running()) {
+        if (running() && !wakeup) {
             events[n++] = kSysIdTimestampSmallDelta;
             events[n++] = 1;
             events[n++] = kSensorAccelerometer;
@@ -275,9 +291,9 @@ class Bhi260 : public io::I2c {
             n += put_counts(events + n, y_mg);
             n += put_counts(events + n, z_mg);
         }
-        stream_[stream_len_++] = static_cast<uint8_t>(n & 0xFF);
-        stream_[stream_len_++] = static_cast<uint8_t>(n >> 8);
-        for (int i = 0; i < n; i++) stream_[stream_len_++] = events[i];
+        stream.bytes[stream.len++] = static_cast<uint8_t>(n & 0xFF);
+        stream.bytes[stream.len++] = static_cast<uint8_t>(n >> 8);
+        for (int i = 0; i < n; i++) stream.bytes[stream.len++] = events[i];
     }
 
     int put_counts(uint8_t* out, int16_t milli_g) const {
@@ -300,10 +316,10 @@ class Bhi260 : public io::I2c {
     uint8_t meta_first_{0};
     uint8_t meta_second_{0};
     bool meta_pending_{false};
+    bool meta_pending_wakeup_{false};
     bool announced_{false};
-    uint8_t stream_[kMaxStream]{};
-    size_t stream_len_{0};
-    size_t stream_pos_{0};
+    Stream wakeup_{};
+    Stream non_wakeup_{};
     uint8_t status_[4 + kSensorsPresentBytes]{};
     size_t status_len_{0};
     size_t status_pos_{0};

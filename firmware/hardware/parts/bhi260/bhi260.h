@@ -79,7 +79,16 @@ class Bhi260 {
         AwaitConfiguration,
     };
 
+    struct Fifo {
+        uint8_t reg{0};
+        uint16_t remaining{0};
+        uint16_t carried{0};
+        bool resync{false};
+        uint8_t bytes[kFifoReadBytes]{};
+    };
+
     static constexpr uint8_t kRegCommand = 0x00;
+    static constexpr uint8_t kRegFifoWakeup = 0x01;
     static constexpr uint8_t kRegFifoNonWakeup = 0x02;
     static constexpr uint8_t kRegStatusChannel = 0x03;
     static constexpr uint8_t kRegChipControl = 0x05;
@@ -138,8 +147,9 @@ class Bhi260 {
 
     bool configure_accelerometer();
     void read_hub_error();
-    void drain_fifo(uint32_t now_ms);
-    uint16_t parse_fifo(const uint8_t* data, uint16_t len, uint32_t now_ms);
+    void drain_fifos(uint32_t now_ms);
+    void drain_fifo(Fifo& fifo, uint32_t now_ms);
+    uint16_t parse_fifo(Fifo& fifo, uint16_t len, uint32_t now_ms);
     void note_meta_event(const uint8_t* event);
     static uint8_t event_bytes(uint8_t id);
     static int16_t to_milli_g(const uint8_t* le16);
@@ -161,14 +171,12 @@ class Bhi260 {
     uint8_t meta_event_{0};
     uint8_t sensor_error_{0};
     uint8_t errored_sensor_{0};
-    uint16_t fifo_remaining_{0};
     uint16_t kernel_version_{0};
     Acceleration sample_{};
     bool fresh_{false};
-    bool resync_{false};
     uint8_t frame_[1 + kCommandHeaderBytes + kUploadChunkBytes]{};
-    uint8_t fifo_[kFifoReadBytes]{};
-    uint16_t carried_{0};
+    Fifo wakeup_{kRegFifoWakeup};
+    Fifo non_wakeup_{kRegFifoNonWakeup};
 };
 
 }  // namespace skyblip::parts
