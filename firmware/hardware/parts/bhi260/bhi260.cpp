@@ -202,6 +202,10 @@ void Bhi260::drain_fifo(uint32_t now_ms) {
 
     const uint16_t room = static_cast<uint16_t>(kFifoReadBytes - carried_);
     const uint16_t want = fifo_remaining_ < room ? fifo_remaining_ : room;
+    if (want == 0) {
+        carried_ = 0;
+        return;
+    }
     if (!read_registers(kRegFifoNonWakeup, fifo_ + carried_, want)) {
         fail(Status::Down);
         return;
