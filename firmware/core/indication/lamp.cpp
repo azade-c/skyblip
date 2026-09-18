@@ -18,8 +18,6 @@ const char* to_string(Condition condition) {
     switch (condition) {
         case Condition::Off: return "off";
         case Condition::Alarm: return "alarm";
-        case Condition::Charging: return "charging";
-        case Condition::Charged: return "charged";
         case Condition::Low: return "low";
         case Condition::NoFix: return "no-fix";
         case Condition::Alive: return "alive";
@@ -42,8 +40,6 @@ Condition condition_for(const Situation& situation) {
     // consulted, which is what makes the order the whole of the rule.
     if (!situation.running) return Condition::Off;
     if (situation.alarm_level >= kAlarmTakesLamp) return Condition::Alarm;
-    if (situation.external_power)
-        return situation.charge_complete ? Condition::Charged : Condition::Charging;
     if (situation.power_level == power::PowerLevel::Low ||
         situation.power_level == power::PowerLevel::Cutoff)
         return Condition::Low;
@@ -77,12 +73,6 @@ void Policy::advance(uint32_t now_ms) {
         lit_ = false;
         return;
     }
-    // Held: no cadence to advance, and no arithmetic that could ever turn it off.
-    if (indication.off_ms == 0) {
-        lit_ = true;
-        return;
-    }
-
     // Unsigned subtraction throughout, so the 49.7-day wrap of the millisecond
     // counter costs at most one restarted flash rather than a lamp stuck in the
     // phase it was in when the counter turned over.

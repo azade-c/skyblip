@@ -100,14 +100,9 @@ void AlarmService::park(uint32_t now_ms) {
 // is derived a second time here, which is what keeps the lamp saying LOW at
 // exactly the voltage the panel and the tablet do.
 void AlarmService::drive_lamp(uint32_t now_ms, bool running) {
-    const power::BatteryState& battery = context_.state.power.battery;
     indication::Situation situation{};
     situation.running = running;
     situation.alarm_level = context_.state.alarm_live;
-    situation.external_power = battery.external_power;
-    // core/power/battery.h: charging is external power AND a cell still below the
-    // float voltage, so the cable in with charging false is a charge that finished.
-    situation.charge_complete = battery.external_power && !battery.charging;
     situation.power_level = context_.state.power.level;
     situation.fix_valid = context_.state.own.fix_valid;
 

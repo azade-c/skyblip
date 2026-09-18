@@ -1,13 +1,9 @@
-// The state-to-indicator table on its own: given the cell, the cable, the fix and
+// The state-to-indicator table on its own: given the cell, the fix and
 // the alarm, what should the one lamp on this device be doing right now.
 //
-// Why this suite exists at all. E-paper holds its last image with the rails down,
-// so an off device and a running device look identical, and until this landed the
-// T-Echo's three LEDs appeared nowhere in the tree. Two things follow, and both
-// are asserted below rather than described: the priority order is not a matter of
-// opinion (an alarm during charging shows the alarm), and the cost of lighting an
-// LED on an 850 mAh pack is a number, not a reassurance - every row declares whose
-// budget it spends and no row is allowed to exceed it.
+// Why it exists: e-paper holds its last image down, so an off device looks like a running one.
+//
+// Every row declares whose budget it spends, and a static_assert refuses a row that exceeds it.
 //
 // The first case prints the whole table. That is deliberate: this is the one
 // place support can read what a colour means, and `make test` output is where it
@@ -34,8 +30,6 @@ Situation everything_at_once() {
     Situation s{};
     s.running = true;
     s.alarm_level = Level::Urgent;
-    s.external_power = true;
-    s.charge_complete = false;
     s.power_level = power::PowerLevel::Cutoff;
     s.fix_valid = false;
     return s;
@@ -94,20 +88,15 @@ TEST_CASE("indication: no row spends more of the pack than the budget it declare
         const Row& row = kTable[i];
         const uint16_t duty = indication::duty_permille(row.indication);
         CHECK(duty <= duty_ceiling_permille(row.budget));
-        // Corded is the only licence to hold a lamp solid, and it is licence
-        // because a cable is paying: nothing on the pack may be held.
-        if (row.budget != Budget::Corded && row.budget != Budget::Dark)
-            CHECK(row.indication.off_ms > 0);
+        // Every lit row is on the pack's bill, and nothing on the pack is held solid.
+        if (row.budget != Budget::Dark) CHECK(row.indication.off_ms > 0);
         // A flash the eye would miss is a lamp that costs and says nothing.
         if (row.indication.lamp != indication::Lamp::None)
             CHECK(row.indication.on_ms >= kShortestFlashEyeCanCatchMs);
     }
 }
 
-TEST_CASE("indication: an alarm during charging shows the alarm") {
-    // The question item F refuses to leave open. A device on a cable in a cockpit
-    // is a powered install, not a unit in a flight bag, and it still owes a pilot
-    // the warning.
+TEST_CASE("indication: traffic outranks everything the device has to say about itself") {
     Situation s = everything_at_once();
     CHECK(condition_for(s) == Condition::Alarm);
     CHECK(indication_for(Condition::Alarm).lamp == indication::Lamp::Red);
@@ -130,15 +119,6 @@ TEST_CASE("indication: the priority order is the table, top row first") {
 
     CHECK(condition_for(s) == Condition::Alarm);
     s.alarm_level = Level::None;
-
-    // Charging outranks a low cell, because a low cell with the cable in is
-    // exactly what the first minute of a charge looks like, and "it is charging"
-    // is the more useful of the two answers.
-    CHECK(condition_for(s) == Condition::Charging);
-    s.charge_complete = true;
-    CHECK(condition_for(s) == Condition::Charged);
-    s.external_power = false;
-    s.charge_complete = false;
 
     CHECK(condition_for(s) == Condition::Low);
     s.power_level = power::PowerLevel::Normal;
@@ -209,36 +189,25 @@ TEST_CASE("indication: a low cell keeps SoftRF's blink rate at a tenth of its du
     CHECK(lamp.duty_permille() <= kTransientDutyCeilingPermille);
 }
 
-TEST_CASE("indication: the two charge rows are the only held ones, and a cable pays for them") {
-    for (int i = 0; i < kRowCount; i++) {
-        const bool held =
-            kTable[i].indication.off_ms == 0 && kTable[i].indication.lamp != indication::Lamp::None;
-        const bool corded = kTable[i].budget == Budget::Corded;
-        CHECK(held == corded);
-    }
+TEST_CASE("indication: no row is held, so every lit row is paid for in winks") {
+    for (int i = 0; i < kRowCount; i++)
+        if (kTable[i].indication.lamp != indication::Lamp::None)
+            CHECK(kTable[i].indication.off_ms > 0);
 
     Situation s{};
-    s.external_power = true;
+    s.alarm_level = Level::Urgent;
     LampRig lamp;
     lamp.run(s, 0, 5000);
-    CHECK(lamp.policy.condition() == Condition::Charging);
-    CHECK(lamp.shown == indication::Lamp::Red);
-    // Held means told once: an LED re-driven every pass is a register write a
-    // hundred times a second for no light.
-    CHECK(lamp.shows == 1);
-
-    s.charge_complete = true;
-    lamp.run(s, 5000, 10000);
-    CHECK(lamp.policy.condition() == Condition::Charged);
-    CHECK(lamp.shown == indication::Lamp::Green);
-    CHECK(lamp.shows == 2);
+    CHECK(lamp.policy.condition() == Condition::Alarm);
+    // The one condition a pilot must not miss, and it still spends a quarter of the time lit.
+    CHECK(lamp.duty_permille() <= kTransientDutyCeilingPermille);
 }
 
 TEST_CASE("indication: the lamp goes dark the moment the device starts going down") {
     Situation s{};
-    s.external_power = true;
+    s.alarm_level = Level::Urgent;
     LampRig lamp;
-    lamp.run(s, 0, 1000);
+    lamp.step(s, 0);
     REQUIRE(lamp.shown == indication::Lamp::Red);
 
     s.running = false;
@@ -247,7 +216,7 @@ TEST_CASE("indication: the lamp goes dark the moment the device starts going dow
     CHECK(lamp.policy.condition() == Condition::Off);
     // And it stays dark: nothing about the cell or the sky brings it back while
     // the device is on its way down.
-    s.alarm_level = Level::Urgent;
+    s.power_level = power::PowerLevel::Low;
     lamp.run(s, 1010, 5000);
     CHECK(lamp.shown == indication::Lamp::None);
 }

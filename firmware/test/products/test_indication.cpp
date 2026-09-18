@@ -1,7 +1,4 @@
-// The status lamp through the whole product: the cell as the divider reads it, the
-// cable, the fix as the receiver reports it, and virtual aircraft transmitting real
-// ADS-L frames for the one row that outranks a charger. Nothing below the services
-// is stubbed.
+// The status lamp through the whole product: the cell, the fix, real ADS-L frames, nothing stubbed.
 //
 // The finding this suite exists for: e-paper holds its last image with the rails
 // down, so until this landed there was no way at all to tell a running device from
@@ -116,7 +113,8 @@ TEST_CASE("product: a divider that reads nothing does not blink like a flat cell
     CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
 }
 
-TEST_CASE("product: a cable in shows charging, and green when the charge has finished") {
+TEST_CASE("product: a cable in leaves the lamp saying what the charger cannot") {
+    // The charger IC drives its own LED, so a charge takes no row and the fix keeps the lamp.
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     rig.push_fix(/*alt_m=*/500, /*updates=*/1);
@@ -127,27 +125,13 @@ TEST_CASE("product: a cable in shows charging, and green when the charge has fin
     rig.platform.battery().millivolts = 4000;
     settle(rig, t, 5000);
     REQUIRE(rig.state().power.battery.charging);
-    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
-    // Held, not winked: external power is paying, and a pilot holding the cable
-    // wants an answer that does not need watching for three seconds.
-    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
-    const uint32_t shows = lamp_of(rig).shows();
-    settle(rig, t, 5000);
-    CHECK(lamp_of(rig).shows() == shows);
-    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
-
-    // The charger has stopped pushing current and is holding the float voltage.
-    rig.platform.battery().millivolts = power::kChargeCompleteMv + 5;
-    settle(rig, t, 5000);
-    REQUIRE_FALSE(rig.state().power.battery.charging);
-    REQUIRE(rig.state().power.battery.external_power);
-    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charged);
+    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
+    REQUIRE(step_until_lit(rig, t, 3500) > 0);
     CHECK(lamp_of(rig).lamp() == indication::Lamp::Green);
 }
 
-TEST_CASE("product: a low cell on the cable shows charging, not low") {
-    // The first minute of a charge is a low cell with external power present. The
-    // useful answer is the one the pilot plugged the cable in to get.
+TEST_CASE("product: a low cell on the cable is not low, and the cutoff monitor is why") {
+    // A charger holds the terminal above the cell, so core/power refuses to read it.
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
@@ -158,17 +142,16 @@ TEST_CASE("product: a low cell on the cable shows charging, not low") {
 
     rig.platform.battery().external_power = true;
     settle(rig, t, 5000);
-    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Charging);
-    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
+    CHECK(rig.state().power.level == power::PowerLevel::Normal);
+    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::NoFix);
 }
 
 TEST_CASE("product: a device on its way down darkens the lamp and lets go of the pins") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    rig.platform.battery().external_power = true;
     uint32_t t = 0;
     settle(rig, t);
-    REQUIRE(lamp_of(rig).lit());
+    REQUIRE(step_until_lit(rig, t, 3500) > 0);
 
     // The same request a long press makes. From here the service loop stops
     // running, so whatever the lamp was doing is whatever it would go on doing
@@ -230,13 +213,11 @@ TEST_CASE("product: switching alarms off silences the buzzer and does not darken
     CHECK_FALSE(rig.product.alarm().sounding());
 }
 
-TEST_CASE("product: an urgent contact takes the lamp off the charger") {
-    // The one row that outranks a cable, driven by real frames on the air rather
-    // than by a level set by hand: a device on a powered install still warns.
+TEST_CASE("product: an urgent contact takes the lamp off the wink") {
+    // The top row, driven by real frames on the air rather than by a level set by hand.
     simulator::Simulator simulator;
     REQUIRE(simulator.setup() == Status::Ok);
     platform::host::Indicator& lamp = simulator.platform().indicator();
-    simulator.platform().battery().external_power = true;
 
     constexpr uint32_t kStepMs = simulator::Simulator::kStepMs;
     auto run = [&](uint32_t from, uint32_t to) {
@@ -244,16 +225,14 @@ TEST_CASE("product: an urgent contact takes the lamp off the charger") {
     };
 
     run(0, 2000);
-    REQUIRE(simulator.product().alarm().indicator_condition() == indication::Condition::Charging);
-    REQUIRE(lamp.lamp() == indication::Lamp::Red);
+    REQUIRE(simulator.product().alarm().indicator_condition() != indication::Condition::Alarm);
 
     simulator.world().add_threat();
     run(2000, 6000);
     REQUIRE(simulator.product().state().alarm_level >= indication::kAlarmTakesLamp);
     CHECK(simulator.product().alarm().indicator_condition() == indication::Condition::Alarm);
 
-    // Red either way, so the colour is not the evidence: the rhythm is. Charging
-    // is held and told once; the alarm flickers, so the lamp is told repeatedly.
+    // A wink shows twice in three seconds; the alarm flickers ten times in two.
     const uint32_t shows = lamp.shows();
     run(6000, 8000);
     CHECK(lamp.shows() - shows >= 10);

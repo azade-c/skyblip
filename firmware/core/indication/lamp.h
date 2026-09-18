@@ -1,34 +1,7 @@
-// core/indication/lamp.h: THE state-to-indicator table. One table, one priority
-// order, one place support looks.
-//
-// Why this is not core/annunciation, which is the obvious place to put it and the
-// wrong one. Both files answer "what is the device telling the pilot", so the
-// case for merging them is real, and it loses on four counts:
-//
-//   1. Annunciation announces EVENTS and every pattern it plays ends by itself -
-//      that is the bug that file exists to not have. This announces a LEVEL, it
-//      never ends, and the whole design question is what it costs to hold.
-//   2. The inputs do not overlap. Annunciation's situation is a traffic level,
-//      whether it just got worse, and the first fix. This one's is the cell, the
-//      charger, the fix and the alarm, i.e. most of core/power plus one field.
-//   3. settings.alarm_enabled silences the buzzer. It must not darken the lamp:
-//      "is this thing on" is not a preference, and a pilot who turned the noise
-//      off did not ask to be unable to tell a live device from a dead one.
-//   4. Arbitration is the opposite shape. Annunciation hands one voice to
-//      another and has to decide who may interrupt whom. Here every condition is
-//      true or not true at the same instant and exactly one wins, which is a
-//      priority order over a closed set - kTable below, top row first.
-//
-// So: two files, and this one depends on the other's output (the alarm level) and
-// on nothing else of it. The audible half of the first fix already landed and is
-// not repeated here.
-//
-// INFO: fc 06aug26 SoftRF's status LED is the reference vocabulary and we keep
-// its distinction and not its duty: solid above the low threshold, blinking at a
-// 300 ms toggle below it (src/driver/LED.cpp:204-219). Solid is an LED left on,
-// which on an 850 mAh pack is a real term, so healthy is a wink at 1% and the low
-// state keeps SoftRF's rate (600 ms period) at a tenth of its duty. The two rows
-// that ARE held are the two where a cable is paying.
+// INFO: fc 06aug26 SoftRF toggles its status LED every 300 ms when low (LED.cpp:204-219)
+
+// INFO: fc 18sep26 charge is not a row: this board's charger IC drives its own LED
+
 #ifndef SKYBLIP_CORE_INDICATION_LAMP_H
 #define SKYBLIP_CORE_INDICATION_LAMP_H
 
@@ -41,22 +14,13 @@
 
 namespace skyblip::indication {
 
-// The five states item F names - alive, charging, low, no fix, alarm - plus the
-// two the table needs to be total: a charge that has finished, because a cell
-// held at the float voltage is not a cell taking current and a pilot wants to
-// know which, and a device on its way down, because dark has to be a row like
-// any other rather than the absence of one.
-enum class Condition : uint8_t { Off, Alarm, Charging, Charged, Low, NoFix, Alive, kCount };
+enum class Condition : uint8_t { Off, Alarm, Low, NoFix, Alive, kCount };
 
 // An LED reaches full brightness in microseconds, so core/annunciation's 90 ms
 // floor - an ear figure, the shortest blip a pilot can place and count - does not
 // apply. This is the eye figure: a flash shorter than about this is missed by a
 // glance rather than seen dimly.
 constexpr uint16_t kShortestFlashEyeCanCatchMs = 20;
-
-// off_ms == 0 means held. The value is written rather than left at zero so that
-// duty_permille() below needs no special case for it: 1000/(1000+0) is 1000.
-constexpr uint16_t kHeldOnMs = 1000;
 
 struct Indication {
     indication::Lamp lamp{indication::Lamp::None};
@@ -74,9 +38,6 @@ enum class Budget : uint8_t {
     Steady,
     // Minutes at most, on the pack: an alarm that stands, a cell about to go.
     Transient,
-    // External power is present, so the lamp is not on the pack's bill at all.
-    // This is the one honest reason a row may be held solid.
-    Corded,
 };
 
 constexpr uint16_t kSteadyDutyCeilingPermille = 20;
@@ -92,36 +53,16 @@ struct Row {
 
 constexpr int kRowCount = static_cast<int>(Condition::kCount);
 
-// THE TABLE. Row order IS the priority order, highest first, and condition_for()
-// below is the same order written as code. Two rows deserve their reason here
-// rather than in the string a pilot reads:
-//
-// Alarm outranks charging. A device on a cable in a cockpit is a powered install,
-// not a device in a bag, and it still owes a pilot the warning; the answer to
-// "an alarm during charging" is that the alarm wins, and it is written here so
-// nobody has to ask again.
-//
-// Charging outranks low. Low-while-charging is the expected state of a cell that
-// has just been plugged in, and "it is charging" is the more useful of the two
-// answers to the pilot standing there holding the cable.
 inline constexpr Row kTable[kRowCount] = {
     {Condition::Off, {indication::Lamp::None, 0, 0}, Budget::Dark, "dark: off, or on its way down"},
     {Condition::Alarm,
      {indication::Lamp::Red, 45, 135},
      Budget::Transient,
      "red, fast flicker: traffic alarm, level 2 or 3"},
-    {Condition::Charging,
-     {indication::Lamp::Red, kHeldOnMs, 0},
-     Budget::Corded,
-     "red, held: external power in, cell taking charge"},
-    {Condition::Charged,
-     {indication::Lamp::Green, kHeldOnMs, 0},
-     Budget::Corded,
-     "green, held: external power in, cell full"},
     {Condition::Low,
      {indication::Lamp::Red, 60, 540},
      Budget::Transient,
-     "red, blinking twice a second: cell below the warning level"},
+     "red, blinking every 600 ms: cell below the warning level"},
     {Condition::NoFix,
      {indication::Lamp::Blue, 30, 2970},
      Budget::Steady,
@@ -132,8 +73,6 @@ inline constexpr Row kTable[kRowCount] = {
      "green, one wink every 3 s: running, fix valid"},
 };
 
-// Per mille of the time the lamp is lit. Zero when nothing is, 1000 when it is
-// held.
 constexpr uint16_t duty_permille(const Indication& indication) {
     const uint32_t cycle = static_cast<uint32_t>(indication.on_ms) + indication.off_ms;
     if (indication.lamp == indication::Lamp::None || indication.on_ms == 0 || cycle == 0) return 0;
@@ -144,9 +83,8 @@ constexpr uint16_t duty_ceiling_permille(Budget budget) {
     switch (budget) {
         case Budget::Dark: return 0;
         case Budget::Steady: return kSteadyDutyCeilingPermille;
-        case Budget::Transient: return kTransientDutyCeilingPermille;
-        case Budget::Corded:
-        default: return 1000;
+        case Budget::Transient:
+        default: return kTransientDutyCeilingPermille;
     }
 }
 
@@ -166,13 +104,18 @@ constexpr bool every_row_is_inside_its_budget() {
     return true;
 }
 
-// The shortest phase any row asks the service loop to resolve, held rows and the
-// dark row excluded. A product asserts its own step rate against it.
+constexpr bool every_lit_row_blinks() {
+    for (int i = 0; i < kRowCount; i++)
+        if (kTable[i].indication.lamp != indication::Lamp::None && kTable[i].indication.off_ms == 0)
+            return false;
+    return true;
+}
+
 constexpr uint16_t shortest_phase_ms() {
     uint16_t shortest = 0xFFFF;
     for (int i = 0; i < kRowCount; i++) {
         const Indication& indication = kTable[i].indication;
-        if (indication.lamp == indication::Lamp::None || indication.off_ms == 0) continue;
+        if (indication.lamp == indication::Lamp::None) continue;
         shortest = std::min(indication.on_ms, shortest);
         shortest = std::min(indication.off_ms, shortest);
     }
@@ -187,8 +130,9 @@ static_assert(every_row_is_inside_its_budget(),
               "a row spends more of the pack than the budget it declares");
 static_assert(kTable[0].condition == Condition::Off,
               "a device on its way down outranks every reason to be lit");
+static_assert(every_lit_row_blinks(), "a lamp held solid on an 850 mAh pack");
 static_assert(kTable[1].condition == Condition::Alarm,
-              "an alarm during charging shows the alarm: a powered install still warns");
+              "traffic outranks every other thing the device has to say");
 static_assert(kShortestPhaseMs >= kShortestFlashEyeCanCatchMs, "a flash a glance would miss");
 
 const Indication& indication_for(Condition condition);
@@ -209,10 +153,6 @@ struct Situation {
     // that went dark in the gaps of the buzzer's pulse train would be reporting
     // the cadence of the sound rather than the presence of the threat.
     traffic::Level alarm_level{traffic::Level::None};
-    bool external_power{false};
-    // External power in and the cell at the float voltage: the charger has
-    // finished. core/power/battery.h owns the distinction; this only reads it.
-    bool charge_complete{false};
     // What the cutoff monitor made of the samples. Read rather than re-derived,
     // so the lamp says LOW at exactly the voltage the panel and the tablet do,
     // with the same debounce and the same sanity floor.
