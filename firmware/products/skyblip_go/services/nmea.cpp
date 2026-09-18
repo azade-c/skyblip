@@ -109,8 +109,7 @@ void NmeaService::emit_status(uint32_t now_ms) {
         const traffic::Target* target = context_.state.traffic.at(slot);
         if (target == nullptr || !target->used) continue;
         heard++;
-        const traffic::AlarmAssessment assessment =
-            traffic::assess(own, target->obs, target->turn.dps, target->turn.valid, now_ms);
+        const traffic::AlarmAssessment assessment = traffic::assess(own, target->obs, now_ms);
         if (!assessment.valid) continue;
         const bool higher = target->alarm_level > worst_level;
         const bool nearer = target->alarm_level == worst_level &&

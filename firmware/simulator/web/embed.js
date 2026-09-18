@@ -1,7 +1,7 @@
 import createModule from './skyblip_simulator.js';
 
 export const PAGES = ['radar', 'nearby', '6-pack', 'status', 'satellites', 'radio log', 'self test'];
-export const ALARM = ['none', 'info', 'important', 'urgent'];
+export const ALARM = ['none', 'advisory'];
 export const SHUTDOWN = ['running', 'parking', 'await release', 'off'];
 export const REFRESH = ['idle', 'partial refresh', 'full refresh'];
 export const DWELL = ['uplink RX · 869.525', 'retune O->M', 'slot 0 · 868.200',

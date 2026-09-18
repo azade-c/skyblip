@@ -104,13 +104,13 @@ TEST_CASE("fb: text advances and draws glyph pixels") {
 TEST_CASE("radar: renders rings, own symbol and plots targets") {
     Glass fb;
     RadarTarget targets[2] = {
-        {2000, 0, 100, Level::Info},      // north, above
-        {0, -3000, -100, Level::Urgent},  // west, below, urgent
+        {2000, 0, 100, Level::Advisory},      // north, above
+        {0, -3000, -100, Level::Advisory},  // west, below, urgent
     };
     // Mirror-image targets must land mirror-image distances from the centre
     // point: east of it starts at pixel 100, west of it at 99.
     {
-        RadarTarget pair[2] = {{0, 4000, 0, Level::Info}, {0, -4000, 0, Level::Info}};
+        RadarTarget pair[2] = {{0, 4000, 0, Level::Advisory}, {0, -4000, 0, Level::Advisory}};
         RadarSnapshot s2;
         s2.fix_valid = true;
         s2.range_nm = 5;
@@ -260,30 +260,23 @@ RadarSnapshot one_target(RadarTarget* t) {
     return snap;
 }
 
-TEST_CASE("radar: traffic wears its TCAS symbol, hollow, filled, or an advisory circle") {
+// One shape, two states: the ring is an aircraft, the disc is the advisory.
+TEST_CASE("radar: traffic is a ring, and the advisory fills it") {
     RadarTarget other[1] = {{2 * kMetresPerNm, 0, 0, Level::None}};
     const Glass hollow = radar(one_target(other));
     CHECK_FALSE(hollow.get_pixel(kPlotX, kPlotY));
-    CHECK(hollow.get_pixel(kPlotX - 4, kPlotY));
-    CHECK(hollow.get_pixel(kPlotX + 4, kPlotY));
+    CHECK(hollow.get_pixel(kPlotX - 5, kPlotY));
+    CHECK(hollow.get_pixel(kPlotX + 5, kPlotY));
 
-    RadarTarget proximate[1] = {{2 * kMetresPerNm, 0, 0, Level::Info}};
-    const Glass filled = radar(one_target(proximate));
+    RadarTarget advisory[1] = {{2 * kMetresPerNm, 0, 0, Level::Advisory}};
+    const Glass filled = radar(one_target(advisory));
     CHECK(filled.get_pixel(kPlotX, kPlotY));
-    CHECK(filled.get_pixel(kPlotX - 4, kPlotY));
-    // A diamond has empty corners where a circle of the same reach has none.
-    CHECK_FALSE(filled.get_pixel(kPlotX + 3, kPlotY + 3));
+    CHECK(filled.get_pixel(kPlotX - 5, kPlotY));
+    CHECK(filled.get_pixel(kPlotX + 3, kPlotY + 3));
 
-    RadarTarget advisory[1] = {{2 * kMetresPerNm, 0, 0, Level::Important}};
-    const Glass circle = radar(one_target(advisory));
-    CHECK(circle.get_pixel(kPlotX + 3, kPlotY + 3));
-    CHECK(ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) >
-          ink_in(filled, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
-
-    // There is no resolution advisory on this device: the loudest grade reads as the same circle.
-    RadarTarget urgent[1] = {{2 * kMetresPerNm, 0, 0, Level::Urgent}};
-    CHECK(ink_in(radar(one_target(urgent)), kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) ==
-          ink_in(circle, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
+    // Same reach, and the filled one is the heavier mark by the area inside it.
+    CHECK(ink_in(filled, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) >
+          2 * ink_in(hollow, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
 }
 
 TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the glass") {
@@ -313,10 +306,10 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the 
 // untouched.
 TEST_CASE("radar: a formation is own ship, counted by quadrant") {
     RadarTarget flight[4] = {
-        {900, 400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
-        {700, 600, 0, Level::Info, 0, false, 40, 90, 0, false, true},
-        {-600, 500, 0, Level::Info, 0, false, 40, 90, 0, false, true},
-        {-700, -400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+        {900, 400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
+        {700, 600, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
+        {-600, 500, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
+        {-700, -400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
     };
     RadarSnapshot snap = flying(0);
     snap.speed_mps = 40;
@@ -348,7 +341,7 @@ TEST_CASE("radar: a formation is own ship, counted by quadrant") {
     const Glass separate = radar(apart);
     CHECK(ink_in(separate, 100, 80, 120, 95) > ink_in(fb, 100, 80, 120, 95));
     CHECK_FALSE(separate.get_pixel(86, 100));
-    CHECK_FALSE(separate.get_pixel(100, 86));
+    CHECK_FALSE(separate.get_pixel(113, 100));
 
     // The footer still counts them: they are aircraft, and they are on the glass.
     CHECK(reads_in(fb, "4", 170, 170, 200, 200, 3));
@@ -380,7 +373,7 @@ TEST_CASE("radar: a turning target's leader is its arc") {
 // The ring is the scale the footer reads in, and the glass around it is spare.
 TEST_CASE("radar: traffic past the ring still draws, and the count stays on the ring") {
     // 4.2 NM abeam is off the 4 NM ring and still on the glass, at 96 px.
-    RadarTarget beside[1] = {{0, (42 * kMetresPerNm) / 10, 0, Level::Info}};
+    RadarTarget beside[1] = {{0, (42 * kMetresPerNm) / 10, 0, Level::Advisory}};
     RadarSnapshot snap = flying(0);
     snap.speed_mps = 30;
     snap.n_targets = 1;
@@ -404,7 +397,7 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
     CHECK(reads_in(radar(low), "0:42", 0, 176, 60, 198, 2));
 
     // Past the glass it is gone altogether, count and all.
-    RadarTarget far_out[1] = {{0, 8 * kMetresPerNm, 0, Level::Info}};
+    RadarTarget far_out[1] = {{0, 8 * kMetresPerNm, 0, Level::Advisory}};
     RadarSnapshot beyond = snap;
     beyond.targets = far_out;
     const Glass empty = radar(beyond);
@@ -451,7 +444,7 @@ TEST_CASE("radar: two dots off the nose mark the next minute and the one after")
 // A pilot in a turn is not going where the nose points, and the dots are where they will be.
 TEST_CASE("radar: the minute dots ride own ship's turn, not its nose") {
     // 30 m/s at 1 deg/s is a 1719 m radius: 60 deg of it is 10 px right, 18 px up.
-    RadarTarget behind[1] = {{-3000, 0, 0, Level::Info}};
+    RadarTarget behind[1] = {{-3000, 0, 0, Level::Advisory}};
     RadarSnapshot right = flying(0);
     right.speed_mps = 30;
     right.n_targets = 1;
@@ -495,25 +488,25 @@ TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
 }
 
 // Symbol edge 4, gap 2, pad 2 and 14 rows of glyph: the digits stand 22 px off the plot.
-constexpr int kTagTop = kPlotY - 22;
+constexpr int kTagTop = kPlotY - 23;
 constexpr int kTagBottom = kPlotY + 9;
 
 TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {
     // 300 m = 984 ft, which is ten hundreds of feet to the nearest hundred.
-    RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, Level::Info}};
+    RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory}};
     const Glass higher = radar(one_target(above));
     CHECK(reads_in(higher, "+10", 70, kTagTop - 2, 130, kTagTop + 16, 2));
     CHECK_FALSE(reads_in(higher, "+10", 70, kPlotY, 130, 100, 2));
     // It is set at double height: the small figure is nowhere on the glass.
     CHECK_FALSE(reads_in(higher, "+10", 0, 0, 200, 170, 1));
 
-    RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, Level::Info}};
+    RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, Level::Advisory}};
     const Glass lower = radar(one_target(below));
     CHECK(reads_in(lower, "-10", 70, kTagBottom - 2, 130, kTagBottom + 16, 2));
     CHECK_FALSE(reads_in(lower, "-10", 70, 20, 130, kPlotY, 2));
 
     // Level traffic reads 00, unsigned: +0 and -0 are the same separation.
-    RadarTarget level[1] = {{2 * kMetresPerNm, 0, 10, Level::Info}};
+    RadarTarget level[1] = {{2 * kMetresPerNm, 0, 10, Level::Advisory}};
     CHECK(reads_in(radar(one_target(level)), "00", 70, kTagTop - 2, 130, kTagTop + 16, 2));
 }
 
@@ -529,8 +522,8 @@ TEST_CASE("radar: the tag stops at 99 hundreds of feet, the way a TCAS tag does"
 
 TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") {
     // 200 m abeam is 2 px on the 4 NM ring, so the two tags want the same glass.
-    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, Level::Info},
-                           {2 * kMetresPerNm, 200, 600, Level::Info}};
+    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, Level::Advisory},
+                           {2 * kMetresPerNm, 200, 600, Level::Advisory}};
     RadarSnapshot snap = flying(0);
     snap.n_targets = 2;
     snap.targets = pair;
@@ -546,7 +539,7 @@ TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") 
 // Tags are four times the area they were, so which one survives a clash is a decision.
 TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
     RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, Level::None},
-                           {2 * kMetresPerNm, 200, 600, Level::Important}};
+                           {2 * kMetresPerNm, 200, 600, Level::Advisory}};
     RadarSnapshot snap = flying(0);
     snap.n_targets = 2;
     snap.targets = pair;
@@ -557,20 +550,20 @@ TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
 }
 
 TEST_CASE("radar: a chevron on the tag says climbing or descending, past 500 fpm") {
-    RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, 0, true}};
+    RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, true}};
     const Glass flat = radar(one_target(steady));
 
     // 2.5 m/s is 492 fpm: the arrow is for a rate a pilot has to act on.
-    RadarTarget slow[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, 19, true}};
+    RadarTarget slow[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 19, true}};
     CHECK(ink_in(radar(one_target(slow)), 60, kTagTop, 140, kTagTop + 14) ==
           ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
 
-    RadarTarget climbing[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, 20, true}};
+    RadarTarget climbing[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 20, true}};
     const Glass up = radar(one_target(climbing));
     CHECK(ink_in(up, 60, kTagTop, 140, kTagTop + 14) >
           ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
 
-    RadarTarget descending[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, -20, true}};
+    RadarTarget descending[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, -20, true}};
     const Glass down = radar(one_target(descending));
     // The arrow is 6 rows, centred in the 14 the glyphs are, and its apex is a pixel pair.
     const int arrow_top = kTagTop + 4, arrow_mid = 118;
@@ -580,7 +573,7 @@ TEST_CASE("radar: a chevron on the tag says climbing or descending, past 500 fpm
     CHECK_FALSE(down.get_pixel(arrow_mid, arrow_top));
 
     // A target that never reported a rate is not credited with one.
-    RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, 40, false}};
+    RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 40, false}};
     CHECK(ink_in(radar(one_target(silent)), 60, kTagTop, 140, kTagTop + 14) ==
           ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
 }
@@ -592,17 +585,17 @@ TEST_CASE("radar: a tag keeps off own ship and off the line its target is flying
     draw_radar(bare, empty);
 
     // 1500 m astern plots 19 px below the ship, so its tag wants the wing and goes instead.
-    RadarTarget astern[1] = {{-1500, 0, 300, Level::Info}};
+    RadarTarget astern[1] = {{-1500, 0, 300, Level::Advisory}};
     const Glass fb = radar(one_target(astern));
     CHECK(ink_in(fb, 88, 94, 112, 110) == ink_in(bare, 88, 94, 112, 110));
     CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
 
     // Clear of the ship it keeps its figure, on the beam rather than over the wing.
-    RadarTarget quarter[1] = {{-1500, 900, 300, Level::Info}};
+    RadarTarget quarter[1] = {{-1500, 900, 300, Level::Advisory}};
     CHECK(reads_in(radar(one_target(quarter)), "+10", 110, 90, 180, 115, 2));
 
     // Flying straight up the glass, the tag would sit on the whole minute of line.
-    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, Level::Info, 0, false, 30, 0}};
+    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, false, 30, 0}};
     const Glass ahead = radar(one_target(running));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
@@ -610,7 +603,7 @@ TEST_CASE("radar: a tag keeps off own ship and off the line its target is flying
 }
 
 TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glass") {
-    RadarTarget east[1] = {{0, 2 * kMetresPerNm, 0, Level::Info}};
+    RadarTarget east[1] = {{0, 2 * kMetresPerNm, 0, Level::Advisory}};
     RadarSnapshot flying_east = flying(90);
     flying_east.n_targets = 1;
     flying_east.targets = east;
@@ -703,9 +696,9 @@ TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot doe
 
 TEST_CASE("radar: the footer counts what is on the glass, either side of the clock") {
     RadarTarget targets[3] = {
-        {2000, 0, 0, Level::Info},
-        {0, -3000, 0, Level::Info},
-        {40000, 0, 0, Level::Info},  // four rings out: heard, and off the picture
+        {2000, 0, 0, Level::Advisory},
+        {0, -3000, 0, Level::Advisory},
+        {40000, 0, 0, Level::Advisory},  // four rings out: heard, and off the picture
     };
     RadarSnapshot snap = flying(0);
     snap.n_targets = 3;
@@ -1167,7 +1160,7 @@ TEST_CASE("status: the callsign shares the header with the address, and never cr
 // The wedge is the whole alarm on the glass: which way to look, from the first grade.
 TEST_CASE("radar: an alarm flashes a wedge on the bearing of the threat") {
     RadarTarget east[1] = {{0, 1500, 0}};
-    RadarSnapshot snap = with_threat(east, Level::Urgent);
+    RadarSnapshot snap = with_threat(east, Level::Advisory);
 
     snap.alarm_flash = false;
     const Glass between = radar(snap);
@@ -1184,7 +1177,7 @@ TEST_CASE("radar: an alarm flashes a wedge on the bearing of the threat") {
 // A quarter of the glass flipping is seen without looking. A narrow slice has to be read.
 TEST_CASE("radar: the wedge opens 45 degrees each side of the bearing") {
     RadarTarget east[1] = {{0, 1500, 0}};
-    RadarSnapshot snap = with_threat(east, Level::Urgent);
+    RadarSnapshot snap = with_threat(east, Level::Advisory);
 
     snap.alarm_flash = false;
     const Glass between = radar(snap);
@@ -1199,7 +1192,7 @@ TEST_CASE("radar: the wedge opens 45 degrees each side of the bearing") {
 // A sector that inverted the ring too flashed white gaps into the one closed curve on the page.
 TEST_CASE("radar: the sector stops under the ring, which stays black through the flash") {
     RadarTarget east[1] = {{0, 1500, 0}};
-    RadarSnapshot snap = with_threat(east, Level::Urgent);
+    RadarSnapshot snap = with_threat(east, Level::Advisory);
 
     snap.alarm_flash = false;
     const Glass between = radar(snap);
@@ -1216,8 +1209,8 @@ TEST_CASE("radar: the sector stops under the ring, which stays black through the
 // The square is own ship, and a sector that ran through it broke the box and reversed its counts.
 TEST_CASE("radar: a flashing sector keeps off the formation square, not the glass around it") {
     RadarTarget flight[2] = {
-        {0, 3000, 0, Level::Urgent},
-        {900, 400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+        {0, 3000, 0, Level::Advisory},
+        {900, 400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
     };
     RadarSnapshot snap = flying(0);
     snap.n_targets = 2;
@@ -1231,14 +1224,16 @@ TEST_CASE("radar: a flashing sector keeps off the formation square, not the glas
 
     // the square is 86..113 on both axes: its stroke, its counts and the airframe stand as drawn
     CHECK(differing_in(between, lit, 113, 91, 114, 109) == 0);
-    CHECK(differing_in(between, lit, 87, 87, 113, 113) == 0);
+    CHECK(differing_in(between, lit, 88, 88, 112, 112) == 0);
     // and the sector flips the glass right up to the stroke
     CHECK(differing_in(between, lit, 114, 95, 120, 105) == 60);
+    // including the glass the corner arc rounds away, which kept a white pixel of its own
+    CHECK(differing_in(between, lit, 112, 87, 113, 88) == 1);
 }
 
 // The grade that fills the diamond is the grade that starts the search.
 TEST_CASE("radar: the wedge is flashing by the time a target reads as a filled diamond") {
-    for (const Level level : {Level::Info, Level::Important, Level::Urgent}) {
+    for (const Level level : {Level::Advisory, Level::Advisory, Level::Advisory}) {
         RadarTarget east[1] = {{0, 1500, 0}};
         RadarSnapshot snap = with_threat(east, level);
 
@@ -1260,7 +1255,7 @@ TEST_CASE("radar: the wedge is flashing by the time a target reads as a filled d
 // The silence is the whole mark: no word stands in for the sector that went out.
 TEST_CASE("radar: a dismissed aircraft keeps its symbol and takes its sector with it") {
     RadarTarget east[1] = {{0, 1500, 0}};
-    RadarSnapshot snap = with_threat(east, Level::Urgent);
+    RadarSnapshot snap = with_threat(east, Level::Advisory);
     east[0].alarm_dismissed = true;
 
     snap.alarm_flash = false;
@@ -1278,8 +1273,8 @@ TEST_CASE("radar: a dismissed aircraft keeps its symbol and takes its sector wit
 // Two aircraft are two places to look, and a pilot told only about the louder one looks once.
 TEST_CASE("radar: every graded aircraft flashes a sector of its own") {
     RadarTarget pair[2] = {{0, 1500, 0}, {0, -1500, 0}};
-    pair[1].alarm_level = Level::Info;
-    RadarSnapshot snap = with_threat(pair, Level::Urgent);
+    pair[1].alarm_level = Level::Advisory;
+    RadarSnapshot snap = with_threat(pair, Level::Advisory);
     snap.n_targets = 2;
 
     snap.alarm_flash = false;
@@ -1301,7 +1296,7 @@ TEST_CASE("radar: every graded aircraft flashes a sector of its own") {
 
 TEST_CASE("radar: a threat astern flashes its wedge down to the ring, around the range") {
     RadarTarget behind[1] = {{-1500, 0, 0}};
-    RadarSnapshot snap = with_threat(behind, Level::Urgent);
+    RadarSnapshot snap = with_threat(behind, Level::Advisory);
 
     snap.alarm_flash = false;
     const Glass between = radar(snap);

@@ -176,11 +176,11 @@ TEST_CASE("scenario: a gaggle in one thermal is traffic, not three collisions") 
     CHECK(s.world().failures() == 0);
     const traffic::TrafficTable& table = s.product().state().traffic;
     CHECK(table.count() == 3);
-    CHECK(s.product().state().alarm_level <= traffic::Level::Info);
+    CHECK(s.product().state().alarm_level == traffic::Level::None);
     for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
         const traffic::Target* t = table.at(i);
         if (t == nullptr || !t->used) continue;
-        CHECK(t->alarm_level <= traffic::Level::Info);
+        CHECK(t->alarm_level == traffic::Level::None);
     }
 }
 
@@ -197,33 +197,23 @@ TEST_CASE("scenario: a gaggle in one thermal is traffic, not three collisions") 
 // view is up to a second stale, and in a turn a second is 23 m.
 namespace {
 
-constexpr uint8_t kInfoSpoken = traffic::to_number(traffic::Level::Info);
-
 struct Encounter {
     static constexpr uint32_t kSampleMs = 100;
-    // The tracker needs two reports from a target before it has a turn rate for
-    // it, so everything before this is the model grading a stranger.
+    // The formation layer needs a few reports before it can call a pair a pair,
+    // so everything before this is the device meeting a stranger.
     static constexpr uint32_t kSettledMs = 5000;
-    // Recognising the pair only lowers what the tracker GRADES it. What the ear
-    // gets falls one re-notification window later, because a level the device
-    // has already said out loud is only taken back after the contact has been
-    // calmer than it for that whole window (traffic::notify_for).
+    // What the ear gets falls one re-notification window later, because what
+    // the device has already said out loud is only taken back after the contact
+    // has been outside the window for that whole time (traffic::notify_for).
     static constexpr uint32_t kQuietFromMs = kSettledMs + traffic::kRenotifyMs;
 
-    bool reached[4]{};
-    uint32_t first_ms[4]{};
-    int32_t first_range_m[4]{};
-    int32_t first_true_m[4]{};
-    uint8_t last_spoken_level{0};
+    bool announced{false};
+    uint32_t first_ms{0};
+    int32_t first_range_m{0};
+    int32_t first_true_m{0};
     uint32_t last_spoken_ms{0};
-    // The loudest thing the pilot's ear got, either side of the settling point.
-    // core/annunciation gives every level its own rhythm, so the buzzer is off
-    // as often as it is on and the peak over time is the honest reading: a
-    // single sample can land in the gap between two pulses of an urgent train.
-    uint8_t spoken_peak_before_settle{0};
-    uint8_t spoken_peak_after_settle{0};
-    uint32_t last_spoken_above_info_ms{0};
-    uint8_t settled_peak_level{0};
+    int beeps_before_settle{0};
+    int beeps_after_settle{0};
     int32_t min_true_m{999999};
     uint32_t min_true_ms{0};
     uint8_t level_at_min_true{0};
@@ -251,17 +241,13 @@ Encounter measure(simulator::Simulator& s) {
     for (uint32_t t = 0; t <= until; t += simulator::Simulator::kStepMs) {
         s.step(t);
 
-        // Every step, not every sample: the urgent train's pulses are 90 ms and
-        // a 100 ms sample would step straight over them.
+        // Every step, not every sample: a beep is 250 ms of a pair and a sample
+        // every 100 ms would still miss which pass began it.
         if (s.buzzer_level() != spoken) {
             spoken = s.buzzer_level();
             if (spoken != 0) {
-                e.last_spoken_level = spoken;
                 e.last_spoken_ms = t;
-                if (spoken > kInfoSpoken) e.last_spoken_above_info_ms = t;
-                uint8_t& peak = t >= Encounter::kQuietFromMs ? e.spoken_peak_after_settle
-                                                             : e.spoken_peak_before_settle;
-                if (spoken > peak) peak = spoken;
+                ++(t >= Encounter::kQuietFromMs ? e.beeps_after_settle : e.beeps_before_settle);
             }
         }
 
@@ -271,21 +257,18 @@ Encounter measure(simulator::Simulator& s) {
         const traffic::Target* target = only_target(state);
         if (target == nullptr) continue;
 
-        const traffic::AlarmAssessment a =
-            traffic::assess(state.own, target->obs, target->turn.dps, target->turn.valid, t);
+        const traffic::AlarmAssessment a = traffic::assess(state.own, target->obs, t);
         if (!a.valid) continue;
         const uint8_t level = traffic::to_number(state.alarm_level);
         const int32_t range_m = a.rel_dist_m;
         const int32_t true_m = static_cast<int32_t>(s.world().separation_m(0));
 
-        if (level >= 1 && level <= 3 && !e.reached[level]) {
-            e.reached[level] = true;
-            e.first_ms[level] = t;
-            e.first_range_m[level] = range_m;
-            e.first_true_m[level] = true_m;
+        if (level >= 1 && !e.announced) {
+            e.announced = true;
+            e.first_ms = t;
+            e.first_range_m = range_m;
+            e.first_true_m = true_m;
         }
-        if (t >= Encounter::kSettledMs && level > e.settled_peak_level)
-            e.settled_peak_level = level;
         if (range_m < e.min_reported_m) e.min_reported_m = range_m;
         error_sum += range_m > true_m ? range_m - true_m : true_m - range_m;
         samples++;
@@ -301,23 +284,14 @@ Encounter measure(simulator::Simulator& s) {
 }
 
 void report(const Encounter& e) {
-    MESSAGE("first important: t=" << e.first_ms[2] << " ms, model range=" << e.first_range_m[2]
-                                  << " m, true separation=" << e.first_true_m[2] << " m");
-    MESSAGE("first urgent:    t=" << e.first_ms[3] << " ms, model range=" << e.first_range_m[3]
-                                  << " m, true separation=" << e.first_true_m[3] << " m");
-    MESSAGE("last annunciated level " << static_cast<int>(e.last_spoken_level)
-                                      << " at t=" << e.last_spoken_ms << " ms");
-    MESSAGE("loudest annunciated: " << static_cast<int>(e.spoken_peak_before_settle) << " before "
-                                    << Encounter::kQuietFromMs << " ms, "
-                                    << static_cast<int>(e.spoken_peak_after_settle) << " after; "
-                                    << "last above info at t=" << e.last_spoken_above_info_ms
-                                    << " ms");
+    MESSAGE("first advisory: t=" << e.first_ms << " ms, model range=" << e.first_range_m
+                                 << " m, true separation=" << e.first_true_m << " m");
+    MESSAGE("beeps: " << e.beeps_before_settle << " before " << Encounter::kQuietFromMs << " ms, "
+                      << e.beeps_after_settle << " after; last at t=" << e.last_spoken_ms << " ms");
     MESSAGE("closest approach: " << e.min_true_m << " m true at t=" << e.min_true_ms
                                  << " ms, published level " << static_cast<int>(e.level_at_min_true)
                                  << ", closest the model ever saw " << e.min_reported_m << " m");
     MESSAGE("mean range error: " << e.mean_range_error_m << " m");
-    MESSAGE("peak published level after " << Encounter::kSettledMs
-                                          << " ms: " << static_cast<int>(e.settled_peak_level));
 }
 
 }  // namespace
@@ -335,18 +309,16 @@ TEST_CASE("scenario: two gliders sharing a thermal core are warned about the 15 
 
     CHECK(e.min_true_m < 15);
     CHECK(e.min_true_ms > 10000);
-    CHECK(e.reached[3]);
-    CHECK(e.first_ms[3] < e.min_true_ms);
-    CHECK(e.level_at_min_true == 3);
-    CHECK(e.settled_peak_level == 3);
-    CHECK(e.spoken_peak_after_settle == 3);
+    CHECK(e.announced);
+    CHECK(e.first_ms < e.min_true_ms);
 
     // A neighbour's turn rate is not on the wire, so each is still carried straight to now.
     CHECK(e.min_reported_m < 60);
     CHECK(e.mean_range_error_m < 20);
 }
 
-// The other side of the fence: a glider arriving straight at 45 m/s must still reach urgent.
+// The other side of the fence: a glider arriving straight at 45 m/s is spoken
+// about while it is still a long way out, and once.
 TEST_CASE("scenario: a glider joining the thermal on a straight line is still caught") {
     simulator::Simulator s;
     REQUIRE(s.setup() == Status::Ok);
@@ -357,24 +329,21 @@ TEST_CASE("scenario: a glider joining the thermal on a straight line is still ca
     CHECK(s.world().failures() == 0);
     CHECK(e.traffic_count == 1);
 
-    CHECK(e.reached[2]);
-    CHECK(e.first_ms[2] < 28000);
-    CHECK(e.first_range_m[2] > 900);
-    CHECK(e.reached[3]);
-    CHECK(e.first_ms[3] < 38000);
-    CHECK(e.first_range_m[3] > 400);
-    CHECK(e.last_spoken_level == 3);
-    // Graded by time to breach at 68 m/s of closure, not by which ring it is in.
-    CHECK(e.first_range_m[2] / 68 <= traffic::kImportantTtiS + 2);
+    // Inside the window from the first report it made, and spoken about there:
+    // 2 km at 68 m/s of closure is half a minute of looking.
+    CHECK(e.announced);
+    CHECK(e.first_range_m <= traffic::kAdvisoryDistM);
+    CHECK(e.first_range_m > 1800);
+    CHECK(e.first_ms < 5000);
+    CHECK(e.min_true_ms - e.first_ms > 30000);
+
+    // One pair of beeps for the whole encounter: it arrives once.
+    CHECK(e.beeps_before_settle == 2);
+    CHECK(e.beeps_after_settle == 0);
 
     // Both sides carried to the instant the range is read at: unaligned, this encounter reads 57 m
     // out.
     CHECK(e.mean_range_error_m < 40);
-
-    // Own-ship's own circle swings the closure up and down under the target, so
-    // the published level breathes with it. What is pinned is that the highest
-    // thing it said is urgent and that it said it a kilometre out.
-    CHECK(e.settled_peak_level == 3);
 }
 
 // The session boundary as a committed fixture: one file, replayed by the tests

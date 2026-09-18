@@ -34,7 +34,7 @@ class ScreenService : public runtime::Service {
     static constexpr int16_t kHoldAboveDeciCelsius = 500;
 
     // INFO: cf 02aug26 at this level a menu in front of converging traffic is a bug, so it goes
-    static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Important;
+    static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Advisory;
 
     ScreenService(runtime::Context& context, Settings& settings, comms::ConfigService& config,
                   AlarmService& alarm, const BootSnapshot& self_test)

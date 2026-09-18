@@ -49,8 +49,7 @@ constexpr int kRangeY = kFooterBottom - kGlyphH * kRangeScale;
 constexpr int kUnitGap = 3;
 constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
-constexpr int kSymbolR = 4;
-constexpr int kAdvisoryR = 5;
+constexpr int kSymbolR = 5;
 constexpr int kTagScale = 2;
 constexpr int kTagGlyphH = kGlyphH * kTagScale;
 constexpr int kTagGap = 2;
@@ -298,7 +297,7 @@ bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, 
     const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
     const int x = px_of(dx), y = py_of(dy);
     if (!on_glass(x, y)) return false;
-    if (!inside_ring(dx, dy) && y + kAdvisoryR >= kFooterTop) return false;
+    if (!inside_ring(dx, dy) && y + kSymbolR >= kFooterTop) return false;
     out = {dx, dy, x, y, inside_ring(dx, dy)};
     return true;
 }
@@ -412,24 +411,8 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
     }
 }
 
-void diamond(ui::Canvas& fb, int cx, int cy, int r, bool fill) {
-    for (int dy = -r; dy <= r; dy++) {
-        const int half = r - (dy < 0 ? -dy : dy);
-        if (fill) {
-            fb.hline(cx - half, cy + dy, 2 * half + 1, true);
-        } else {
-            fb.set_pixel(cx - half, cy + dy, true);
-            fb.set_pixel(cx + half, cy + dy, true);
-        }
-    }
-}
-
 void traffic_symbol(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
-    if (alarm_level >= traffic::Level::Important) {
-        fb.circle(p.x, p.y, kAdvisoryR, true, true);
-        return;
-    }
-    diamond(fb, p.x, p.y, kSymbolR, alarm_level >= traffic::Level::Info);
+    fb.circle(p.x, p.y, kSymbolR, true, alarm_level >= traffic::Level::Advisory);
 }
 
 void chevron(ui::Canvas& fb, int x, int y, bool up) {
@@ -480,13 +463,8 @@ struct Tag {
     Box box;
 };
 
-int symbol_radius(const RadarTarget& t) {
-    return t.alarm_level >= traffic::Level::Important ? kAdvisoryR : kSymbolR;
-}
-
-Box symbol_box(const Plotted& p, const RadarTarget& t) {
-    const int r = symbol_radius(t);
-    return {p.x - r, p.y - r, 2 * r + 1, 2 * r + 1};
+Box symbol_box(const Plotted& p) {
+    return {p.x - kSymbolR, p.y - kSymbolR, 2 * kSymbolR + 1, 2 * kSymbolR + 1};
 }
 
 Tag tag_for(const Plotted& p, const RadarTarget& t) {
@@ -497,8 +475,7 @@ Tag tag_for(const Plotted& p, const RadarTarget& t) {
     const int w =
         text_width(tag.text, kTagScale) + (tag.climbing != 0 ? kChevronGap + kChevronW : 0);
     const int h = kTagGlyphH + 2 * kTagPad;
-    const int r = symbol_radius(t);
-    const int y = t.up_m >= 0 ? p.y - r - kTagGap - h : p.y + r + 1 + kTagGap;
+    const int y = t.up_m >= 0 ? p.y - kSymbolR - kTagGap - h : p.y + kSymbolR + 1 + kTagGap;
     tag.box = {p.x - w / 2 - kTagPad, y, w + 2 * kTagPad, h};
     return tag;
 }
@@ -587,7 +564,7 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     if (const char* word = ring_word(snap)) taken[n_taken++] = banner_box(word);
     if (const char* note = ring_note(snap)) taken[n_taken++] = note_box(note);
     if (snap.formation_members > 0) taken[n_taken++] = formation_box();
-    for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
+    for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i]);
 
     int order[kMaxRadarTargets];
     loudest_first(in_view, n, order);
@@ -613,7 +590,7 @@ int alarm_wedges(const RadarSnapshot& snap, int16_t track, Wedge* out) {
     int n = 0;
     for (int i = 0; i < snap.n_targets && n < kMaxRadarTargets; i++) {
         const RadarTarget& t = snap.targets[i];
-        if (t.alarm_level < traffic::Level::Info || t.alarm_dismissed) continue;
+        if (t.alarm_level < traffic::Level::Advisory || t.alarm_dismissed) continue;
         const HeadingUp at = heading_up(t.north_m, t.east_m, track);
         if (at.ahead == 0 && at.right == 0) continue;
         out[n++] = {at.right, -at.ahead};
@@ -634,26 +611,25 @@ bool in_any_wedge(const Wedge* wedges, int n, int64_t px, int64_t py) {
     return false;
 }
 
-bool inside_rounded(const Box& b, int x, int y) {
-    const int past_left = b.x + kReadingCorner - x;
-    const int past_right = x - (b.x + b.w - 1 - kReadingCorner);
-    const int past_top = b.y + kReadingCorner - y;
-    const int past_bottom = y - (b.y + b.h - 1 - kReadingCorner);
-    if (x < b.x || y < b.y || past_right > kReadingCorner || past_bottom > kReadingCorner)
-        return false;
+bool inside_rounded(const Box& b, int corner, int x, int y) {
+    const int past_left = b.x + corner - x;
+    const int past_right = x - (b.x + b.w - 1 - corner);
+    const int past_top = b.y + corner - y;
+    const int past_bottom = y - (b.y + b.h - 1 - corner);
+    if (x < b.x || y < b.y || past_right > corner || past_bottom > corner) return false;
     const int dx = past_left > 0 ? past_left : (past_right > 0 ? past_right : 0);
     const int dy = past_top > 0 ? past_top : (past_bottom > 0 ? past_bottom : 0);
-    return dx * dx + dy * dy <= kReadingCorner * kReadingCorner;
+    return dx * dx + dy * dy <= corner * corner;
 }
 
 bool spared(const Box* keep_out, int n, int x, int y) {
     for (int i = 0; i < n; i++)
-        if (inside_rounded(keep_out[i], x, y)) return true;
+        if (inside_rounded(keep_out[i], kReadingCorner, x, y)) return true;
     return false;
 }
 
 bool at_the_apex(const Box* formation, int64_t r2, int x, int y) {
-    if (formation) return inside_rounded(*formation, x, y);
+    if (formation) return inside_rounded(*formation, kFormationCorner, x, y);
     return r2 < 4 * static_cast<int64_t>(kWedgeInnerR) * kWedgeInnerR;
 }
 
@@ -683,9 +659,7 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
 
     const int16_t track = c16(snap.track_deg);
 
-    if (snap.formation_members > 0) formation_square(fb);
     ui::draw_skyship(fb, kFar, kNear);
-    if (snap.formation_members > 0) formation_counts(fb, snap, track);
 
     const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
 
@@ -701,6 +675,11 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
         const Box square = formation_box();
         invert_wedges(fb, wedges, n_wedges, readings, 2,
                       snap.formation_members > 0 ? &square : nullptr);
+    }
+
+    if (snap.formation_members > 0) {
+        formation_square(fb);
+        formation_counts(fb, snap, track);
     }
 
     if (const char* word = ring_word(snap)) state_banner(fb, word);

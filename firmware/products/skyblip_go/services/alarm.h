@@ -57,11 +57,7 @@ class AlarmService : public runtime::Service {
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
 
-    static constexpr traffic::Level kHapticFromLevel = traffic::Level::Important;
-    // Long enough to feel through a glove and a harness strap, short enough not
-    // to blur into the next escalation.
-    static constexpr uint16_t kHapticImportantMs = 200;
-    static constexpr uint16_t kHapticUrgentMs = 600;
+    static constexpr uint16_t kHapticFeltThroughAHarnessMs = 400;
 
     // Eight passes through the shortest phase of the fastest pattern: the
     // cadence the ear gets is the cadence written in core/annunciation, to
@@ -69,7 +65,7 @@ class AlarmService : public runtime::Service {
     static constexpr uint32_t kPassesPerShortestPhase = 8;
     static_assert(runtime::kServiceStepMs * kPassesPerShortestPhase <=
                       annunciation::kShortestPhaseMs,
-                  "the service loop is too coarse to resolve the urgent pulse train");
+                  "the service loop is too coarse to resolve the advisory pair");
 
     // Three passes through the shortest flash in the table. An LED needs far less
     // time than a piezo to be seen, so the figure is smaller than the one above -

@@ -6,37 +6,36 @@ What the sky around this aircraft contains, how dangerous it is, and who in it i
 |---|---|
 | `sanity` | whether a decoded position is close enough to have been heard at all |
 | `table` | which aircraft the finite table holds, and each one's turn rate |
-| `conflict` | whether two projected paths enter the volume neither may enter |
-| `alarm` | the level a contact is graded at, and what the annunciator is allowed to say |
+| `alarm` | whether a contact is an advisory, and what the annunciator is allowed to say |
 | `formation` | which contacts are flying with us, on geometry alone |
 | `range` | how far an emitter is and how far above, and the order the nearby page lists them in |
 
 ## The model
 
-The alarm grades geometry, never a flying style. There is one projector, `core/flight/arc`, and both the alarm and the radar page read it, because a leader line that curves one way while the alarm grades the other is two models and one of them is wrong.
-
-`conflict::first_breach` walks own-ship's arc and a target's arc in lockstep, `kStepMs` apart out to `kHorizonS`, and reports the first sample where the two are inside the protection volume. It also reports the closest approach it saw, which is what a screen draws when nothing breaches.
+There is one level, and it is a place. An aircraft inside `kAdvisoryDistM` of us and inside `kVertWindowM` of our altitude is a traffic advisory; everything else is a contact on the plot and nothing more.
 
 | Constant | Value | Where the number comes from |
 |---|---|---|
-| `kHorizonS` | 60 | the minute the radar already drew as a leader line, so the glass and the alarm sample the same future |
-| `kStepMs` | 2000 | 30 steps per target, 48 targets, one pass a second: a few milliseconds on the nRF52, and fine enough that a 60 m/s closure cannot cross the core between samples |
-| `kProtectionRadiusM` | 75 | the lateral miss that is a near miss rather than traffic. Gliders share a thermal 150 m apart all day, and a core wide enough to catch that pair is a device that gets switched off |
-| `kProtectionVertM` | 50 | co-altitude in the sense a pilot means it, well inside the 300 m window `alarm.h` draws traffic in |
-| `kSpreadMmPerS`, `kVertSpreadMmPerS` | 0.5 m/s, 0.25 m/s | a projected position is not a fact: track and speed noise, and a turn nobody has to hold. The volume grows with lead time to say so |
-| `kMaxSpreadM`, `kMaxVertSpreadM` | 30, 15 | the growth stops. Uncapped, the volume reaches 240 m at a minute and every neighbour holding station becomes a conflict, which is the nuisance alarm this work removed |
+| `kAdvisoryDistM` | 3000 | ours. At 240 kt of head-on closure it is 24 s, which is the band TCAS II issues a traffic advisory in at low level (SL3: tau 25 s, DMOD 0.33 NM). It is twice FLARM's own advisory ring |
+| `kVertWindowM` | 300 | FLARM's, exactly: its `$PFLAU` traffic advisory is an aircraft entering 1.5 km horizontally and 300 m vertically |
 
-Levels come off the time to that breach, at the thresholds the cockpit already knew: `kUrgentTtiS` 15 s, `kImportantTtiS` 25 s. The proximity ring survives only as the info floor, so a contact inside `kInfoDistM` and inside the vertical window is a dot on the plot whatever it is doing. A target that reports no velocity is charged at `kUnknownTargetSpeedMps` on a course straight at us, because zero would make a relayed position the safest thing in the sky.
+Advisory is the industry's word for this alert and the honest one for this device: a caution that says look, never an instruction. The level above it in every other system is the resolution advisory, which tells a crew to climb or descend and is coordinated with the other aircraft. This device has no link to coordinate over and no authority to give one, so it has nothing above the advisory and never will. `to_number` is the number the wire carries, and 1 is what `$PFLAA` and `$PFLAU` are sent: FLARM's level 1 is the lowest real alarm and the only band a 3 km ring does not overstate.
+
+Why not a prediction. A predicted conflict is a better alarm for an aircraft under power on a track it holds, and it was what this layer did until the levels collapsed into one. What it cost was a model - a protection volume, a spread that grew with lead time, a horizon - and the model decided whether a pilot was told about an aeroplane a kilometre away. A ring decides nothing: it is where the aircraft is. The gaggle case that a prediction was carried for is handled where it belongs, by `formation` below, which silences aircraft that are flying with us rather than guessing at aircraft that are not.
+
+A target that reports no velocity is still charged at `kUnknownTargetSpeedMps` in the closing figure the formation layer reads, because zero would make a relayed position the safest thing in the sky.
 
 ## Dismissal
 
-A pilot who has the aircraft in sight has everything the device was trying to give them, and from that moment the annunciator is noise. `AlarmTracker::dismiss` is what a long touch of the pad reaches: what has already been said is not said again, so the urgent train stops repeating and the buzzer is released mid-pattern.
+A pilot who has the aircraft in sight has everything the device was trying to give them, and from that moment the annunciator is noise. `AlarmTracker::dismiss` is what a long touch of the pad reaches: what has already been said is not said again, and the buzzer is released mid-pattern.
 
 It is spent per aircraft, on the slot rather than on the tracker: one touch marks every contact that has been announced, and a contact the device has not spoken about yet is not covered, because the claim a pilot makes is about the aeroplanes they were told of. It takes back everything the device is saying about them: the tone, the sector on the glass and the lamp. The grade stands and the target keeps its symbol, its leader and its tag, because the dismissal is a claim about what the pilot has seen and not a claim about the sky - which is also why `bus::State` carries two levels, `alarm_level` for the sky and `alarm_live` for what is still being said about it. The tablet is told the first, over NMEA and from the target's own grade; the lamp and the panel read the second.
 
-Anything worse takes the silence back, on the pass it happens, and takes back only its own: a contact that escalates above the level it was announced at clears its own slot, and an aircraft heard for the first time was never dismissed. The rest of the sky stays quiet, which is what makes one touch in a busy circuit hold. That is also why there is no timer on it. A dismissal that expired would shout again about the aeroplane the pilot is looking at, and one that could outlive the next threat would be the bug this design exists to not have.
+An aircraft says it again by arriving again: a contact that leaves the window and comes back is announced, and clears its own dismissal, while one that has been there all along stays quiet. Leaving is not instant either, because the level the tracker last said falls back only after a whole `kRenotifyMs` outside, so an aeroplane sitting on the boundary is one announcement and not a stutter. An aircraft heard for the first time was never dismissed. The rest of the sky stays quiet, which is what makes one touch in a busy circuit hold. That is also why there is no timer on it: a dismissal that expired would shout again about the aeroplane the pilot is looking at.
 
-What is deliberately absent: there is no co-circling test, no gaggle range gate, no steady-range timer, and no constant anywhere in this directory that assumes a glider. Two aircraft on one thermal circle are quiet because their arcs never meet, and the pair on offset circles that pass at 15 m is alarmed on before it happens. That pair was decision 5.3's committed limitation, and `test/core/test_traffic.cpp` now pins it as an alarm.
+An advisory is announced once and never repeats itself. A ring can stand for a whole climb, and a tone that came back every two seconds for as long as a glider shared the thermal is the device switched off.
+
+What is deliberately absent: there is no co-circling test, no gaggle range gate, no steady-range timer, and no constant anywhere in this directory that assumes a glider.
 
 ## Turn rate
 

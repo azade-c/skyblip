@@ -7,20 +7,10 @@ Pattern pattern_for(Voice voice, traffic::Level level) {
     if (voice != Voice::Traffic) return p;
     switch (level) {
         case traffic::Level::None: return p;
-        case traffic::Level::Info:
-            p.tone_ms = kInfoDiscreetBlipMs;
-            p.repeats = kInfoDiscreetBlipCount;
-            return p;
-        case traffic::Level::Important:
-            p.tone_ms = kImportantPairBeepMs;
-            p.gap_ms = kImportantPairGapSameAsBeepMs;
-            p.repeats = kImportantPairBeepCount;
-            return p;
-        case traffic::Level::Urgent:
-            p.tone_ms = kUrgentTrainPulseMs;
-            p.gap_ms = kUrgentTrainGapSameAsPulseMs;
-            p.repeats = kUrgentTrainPulseCount;
-            p.reannounce_ms = kUrgentStandingReannounceMs;
+        case traffic::Level::Advisory:
+            p.tone_ms = kAdvisoryPairBeepMs;
+            p.gap_ms = kAdvisoryPairGapSameAsBeepMs;
+            p.repeats = kAdvisoryPairBeepCount;
             return p;
     }
     return p;
@@ -33,7 +23,7 @@ Command Policy::update(const Situation& situation, uint32_t now_ms) {
     }
 
     if (situation.level != traffic::Level::None) {
-        if (voice_ != Voice::Traffic || level_ != situation.level || situation.escalated)
+        if (voice_ != Voice::Traffic || level_ != situation.level || situation.announced)
             begin(Voice::Traffic, situation.level, now_ms);
     } else if (voice_ == Voice::Traffic) {
         release();

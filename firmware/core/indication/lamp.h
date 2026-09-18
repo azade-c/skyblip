@@ -58,7 +58,7 @@ inline constexpr Row kTable[kRowCount] = {
     {Condition::Alarm,
      {indication::Lamp::Red, 45, 135},
      Budget::Transient,
-     "red, fast flicker: traffic alarm, level 2 or 3"},
+     "red, fast flicker: a traffic advisory stands"},
     {Condition::Low,
      {indication::Lamp::Red, 60, 540},
      Budget::Transient,
@@ -160,11 +160,7 @@ struct Situation {
     bool fix_valid{false};
 };
 
-// The level at which traffic takes the lamp. Level 1 is heard dozens of times in
-// one thermal and a red flicker for each of them is both expensive and noise, so
-// this is the same threshold the panel uses to take the glass back and the alarm
-// service uses to reach the haptic.
-constexpr traffic::Level kAlarmTakesLamp = traffic::Level::Important;
+constexpr traffic::Level kAlarmTakesLamp = traffic::Level::Advisory;
 
 // The priority order, as code. This is the only function allowed to know it.
 Condition condition_for(const Situation& situation);

@@ -29,23 +29,20 @@ formation::State AlarmService::watch_formation(traffic::Target& target, uint32_t
 void AlarmService::tick(uint32_t now_ms) {
     traffic::Level worst = traffic::Level::None;
     traffic::Level live = traffic::Level::None;
-    traffic::Level speak = traffic::Level::None;
-    bool escalated = false;
+    bool announced = false;
     if (context_.state.own.fix_valid) {
         for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
             traffic::Target* t = context_.state.traffic.at(i);
             if (!t || !t->used) continue;
             const formation::State f = watch_formation(*t, now_ms);
             const traffic::AlarmTracker::Decision d =
-                tracker_.update(context_.state.own, t->obs, t->turn.dps, t->turn.valid, now_ms);
+                tracker_.update(context_.state.own, t->obs, now_ms);
             t->alarm_level = d.assessment.level;
             t->alarm_dismissed = d.dismissed;
             if (silenced(*t, f, d.assessment, now_ms)) continue;
             worst = std::max(d.assessment.level, worst);
             if (!d.dismissed) live = std::max(d.assessment.level, live);
-            if (!d.notify) continue;
-            speak = std::max(d.assessment.level, speak);
-            escalated = escalated || d.escalated;
+            announced = announced || d.notify;
         }
     }
     tracker_.forget_stale(now_ms);
@@ -63,22 +60,15 @@ void AlarmService::tick(uint32_t now_ms) {
     // holds through a contact bouncing across a ring boundary, and which falls
     // to nothing when the target that caused it stops being heard.
     situation.level = tracker_.announced_level(now_ms);
-    situation.escalated = escalated;
+    situation.announced = announced;
     situation.first_fix = context_.state.own.fix_acquired;
     situation.enabled = settings_.alarm_enabled;
     situation.running = running_;
     drive(situation, now_ms);
     drive_lamp(now_ms, running_);
 
-    // Haptics only on the way UP, and only from "important": this device rides in
-    // a pocket or a harness where the buzzer is muffled, which is exactly when a
-    // pilot needs to feel it. A standing urgent re-announces its tone every
-    // couple of seconds and must not pulse the motor with it - escalated is
-    // false on a re-notification, which is what keeps the two apart.
     if (!situation.enabled || !running_) return;
-    if (escalated && speak >= kHapticFromLevel)
-        context_.roles.annunciator.vibrate(speak >= traffic::Level::Urgent ? kHapticUrgentMs
-                                                                           : kHapticImportantMs);
+    if (announced) context_.roles.annunciator.vibrate(kHapticFeltThroughAHarnessMs);
 }
 
 void AlarmService::park(uint32_t now_ms) {

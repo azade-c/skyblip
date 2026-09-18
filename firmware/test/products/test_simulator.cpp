@@ -234,23 +234,23 @@ TEST_CASE("simulator: a modelled climb reaches own-ship state through the barome
     CHECK(h.product().state().own.climb_mm_s < 0);
 }
 
-TEST_CASE("simulator: an escalating threat buzzes and, from 'important', vibrates") {
+TEST_CASE("simulator: an aircraft entering the window buzzes and vibrates") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
     run(h, 0, 2000);
     REQUIRE(h.product().state().own.fix_valid);
     REQUIRE(h.haptic_ms() == 0);
 
-    // A distant contact: info level only. Audible, but it must NOT buzz the
-    // motor - a pilot who feels every passing glider stops feeling anything.
-    h.world().add_aircraft(2500, 0, 0, 20, 90);
+    // Nothing in the window yet: nothing said, nothing felt.
+    h.world().add_aircraft(6000, 0, 0, 20, 90);
     run(h, 2000, 5000);
-    if (h.announcing_level() == traffic::Level::Info) CHECK(h.haptic_ms() == 0);
+    REQUIRE(h.announcing_level() == traffic::Level::None);
+    CHECK(h.haptic_ms() == 0);
 
-    // Now something close and converging: important or urgent, so it must vibrate.
+    // Now one inside it: said out loud, and felt through the harness.
     h.world().add_threat();
     run(h, 5000, 9000);
-    REQUIRE(h.announcing_level() >= traffic::Level::Important);
+    REQUIRE(h.announcing_level() == traffic::Level::Advisory);
     CHECK(h.haptic_ms() >= 200);
 }
 
@@ -259,13 +259,17 @@ TEST_CASE("simulator: a threat going away does not buzz the motor again") {
     REQUIRE(h.setup() == Status::Ok);
     run(h, 0, 2000);
     h.world().add_threat();
-    run(h, 2000, 6000);
-    REQUIRE(h.buzzer_level() >= 2);
+    uint8_t loudest = 0;
+    for (uint32_t t = 2000; t <= 6000; t += simulator::Simulator::kStepMs) {
+        h.step(t);
+        if (h.buzzer_level() > loudest) loudest = h.buzzer_level();
+    }
+    REQUIRE(loudest >= 1);
     REQUIRE(h.haptic_ms() >= 200);
 
-    // De-escalation is a level CHANGE too, and it must not be mistaken for a new
-    // threat: the annunciator records the last duration, so a fresh pulse would
-    // show up as a change here.
+    // The sky emptying is a level CHANGE too, and it must not be mistaken for a
+    // new contact: the annunciator records the last duration, so a fresh pulse
+    // would show up as a change here.
     const uint16_t after_escalation = h.haptic_ms();
     h.world().clear_aircraft();
     run(h, 6000, 40000);

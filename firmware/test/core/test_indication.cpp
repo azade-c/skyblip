@@ -29,7 +29,7 @@ constexpr uint32_t kStepMs = 10;
 Situation everything_at_once() {
     Situation s{};
     s.running = true;
-    s.alarm_level = Level::Urgent;
+    s.alarm_level = Level::Advisory;
     s.power_level = power::PowerLevel::Cutoff;
     s.fix_valid = false;
     return s;
@@ -101,8 +101,8 @@ TEST_CASE("indication: traffic outranks everything the device has to say about i
     CHECK(condition_for(s) == Condition::Alarm);
     CHECK(indication_for(Condition::Alarm).lamp == indication::Lamp::Red);
 
-    // And level 1 does not: it is heard dozens of times in one thermal.
-    s.alarm_level = Level::Info;
+    // And an empty sky does not.
+    s.alarm_level = Level::None;
     CHECK(condition_for(s) != Condition::Alarm);
     s.alarm_level = kAlarmTakesLamp;
     CHECK(condition_for(s) == Condition::Alarm);
@@ -195,7 +195,7 @@ TEST_CASE("indication: no row is held, so every lit row is paid for in winks") {
             CHECK(kTable[i].indication.off_ms > 0);
 
     Situation s{};
-    s.alarm_level = Level::Urgent;
+    s.alarm_level = Level::Advisory;
     LampRig lamp;
     lamp.run(s, 0, 5000);
     CHECK(lamp.policy.condition() == Condition::Alarm);
@@ -205,7 +205,7 @@ TEST_CASE("indication: no row is held, so every lit row is paid for in winks") {
 
 TEST_CASE("indication: the lamp goes dark the moment the device starts going down") {
     Situation s{};
-    s.alarm_level = Level::Urgent;
+    s.alarm_level = Level::Advisory;
     LampRig lamp;
     lamp.step(s, 0);
     REQUIRE(lamp.shown == indication::Lamp::Red);
@@ -230,7 +230,7 @@ TEST_CASE("indication: a change shows itself at once, not at the end of the cycl
     // Mid-cycle: the wink is long over and the lamp is dark for another 2 s.
     REQUIRE(lamp.shown == indication::Lamp::None);
 
-    s.alarm_level = Level::Urgent;
+    s.alarm_level = Level::Advisory;
     lamp.step(s, 1010);
     CHECK(lamp.shown == indication::Lamp::Red);
 }

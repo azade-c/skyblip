@@ -4,7 +4,7 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 
 | File | What it decides |
 |---|---|
-| `state` | airborne or on the ground, which gates the DFU lockout and the transmit rate |
+| `state` | airborne or on the ground, which gates the DFU lockout and the transmit rate, and stopped or rolling while it is on it |
 | `ground` | the same answer with a landing held back, which is what a permission gate reads |
 | `timer` | how long this flight has been running |
 | `atmosphere` | the standard atmosphere as integer math: pressure altitude, subscales, vertical speed |
@@ -14,7 +14,7 @@ What the aircraft is doing, decided from the fix stream and the barometer. Pure,
 | `slip` | where the ball hangs, from the acceleration the case measures |
 | `gload` | what the airframe is pulling, now and at its worst |
 | `extrapolate` | where an aircraft is now, when the fix it came from is older than now |
-| `arc` | where an aircraft will be, out to the look-ahead the radar draws and the alarm grades |
+| `arc` | where an aircraft will be, out to the look-ahead the radar draws |
 | `log_record`, `log_session` | what a flight leaves behind, and when a session runs |
 
 ## atmosphere
@@ -79,11 +79,11 @@ The peaks reset when the flight timer starts, so they are this flight's, and a u
 
 ## arc
 
-`extrapolate` and `arc` answer the same question over two horizons, and they are deliberately not one function. `extrapolate` closes the gap between the instant a fix was solved and the instant a position is used, so its ceiling is `kMaxExtrapolationMs`, a little over a second: past that the transmitter would be putting an invented position on the air, and §G.1.16 already refuses a solution older than 500 ms. `arc` is asked about a future nobody has to stand behind. It is what the radar's leader line draws and what `core/traffic/conflict` measures a breach against, so it runs to a minute and carries no obligation to the radio at all. Widening the first to serve the second was the tempting mistake.
+`extrapolate` and `arc` answer the same question over two horizons, and they are deliberately not one function. `extrapolate` closes the gap between the instant a fix was solved and the instant a position is used, so its ceiling is `kMaxExtrapolationMs`, a little over a second: past that the transmitter would be putting an invented position on the air, and §G.1.16 already refuses a solution older than 500 ms. `arc` is asked about a future nobody has to stand behind. It is what the radar's leader line draws, so it runs to a minute and carries no obligation to the radio at all. Widening the first to serve the second was the tempting mistake.
 
 The model is the same one, OGN's: constant ground speed on a constant turn rate, the turn applied half before the step and half after, which keeps a circling aircraft on its arc instead of on the tangent. A path is walked, never indexed: `Arc::advance()` rotates the velocity vector by half a step's worth of turn, moves, and rotates again, so a whole minute costs two sine lookups per aircraft rather than two per sample. Position is carried in millimetres and rotations are rounded rather than truncated, because a Q14 rotation applied thirty times in a row loses a metre a step otherwise.
 
-A target's turn rate is not on the wire. ADS-L carries position, speed, track and climb, so `motion_of(obs, ...)` takes the rate `core/traffic` estimated from that target's own track history, and flies it straight when there is no estimate yet. Both the screen and the alarm read the same estimate, which is the whole point: a leader line that curves one way while the alarm grades the other is two models and one of them is wrong.
+A target's turn rate is not on the wire. ADS-L carries position, speed, track and climb, so `motion_of(obs, ...)` takes the rate `core/traffic` estimated from that target's own track history, and flies it straight when there is no estimate yet. The screen draws that estimate, and the tag beside a turning target is the same number the table holds.
 
 `kMaxTurnDps` is 30. Above it the number is describing the receiver rather than the aircraft: a differentiated 1 Hz track produces tens of degrees per second out of a bad fix, and no aeroplane this device rides in holds that rate for the length of the projection. The clamp is applied where a motion is built, so nothing downstream has to remember it.
 
@@ -103,7 +103,11 @@ Ground speed is the whole rule. There is no altitude in it, no vertical rate, no
 
 There is no timer in any of it. What used to be five seconds of takeoff evidence and ten of landing is now the width of the gap between the two bands: ten times, where the thresholds it replaced were two apart. The gap is the hysteresis, and it is not decoration: a glider thermalling in a 15 m/s wind swings its ground speed from 5 m/s upwind to 40 downwind every circle, and a single threshold in the middle of that would land it and launch it once a turn, a log session and a firmware lock cycle each time.
 
-1.0 m/s is the ground speed, and what it separates is an aircraft stopped from an aircraft moving at all. A receiver at a standstill reports 0.05 to 0.3 m/s of Doppler speed, spiking to a metre a second on multipath, so the threshold is three times the noise it normally sits above and the spikes cost a solution or two before a landing latches. It is also the word on the glass: above it the radar says TAXI, so a glider being pushed to the grid at a walking pace reads as moving, which is what it is. Lower and a parked receiver flickers between the two words and a finished flight keeps running; higher and an aircraft creeping on an apron reads parked, and the ground band widens under a wing hovering over one spot.
+1.0 m/s is the ground speed, and what it separates is an aircraft stopped from an aircraft moving at all. A receiver at a standstill reports 0.05 to 0.3 m/s of Doppler speed, spiking to a metre a second on multipath, so the threshold is three times the noise it normally sits above and the spikes cost a solution or two before a landing latches. It is also where the word on the glass goes back to GROUND. Lower and a finished flight keeps running; higher and an aircraft creeping on an apron reads parked, and the ground band widens under a wing hovering over one spot.
+
+1.5 m/s is the third band, and unlike the other two it is not a state: ADS-L G.1.4 has two codes, and a glider being pushed to the grid is on the ground in both of them. `FlightMonitor::rolling()` answers the question the glass asks instead, stopped or moving, which is the difference between the words GROUND and TAXI (`products/skyblip_go/pages/README.md`). It picks up at 1.5 m/s and lets go below the 1.0 a landing needs, so the gap is the hysteresis again, half a metre a second of it: a parked receiver spiking to a metre a second on multipath never reaches the word, and a taxi slowing for a turn keeps the one it has. At 1.0 alone the word changed every few seconds on a device nobody had touched, and every change was a partial refresh of the glass spent on a state the aircraft was not in. The pick-up is a brisk walk, so what a pilot would call a taxi still reads as one. It holds through an outage the way the state does, because an antenna that drops out is not an aircraft that stopped.
+
+It is decided here rather than on the page for the reason the takeoff is: a band is a fact about the aircraft, and a page that owns one is a second opinion waiting to drift from this file. The monitor is already fed every solution, so all three speeds are read in one place, off one sample, and `products/skyblip_go/services/ownship.cpp` publishes the answer as `state.flight.rolling` for whoever draws it.
 
 12.0 m/s is 23 knots. Under it are a glider on tow to the grid at 4, a taxi at 5 to 8, and a tug hurrying back to the grid at 10; over it are a glider unsticking on aerotow at 20 and rotating off the winch at 23, a light aircraft at 28, a flexwing microlight whose stall is 16.9. The tug is the case that sets it, because it is the fastest thing on an airfield that is not flying and it carries one of these: a false takeoff there is a phantom log session, a firmware lock its pilot cannot clear between flights, an afternoon of the airborne transmit rate, and an ADS-L G.1.4 code on the air that tells every other aircraft not to suppress a target that is on the ground.
 

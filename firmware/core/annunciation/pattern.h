@@ -7,19 +7,7 @@
 // a continuous tone that runs until silence(), so a level with no off time is a
 // level that never stops: every pattern here ends by itself.
 //
-// The patterns are told apart by RHYTHM, never by pitch, because the pitch step
-// is a hardware question that may still move:
-//
-//   level 1 info       one short blip, then nothing until it changes
-//   level 2 important  two beeps, beep-length gap: a deliberate "look"
-//   level 3 urgent     six fast pulses, re-announced while it stands
-//
-// INFO: al 02aug26 the shape is FLARM's, by way of SoftRF's fork: one long beep
-// at low, a short pair at important, a fast train at urgent
-// (oss/SoftRF-moshe-braner .../src/driver/Buzzer.h:36-42, Buzzer.cpp:172-215).
-// Upstream SoftRF has no cadence at all - one 1000 ms tone, re-armed every 2 s
-// (oss/SoftRF-lyusupov .../src/driver/Sound.cpp:39-58) - which is the bug this
-// file exists to not have.
+// INFO: al 02aug26 the pair is SoftRF's fork's look cadence (oss/SoftRF-moshe-braner Buzzer.cpp:172-215)
 #ifndef SKYBLIP_CORE_ANNUNCIATION_PATTERN_H
 #define SKYBLIP_CORE_ANNUNCIATION_PATTERN_H
 
@@ -34,29 +22,9 @@ namespace skyblip::annunciation {
 // pilot cannot place, and cannot count.
 constexpr uint16_t kShortestBlipEarCanPlaceMs = 90;
 
-// Level 1 in a thermal is heard dozens of times in one climb. One blip at the
-// floor of what the ear can place is the whole announcement.
-constexpr uint16_t kInfoDiscreetBlipMs = 120;
-constexpr uint8_t kInfoDiscreetBlipCount = 1;
-
-// Level 2 is "look now": two beeps long enough to be separate events, with a
-// gap the same length so the pair reads as a pair rather than as one stutter.
-constexpr uint16_t kImportantPairBeepMs = 250;
-constexpr uint16_t kImportantPairGapSameAsBeepMs = 250;
-constexpr uint8_t kImportantPairBeepCount = 2;
-
-// Level 3 is the one a pilot must not be able to ignore or mistake: a train of
-// pulses at 5.5 Hz, which no other pattern here comes near, and which reads as
-// urgency on its own without any change of pitch.
-constexpr uint16_t kUrgentTrainPulseMs = 90;
-constexpr uint16_t kUrgentTrainGapSameAsPulseMs = 90;
-constexpr uint8_t kUrgentTrainPulseCount = 6;
-
-// A standing urgent keeps saying so. The interval is the tracker's own
-// re-notification cadence (traffic::kRenotifyMs), so the train and the alert
-// that produced it stay on one clock, and the train (990 ms) is followed by
-// about a second of quiet a call or a vario can be heard in.
-constexpr uint16_t kUrgentStandingReannounceMs = 2000;
+constexpr uint16_t kAdvisoryPairBeepMs = 250;
+constexpr uint16_t kAdvisoryPairGapSameAsBeepMs = 250;
+constexpr uint8_t kAdvisoryPairBeepCount = 2;
 
 // INFO: fc 12sep26 written C5 E5 G5, played two octaves up: a 4 kHz piezo whispers at 500 Hz
 constexpr uint16_t kNoteC7Hz = 2093;
@@ -96,7 +64,7 @@ constexpr uint16_t first_fix_jingle_ms() {
 // cadence has to divide into this several times over or the pattern the ear
 // gets is not the pattern written above; products assert that against their own
 // step rate.
-constexpr uint16_t kShortestPhaseMs = kUrgentTrainPulseMs;
+constexpr uint16_t kShortestPhaseMs = kShortestBlipEarCanPlaceMs;
 static_assert(kShortestPhaseMs >= kShortestBlipEarCanPlaceMs, "a phase the ear cannot place");
 
 struct Pattern {
@@ -118,8 +86,7 @@ Pattern pattern_for(Voice voice, traffic::Level level);
 struct Situation {
     // The level being announced right now, after the tracker's hysteresis.
     traffic::Level level{traffic::Level::None};
-    // A target got worse on this pass: say it again even at the same level.
-    bool escalated{false};
+    bool announced{false};
     // The first fix landed on this pass.
     bool first_fix{false};
     // settings.alarm_enabled.

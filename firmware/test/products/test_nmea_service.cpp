@@ -199,7 +199,9 @@ TEST_CASE("nmea: an aircraft heard over the air becomes a $PFLAA a tablet can pa
     CHECK(f[11] == "1");  // ALP-TAS aircraft type: glider
 }
 
-TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU") {
+// FLARM's scale is time to impact, and 1 is its lowest real alarm: a 3 km ring
+// is the only band that number does not overstate.
+TEST_CASE("nmea: an advisory goes out as FLARM alarm level 1") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
@@ -207,13 +209,13 @@ TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU
     rig.raise_link();
     fly(rig, t, 1);
 
-    // Co-altitude off the left wing on a course that meets ours in 14 s: the geometry
-    // core/traffic grades, not a level written into the table by hand.
+    // Co-altitude off the left wing and well inside the advisory window: the
+    // level core/traffic assessed, not one written into the table by hand.
     for (int pass = 0; pass < 4; pass++) {
         hear(rig, 0x112233, 400, 150, 31, /*track_c9=*/223);
         fly(rig, t, 1);
     }
-    REQUIRE(rig.state().alarm_level >= traffic::Level::Important);
+    REQUIRE(rig.state().alarm_level == traffic::Level::Advisory);
 
     std::string status;
     for (const std::string& s : sentences(rig))
@@ -223,7 +225,8 @@ TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU
     REQUIRE(f.size() >= 10);
     CHECK(std::stoi(f[1]) >= 1);  // targets heard
     CHECK(std::stoi(f[3]) == 2);  // 3D fix
-    CHECK(std::stoi(f[5]) == static_cast<int>(rig.state().alarm_level));
+    CHECK(std::stoi(f[5]) == 1);
+    CHECK(std::stoi(f[5]) == static_cast<int>(traffic::to_number(rig.state().alarm_level)));
     // Own-ship is tracking east and the threat is due north of it, so it is off
     // the left wing: the relative bearing is signed, half a turn either way, and
     // an app that drew 270 here would put the arrow on the wrong side.
@@ -232,6 +235,12 @@ TEST_CASE("nmea: the level the device alarms on is the level that reaches $PFLAU
     CHECK(std::stoi(f[7]) == 2);   // alarm type: aircraft
     CHECK(std::stoi(f[9]) < 600);  // relative distance, metres
     CHECK(f[10] == "112233");      // the threat's id
+
+    std::string target;
+    for (const std::string& s : sentences(rig))
+        if (s.rfind("$PFLAA,", 0) == 0) target = s;
+    REQUIRE_FALSE(target.empty());
+    CHECK(target.rfind("$PFLAA,1,", 0) == 0);
 }
 
 TEST_CASE(

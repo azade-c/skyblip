@@ -93,22 +93,22 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     REQUIRE(idx >= 0);
     CHECK(table.count() == 1);
 
-    // 5) alarm: the closure comes off the relative velocity vector, so a level 3
-    //    here is the geometry saying so and not the range gate it used to be.
+    // 5) alarm: an aircraft 800 m away and co-altitude is an advisory, and the
+    //    closure beside it comes off the relative velocity vector.
     traffic::AlarmAssessment a = traffic::assess(own, obs, own.fix_ms);
     CHECK(a.valid);
     CHECK(a.rel_dist_m > 700);
     CHECK(a.rel_dist_m < 900);
     CHECK(a.closing_mps > 40);
-    CHECK(a.level == traffic::Level::Urgent);
+    CHECK(a.level == traffic::Level::Advisory);
 
-    // The same aircraft flying the way we are: two parallel paths, so it is a dot and not an alarm.
+    // The same aircraft flying the way we are: the gap is not closing, and it is
+    // an advisory all the same, because it is there.
     model::AircraftObs chase = obs;
     chase.track_c9 = own.track_c9;
     const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
     CHECK(following.closing_mps <= 0);
-    CHECK_FALSE(following.breaches);
-    CHECK(following.level == traffic::Level::Info);
+    CHECK(following.level == traffic::Level::Advisory);
 
     table.at(idx)->alarm_level = a.level;
 

@@ -4,10 +4,10 @@
 // the board is holding. Nothing below the services is stubbed.
 //
 // The bug: the annunciator's alarm() opens a CONTINUOUS tone and the service
-// only ever closed it when the worst level fell to zero. A level 3 that decayed
-// to level 1 went on sounding at the urgent pitch for the rest of the climb,
-// and there was no cadence at all - one tone, started once, released when the
-// sky emptied. In a thermal that is the reason a pilot switches the device off.
+// only ever closed it when the level fell to zero, so it sounded for as long as
+// anything stayed inside the advisory window, with no cadence at all - one
+// tone, started once, released when the sky emptied. In a thermal that is the
+// reason a pilot switches the device off.
 #include "core/annunciation/pattern.h"
 #include "core/power/shutdown.h"
 #include "doctest/doctest.h"
@@ -32,15 +32,23 @@ struct Sky {
         for (uint32_t t = from; t <= to; t += kStepMs) simulator.step(t);
     }
 
-    // A device flying along with one converging glider on the M-band: urgent
-    // within a couple of seconds of the first frames being decoded.
-    uint32_t with_an_urgent_threat() {
+    // A device flying along with one converging glider on the M-band: an
+    // advisory within a couple of seconds of the first frames being decoded.
+    uint32_t with_a_contact_in_the_window() {
         REQUIRE(simulator.setup() == Status::Ok);
         run(0, 2000);
         simulator.world().add_threat();
         run(2000, 6000);
-        REQUIRE(int(announcing_level()) == 3);
+        REQUIRE(int(announcing_level()) == 1);
         return 6000;
+    }
+
+    // One more aircraft entering the window, which is the only thing that makes
+    // this device speak twice. Returns the instant the pair is sounding, so a
+    // release has something to release, or 0 if it never sounded.
+    uint32_t sounding_again(uint32_t from) {
+        simulator.world().add_aircraft(1500, 500, 0, 30, 180);
+        return step_until_sounding(from, from + 6000);
     }
 
     // Step until the buzzer is actually mid-pulse, so a release has something
@@ -56,68 +64,26 @@ struct Sky {
 
 }  // namespace
 
-TEST_CASE("product: an urgent contact is a pulse train, re-announced while it stands") {
+TEST_CASE("product: an advisory is one pair of beeps, and the contact standing says nothing more") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
 
-    // Two seconds of a standing urgent: one train of six pulses, and not one
-    // PWM start more. The loop made four hundred passes over the same window -
-    // a tone re-armed on every pass is a click, not a tone.
+    // The pair is two PWM starts and not one more, however many passes the loop
+    // makes: a tone re-armed on every pass is a click, not a tone.
     const uint32_t before = sky.tone_commands();
-    sky.run(t, t + annunciation::kUrgentStandingReannounceMs);
-    t += annunciation::kUrgentStandingReannounceMs;
-    CHECK(sky.tone_commands() - before == annunciation::kUrgentTrainPulseCount);
-
-    // And it is a cadence, not a latch: over the same window the buzzer spent
-    // more time off than on, which is what leaves room for a radio call.
-    int on = 0, off = 0;
-    for (uint32_t u = t; u <= t + annunciation::kUrgentStandingReannounceMs; u += kStepMs) {
-        sky.simulator.step(u);
-        if (sky.sounding_level() > 0)
-            on++;
-        else
-            off++;
-    }
-    CHECK(on > 0);
-    CHECK(off > on);
-}
-
-TEST_CASE("product: an urgent that decays to info changes the tone instead of holding it") {
-    Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
-
-    // The threat flies through and opens out. It stays inside the 3 km info
-    // ring, and it stays on the screen, so the old code kept the urgent tone
-    // sounding for as long as it was in sight.
-    uint32_t decayed_ms = 0;
-    uint32_t commands_at_decay = 0;
-    int sounding_after = 0;
-    for (; t <= 40000; t += kStepMs) {
-        sky.simulator.step(t);
-        if (decayed_ms == 0) {
-            if (int(sky.announcing_level()) != 1) continue;
-            decayed_ms = t;
-            commands_at_decay = sky.tone_commands();
-            continue;
-        }
-        if (sky.sounding_level() > 0) sounding_after++;
-    }
-    REQUIRE(decayed_ms > 0);
-
-    // What follows the decay is the info pattern and nothing else: one discreet
-    // blip, begun on the pass the level changed, and then quiet for the rest of
-    // the encounter.
-    CHECK(sky.tone_commands() == commands_at_decay);
-    CHECK(uint32_t(sounding_after) * kStepMs <= annunciation::kInfoDiscreetBlipMs);
+    sky.run(t, t + 20000);
+    t += 20000;
+    CHECK(sky.tone_commands() == before);
     CHECK(int(sky.sounding_level()) == 0);
-    // Still traffic, still on the screen, still worth one blip if it worsens.
+
+    // It is still the contact the device is announcing, and it is still plotted.
     CHECK(int(sky.announcing_level()) == 1);
     CHECK(sky.simulator.product().state().traffic.count() == 1);
 }
 
 TEST_CASE("product: an empty sky releases the buzzer and does not re-announce anything") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
     REQUIRE(sky.tone_commands() > 0);
 
     // Nothing transmits any more. The target ages out of the alert window
@@ -137,7 +103,7 @@ TEST_CASE("product: an empty sky releases the buzzer and does not re-announce an
 // The pad's long touch is a pilot saying they have the aircraft in sight.
 TEST_CASE("product: a long touch of the pad dismisses a standing alarm") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
 
     sky.simulator.world().hold_pad(true);
     sky.run(t, t + go::Controls::kHomeTouchMs + 500);
@@ -151,21 +117,21 @@ TEST_CASE("product: a long touch of the pad dismisses a standing alarm") {
     CHECK(int(sky.simulator.product().state().alarm_live) == 0);
     // The lamp goes with the buzzer: nothing is left saying look.
     CHECK(sky.simulator.product().alarm().indicator_condition() != indication::Condition::Alarm);
-    // Still urgent, still plotted: what was dismissed is the saying, not the sky.
-    CHECK(int(sky.simulator.product().state().alarm_level) == 3);
+    // Still an advisory, still plotted: what was dismissed is the saying, not the sky.
+    CHECK(int(sky.simulator.product().state().alarm_level) == 1);
 
     const uint32_t before = sky.tone_commands();
-    sky.run(t, t + 4 * annunciation::kUrgentStandingReannounceMs);
+    sky.run(t, t + 8000);
     CHECK(sky.tone_commands() == before);
 }
 
 TEST_CASE("product: switching alarms off silences the buzzer on the pass it is switched off") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
 
     // Mid-pulse, which is the case that matters: a setting that only takes
     // effect at the end of a pattern is a setting a pilot does not believe.
-    t = sky.step_until_sounding(t, t + 3000);
+    t = sky.sounding_again(t);
     REQUIRE(t > 0);
     const uint32_t silences = sky.buzzer().silences();
 
@@ -188,9 +154,9 @@ TEST_CASE("product: switching alarms off silences the buzzer on the pass it is s
 
 TEST_CASE("product: a device on its way down does not leave the buzzer sounding") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
 
-    t = sky.step_until_sounding(t, t + 3000);
+    t = sky.sounding_again(t);
     REQUIRE(t > 0);
 
     // The same request a long press makes. From here the service loop stops
@@ -211,18 +177,17 @@ TEST_CASE("product: a device on its way down does not leave the buzzer sounding"
     CHECK_FALSE(sky.simulator.backlight());
 }
 
-TEST_CASE("product: a standing urgent buzzes the motor once, not on every re-announcement") {
+TEST_CASE("product: a standing advisory buzzes the motor once, and once only") {
     Sky sky;
-    uint32_t t = sky.with_an_urgent_threat();
-    // Haptics mean "this got worse", so they belong to the escalation and to
-    // nothing else. The tone says it again every two seconds; the motor in a
-    // pocket doing the same would be a pilot's whole flight.
+    uint32_t t = sky.with_a_contact_in_the_window();
+    // Haptics mean "an aircraft arrived", so they belong to that pass and to
+    // nothing else: a motor pulsing in a pocket for as long as a glider shares
+    // the thermal would be a pilot's whole flight.
     const uint32_t pulses = sky.buzzer().haptic_pulses();
     CHECK(pulses >= 1);
 
-    sky.run(t, t + 3 * annunciation::kUrgentStandingReannounceMs);
+    sky.run(t, t + 20000);
     CHECK(sky.buzzer().haptic_pulses() == pulses);
-    CHECK(sky.tone_commands() > 3 * annunciation::kUrgentTrainPulseCount);
 }
 
 TEST_CASE("product: the first fix plays its tune, and traffic takes the buzzer off it") {
@@ -255,8 +220,8 @@ TEST_CASE("product: the first fix plays its tune, and traffic takes the buzzer o
     CHECK(highest_hz == annunciation::kNoteG7Hz);
     CHECK(sounding_ms >= tone_ms - annunciation::kFirstFixNoteCount * kStepMs);
     CHECK(sounding_ms <= tone_ms);
-    // No haptics: the motor is reserved for traffic that got worse, so a pilot
-    // who feels it knows what it means without looking.
+    // No haptics: the motor is reserved for traffic, so a pilot who feels it
+    // knows what it means without looking.
     CHECK(sky.buzzer().haptic_pulses() == 0);
     CHECK(int(sky.sounding_level()) == 0);
     CHECK(sky.buzzer().silences() == annunciation::kFirstFixNoteCount);
@@ -264,7 +229,7 @@ TEST_CASE("product: the first fix plays its tune, and traffic takes the buzzer o
     // Traffic then owns it, and the fix is not chirped a second time.
     sky.simulator.world().add_threat();
     sky.run(5000, 9000);
-    CHECK(int(sky.announcing_level()) == 3);
+    CHECK(int(sky.announcing_level()) == 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +241,7 @@ TEST_CASE("product: the first fix plays its tune, and traffic takes the buzzer o
 // and then read the chip.
 // ---------------------------------------------------------------------------
 
-TEST_CASE("product: an escalation reaches the haptic driver's registers") {
+TEST_CASE("product: an announcement reaches the haptic driver's registers") {
     Sky sky;
     models::Drv2605& chip = sky.simulator.platform().chips().haptic;
 
@@ -293,7 +258,7 @@ TEST_CASE("product: an escalation reaches the haptic driver's registers") {
         sky.simulator.step(t);
         if (chip.moving()) moved = true;
     }
-    CHECK(int(sky.announcing_level()) == 3);
+    CHECK(int(sky.announcing_level()) == 1);
     // The pulse was made over the bus: a mode, a drive value and a stop. The
     // enable pin is not wired into the host's virtual GPIO at all
     // (hardware/platform/host/io.h), so nothing here could have moved the motor
@@ -305,11 +270,11 @@ TEST_CASE("product: an escalation reaches the haptic driver's registers") {
 TEST_CASE("product: the motor is not left running after its pulse") {
     Sky sky;
     models::Drv2605& chip = sky.simulator.platform().chips().haptic;
-    uint32_t t = sky.with_an_urgent_threat();
+    uint32_t t = sky.with_a_contact_in_the_window();
 
-    // A pulse is 600 ms at urgent (services/alarm.h). Well past it, the driver is
-    // back in standby: a motor left on is a flat battery, and the DRV2605's own
-    // drive stage is milliamps.
+    // A pulse is 400 ms (services/alarm.h). Well past it, the driver is back in
+    // standby: a motor left on is a flat battery, and the DRV2605's own drive
+    // stage is milliamps.
     sky.run(t, t + 3000);
     CHECK_FALSE(chip.moving());
     CHECK(chip.standby());

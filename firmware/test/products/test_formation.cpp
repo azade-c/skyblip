@@ -86,7 +86,7 @@ TEST_CASE("formation: a neighbour holding station joins by itself, and takes its
 TEST_CASE("formation: a tight pair that settles down stops the alarm its joining raised") {
     Flight flight;
     flight.hear(-20, -30, 10, 40, 90, 1000);
-    REQUIRE(flight.rig.state.alarm_level == traffic::Level::Urgent);
+    REQUIRE(flight.rig.state.alarm_level == traffic::Level::Advisory);
 
     const uint32_t after = flight.hold_station(-20, -30, 2000);
     CHECK(flight.target()->in_formation);
@@ -104,7 +104,7 @@ TEST_CASE("formation: a member closing on us alarms on that fix, and is no longe
 
     // The same aircraft, now 400 m off the nose coming the other way.
     flight.hear(0, 400, 0, 40, 270, after);
-    CHECK(flight.rig.state.alarm_level == traffic::Level::Urgent);
+    CHECK(flight.rig.state.alarm_level == traffic::Level::Advisory);
     CHECK_FALSE(flight.target()->in_formation);
     CHECK(flight.rig.alarm_service.formation_members() == 0);
 }

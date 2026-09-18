@@ -108,7 +108,7 @@ TEST_CASE("screen policy: the loudest alarm standing still gets the page its bla
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 
-    rig.alarm(traffic::Level::Urgent);
+    rig.alarm(traffic::Level::Advisory);
     rig.screen.next_page();
     rig.tick(t += 1000);
     CHECK(rig.glass_all_black());
@@ -127,11 +127,6 @@ TEST_CASE("screen policy: converging traffic takes any page back to the radar") 
     rig.screen.next_page();
     rig.run_seconds(t, 2);
     REQUIRE(rig.screen.page() != go::Page::Radar);
-
-    // An advisory leaves the page a pilot chose alone.
-    rig.alarm(traffic::Level::Info);
-    rig.run_seconds(t, 2);
-    CHECK(rig.screen.page() != go::Page::Radar);
 
     rig.alarm(go::ScreenService::kAlarmTakesGlass);
     rig.run_seconds(t, 2);
@@ -154,12 +149,7 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     REQUIRE(rig.screen.mode() == go::Mode::Menu);
     REQUIRE(rig.screen.editor().active());
 
-    // An advisory is not worth taking a pilot's page away.
-    rig.alarm(traffic::Level::Info);
-    rig.run_seconds(t, 2);
-    CHECK(rig.screen.mode() == go::Mode::Menu);
-
-    // A bearing worth turning the head for is: the menu goes and the traffic picture comes back.
+    // A bearing worth turning the head for: the menu goes and the traffic picture comes back.
     rig.alarm(go::ScreenService::kAlarmTakesGlass);
     rig.run_seconds(t, 2);
     CHECK(rig.screen.mode() == go::Mode::Page);
@@ -192,7 +182,7 @@ TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe an
     rig.run_seconds(t, 2);
     REQUIRE(rig.screen.page() != go::Page::Radar);
 
-    rig.threat(traffic::Level::Info, 0, 1500, t);
+    rig.threat(traffic::Level::Advisory, 0, 1500, t);
     rig.run_seconds(t, 2);
     const go::Page chosen = rig.screen.page();
 
@@ -243,7 +233,7 @@ TEST_CASE("screen policy: an alarm flashes the wedge at a flip a second") {
     rig.run_seconds(t, 3);
     const int settled = rig.chip.present_count;
 
-    rig.threat(traffic::Level::Info, 0, 1500, t);
+    rig.threat(traffic::Level::Advisory, 0, 1500, t);
     for (int i = 0; i < 100; i++) rig.tick(t += 100);  // ten seconds, sampled ten times a second
     const int flips = rig.chip.present_count - settled;
     CHECK(flips >= 9);

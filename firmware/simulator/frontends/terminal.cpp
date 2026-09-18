@@ -37,7 +37,7 @@ const char* kPages[] = {"radar",      "nearby",    "6-pack",   "status",
                         "satellites", "radio log", "self test"};
 static_assert(sizeof(kPages) / sizeof(kPages[0]) == go::kPageCount,
               "a page with no name here prints past the end of the array");
-const char* kAlarm[] = {"none", "info", "IMPORTANT", "URGENT"};
+const char* kAlarm[] = {"none", "ADVISORY"};
 constexpr int kTapeLines = 6;
 const char* kModes[] = {"dev", "demo", "training"};
 
