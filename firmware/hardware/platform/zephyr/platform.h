@@ -11,6 +11,7 @@
 
 #include <cstddef>
 
+#include "core/util/span.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/contract.h"
@@ -21,6 +22,7 @@
 #include "hardware/platform/zephyr/dfu.h"
 #include "hardware/platform/zephyr/die_temperature.h"
 #include "hardware/platform/zephyr/flash_region.h"
+#include "hardware/platform/zephyr/imu_firmware.h"
 #include "hardware/platform/zephyr/indicator.h"
 #include "hardware/platform/zephyr/io.h"
 #include "hardware/platform/zephyr/kvstore.h"
@@ -120,6 +122,8 @@ class Platform {
         out.read = true;
         return true;
     }
+
+    static ConstByteSpan imu_firmware() { return ConstByteSpan(kImuFirmware, kImuFirmwareBytes); }
 
     // INFO: fc 18sep26 our Plus reads this pin low and our plain T-Echo reads it high
     bool buzzer_pin_held_low() const { return board_buzzer_pin_held_low() != 0; }

@@ -2,6 +2,7 @@
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_IO_H
 
 #include "hardware/io/io.h"
+#include "hardware/parts/bhi260/model.h"
 #include "hardware/parts/drv2605/model.h"
 #include "hardware/parts/l76k/model.h"
 #include "hardware/parts/ssd1681/model.h"
@@ -14,11 +15,12 @@ struct Chips {
     models::Ssd1681 epd;
     models::L76k gnss;
     models::Drv2605 haptic;
+    models::Bhi260 imu;
 };
 
 // The virtual I2C bus. Two kinds of thing hang off it, which is the truth of
 // this board: parts we drive, which get a model, and parts that are fitted and
-// deliberately unused - the IMU, the RTC, the touch controller - which answer
+// deliberately unused - the RTC, the touch controller - which answer
 // their address and nothing more. A scan has to see both, or the self-test page
 // learns less than a bench multimeter.
 class I2cBus : public io::I2c {

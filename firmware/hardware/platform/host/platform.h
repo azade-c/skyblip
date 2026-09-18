@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_HARDWARE_PLATFORM_HOST_PLATFORM_H
 #define SKYBLIP_HARDWARE_PLATFORM_HOST_PLATFORM_H
 
+#include "core/util/span.h"
 #include "hardware/parts/bme280/model.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
@@ -126,7 +127,7 @@ class Platform {
         ports::Capability::Display | ports::Capability::Gnss | ports::Capability::Baro |
         ports::Capability::Link | ports::Capability::Storage | ports::Capability::Dfu |
         ports::Capability::Buzzer | ports::Capability::Haptic | ports::Capability::Contacts |
-        ports::Capability::Battery | ports::Capability::Indicator;
+        ports::Capability::Battery | ports::Capability::Indicator | ports::Capability::Inclinometer;
 
     // A host board can be fitted with less than everything, which is how the
     // degraded paths get exercised without a soldering iron.
@@ -184,6 +185,8 @@ class Platform {
         return out.read;
     }
 
+    static ConstByteSpan imu_firmware() { return ConstByteSpan(kImuFirmware); }
+
     bool buzzer_pin_held_low() const { return buzzer_pin_held_low_; }
     void set_buzzer_pin_held_low(bool held) { buzzer_pin_held_low_ = held; }
     bool read_pressure_mpa(uint32_t& out_mpa) { return baro_.read_pressure_mpa(out_mpa); }
@@ -200,21 +203,19 @@ class Platform {
     ports::Capabilities capabilities() const { return fitted_; }
 
    private:
-    // Which addresses the virtual bus acknowledges, from what the board is fitted
-    // with. The barometer answers at 0x76 rather than 0x77 - our BOM's address,
-    // one of the two the devicetree declares - and the two parts this product
-    // deliberately does not drive answer as well, because they are soldered on and
-    // a scan that hid them would be a scan nobody could trust.
     void wire_i2c() {
         if (ports::has(fitted_, ports::Capability::Baro)) i2c_.answer(kBaroAddress, true);
         if (ports::has(fitted_, ports::Capability::Haptic))
             i2c_.attach(models::Drv2605::kAddress, chips_.haptic);
-        i2c_.answer(kImuAddress, true);
+        if (ports::has(fitted_, ports::Capability::Inclinometer))
+            i2c_.attach(models::Bhi260::kAddress, chips_.imu);
+        else
+            i2c_.answer(kImuAddress, true);
         i2c_.answer(kRtcAddress, true);
     }
 
-    // BME280 at our BOM's address, BHI260AP, PCF8563. The last two have no
-    // driver anywhere in the tree, by decision (project/2-DEVICES.md).
+    static constexpr uint8_t kImuFirmware[] = {0x2B, 0x66, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44};
+
     static constexpr uint8_t kBaroAddress = 0x76;
     static constexpr uint8_t kImuAddress = 0x28;
     static constexpr uint8_t kRtcAddress = 0x51;

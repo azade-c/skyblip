@@ -3,6 +3,7 @@
 
 #include "boards/lilygo/t_echo_plus/glass.h"
 #include "boards/lilygo/t_echo_plus/i2c_scan.h"
+#include "boards/lilygo/t_echo_plus/imu_mount.h"
 #include "boards/lilygo/t_echo_plus/pins.h"
 #include "core/bus/bus.h"
 #include "core/bus/state.h"
@@ -10,6 +11,7 @@
 #include "core/events/link.h"
 #include "core/events/sensor.h"
 #include "core/input/contact.h"
+#include "hardware/parts/bhi260/bhi260.h"
 #include "hardware/parts/drv2605/drv2605.h"
 #include "hardware/parts/l76k/l76k.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
@@ -41,6 +43,7 @@ class TEchoPlus {
                platform.glass_rotation()),
           gnss_(platform.uart(io::BusId::Gnss), platform.uart_rate(io::BusId::Gnss)),
           haptic_(platform.i2c(io::BusId::Sensor), platform.gpio(), t_echo_plus::kHapticEnable),
+          imu_(platform.i2c(io::BusId::Sensor)),
           rf_(radio_, platform.clock(), bus.rf),
           capabilities_(platform.capabilities()) {
         platform_.wire(t_echo_plus::kPinMap);
@@ -57,6 +60,7 @@ class TEchoPlus {
         identify_panel();
         establish_haptic();
         establish_buzzer();
+        establish_inclinometer();
     }
 
     // Probing is done: capabilities() is already known. This is bring-up, and a part that
@@ -186,6 +190,7 @@ class TEchoPlus {
         }
 
         poll_battery(now_ms);
+        poll_inclinometer(now_ms);
 
         publish_contact(events::Contact::Button, button_, platform_.button_down(), now_ms);
         publish_contact(events::Contact::Pad, pad_, platform_.pad_down(), now_ms);
@@ -206,6 +211,7 @@ class TEchoPlus {
 
     typename P::Rf& rf() { return rf_; }
     parts::L76k& gnss() { return gnss_; }
+    parts::Bhi260& imu() { return imu_; }
     parts::Ssd1681& display() { return epd_; }
     parts::Drv2605& haptic() { return haptic_; }
 
@@ -269,12 +275,29 @@ class TEchoPlus {
                                                         : without(ports::Capability::Buzzer);
     }
 
+    void establish_inclinometer() {
+        capabilities_ = without(ports::Capability::Inclinometer);
+        if (!inventory_.has_i2c_address(t_echo_plus::kImuAddress) &&
+            !inventory_.has_i2c_address(t_echo_plus::kImuAddressAlternate))
+            return;
+        if (imu_.probe() != Status::Ok) return;
+        capabilities_ = capabilities_ | ports::Capability::Inclinometer;
+    }
+
+    void poll_inclinometer(uint32_t now_ms) {
+        if (!ports::has(capabilities_, ports::Capability::Inclinometer)) return;
+        if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
+        imu_.service(now_ms);
+        if (imu_.poll()) bus_.accel.push(t_echo_plus::device_frame(imu_.acceleration(), now_ms));
+    }
+
     P& platform_;
     bus::Bus& bus_;
     parts::Sx1262 radio_;
     parts::Ssd1681 epd_;
     parts::L76k gnss_;
     parts::Drv2605 haptic_;
+    parts::Bhi260 imu_;
     typename P::Rf rf_;
     ports::Inventory inventory_{};
     input::Contact button_{t_echo_plus::kButtonDebounceMs};

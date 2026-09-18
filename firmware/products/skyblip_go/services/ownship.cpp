@@ -26,6 +26,11 @@ void OwnshipService::tick(uint32_t now_ms) {
     events::BaroSample sample{};
     while (context_.bus.baro.pop(sample)) apply_baro(sample);
 
+    events::AccelSample specific_force{};
+    while (context_.bus.accel.pop(specific_force)) apply_accel(specific_force);
+    context_.state.slip.valid = ball_.valid(now_ms);
+    context_.state.slip.lateral_mg = ball_.mg();
+
     timer_.update(flight_.state(), now_ms);
     context_.state.flight.confirmed_state = ground_.state();
     context_.state.flight.seconds = timer_.seconds();
@@ -124,6 +129,10 @@ void OwnshipService::apply_baro(const events::BaroSample& sample) {
     if (vs_from_alt_mm(alt_mm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_mm_, baro_ref_ms_, mm_s))
         adopt_climb(mm_s);
     update_derived_qnh(sample);
+}
+
+void OwnshipService::apply_accel(const events::AccelSample& sample) {
+    ball_.update(sample.right_mg, sample.up_mg, sample.aft_mg, sample.at_ms);
 }
 
 void OwnshipService::adopt_climb(int32_t mm_s) {

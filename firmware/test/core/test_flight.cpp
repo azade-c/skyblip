@@ -141,7 +141,7 @@ TEST_CASE("flight: a device switched on in the air says so at once") {
     CHECK(parked.update(solution(1000, 0.0, 0.0)) == FlightState::OnGround);
 }
 
-// Without a fix there is no claim to make, and ADS-L G.1.4 has a code that says
+// Without a fix there is no claim to make, and ADS-L G.1.2 has a code that says
 // so. What must not happen is forgetting: the aircraft is still where it was
 // when the receiver went quiet.
 TEST_CASE("flight: no fix is not a landing") {
@@ -189,14 +189,14 @@ TEST_CASE("flight: the takeoff hold is counted across the 49.7-day wrap") {
     CHECK(hold(monitor, t, 1, 0.0, 0.0) == FlightState::OnGround);
 }
 
-TEST_CASE("flight: only the two ADS-L G.1.4 codes name a state, every other value is unknown") {
+TEST_CASE("flight: only the two ADS-L G.1.2 codes name a state, every other value is unknown") {
     CHECK(state_from(static_cast<uint8_t>(FlightState::OnGround)) == FlightState::OnGround);
     CHECK(state_from(static_cast<uint8_t>(FlightState::Airborne)) == FlightState::Airborne);
     CHECK(state_from(static_cast<uint8_t>(FlightState::Unknown)) == FlightState::Unknown);
     CHECK(airborne(static_cast<uint8_t>(FlightState::Airborne)));
     CHECK_FALSE(airborne(static_cast<uint8_t>(FlightState::OnGround)));
 
-    // G.1.4 is two bits and we own neither the sender nor the future: a code
+    // G.1.2 is two bits and we own neither the sender nor the future: a code
     // this build does not know is not a ground anything may unlock on.
     for (uint16_t code = 3; code < 256; code++)
         CHECK(state_from(static_cast<uint8_t>(code)) == FlightState::Unknown);

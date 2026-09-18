@@ -188,7 +188,7 @@ TEST_CASE("l76k: an unidentified receiver is still configured, and still says so
     CHECK(gnss.configured());
 }
 
-// G.1.12 wants a vertical accuracy claim, and GSA alone carries the VDOP it is made of.
+// G.1.15 wants a vertical accuracy claim, and GSA alone carries the VDOP it is made of.
 TEST_CASE("l76k: GSA is asked for, and the VDOP in it is the one the fix carries") {
     models::L76k chip;
     parts::L76k gnss(chip, chip);

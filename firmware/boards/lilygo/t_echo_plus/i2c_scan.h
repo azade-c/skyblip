@@ -33,7 +33,7 @@ constexpr uint8_t kI2cLastAddress = 0x77;
 // found rather than printing hex at a pilot. Sources: project/2-DEVICES.md's
 // hardware matrix, and SoftRF platform/nRF52.h:136-151 for the same three parts.
 constexpr uint8_t kHapticDriverAddress = 0x5A;  // DRV2605
-constexpr uint8_t kImuAddress = 0x28;           // BHI260AP (Plus), deliberately undriven
+constexpr uint8_t kImuAddress = 0x28;           // BHI260AP (Plus), hardware/parts/bhi260/
 constexpr uint8_t kImuAddressAlternate = 0x29;  // BHI260AP, address-select high
 constexpr uint8_t kRtcAddress = 0x51;           // PCF8563, deliberately undriven
 

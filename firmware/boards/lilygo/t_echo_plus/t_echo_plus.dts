@@ -507,8 +507,10 @@
  * instances cost a few hundred bytes and buy one image that boots on either
  * variant instead of silently having no barometer on half of them.
  *
- * The IMU header (0x28 BHI260AP / 0x68 ICM-20948) is deliberately not declared:
- * nothing drives it.
+ * The IMU header (0x28 BHI260AP / 0x68 ICM-20948) is not declared, for the same
+ * reason the DRV2605 below is not: Zephyr has no driver for a sensor hub that is
+ * booted from a host image, so we drive it with our own part
+ * (hardware/parts/bhi260/) and let the bus scan say whether it is fitted.
  *
  * Nor is the DRV2605 haptic driver at 0x5A, and that is not an omission: we DO
  * drive it, with our own part under hardware/parts/drv2605/, because a haptic
@@ -547,7 +549,10 @@
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-1 = <&i2c0_sleep>;
 	pinctrl-names = "default", "sleep";
-	clock-frequency = <I2C_BITRATE_STANDARD>;
+	/* Fast mode, for the 101 KB the BHI260AP is booted from at every power-up:
+	 * at 100 kHz one 240-byte chunk is 22 ms, which is longer than the service
+	 * loop's own pass. Every part on this bus is rated for 400 kHz. */
+	clock-frequency = <I2C_BITRATE_FAST>;
 
 	bme280_76: bme280@76 {
 		compatible = "bosch,bme280";

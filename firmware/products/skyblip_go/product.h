@@ -24,11 +24,11 @@ namespace skyblip::go {
 
 // What this product cannot fly without, and what it can lose and keep flying.
 constexpr ports::Capabilities kRequired = ports::Capability::Rf | ports::Capability::Gnss;
-constexpr ports::Capabilities kOptional = ports::Capability::Display | ports::Capability::Baro |
-                                          ports::Capability::Buzzer | ports::Capability::Haptic |
-                                          ports::Capability::Link | ports::Capability::Storage |
-                                          ports::Capability::Dfu | ports::Capability::Contacts |
-                                          ports::Capability::Battery | ports::Capability::Indicator;
+constexpr ports::Capabilities kOptional =
+    ports::Capability::Display | ports::Capability::Baro | ports::Capability::Buzzer |
+    ports::Capability::Haptic | ports::Capability::Link | ports::Capability::Storage |
+    ports::Capability::Dfu | ports::Capability::Contacts | ports::Capability::Battery |
+    ports::Capability::Indicator | ports::Capability::Inclinometer;
 
 struct BootPartSpec {
     const char* name;
@@ -41,6 +41,7 @@ constexpr BootPartSpec kBootParts[] = {
     {"GNSS", ports::Capability::Gnss, "L76K"},
     {"PANEL", ports::Capability::Display, "SSD1681"},
     {"BARO", ports::Capability::Baro, "BME280"},
+    {"IMU", ports::Capability::Inclinometer, "BHI260AP"},
     {"TEMP", ports::Capability::DieTemperature, "NRF52840"},
     {"BATTERY", ports::Capability::Battery, "DIVIDER"},
     {"CONTACTS", ports::Capability::Contacts, "P1.10 P0.11"},
@@ -301,7 +302,7 @@ class Product {
     AlarmService alarm_{ctx_, settings_};
     NmeaService nmea_{ctx_, kFeatures, config_.config()};
     FlightLogService flight_log_{ctx_, config_.config()};
-    ScreenService screen_{ctx_, settings_, config_.config(), boot_snapshot_};
+    ScreenService screen_{ctx_, settings_, config_.config(), alarm_, boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
     // published the slot plan it defers to, and before the screen, which is the

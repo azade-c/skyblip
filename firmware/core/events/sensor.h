@@ -9,6 +9,13 @@ struct BaroSample {
     uint32_t at_ms;
 };
 
+struct AccelSample {
+    int16_t right_mg;
+    int16_t up_mg;
+    int16_t aft_mg;
+    uint32_t at_ms;
+};
+
 // The cell's terminal voltage, and whether something is feeding the charger.
 // What that pair means is core/power's problem, not the board's.
 struct BatterySample {

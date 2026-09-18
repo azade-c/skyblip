@@ -23,11 +23,14 @@ The producers the board polls, which are not ports because nothing calls them on
 | Member | Becomes |
 |---|---|
 | `read_pressure_mpa(uint32_t&)` | `events::BaroSample` |
+| `imu_firmware()` | the image `parts::Bhi260` uploads, which becomes `events::AccelSample` |
 | `read_battery_mv(uint16_t&)`, `external_power()` | `events::BatterySample` |
 | `button_down()`, `pad_down()` | `events::ButtonEvent` |
 | `pps()` | the PPS edge on `bus::State::clock` |
 
 And what the board asks about the unit it is running on: `begin()`, `capabilities()`, `device_addr()`, `glass_rotation()`, `read_panel_signature()`, `buzzer_pin_held_low()`, `watchdog()`, `system_power()`.
+
+`imu_firmware()` is the odd one: not a reading, but a hundred kilobytes of vendor firmware the BHI260AP has to be given before it is a sensor at all. It is a platform member rather than a constant in the part because only the device image should carry it - the host build hands over eight bytes and its part model boots on them, and the WASM the browser downloads stays the size it was (`parts/bhi260/firmware/README.md`).
 
 ## The two questions a pin and a register answer
 

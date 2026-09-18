@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "core/util/result.h"
+#include "core/util/span.h"
 #include "hardware/io/io.h"
 #include "hardware/parts/ssd1681/panel.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
@@ -103,6 +104,9 @@ constexpr bool fills_the_platform_contract() {
                                             std::declval<parts::PanelSignature&>())),
                                         bool>,
                   "platform: read_panel_signature(parts::PanelSignature&) -> bool");
+    static_assert(
+        std::is_convertible_v<decltype(std::declval<Self>().imu_firmware()), ConstByteSpan>,
+        "platform: imu_firmware() -> ConstByteSpan, the image the BHI260AP is booted from");
 
     static_assert(std::is_void_v<decltype(void(std::declval<Self>().pps()))>,
                   "platform: pps(), the edge the clock's phase is carried from");

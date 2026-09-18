@@ -45,7 +45,7 @@ struct BootSnapshot {
 
 // The most rows the page can carry before the last one falls off the panel. The
 // bus scan's row is one of them.
-constexpr int kBootRows = 14;
+constexpr int kBootRows = 15;
 
 // The grid the page is set on, exported so a test can read a row back off the
 // glass instead of counting ink: "there is ink on the GNSS row" is not the same
@@ -54,7 +54,7 @@ constexpr int kBootLeftX = 4;
 constexpr int kBootRightX = kGlassW - kBootLeftX;
 constexpr int kBootCellW = 6;  // the 5x7 font's advance at scale 1
 constexpr int kBootRowCells = (kGlassW - 2 * kBootLeftX) / kBootCellW;
-constexpr int kBootRowH = 10;  // 7 pixels of glyph and 3 of air
+constexpr int kBootRowH = 9;
 constexpr int kBootFirstRowY = 36;
 constexpr int kBootHeaderY = 26;
 
