@@ -34,6 +34,7 @@ void OwnshipService::tick(uint32_t now_ms) {
     context_.state.flight.seconds = timer_.seconds();
     context_.state.flight.time_valid = timer_.flown();
     context_.state.flight.running = timer_.running();
+    context_.state.flight.rolling = flight_.rolling();
 
     acquisition_.tick(now_ms);
     context_.state.gnss.stage = acquisition_.stage();

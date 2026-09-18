@@ -32,11 +32,19 @@ bool FlightMonitor::jerky(uint16_t previous_q, uint16_t now_q) {
     return now > previous * kJerkSpeedRatio || previous > now * kJerkSpeedRatio;
 }
 
+void FlightMonitor::update_rolling(uint16_t speed_q) {
+    if (speed_q >= kTaxiSpeedQ)
+        rolling_ = true;
+    else if (speed_q < kGroundSpeedQ)
+        rolling_ = false;
+}
+
 FlightState FlightMonitor::update(const FlightSample& sample) {
     if (!sample.fix_valid) {
         armed_ = false;
         return FlightState::Unknown;
     }
+    update_rolling(sample.speed_q);
 
     const uint16_t previous_speed_q = last_speed_q_;
     const bool comparable = armed_;

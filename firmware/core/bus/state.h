@@ -53,6 +53,7 @@ struct FlightStatus {
     uint32_t seconds{0};
     bool time_valid{false};
     bool running{false};
+    bool rolling{false};
     flight::FlightState confirmed_state{flight::FlightState::Unknown};
 };
 

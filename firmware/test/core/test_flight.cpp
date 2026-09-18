@@ -90,6 +90,37 @@ TEST_CASE("flight: the dilution of precision cannot land an aircraft") {
     CHECK(flight_evidence(solution(12.0, 0)));
 }
 
+// The third band: stopped or moving, which is the word the glass prints while ADS-L says OnGround.
+TEST_CASE("flight: a parked receiver's own noise is not a taxi, and a taxi that slows is still one") {
+    FlightMonitor monitor;
+    REQUIRE(hold(monitor, 3, 0.2) == FlightState::OnGround);
+    CHECK_FALSE(monitor.rolling());
+
+    // A metre a second of multipath on a device nobody has touched.
+    CHECK_FALSE(hold(monitor, 5, 1.25) == FlightState::Airborne);
+    CHECK_FALSE(monitor.rolling());
+
+    monitor.update(solution(2.0));  // pushed to the grid at a brisk walk
+    CHECK(monitor.rolling());
+
+    hold(monitor, 5, 1.25);  // slowing for the turn, and the word holds
+    CHECK(monitor.rolling());
+
+    hold(monitor, 2, 0.75);
+    CHECK_FALSE(monitor.rolling());
+}
+
+// A taxi does not stop because the antenna did.
+TEST_CASE("flight: an outage leaves the aircraft rolling as it was") {
+    FlightMonitor monitor;
+    REQUIRE(monitor.update(solution(6.0)) == FlightState::OnGround);
+    REQUIRE(monitor.rolling());
+
+    FlightSample lost{};
+    CHECK(monitor.update(lost) == FlightState::Unknown);
+    CHECK(monitor.rolling());
+}
+
 // The first solution decides on its own evidence: a device rebooted in flight must not wait.
 TEST_CASE("flight: a device switched on in the air says so at once") {
     FlightMonitor airborne;

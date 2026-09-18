@@ -5,7 +5,7 @@
 
 namespace skyblip::flight {
 
-// INFO: fc 18sep26 ADS-L 4 SRD860 issue 2 G.1.4 codes, the wire values themselves
+// INFO: fc 18sep26 ADS-L 4 SRD860 issue 2 G.1.2 codes, the wire values themselves
 enum class FlightState : uint8_t { Unknown = 0, OnGround = 1, Airborne = 2 };
 
 struct FlightSample {
@@ -15,6 +15,7 @@ struct FlightSample {
 };
 
 constexpr uint16_t kFlightSpeedQ = 48;  // 12.0 m/s
+constexpr uint16_t kTaxiSpeedQ = 6;     // 1.5 m/s
 constexpr uint16_t kGroundSpeedQ = 4;   // 1.0 m/s
 constexpr uint16_t kDopUnityE2 = 100;
 
@@ -33,13 +34,16 @@ class FlightMonitor {
 
     FlightState state() const { return state_; }
     bool airborne() const { return state_ == FlightState::Airborne; }
+    bool rolling() const { return rolling_; }
 
    private:
     static bool jerky(uint16_t previous_q, uint16_t now_q);
+    void update_rolling(uint16_t speed_q);
 
     FlightState state_{FlightState::Unknown};
     uint16_t last_speed_q_{0};
     bool armed_{false};
+    bool rolling_{false};
 };
 
 }  // namespace skyblip::flight

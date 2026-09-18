@@ -262,9 +262,34 @@ TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, par
     CHECK(radar_says("TAXI", 12));  // 3 m/s, a tug on the perimeter track
     CHECK_FALSE(radar_says("GROUND", 12));
 
-    // 1.0 m/s is the boundary: a parked receiver's own noise is not a taxi.
-    CHECK(radar_says("TAXI", 4));
-    CHECK(radar_says("GROUND", 3));
+    // 1.5 m/s is where the word picks up: a parked receiver's own noise is not a taxi.
+    CHECK(radar_says("TAXI", 6));
+    CHECK(radar_says("GROUND", 5));
+}
+
+// A metre a second of multipath on a parked receiver used to cost a word and a refresh a second.
+TEST_CASE("product: the word holds through the band between a standstill and a taxi") {
+    auto reads = [](Rig& rig, const char* word) {
+        return reads_in(rig.product.screen().framebuffer(), word, 40, 120, 160, 160, 2);
+    };
+
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 100;
+    rig.seconds(t, 20, 0, 300);
+    REQUIRE(reads(rig, "GROUND"));
+
+    rig.seconds(t, 5, 5, 300);  // 1.25 m/s of noise on a device that has not moved
+    CHECK(reads(rig, "GROUND"));
+
+    rig.seconds(t, 5, 8, 300);  // 2 m/s, a glider pushed to the grid
+    REQUIRE(reads(rig, "TAXI"));
+
+    rig.seconds(t, 5, 5, 300);  // the same 1.25 m/s, now a taxi slowing for the turn
+    CHECK(reads(rig, "TAXI"));
+
+    rig.seconds(t, 5, 3, 300);  // 0.75 m/s: stopped, and the word goes back
+    CHECK(reads(rig, "GROUND"));
 }
 
 // An antenna under a wing in the circuit is a glitch, not a landing.

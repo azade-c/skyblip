@@ -122,7 +122,7 @@ class ScreenService : public runtime::Service {
 
     bool taxiing() const {
         return context_.state.own.fix_valid && !context_.state.flight.running &&
-               context_.state.own.speed_q >= flight::kGroundSpeedQ;
+               context_.state.flight.rolling;
     }
 
     Settings& settings_;
