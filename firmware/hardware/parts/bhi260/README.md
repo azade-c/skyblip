@@ -18,6 +18,7 @@ That is the whole reason this driver is a state machine rather than four registe
 | `HostInterface` | polls `BOOT_STATUS` for `HOST_INTERFACE_READY` every 50 ms | ready, or `Timeout` after 2 s |
 | `Uploading` | one 240-byte chunk of the image per `service()` | the last chunk sends `BOOT_PROGRAM_RAM` |
 | `Booting` | polls `BOOT_STATUS` for `FW_VERIFY_DONE` | `Crc` on the verify-error bit, `Timeout` after 5 s |
+| `Initialising` | drains the FIFO until the hub announces itself | the `Initialized` meta event, or 2 s |
 | `Configuring` | reads `KERNEL_VERSION`, sets the range, configures the virtual sensor | `Down` if the kernel version reads zero |
 | `Running` | drains the FIFO every 200 ms | `Down` the moment the bus stops answering |
 
@@ -36,6 +37,12 @@ Nothing here blocks or sleeps. Every wait is a deadline against the `now_ms` the
 The image is 101 KB. A 240-byte chunk is 5.4 ms of bus at 400 kHz and 22 ms at 100 kHz, and the service loop's pass is 10 ms (`runtime::kServiceStepMs`), so the bus was moved to fast mode in the devicetree rather than the chunk made smaller: at 100 kHz one chunk is longer than the pass it is sent from. One chunk per pass puts the ball on the glass about four seconds after boot, with the radio thread - which is cooperative and higher priority than the loop - untouched throughout.
 
 Chunk framing follows the reference (`BHY2_SensorAPI`, `bhy2_hif.c`): the first packet carries the four-byte command header, `UPLOAD_TO_PROGRAM_RAM` with the length in 32-bit words, and every packet after it is raw image bytes written to the command channel at register 0x00, padded to a word.
+
+### Why the configuration waits for a meta event
+
+`FW_VERIFY_DONE` says the image verified, not that the sensor framework behind it is up, and a configuration that arrives in between is dropped without a word: the command channel accepts it, no error register moves, and the part then boots, answers every pass and streams nothing. That is what a bench read as `IMU RUN B18 M16` - eighteen bytes out of the FIFO, the hub announcing itself after it had already been told what to do, and no accelerometer frame ever.
+
+So the driver follows the reference's own order (`examples/quaternion/quaternion.c`: boot, kernel version, drain the FIFO, then configure) and waits for meta event 16, `Initialized`, before it sends anything. A hub that never sends it is configured anyway once 2 s are up, because a ball that might work beats a stage word that is certainly stuck; `meta_event()` stays zero there, and the status field shows the count with no `M` beside it.
 
 ### What is configured, and what is read
 

@@ -1178,6 +1178,29 @@ TEST_CASE("radar: the sector stops under the ring, which stays black through the
     CHECK(differing_in(between, lit, 189, 92, 190, 108) == 16);
 }
 
+// The square is own ship, and a sector that ran through it broke the box and reversed its counts.
+TEST_CASE("radar: a flashing sector keeps off the formation square, not the glass around it") {
+    RadarTarget flight[2] = {
+        {0, 3000, 0, Level::Urgent},
+        {900, 400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+    };
+    RadarSnapshot snap = flying(0);
+    snap.n_targets = 2;
+    snap.targets = flight;
+    snap.formation_members = 1;
+
+    snap.alarm_flash = false;
+    const Glass between = radar(snap);
+    snap.alarm_flash = true;
+    const Glass lit = radar(snap);
+
+    // the square is 86..113 on both axes: its stroke, its counts and the airframe stand as drawn
+    CHECK(differing_in(between, lit, 113, 91, 114, 109) == 0);
+    CHECK(differing_in(between, lit, 87, 87, 113, 113) == 0);
+    // and the sector flips the glass right up to the stroke
+    CHECK(differing_in(between, lit, 114, 95, 120, 105) == 60);
+}
+
 // The grade that fills the diamond is the grade that starts the search.
 TEST_CASE("radar: the wedge is flashing by the time a target reads as a filled diamond") {
     for (const Level level : {Level::Info, Level::Important, Level::Urgent}) {

@@ -32,6 +32,7 @@ class Bhi260 {
     static constexpr uint32_t kStatusPollMs = 50;
     static constexpr uint32_t kHostInterfaceTimeoutMs = 2000;
     static constexpr uint32_t kBootTimeoutMs = 5000;
+    static constexpr uint32_t kInitialisedTimeoutMs = 2000;
 
     enum class Stage : uint8_t {
         Absent,
@@ -40,6 +41,7 @@ class Bhi260 {
         HostInterface,
         Uploading,
         Booting,
+        Initialising,
         Configuring,
         Running,
         Failed,
@@ -105,6 +107,7 @@ class Bhi260 {
     void step_host_interface(uint32_t now_ms);
     void step_upload(uint32_t now_ms);
     void step_boot(uint32_t now_ms);
+    void step_initialise(uint32_t now_ms);
     void step_configure(uint32_t now_ms);
     void step_running(uint32_t now_ms);
 

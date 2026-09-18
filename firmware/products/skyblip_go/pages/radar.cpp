@@ -652,17 +652,21 @@ bool spared(const Box* keep_out, int n, int x, int y) {
     return false;
 }
 
+bool at_the_apex(const Box* formation, int64_t r2, int x, int y) {
+    if (formation) return inside_rounded(*formation, x, y);
+    return r2 < 4 * static_cast<int64_t>(kWedgeInnerR) * kWedgeInnerR;
+}
+
 void invert_wedges(ui::Canvas& fb, const Wedge* wedges, int n_wedges, const Box* keep_out,
-                   int n_keep_out) {
+                   int n_keep_out, const Box* formation) {
     const int64_t outer2 = 4 * static_cast<int64_t>(kWedgeOuterR) * kWedgeOuterR;
-    const int64_t inner2 = 4 * static_cast<int64_t>(kWedgeInnerR) * kWedgeInnerR;
     const int bottom = kFar + kOuterR < kGlassH ? kFar + kOuterR : kGlassH;
     for (int y = kFar - kOuterR; y < bottom; y++) {
         const int64_t py = 2 * (y - kFar) + 1;
         for (int x = kFar - kOuterR; x < kFar + kOuterR; x++) {
             const int64_t px = 2 * (x - kFar) + 1;
             const int64_t r2 = px * px + py * py;
-            if (r2 > outer2 || r2 < inner2) continue;
+            if (r2 > outer2 || at_the_apex(formation, r2, x, y)) continue;
             if (!in_any_wedge(wedges, n_wedges, px, py)) continue;
             if (spared(keep_out, n_keep_out, x, y)) continue;
             fb.set_pixel(x, y, !fb.get_pixel(x, y));
@@ -694,7 +698,9 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     const int n_wedges = alarm_wedges(snap, track, wedges);
     if (n_wedges > 0) {
         const Box readings[] = {range_box(snap, kKeepOutPad), clock_box(snap, kKeepOutPad)};
-        invert_wedges(fb, wedges, n_wedges, readings, 2);
+        const Box square = formation_box();
+        invert_wedges(fb, wedges, n_wedges, readings, 2,
+                      snap.formation_members > 0 ? &square : nullptr);
     }
 
     if (const char* word = ring_word(snap)) state_banner(fb, word);

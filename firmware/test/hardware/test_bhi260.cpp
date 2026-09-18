@@ -81,6 +81,32 @@ TEST_CASE("bhi260: the accelerometer is configured for the range and rate the ba
     CHECK(chip.latency_ms == 0);
 }
 
+// A configuration the hub is sent before it announced itself is dropped, silently.
+TEST_CASE("bhi260: the accelerometer is configured after the hub says it is initialised") {
+    models::Bhi260 chip;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+
+    bring_up(imu);
+
+    CHECK(imu.stage() == Stage::Running);
+    CHECK(chip.running());
+    CHECK(int(chip.accel_sensor_id) == 4);
+}
+
+TEST_CASE("bhi260: a hub that never announces itself is configured anyway, once the wait is up") {
+    models::Bhi260 chip;
+    chip.announces_itself = false;
+    parts::Bhi260 imu{chip};
+    REQUIRE(imu.probe() == Status::Ok);
+
+    const uint32_t now_ms = bring_up(imu);
+
+    CHECK(imu.stage() == Stage::Running);
+    CHECK(now_ms >= parts::Bhi260::kInitialisedTimeoutMs);
+    CHECK(int(imu.meta_event()) == 0);
+}
+
 TEST_CASE("bhi260: an image with no Bosch magic is refused before the bus is touched") {
     models::Bhi260 chip;
     parts::Bhi260 imu{chip};
@@ -169,13 +195,13 @@ TEST_CASE("bhi260: a running part counts what came out of the FIFO and reads the
     REQUIRE(imu.probe() == Status::Ok);
     uint32_t now_ms = bring_up(imu);
     REQUIRE(imu.stage() == Stage::Running);
-    CHECK(imu.fifo_bytes() == 0);
+    const uint32_t drained_at_boot = imu.fifo_bytes();
 
     chip.error_value = 0x1A;
     now_ms += parts::Bhi260::kSamplePeriodMs;
     imu.service(now_ms);
 
-    CHECK(imu.fifo_bytes() > 0);
+    CHECK(imu.fifo_bytes() > drained_at_boot);
     CHECK(imu.unparsed_events() == 0);
     CHECK(int(imu.hub_error()) == 0x1A);
 }
@@ -202,14 +228,7 @@ TEST_CASE("bhi260: the hub's meta events are read, and a sensor error names its 
     REQUIRE(imu.probe() == Status::Ok);
     uint32_t now_ms = bring_up(imu);
     REQUIRE(imu.stage() == Stage::Running);
-    CHECK(int(imu.meta_event()) == 0);
-
-    constexpr uint8_t kInitialized = 16;
-    chip.report_meta_event(kInitialized, 0, 0);
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-
-    CHECK(int(imu.meta_event()) == kInitialized);
+    CHECK(int(imu.meta_event()) == 16);
     CHECK(int(imu.sensor_error()) == 0);
 
     constexpr uint8_t kSensorError = 11;

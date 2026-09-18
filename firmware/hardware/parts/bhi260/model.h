@@ -55,6 +55,7 @@ class Bhi260 : public io::I2c {
     bool answers{true};
     bool accepts_firmware{true};
     uint8_t product_id{0x89};
+    bool announces_itself{true};
     uint8_t error_value{0};
     bool host_interface_ready{true};
     bool booted{false};
@@ -86,6 +87,7 @@ class Bhi260 : public io::I2c {
     static constexpr uint8_t kSensorAccelerometer = 0x04;
     static constexpr uint8_t kSysIdTimestampSmallDelta = 251;
     static constexpr uint8_t kSysIdMetaEvent = 254;
+    static constexpr uint8_t kMetaEventInitialised = 16;
     static constexpr int kCountsPerRange = 32768;
 
     void reset() {
@@ -98,6 +100,7 @@ class Bhi260 : public io::I2c {
         received_ = 0;
         payload_bytes_ = 0;
         sample_rate_hz = 0;
+        announced_ = false;
         stream_len_ = 0;
         stream_pos_ = 0;
     }
@@ -140,12 +143,15 @@ class Bhi260 : public io::I2c {
             case kCmdBootProgramRam:
                 booted = accepts_firmware && magic_ == kFirmwareMagic && uploaded_ > 0;
                 verify_error = !booted;
+                if (booted && announces_itself) report_meta_event(kMetaEventInitialised, 0, 0);
                 break;
             case kCmdChangeRange:
+                if (!announced_) break;
                 if (payload_bytes_ >= 3 && payload_[0] == kSensorAccelerometer)
                     accel_range_g = static_cast<uint16_t>(payload_[1] | (payload_[2] << 8));
                 break;
             case kCmdConfigureSensor:
+                if (!announced_) break;
                 if (payload_bytes_ >= 8) {
                     accel_sensor_id = payload_[0];
                     uint32_t bits = 0;
@@ -201,6 +207,7 @@ class Bhi260 : public io::I2c {
             events[n++] = meta_first_;
             events[n++] = meta_second_;
             meta_pending_ = false;
+            if (meta_event_ == kMetaEventInitialised) announced_ = true;
         }
         if (running()) {
             events[n++] = kSysIdTimestampSmallDelta;
@@ -235,6 +242,7 @@ class Bhi260 : public io::I2c {
     uint8_t meta_first_{0};
     uint8_t meta_second_{0};
     bool meta_pending_{false};
+    bool announced_{false};
     uint8_t stream_[kMaxStream]{};
     size_t stream_len_{0};
     size_t stream_pos_{0};

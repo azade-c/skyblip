@@ -10,6 +10,7 @@ constexpr uint8_t kSysEventBytes[] = {2, 3, 6, 4, 0, 18, 2, 3, 6, 4, 1};
 constexpr uint8_t kSysIdMetaEventWakeup = 248;
 constexpr uint8_t kSysIdMetaEvent = 254;
 constexpr uint8_t kMetaEventSensorError = 11;
+constexpr uint8_t kMetaEventInitialised = 16;
 
 uint16_t le16(const uint8_t* bytes) { return static_cast<uint16_t>(bytes[0] | (bytes[1] << 8)); }
 
@@ -64,6 +65,7 @@ void Bhi260::service(uint32_t now_ms) {
         case Stage::HostInterface: step_host_interface(now_ms); return;
         case Stage::Uploading: step_upload(now_ms); return;
         case Stage::Booting: step_boot(now_ms); return;
+        case Stage::Initialising: step_initialise(now_ms); return;
         case Stage::Configuring: step_configure(now_ms); return;
         case Stage::Running: step_running(now_ms); return;
         case Stage::Absent:
@@ -86,6 +88,7 @@ const char* Bhi260::stage_text() const {
         case Stage::HostInterface: return "HIF";
         case Stage::Uploading: return "LOAD";
         case Stage::Booting: return "BOOT";
+        case Stage::Initialising: return "INIT";
         case Stage::Configuring: return "CONF";
         case Stage::Running: return "RUN";
         case Stage::Failed: return "FAIL";
@@ -170,11 +173,22 @@ void Bhi260::step_boot(uint32_t now_ms) {
         return;
     }
     if ((status & kBootHostInterfaceReady) && (status & kBootFirmwareVerifyDone)) {
-        stage_ = Stage::Configuring;
+        stage_ = Stage::Initialising;
         since_ms_ = now_ms;
+        polled_ms_ = now_ms;
         return;
     }
     if (now_ms - since_ms_ >= kBootTimeoutMs) fail(Status::Timeout);
+}
+
+void Bhi260::step_initialise(uint32_t now_ms) {
+    if (now_ms - polled_ms_ < kStatusPollMs) return;
+    polled_ms_ = now_ms;
+
+    drain_fifo(now_ms);
+    if (stage_ != Stage::Initialising) return;
+    if (meta_event_ == kMetaEventInitialised || now_ms - since_ms_ >= kInitialisedTimeoutMs)
+        stage_ = Stage::Configuring;
 }
 
 void Bhi260::step_configure(uint32_t now_ms) {
