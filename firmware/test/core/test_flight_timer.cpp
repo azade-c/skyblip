@@ -50,15 +50,25 @@ TEST_CASE("flight timer: a landing holds the figure and the next takeoff carries
     CHECK(timer.seconds() == 45 * 60);
 }
 
-// No aircraft lands by losing a fix: a minute under a wing must not restart the flight.
-TEST_CASE("flight timer: an outage is not a landing") {
+// A minute under a wing is a minute flown: it neither lands the aircraft nor stops the clock.
+TEST_CASE("flight timer: an outage is not a landing, and the clock runs across it") {
     FlightTimer timer;
     timer.update(FlightState::Airborne, 0);
     timer.update(FlightState::Unknown, 5 * kMinute);
-    CHECK(timer.seconds() == 0);
+    CHECK(timer.running());
+    CHECK(timer.seconds() == 5 * 60);
 
     timer.update(FlightState::Airborne, 10 * kMinute);
     CHECK(timer.seconds() == 10 * 60);
+}
+
+TEST_CASE("flight timer: a receiver that has never solved starts no flight") {
+    FlightTimer timer;
+    timer.update(FlightState::Unknown, 5 * kMinute);
+    timer.update(FlightState::Unknown, 40 * kMinute);
+    CHECK_FALSE(timer.flown());
+    CHECK_FALSE(timer.running());
+    CHECK(timer.seconds() == 0);
 }
 
 TEST_CASE("flight timer: the count crosses the 49.7-day wrap") {

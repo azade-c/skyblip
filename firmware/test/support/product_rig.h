@@ -76,6 +76,21 @@ struct Rig {
         utc_offset_s++;
     }
 
+    // What the driver publishes once the receiver has gone quiet: not a fix.
+    void blind_second(uint32_t& t) {
+        gnss::GnssSolution f{};
+        f.is_fix = false;
+        f.updates = ++fix_updates;
+        product.bus().gnss.push(f);
+        run(t, t + 950);
+        t += 1000;
+        utc_offset_s++;
+    }
+
+    void blind_seconds(uint32_t& t, uint32_t n) {
+        for (uint32_t i = 0; i < n; i++) blind_second(t);
+    }
+
     void seconds(uint32_t& t, uint32_t n, uint16_t speed_q, int32_t alt_msl_m) {
         for (uint32_t i = 0; i < n; i++) second(t, speed_q, alt_msl_m);
     }

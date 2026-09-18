@@ -72,7 +72,7 @@ It freezes at the landing rather than clearing, and the next takeoff carries on 
 
 Nothing but a takeoff starts it and nothing but switching the device off clears it.
 
-`FlightState::Unknown` is not a landing. It is a solution the receiver could not give, so the timer keeps its takeoff instant and picks the count up again when the fixes come back, exactly as `FlightMonitor` holds its own state through the same outage. Without that, a minute under a wing in the circuit would restart the flight.
+`FlightState::Unknown` is not a landing, and it is not a pause either. It is a solution the receiver could not give, so a flight already running keeps its takeoff instant and keeps counting across the outage, exactly as `FlightMonitor` holds its own state through it. A minute under a wing in the circuit is a minute flown: the aeroplane did not stop being in the air because the antenna did, and the figure a pilot copies into a logbook is wall time since takeoff, not time the receiver was well. Only a takeoff starts the clock, so `Unknown` before anything has flown still starts nothing.
 
 `flown()` separates "no flight yet this power cycle" from "a flight zero minutes old", which are the same number and not the same answer: the page draws its no-answer dashes for the first and `0:00` for the second. `running()` is the other half the page needs, and it is not `own.flight_state`: that one reports `Unknown` on every bad solution, so a title driven from it would flicker between states in an outage.
 

@@ -273,6 +273,33 @@ TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, par
     CHECK(radar_says("GROUND", 7));
 }
 
+// An antenna under a wing in the circuit is a glitch, not a landing.
+TEST_CASE("product: a fix lost in the air says NO FIX over a clock that keeps running") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    rig.seconds(t, 130, 100, 300);  // 25 m/s: airborne, and two minutes of it
+    REQUIRE(rig.state().flight.running);
+    const uint32_t flown = rig.state().flight.seconds;
+    REQUIRE(flown >= 2 * 60);
+
+    rig.blind_seconds(t, 90);
+    CHECK_FALSE(rig.state().own.fix_valid);
+    CHECK(rig.state().flight.running);
+    CHECK(rig.state().flight.seconds >= flown + 85);
+
+    const ui::Canvas& glass = rig.product.screen().framebuffer();
+    CHECK(reads_in(glass, "NO FIX", 40, 120, 160, 160, 2));
+    CHECK(reads_in(glass, "0:03", 0, 176, 60, 198, 2));
+}
+
+// F5. The device said nothing when the receiver finally solved, and it
+// transmitted the first solution it got. Both are wrong on the bench and in the
+// air: a cold receiver's first fixes walk, and the pilot is left guessing.
+
+// B4 + the low-battery warning: two things the status page is the only reader
+// of. Both are drawn from the state the services publish, so this is the wiring
+// test - ui/screens/status.cpp owns what they look like.
 TEST_CASE("product: the status page carries the device's name and a cell that is low") {
     auto status_ink = [](const char* callsign, uint16_t millivolts, bool on_cable = false) {
         Rig rig;

@@ -136,7 +136,7 @@ Every needle parks at zero rather than being left off: speed and altitude standi
 
 The numbers do not follow the needles. They stay `---`, because a needle at rest is a position and a number is a claim: parking the digits at `0` would say the aircraft is stationary at sea level on a track of north, which is a reading and not a rest state. The needles say what the instrument is doing, the numbers say what is known.
 
-The flight time is the exception, and it is why the title carries the state. A fix lost in the air parks five dials and freezes the clock, so `NO FIX` over `1:35` says both that the aircraft has flown for an hour and a half and that nothing on this page is being told anything right now. Blanking it would throw away the one figure the outage cannot make wrong.
+The flight time is the exception, and it is why the title carries the state. A fix lost in the air parks five dials and the clock keeps running, so `NO FIX` over `1:35` says both that this flight is an hour and a half old and that nothing else on this page is being told anything right now. Blanking it would throw away the one figure the outage cannot make wrong, and stopping it would make the outage a hole in the logbook.
 
 A track due north reads `360`, not `000`. It is what a pilot says on the radio and what every other instrument in the cockpit shows, and `000` is nobody's heading.
 
