@@ -127,6 +127,15 @@ struct __attribute__((packed)) AdslPacket {
         lon = (lon + 0x80) >> 8;
         set3(Position + 3, lon);
     }
+    // INFO: fc 18sep26 G.1.5: 0x800000 in either field is "no 2D fix", not a place on the globe
+    static constexpr uint32_t kPositionInvalidCode = 0x800000;
+    bool has_position() const {
+        return get3(Position) != kPositionInvalidCode && get3(Position + 3) != kPositionInvalidCode;
+    }
+    void set_position_invalid() {
+        set3(Position, kPositionInvalidCode);
+        set3(Position + 3, kPositionInvalidCode);
+    }
     int32_t lat_1e7() const { return cordic_to_1e7(lat_cordic()); }
     int32_t lon_1e7() const { return cordic_to_1e7(lon_cordic()); }
     void set_lat_1e7(int32_t v) { set_lat_cordic(e7_to_cordic(v)); }
@@ -195,7 +204,7 @@ struct __attribute__((packed)) AdslPacket {
 
 static_assert(sizeof(AdslPacket) == 28, "AdslPacket wire size must be 28 bytes");
 
-void to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
+bool to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
             model::Source source, model::AircraftObs& out);
 // The TimeStamp field is quarter seconds inside a 15 s cycle, so the instant a
 // burst claims is expressible to 250 ms - and the position it carries has to

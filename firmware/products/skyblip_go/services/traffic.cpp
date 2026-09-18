@@ -181,7 +181,8 @@ radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
     p.descramble();
     events::Stamp received = stamp;
     received.at_s = utc;
-    protocol::to_obs(p, received, 0, model::Source::AdslDirect, obs);
+    if (!protocol::to_obs(p, received, 0, model::Source::AdslDirect, obs))
+        return radio::Event::Undecoded;
     return radio::Event::Received;
 }
 

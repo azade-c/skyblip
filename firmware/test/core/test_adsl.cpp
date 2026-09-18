@@ -333,7 +333,7 @@ TEST_CASE("adsl: a self-minted address is moved off a crowded prefix on its way 
 }
 
 // Every field of the Integrity block has a zero code meaning "unknown / no fix"
-// (G.1.10 to G.1.15), so an untouched block is not neutral: it tells a receiver
+// (G.1.11 to G.1.16), so an untouched block is not neutral: it tells a receiver
 // we claim no integrity at all, and receivers are entitled to weight us
 // accordingly. Without a fix that is the truthful answer; with one it is not.
 TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
@@ -377,10 +377,10 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     CHECK(int(p.HorizAccuracy) == 0);
 }
 
-// G.1.13 NACp boundaries, in metres of horizontal figure of merit: 7 is under
+// G.1.14 NACp boundaries, in metres of horizontal figure of merit: 7 is under
 // 3 m, 6 under 10 m, 5 under 30 m, 4 under 0.05 NM (92.6 m), and 0 is 0.5 NM or
 // worse, which is the same code as "no fix".
-TEST_CASE("adsl: horizontal accuracy code sits on the G.1.13 boundaries") {
+TEST_CASE("adsl: horizontal accuracy code sits on the G.1.14 boundaries") {
     CHECK(int(AdslPacket::horizontal_accuracy_code(299)) == 7);
     CHECK(int(AdslPacket::horizontal_accuracy_code(300)) == 6);
     CHECK(int(AdslPacket::horizontal_accuracy_code(999)) == 6);
@@ -392,8 +392,8 @@ TEST_CASE("adsl: horizontal accuracy code sits on the G.1.13 boundaries") {
     CHECK(int(AdslPacket::horizontal_accuracy_code(92600)) == 0);
 }
 
-// G.1.14 GVA: 3 under 10 m, 2 under 45 m, 1 under 150 m, 0 beyond.
-TEST_CASE("adsl: vertical accuracy code sits on the G.1.14 boundaries") {
+// G.1.15 GVA: 3 under 10 m, 2 under 45 m, 1 under 150 m, 0 beyond.
+TEST_CASE("adsl: vertical accuracy code sits on the G.1.15 boundaries") {
     CHECK(int(AdslPacket::vertical_accuracy_code(999)) == 3);
     CHECK(int(AdslPacket::vertical_accuracy_code(1000)) == 2);
     CHECK(int(AdslPacket::vertical_accuracy_code(4499)) == 2);
@@ -402,10 +402,10 @@ TEST_CASE("adsl: vertical accuracy code sits on the G.1.14 boundaries") {
     CHECK(int(AdslPacket::vertical_accuracy_code(15000)) == 0);
 }
 
-// G.1.12 NIC: the containment radius. Without RAIM or a protection level the
+// G.1.13 NIC: the containment radius. Without RAIM or a protection level the
 // radius we claim is the DOP-derived accuracy itself, and SourceIntegrity is
 // what says how much that claim is worth.
-TEST_CASE("adsl: navigation integrity code sits on the G.1.12 boundaries") {
+TEST_CASE("adsl: navigation integrity code sits on the G.1.13 boundaries") {
     CHECK(int(AdslPacket::navigation_integrity_code(749)) == 12);
     CHECK(int(AdslPacket::navigation_integrity_code(750)) == 11);
     CHECK(int(AdslPacket::navigation_integrity_code(2499)) == 11);

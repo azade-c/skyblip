@@ -84,7 +84,8 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
 
     // 4) decode -> obs -> table
     model::AircraftObs obs;
-    protocol::to_obs(rx, events::Stamp{own.utc, 500, true}, -80, model::Source::AdslDirect, obs);
+    REQUIRE(protocol::to_obs(rx, events::Stamp{own.utc, 500, true}, -80, model::Source::AdslDirect,
+                             obs));
     CHECK(obs.addr == 0xC5D804u);
 
     traffic::TrafficTable table;

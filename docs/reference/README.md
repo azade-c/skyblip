@@ -20,6 +20,23 @@ The one the firmware implements. 52 pages, dated 1 December 2025. Adds the Statu
 - SHA-256 `a547f3b83990f6f335a2c5a622a3b55b736079a6dfea340373c5cf0c8c48bd8a`
 - `ads-l_4_srd860_issue_1.md` is the text conversion
 
+## The conformance suite
+
+Issue 2 is read clause by clause by five host suites, one per group of subparts, and every case is named after the clause it checks: `ADS-L.4.SRD860.G.1.7: the altitude encodes the clause's worked examples`.
+
+| Suite | Clauses |
+|---|---|
+| [`test_spec_physical.cpp`](../../firmware/test/core/test_spec_physical.cpp) | B.3 to B.6, C.2 to C.5, the performance appendix |
+| [`test_spec_datalink.cpp`](../../firmware/test/core/test_spec_datalink.cpp) | D.1 to D.3, E.1 to E.4 |
+| [`test_spec_header.cpp`](../../firmware/test/core/test_spec_header.cpp) | F.1, F.2 and its sub-clauses |
+| [`test_spec_traffic.cpp`](../../firmware/test/core/test_spec_traffic.cpp) | G.1 to G.1.10, and the transmit rate |
+| [`test_spec_quality.cpp`](../../firmware/test/core/test_spec_quality.cpp) | G.1.11 to G.1.17 |
+| [`test_spec_payloads.cpp`](../../firmware/test/core/test_spec_payloads.cpp) | B.5, G.2 to G.5 |
+
+Where the firmware does not satisfy a clause, the case is written as the clause requires and marked `doctest::skip()` above a `TODO:` saying why. It is a gap, stated in the suite and greppable from it, rather than a missing test: delete the skip and the run prints what is not conformant. Skipped cases carry no claim, so they do not reach `docs/BEHAVIOR.md`.
+
+Subparts A and H, B.1 and B.2 are prose: qualification, documentation, a block diagram and an OSI table, with nothing to execute.
+
 ## The conversions
 
 Each `.md` is generated, for grepping and quoting, never edited by hand:

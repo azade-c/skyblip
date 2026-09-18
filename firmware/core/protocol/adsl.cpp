@@ -244,9 +244,10 @@ int AdslPacket::correct(const uint8_t* err, int max_bad_bits) {
     return -1;
 }
 
-void to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
+bool to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
             model::Source source, model::AircraftObs& out) {
     out = model::AircraftObs{};
+    if (!p.is_position() || !p.has_position()) return false;
     out.addr = p.address();
     out.addr_table = p.addr_table();
     out.aircraft_cat = p.AcftCat;
@@ -264,6 +265,7 @@ void to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
     out.rssi_dbm = rssi_dbm;
     out.source = source;
     out.position_valid = true;
+    return true;
 }
 
 // ADS-L 4 SRD860 issue 2 G.1.13, NACp. Code 0 is "unknown or HFOM >= 0.5 NM".
@@ -383,6 +385,7 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
         p.set_speed_q(own.speed_q);
         p.set_integrity_from_dop_e2(own.hdop_e2, own.vdop_e2);
     } else {
+        p.set_position_invalid();
         p.set_alt_invalid();
         p.set_speed_invalid();
         p.set_integrity_unknown();

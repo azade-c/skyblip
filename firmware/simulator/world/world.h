@@ -46,6 +46,7 @@ struct VirtualAircraft {
 class World {
    public:
     static constexpr int kMaxAircraft = 8;
+    static constexpr int16_t kLevelFlightUpMg = 1000;
 
     explicit World(platform::host::Platform& platform) : platform_(platform) {}
 
@@ -72,6 +73,7 @@ class World {
     models::L76k& gnss() { return platform_.chips().gnss; }
     const models::L76k& gnss() const { return platform_.chips().gnss; }
     models::Bme280& baro() { return platform_.baro().chip; }
+    models::Bhi260& imu() { return platform_.chips().imu; }
     platform::host::Platform& platform() { return platform_; }
 
     void set_fix(bool on) { gnss().fix = on; }
@@ -84,6 +86,9 @@ class World {
     // The weather, not a setting: the sea-level pressure of the air the aircraft
     // is flying through. The barometer reads what that implies at its altitude.
     void set_airmass_qnh_pa(uint32_t pa) { airmass_qnh_pa_ = pa; }
+    void set_slip_mg(int32_t mg) {
+        imu().set_acceleration(static_cast<int16_t>(-mg), kLevelFlightUpMg, 0);
+    }
     void set_pps_locked(bool on) { platform_.pps().set_locked(on); }
     // The cell as the world holds it: what the divider reads, and whether a
     // cable is in. Everything else about the battery is the firmware's opinion.

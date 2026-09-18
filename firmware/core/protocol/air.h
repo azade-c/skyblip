@@ -24,14 +24,11 @@ constexpr uint32_t kAlptasSyncWord = 0xF531FAB6u;
 
 constexpr uint8_t kAdslFrameBytes = AdslPacket::kDataBytes;
 
-// §C.2's modulation table. Manchester halves the effective bit rate to 50 kbps
-// (§C.2.1), so the modem is clocked at the chip rate. Its O-band counterpart is
-// in core/protocol/adsl_uplink.h and the two do not agree on a single number
-// except the deviation.
+// INFO: fc 18sep26 §C.2's table, clocked at the chip rate because §C.2.1's Manchester halves it
 constexpr uint32_t kMbandChipRateBps = 100000;
 constexpr uint32_t kMbandDeviationHz = 50000;
 constexpr uint32_t kMbandChannelBandwidthHz = 200000;
-constexpr uint16_t kMbandGaussianBtE2 = 0;
+constexpr uint16_t kMbandGaussianBtE2 = 50;
 
 // One data bit becomes two chips: 1 -> 01, 0 -> 10 (§C.2.1), which is the table
 // fec::manchester_encode holds.

@@ -406,7 +406,7 @@ TEST_CASE("uplink: the O-band dwell is armed for the modulation SRD-860 C.4 defi
     // And back on the M band, §C.2's, which is not the same modulation.
     rig.run(t + timing::kGroundEmitStart + 10, t + 500);
     CHECK(chip.bitrate == protocol::kMbandChipRateBps);
-    CHECK(chip.pulse_shape == parts::sx::kPulseShapeNone);
+    CHECK(chip.pulse_shape == parts::sx::kGaussianBt0p5);
     CHECK(chip.payload_bytes == protocol::kRxChipBytes);
     t += 1000;
     rig.utc_offset_s++;
