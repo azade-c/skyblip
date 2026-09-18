@@ -76,7 +76,10 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
             return;
         case Command::Home:
             if (prompt_ != comms::Pending::None) return;
-            if (alarm_stands()) alarm_.dismiss();
+            if (alarm_stands()) {
+                alarm_.dismiss();
+                return;
+            }
             show_radar();
             return;
         case Command::Act: break;
@@ -141,6 +144,7 @@ void ScreenService::page_forward(uint32_t now_ms) {
 }
 
 void ScreenService::show_radar() {
+    if (mode_ != Mode::Settings && page_ == Page::Radar) return;
     if (mode_ == Mode::Settings) leave_settings();
     page_ = Page::Radar;
     change_screen();

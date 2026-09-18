@@ -6,16 +6,6 @@ description: A skyBlip Go running in your browser, on the firmware a real one ru
 
 <section id="simulator">
   <h2 class="kicker">skyBlip Go</h2>
-  <h3>The device, running in this page.</h3>
-  <p class="lede">
-    Below is the firmware a skyBlip Go runs, compiled to WebAssembly: the same
-    radar, the same pages, the same debounced contacts, with simulated sensors
-    underneath. Tap the pad on the top edge to walk the pages, hold it a second to
-    come back to the radar, press the key on the side to open the settings, or
-    hold that key for two seconds and watch the device switch itself off and keep
-    the wordmark on the glass. The white key above it is
-    <span class="mono">RST</span>, and it reboots.
-  </p>
 
   <%= render "shared/simulator",
         wake: "Hold the lower key to switch it back on.",

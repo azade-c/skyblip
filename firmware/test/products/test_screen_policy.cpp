@@ -183,6 +183,45 @@ TEST_CASE("screen policy: presents wait for the panel, none is issued mid-refres
     CHECK(rig.chip.present_count == count + 1);
 }
 
+// A wipe is 360 ms of black over the bearing the pilot was just told to look at.
+TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe and no page") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.screen.next_page();
+    rig.run_seconds(t, 2);
+    REQUIRE(rig.screen.page() != go::Page::Radar);
+
+    rig.threat(traffic::Level::Info, 0, 1500, t);
+    rig.run_seconds(t, 2);
+    const go::Page chosen = rig.screen.page();
+
+    rig.hold_pad(t);
+    CHECK(rig.screen.page() == chosen);
+    CHECK_FALSE(rig.glass_all_black());
+
+    // Silenced, the same hold is the way home again.
+    rig.dismiss();
+    rig.run_seconds(t, 2);
+    rig.hold_pad(t);
+    CHECK(rig.screen.page() == go::Page::Radar);
+}
+
+// A page is asked for by name, and the radar asked for from the radar is a page already there.
+TEST_CASE("screen policy: the long touch on the radar leaves the glass standing") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    REQUIRE(rig.screen.page() == go::Page::Radar);
+    const int settled = rig.chip.present_count;
+
+    rig.hold_pad(t);
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() == go::Page::Radar);
+    CHECK_FALSE(rig.glass_all_black());
+    CHECK(rig.chip.present_count == settled);
+}
+
 // The wedge flips once per frame presented, so the present floor is the blink rate.
 TEST_CASE("screen policy: an alarm flashes the wedge at a flip a second") {
     Rig rig;

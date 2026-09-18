@@ -1130,6 +1130,23 @@ TEST_CASE("radar: the wedge opens 45 degrees each side of the bearing") {
     CHECK(differing_in(between, lit, 140, 43, 145, 48) == 0);
 }
 
+// A sector that inverted the ring too flashed white gaps into the one closed curve on the page.
+TEST_CASE("radar: the sector stops under the ring, which stays black through the flash") {
+    RadarTarget east[1] = {{0, 1500, 0}};
+    RadarSnapshot snap = with_threat(east, Level::Urgent);
+
+    snap.alarm_flash = false;
+    const Glass between = radar(snap);
+    snap.alarm_flash = true;
+    const Glass lit = radar(snap);
+
+    // the 2 px stroke on the bearing, 16 rows of it
+    CHECK(ink_in(lit, 190, 92, 192, 108) == 32);
+    CHECK(differing_in(between, lit, 190, 92, 192, 108) == 0);
+    // and the fill runs up to it, with no white channel left inside the stroke
+    CHECK(differing_in(between, lit, 189, 92, 190, 108) == 16);
+}
+
 // The grade that fills the diamond is the grade that starts the search.
 TEST_CASE("radar: the wedge is flashing by the time a target reads as a filled diamond") {
     for (const Level level : {Level::Info, Level::Important, Level::Urgent}) {

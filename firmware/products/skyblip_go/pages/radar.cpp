@@ -76,6 +76,7 @@ constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
 constexpr int kWedgeInnerR = 15;
+constexpr int kWedgeOuterR = kOuterR - kRingW;
 constexpr int64_t kTanScale = 10000;
 constexpr int64_t kWedgeEdgeTanE4 = 10000;
 constexpr int kFormationD = 13;
@@ -653,7 +654,7 @@ bool spared(const Box* keep_out, int n, int x, int y) {
 
 void invert_wedges(ui::Canvas& fb, const Wedge* wedges, int n_wedges, const Box* keep_out,
                    int n_keep_out) {
-    const int64_t outer2 = 4 * static_cast<int64_t>(kOuterR) * kOuterR;
+    const int64_t outer2 = 4 * static_cast<int64_t>(kWedgeOuterR) * kWedgeOuterR;
     const int64_t inner2 = 4 * static_cast<int64_t>(kWedgeInnerR) * kWedgeInnerR;
     const int bottom = kFar + kOuterR < kGlassH ? kFar + kOuterR : kGlassH;
     for (int y = kFar - kOuterR; y < bottom; y++) {

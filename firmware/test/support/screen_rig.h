@@ -2,6 +2,7 @@
 #ifndef SKYBLIP_TEST_SUPPORT_SCREEN_RIG_H
 #define SKYBLIP_TEST_SUPPORT_SCREEN_RIG_H
 
+#include "core/events/input.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/ssd1681/model.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
@@ -72,6 +73,15 @@ struct Rig {
 
     bool glass_all_black() const {
         return chip.framebuffer().count_black() == go::kGlassW * go::kGlassH;
+    }
+
+    // The pad held past the way home, a gesture read on the tick, not the release.
+    void hold_pad(uint32_t& t) {
+        bus.input.push(events::ContactEvent{events::Contact::Pad, true, t});
+        tick(t += 100);
+        tick(t += go::Controls::kHomeTouchMs);
+        bus.input.push(events::ContactEvent{events::Contact::Pad, false, t});
+        tick(t += 100);
     }
 
     void alarm(traffic::Level level) {

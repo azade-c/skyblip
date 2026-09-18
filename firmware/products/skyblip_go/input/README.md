@@ -7,7 +7,7 @@ The board pushes one `events::ContactEvent` per settled edge, stamped when the l
 | Gesture | Command | On the traffic pages | In the settings mode |
 |---|---|---|---|
 | pad touched and released under `Controls::kHomeTouchMs` | `Next` | the next page | the next row |
-| pad held past `Controls::kHomeTouchMs` (1 s) | `Home` | the radar, and a standing alarm is dismissed | the radar |
+| pad held past `Controls::kHomeTouchMs` (1 s) | `Home` | a standing alarm is dismissed, and with none standing, the radar | the radar |
 | button pressed | `Act` | opens the settings | changes the focused row |
 | button held past `power::kLongPressMs` (2 s) | none | off | off |
 | pad held through that press | none | off, with a blank panel: the stow | the stow |
@@ -20,7 +20,9 @@ A touch can also go home without being let go of, which is why `Controls` is tic
 
 ## The long touch under an alarm
 
-With any graded contact standing, the way home also dismisses it (`core/traffic/README.md`). One gesture and not two, because under an alarm the two mean the same thing: a pilot holding the pad is asking for the traffic picture, and a pilot who is looking at the traffic picture has been told everything the buzzer and the flashing wedge were going to tell them.
+With any graded contact standing, the hold dismisses it (`core/traffic/README.md`) and stops there. Silence is what the pilot is asking for with a buzzer going, and it is what the gesture spends itself on: the page they are on is left where it is, and the way home waits for the next hold, which is a hold made in quiet. An alarm loud enough to be worth turning the head for has already brought the radar with it (`../pages/README.md`), so the hold that silences it is almost always made on the traffic picture anyway.
+
+What that buys is a glass that stands still at the moment it is being read. The radar is asked for by name and the service ignores a request for the page already on it, so neither the dismissal nor a hold made on the radar costs the 360 ms of black every screen change goes through. A pilot holding the pad at a converging glider gets the sector, the tone and the lamp out, and the plot they were reading stays on the glass throughout.
 
 It is the pad and not the button. The button's hold is already the way the device switches off, and a pilot silencing an alarm must never be a thumb away from stowing the device that raised it. The press the button does have here opens the settings, which is a page the same alarm has just taken off the glass.
 
