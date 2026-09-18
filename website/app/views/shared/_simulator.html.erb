@@ -14,8 +14,8 @@
                            keydown->simulator#touch
                            keyup->simulator#lift"></button>
 
-      <canvas class="simulator-glass" width="200" height="200"
-              data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
+      <button class="simulator-reset" type="button" aria-label="<%= reset %>"
+              data-action="simulator#restart"></button>
 
       <button class="simulator-key" type="button" aria-label="<%= key %>"
               data-action="pointerdown->simulator#hold
@@ -24,6 +24,18 @@
                            pointercancel->simulator#release
                            keydown->simulator#hold
                            keyup->simulator#release"></button>
+
+      <div class="simulator-well">
+        <div class="simulator-screen">
+          <canvas class="simulator-glass" width="200" height="200"
+                  data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
+        </div>
+      </div>
+
+      <span class="simulator-led simulator-led--alarm" aria-hidden="true"
+            data-simulator-target="alarm"></span>
+      <span class="simulator-led simulator-led--charge" aria-hidden="true"
+            data-simulator-target="charge"></span>
     </div>
 
     <div class="simulator-controls">
@@ -31,6 +43,8 @@
               data-simulator-target="start" data-action="simulator#start"><%= start %></button>
       <button class="simulator-restart" type="button"
               data-action="simulator#restart"><%= restart %></button>
+      <button class="simulator-traffic" type="button"
+              data-action="simulator#addTraffic"><%= traffic %></button>
       <p class="simulator-status mono" data-simulator-target="status" aria-live="polite"></p>
     </div>
 

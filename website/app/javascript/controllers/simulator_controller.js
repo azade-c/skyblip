@@ -3,8 +3,15 @@ import { Controller } from "@hotwired/stimulus"
 const MAX_CATCHUP_MS = 250
 const ACTIVATION_KEYS = [" ", "Enter"]
 
+const TRAFFIC_MIN_RANGE_M = 800
+const TRAFFIC_MAX_RANGE_M = 4800
+const TRAFFIC_VERT_SPREAD_M = 300
+const TRAFFIC_MIN_SPEED_MPS = 20
+const TRAFFIC_MAX_SPEED_MPS = 60
+const ADSL = 0
+
 export default class extends Controller {
-  static targets = ["canvas", "status", "start"]
+  static targets = ["canvas", "status", "start", "alarm", "charge"]
   static values = { src: String, on: String, off: String, settings: String }
 
   disconnect() {
@@ -29,6 +36,24 @@ export default class extends Controller {
     this.element.classList.remove("simulator--off")
     this.startTarget.disabled = false
     this.start()
+  }
+
+  addTraffic() {
+    if (!this.sim) return
+    const bearing = Math.random() * 2 * Math.PI
+    const range = this.#between(TRAFFIC_MIN_RANGE_M, TRAFFIC_MAX_RANGE_M)
+    this.sim.addAircraft(
+      Math.round(Math.cos(bearing) * range),
+      Math.round(Math.sin(bearing) * range),
+      Math.round(this.#between(-TRAFFIC_VERT_SPREAD_M, TRAFFIC_VERT_SPREAD_M)),
+      Math.round(this.#between(TRAFFIC_MIN_SPEED_MPS, TRAFFIC_MAX_SPEED_MPS)),
+      Math.round(Math.random() * 359),
+      ADSL
+    )
+  }
+
+  #between(low, high) {
+    return low + Math.random() * (high - low)
   }
 
   hold(event) {
@@ -79,6 +104,8 @@ export default class extends Controller {
     const powered = this.sim.powered() === 1
     this.element.classList.toggle("simulator--off", !powered)
     this.statusTarget.textContent = `${this.#screen()} · ${powered ? this.onValue : this.offValue}`
+    this.alarmTarget.classList.toggle("simulator-led--lit", this.sim.alarm() > 0)
+    this.chargeTarget.classList.toggle("simulator-led--lit", this.sim.batteryCharging() === 1)
   }
 
   #screen() {
