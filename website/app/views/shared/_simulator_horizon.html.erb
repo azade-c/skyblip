@@ -1,0 +1,48 @@
+<div class="simulator-cell simulator-cell--horizon">
+  <div class="simulator-dial">
+    <svg class="simulator-gauge" viewBox="-50 -50 100 100" aria-hidden="true"
+         data-simulator-target="horizonGauge">
+      <defs>
+        <clipPath id="sim-face">
+          <circle r="<%= SimulatorHelper::GAUGE_RADIUS - 3 %>" />
+        </clipPath>
+        <radialGradient id="sim-shine-attitude" cx="32%" cy="26%" r="72%">
+          <stop offset="0%" class="gauge-shine-near" />
+          <stop offset="100%" class="gauge-shine-far" />
+        </radialGradient>
+      </defs>
+
+      <circle class="gauge-bezel" r="<%= SimulatorHelper::GAUGE_RADIUS %>" />
+
+      <g clip-path="url(#sim-face)">
+        <g class="gauge-attitude">
+          <rect class="gauge-sky" x="-90" y="-90" width="180" height="90" />
+          <rect class="gauge-ground" x="-90" y="0" width="180" height="90" />
+          <line class="gauge-horizon" x1="-90" y1="0" x2="90" y2="0" />
+          <% [ [ 10, 13 ], [ 20, 8 ] ].each do |degrees, half| %>
+            <% offset = degrees * (SimulatorHelper::GAUGE_RADIUS / 20.0) %>
+            <line class="gauge-ladder" x1="-<%= half %>" y1="-<%= offset.round(1) %>"
+                  x2="<%= half %>" y2="-<%= offset.round(1) %>" />
+            <line class="gauge-ladder" x1="-<%= half %>" y1="<%= offset.round(1) %>"
+                  x2="<%= half %>" y2="<%= offset.round(1) %>" />
+          <% end %>
+        </g>
+      </g>
+
+      <g class="gauge-marks">
+        <% gauge_bank_marks.each do |x1, y1, x2, y2| %>
+          <line class="gauge-mark gauge-mark--major" x1="<%= x1 %>" y1="<%= y1 %>"
+                x2="<%= x2 %>" y2="<%= y2 %>" />
+        <% end %>
+      </g>
+
+      <path class="gauge-reference" d="M-22 0 H-8 M8 0 H22 M0 0 v-5" />
+      <circle class="gauge-hub gauge-hub--reference" r="2.5" />
+      <circle class="gauge-shine" r="<%= SimulatorHelper::GAUGE_RADIUS - 3 %>"
+              fill="url(#sim-shine-attitude)" />
+    </svg>
+
+    <output class="simulator-attitude" data-simulator-target="attitudeReadout"></output>
+    <span class="simulator-caption">ATT</span>
+  </div>
+</div>

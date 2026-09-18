@@ -8,9 +8,11 @@
           data-simulator-src-value="<%= simulator_module_path %>"
           data-simulator-on-value="<%= on %>"
           data-simulator-off-value="<%= off %>"
-          data-simulator-settings-value="<%= settings %>">
+          data-simulator-settings-value="<%= settings %>"
+          data-action="keydown->simulator#fly">
     <div class="sb-case">
       <button class="sb-pad" type="button" aria-label="<%= pad %>"
+              data-simulator-target="pad"
               data-action="pointerdown->simulator#touch
                            pointerup->simulator#lift
                            pointerleave->simulator#lift
@@ -32,18 +34,35 @@
       <canvas class="sb-glass" width="200" height="200"
               data-simulator-target="canvas" role="img" aria-label="<%= glass %>"></canvas>
 
+      <span class="simulator-placeholder wordmark" aria-hidden="true"><span class="quiet">sky</span><span class="loud">Bl<span class="glyph">&#305;<svg class="overlay overlay-blip" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="34" r="5.5" fill="#FF4F1F"/><path d="M10 25 A14 14 0 0 1 30 25" fill="none" stroke="#FF4F1F" stroke-width="3.5" stroke-linecap="round" opacity=".65"/><path d="M4 15 A22 22 0 0 1 36 15" fill="none" stroke="#FF4F1F" stroke-width="3.5" stroke-linecap="round" opacity=".3"/></svg></span>p</span></span>
+
       <span class="sb-led sb-led--alarm" aria-hidden="true" data-simulator-target="alarm"></span>
       <span class="sb-led sb-led--charge" aria-hidden="true" data-simulator-target="charge"></span>
     </div>
 
     <div class="simulator-controls">
-      <button class="simulator-start" type="button"
-              data-simulator-target="start" data-action="simulator#start"><%= start %></button>
-      <button class="simulator-restart" type="button"
-              data-action="simulator#restart"><%= restart %></button>
+      <p class="simulator-wake"><%= wake %></p>
       <button class="simulator-traffic" type="button"
               data-action="simulator#addTraffic"><%= traffic %></button>
       <p class="simulator-status mono" data-simulator-target="status" aria-live="polite"></p>
+    </div>
+
+    <div class="simulator-panel">
+      <% SimulatorHelper::SIMULATOR_DIALS.group_by { |dial| dial[:area] }.each do |area, dials| %>
+        <div class="simulator-cell simulator-cell--<%= area %>">
+          <%= render partial: "shared/simulator_dial", collection: dials, as: :dial %>
+        </div>
+      <% end %>
+      <%= render "shared/simulator_horizon" %>
+
+      <div class="simulator-legend">
+        <p class="simulator-keys"><%= keys %></p>
+        <% SimulatorHelper::SIMULATOR_KEYS.each do |binding| %>
+          <span class="simulator-binding">
+            <kbd><%= binding[:keys].html_safe %></kbd><%= binding[:dial] %>
+          </span>
+        <% end %>
+      </div>
     </div>
 
     <figcaption class="note"><%= caption %></figcaption>

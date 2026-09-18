@@ -1,0 +1,67 @@
+<div class="simulator-dial simulator-dial--<%= dial[:axis] %>">
+  <% if dial[:scale] || dial[:marks] %>
+    <svg class="simulator-gauge" viewBox="-50 -50 100 100" aria-hidden="true"
+         data-simulator-target="<%= dial[:axis] %>Gauge">
+      <defs>
+        <radialGradient id="sim-shine-<%= dial[:axis] %>" cx="32%" cy="26%" r="72%">
+          <stop offset="0%" class="gauge-shine-near" />
+          <stop offset="100%" class="gauge-shine-far" />
+        </radialGradient>
+      </defs>
+
+      <circle class="gauge-bezel" r="<%= SimulatorHelper::GAUGE_RADIUS %>" />
+      <circle class="gauge-face" r="<%= SimulatorHelper::GAUGE_RADIUS - 3 %>" />
+
+      <g class="<%= dial[:card] ? "gauge-card" : "gauge-marks" %>">
+        <% gauge_bands(dial).each do |tone, path| %>
+          <path class="gauge-band gauge-band--<%= tone %>" d="<%= path %>" />
+        <% end %>
+        <% gauge_marks(dial).each do |x1, y1, x2, y2, major| %>
+          <line class="<%= major ? "gauge-mark gauge-mark--major" : "gauge-mark" %>"
+                x1="<%= x1 %>" y1="<%= y1 %>" x2="<%= x2 %>" y2="<%= y2 %>" />
+        <% end %>
+        <% gauge_numerals(dial).each do |text, x, y| %>
+          <text class="gauge-numeral" x="<%= x %>" y="<%= y %>"><%= text %></text>
+        <% end %>
+      </g>
+
+      <% if dial[:card] %>
+        <path class="gauge-index" d="M-3 -<%= SimulatorHelper::GAUGE_RADIUS - 3 %> L3 -<%= SimulatorHelper::GAUGE_RADIUS - 3 %> L0 -<%= SimulatorHelper::GAUGE_RADIUS - 10 %> Z" />
+      <% end %>
+
+      <% if dial[:plane] %>
+        <g class="gauge-plane">
+          <line x1="-30" y1="0" x2="30" y2="0" />
+          <line x1="0" y1="0" x2="0" y2="-10" />
+          <line x1="-10" y1="-7" x2="10" y2="-7" />
+        </g>
+      <% else %>
+        <% if dial[:hands] == 2 %>
+          <path class="gauge-hand" d="M-3.5 0 L0 -25 L3.5 0 Z" />
+        <% end %>
+        <path class="gauge-needle" d="M-2 2 L0 -40 L2 2 Z" />
+      <% end %>
+
+      <% if dial[:ball] %>
+        <rect class="gauge-tube" x="-13" y="23" width="26" height="12" rx="6" />
+        <circle class="gauge-ball" cx="0" cy="29" r="4.5" />
+        <% [ -5, 5 ].each do |x| %>
+          <line class="gauge-cage" x1="<%= x %>" y1="24" x2="<%= x %>" y2="34" />
+        <% end %>
+      <% end %>
+
+      <circle class="gauge-hub" r="3.5" />
+      <circle class="gauge-shine" r="<%= SimulatorHelper::GAUGE_RADIUS - 3 %>"
+              fill="url(#sim-shine-<%= dial[:axis] %>)" />
+    </svg>
+  <% end %>
+
+  <output data-simulator-target="<%= dial[:axis] %>Readout"></output>
+  <label for="sim-<%= dial[:axis] %>"><%= dial[:label] %></label>
+  <input type="range" id="sim-<%= dial[:axis] %>"
+         min="<%= dial[:min] %>" max="<%= dial[:max] %>" step="<%= dial[:step] %>"
+         value="<%= dial[:value] %>"
+         data-axis="<%= dial[:axis] %>"
+         data-simulator-target="<%= dial[:axis] %>"
+         data-action="simulator#steer">
+</div>
