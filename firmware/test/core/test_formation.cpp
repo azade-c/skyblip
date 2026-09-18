@@ -1,5 +1,4 @@
-// Aircraft flying together, told from geometry alone: no flying style is named, and nothing here
-// quietens an alarm.
+// Aircraft flying together, told from geometry alone: no flying style is named, no pilot is asked.
 #include <cmath>
 
 #include "core/traffic/formation.h"
@@ -47,23 +46,19 @@ model::AircraftObs neighbour(const model::OwnState& own, int north_m, int east_m
 
 }  // namespace
 
-TEST_CASE("formation: a wingman holding station is offered after the steady window") {
+TEST_CASE("formation: a wingman holding station is flying with us after the steady window") {
     Tracker tracker;
     Report r{};
     for (uint32_t t = 1000; t <= 1000 + kSteadyMs + 1000; t += 1000) {
         const model::OwnState own = flying(40, 90, t);
         r = tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
     }
-    CHECK(r.state == State::Candidate);
-    CHECK_FALSE(tracker.together(6, 0x424242));
-    CHECK(tracker.members() == 0);
-
-    tracker.admit(6, 0x424242);
+    CHECK(r.state == State::Together);
     CHECK(tracker.together(6, 0x424242));
     CHECK(tracker.members() == 1);
 }
 
-TEST_CASE("formation: a contact crossing our path is never offered") {
+TEST_CASE("formation: a contact crossing our path never joins") {
     Tracker tracker;
     Report r{};
     for (int i = 0; i <= 10; i++) {
@@ -74,13 +69,12 @@ TEST_CASE("formation: a contact crossing our path is never offered") {
     CHECK(r.state == State::None);
 }
 
-TEST_CASE("formation: a member leaving is reported once, and it takes two fixes") {
+TEST_CASE("formation: a member drifting away is parting, and it takes two fixes") {
     Tracker tracker;
     for (uint32_t t = 1000; t <= 1000 + kSteadyMs + 1000; t += 1000) {
         const model::OwnState own = flying(40, 90, t);
         tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
     }
-    tracker.admit(6, 0x424242);
 
     uint32_t t = 1000 + kSteadyMs + 2000;
     model::OwnState own = flying(40, 90, t);
@@ -91,28 +85,63 @@ TEST_CASE("formation: a member leaving is reported once, and it takes two fixes"
 
     t += 1000;
     own = flying(40, 90, t);
-    CHECK(tracker.observe(own, neighbour(own, -60, -700, 10, 40, 90, t), t).state == State::Broken);
+    CHECK(tracker.observe(own, neighbour(own, -60, -700, 10, 40, 90, t), t).state ==
+          State::Parting);
     CHECK_FALSE(tracker.together(6, 0x424242));
     CHECK(tracker.members() == 0);
 
     t += 1000;
     own = flying(40, 90, t);
-    CHECK(tracker.observe(own, neighbour(own, -60, -700, 10, 40, 90, t), t).state != State::Broken);
+    CHECK(tracker.observe(own, neighbour(own, -60, -900, 10, 40, 90, t), t).state ==
+          State::Parting);
 }
 
-TEST_CASE("formation: a member flying out of range breaks, whatever it does next") {
+TEST_CASE("formation: a pair that parts is two aircraft again once it leaves the band") {
     Tracker tracker;
     for (uint32_t t = 1000; t <= 1000 + kSteadyMs + 1000; t += 1000) {
         const model::OwnState own = flying(40, 90, t);
         tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
     }
-    tracker.admit(6, 0x424242);
 
     const uint32_t t = 1000 + kSteadyMs + 2000;
     const model::OwnState own = flying(40, 90, t);
-    CHECK(tracker.observe(own, neighbour(own, -60, -1600, 10, 40, 90, t), t).state ==
-          State::Broken);
+    CHECK(tracker.observe(own, neighbour(own, -60, -1600, 10, 40, 90, t), t).state == State::None);
     CHECK_FALSE(tracker.together(6, 0x424242));
+}
+
+TEST_CASE("formation: a parted neighbour that settles back on station rejoins") {
+    Tracker tracker;
+    uint32_t t = 1000;
+    for (; t <= 1000 + kSteadyMs + 1000; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
+    }
+    for (int i = 0; i < kBreakFixes; i++, t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        tracker.observe(own, neighbour(own, -60, -300 - 200 * i, 10, 40, 90, t), t);
+    }
+    REQUIRE_FALSE(tracker.together(6, 0x424242));
+
+    Report r{};
+    for (const uint32_t until = t + kSteadyMs + 1000; t <= until; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        r = tracker.observe(own, neighbour(own, -60, -700, 10, 40, 90, t), t);
+    }
+    CHECK(r.state == State::Together);
+}
+
+TEST_CASE("formation: the alarm releasing a member re-arms the steady window") {
+    Tracker tracker;
+    uint32_t t = 1000;
+    for (; t <= 1000 + kSteadyMs + 1000; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
+    }
+    REQUIRE(tracker.together(6, 0x424242));
+
+    tracker.release(6, 0x424242, t);
+    const model::OwnState own = flying(40, 90, t);
+    CHECK(tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t).state == State::None);
 }
 
 TEST_CASE("formation: two gliders on one thermal circle are flying together") {
@@ -130,16 +159,7 @@ TEST_CASE("formation: two gliders on one thermal circle are flying together") {
         const int east_m = static_cast<int>(222.0 * std::cos(heading));
         r = tracker.observe(own, neighbour(own, north_m, east_m, 0, 23, track_deg + 180, t), t);
     }
-    CHECK(r.state == State::Candidate);
-}
-
-TEST_CASE("formation: a member is placed by the clock, and the hours run the right way") {
-    CHECK(clock_of(1000, 0) == 12);
-    CHECK(clock_of(0, 1000) == 3);
-    CHECK(clock_of(-1000, 0) == 6);
-    CHECK(clock_of(0, -1000) == 9);
-    CHECK(clock_of(500, 500) == 2);
-    CHECK(clock_of(-500, -500) == 8);
+    CHECK(r.state == State::Together);
 }
 
 TEST_CASE("formation: a contact nobody has heard from is forgotten, membership and all") {
@@ -148,7 +168,6 @@ TEST_CASE("formation: a contact nobody has heard from is forgotten, membership a
         const model::OwnState own = flying(40, 90, t);
         tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
     }
-    tracker.admit(6, 0x424242);
     CHECK(tracker.members() == 1);
 
     tracker.forget_stale(1000 + kSteadyMs + 1000 + kForgetMs + 1);

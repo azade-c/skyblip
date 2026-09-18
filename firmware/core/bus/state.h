@@ -61,15 +61,7 @@ struct BaroState {
     bool active{false};
 };
 
-// What the formation layer is asking the pilot, and what it has just told them.
-// Owned by AlarmService, read by the page: an offer is a contact flying with us
-// that nobody has admitted yet, a split is a member that has just left.
 struct FormationState {
-    uint32_t offer_addr{0};
-    uint8_t offer_addr_table{0};
-    int8_t offer_clock{0};
-    bool offered{false};
-    bool split{false};
     int members{0};
 };
 

@@ -85,14 +85,8 @@ KEEPALIVE void simulator_add_threat(int alptas) {
     g_simulator.world().add_threat(system_of(alptas));
 }
 KEEPALIVE void simulator_clear_traffic() { g_simulator.world().clear_aircraft(); }
-KEEPALIVE void simulator_admit_formation() { g_simulator.product().alarm().admit_formation(); }
-KEEPALIVE void simulator_release_formation() { g_simulator.product().alarm().release_formation(); }
 KEEPALIVE int simulator_formation_members() {
     return g_simulator.product().alarm().formation_members();
-}
-KEEPALIVE int simulator_formation_offer() {
-    const bus::FormationState& f = g_simulator.product().state().formation;
-    return f.offered ? f.offer_clock : 0;
 }
 KEEPALIVE int simulator_aircraft_count() { return g_simulator.world().aircraft_count(); }
 

@@ -198,6 +198,14 @@ AlarmTracker::Slot* AlarmTracker::slot_for(const model::AircraftObs& target, uin
     return slot;
 }
 
+void AlarmTracker::withdraw(uint8_t addr_table, uint32_t addr) {
+    for (Slot& s : slots_) {
+        if (!s.used || s.addr != addr || s.addr_table != addr_table) continue;
+        s.notified_level = Level::None;
+        s.falling = false;
+    }
+}
+
 void AlarmTracker::forget_stale(uint32_t now_ms) {
     for (Slot& s : slots_) {
         if (s.used && now_ms - s.seen_ms > kForgetMs) s = Slot{};

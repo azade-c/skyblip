@@ -7,6 +7,7 @@
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/platform/host/clock.h"
 #include "ports/null.h"
+#include "products/skyblip_go/services/alarm.h"
 #include "products/skyblip_go/services/screen.h"
 #include "products/skyblip_go/settings_store.h"
 
@@ -34,7 +35,7 @@ struct Rig {
     comms::ConfigService config{null.link, store};
     go::BootSnapshot self_test{};
     go::AlarmService alarm_service{context, settings};
-    go::ScreenService screen{context, settings, config, alarm_service, self_test};
+    go::ScreenService screen{context, settings, config, self_test};
 
     Rig() {
         chip.attach_clock(clock);

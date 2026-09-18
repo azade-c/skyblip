@@ -204,10 +204,6 @@
           <button onclick="SIM.addWingman()">+ Wingman</button>
           <button onclick="SIM.clearTraffic()">Clear</button>
         </div>
-        <div class="row" style="margin-top:8px;">
-          <button onclick="SIM.joinFormation()">Join formation</button>
-          <button onclick="SIM.leaveFormation()">Refuse / leave</button>
-        </div>
         <div class="row" style="margin-top:8px; align-items:center;">
           <label class="hint" for="tfc_system">new traffic is equipped with</label>
           <select id="tfc_system">
@@ -395,8 +391,6 @@ SIM.addWingman = () => {
                 Math.round(ahead * Math.sin(rad) + right * Math.cos(rad)), 0,
                 Math.round(kt * KT_TO_MPS), track, 0);
 };
-SIM.joinFormation = () => f.admitFormation();
-SIM.leaveFormation = () => f.releaseFormation();
 
 const bandCanvas = $('band'), band = bandCanvas.getContext('2d');
 const EVENT = ['tx', 'rx', 'deaf', 'coll'];
@@ -480,9 +474,7 @@ function draw() {
   $('t_bat').textContent  = (f.batteryMv()/1000).toFixed(2) + ' V · ' + f.batteryPercent() + ' %'
                             + (f.batteryCharging() ? ' charging' : '');
   $('t_tfc').textContent  = f.traffic() + ' target(s)';
-  const offer = f.formationOffer();
-  $('t_form').textContent = f.formationMembers() + ' with us'
-      + (offer ? '  ·  offering ' + offer + " o'clock" : '');
+  $('t_form').textContent = f.formationMembers() + ' with us';
   $('t_rx').textContent   = f.rxOk() + ' / ' + f.rxBad();
   $('t_tx').textContent   = f.txOk();
   $('t_dwell').textContent = DWELL[f.slotState()] || '-';

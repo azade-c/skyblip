@@ -362,22 +362,6 @@ TEST_CASE("radar: a formation is own ship, counted by quadrant") {
     CHECK(reads_in(fb, "4", 170, 170, 200, 200, 3));
 }
 
-// The offer and the split are the only two things the formation says in words.
-TEST_CASE("radar: the formation offer names the clock, and a split says so") {
-    RadarSnapshot snap = flying(0);
-    snap.speed_mps = 40;
-    snap.formation_offered = true;
-    snap.formation_offer_clock = 5;
-    CHECK(reads_in(radar(snap), "HOLD TO ADD 5 OCLOCK", 0, 140, 200, 162, 1));
-
-    snap.formation_offered = false;
-    snap.formation_split = true;
-    CHECK(reads_in(radar(snap), "FORMATION SPLIT", 0, 140, 200, 162, 1));
-
-    snap.formation_split = false;
-    CHECK_FALSE(reads_in(radar(snap), "FORMATION SPLIT", 0, 140, 200, 162, 1));
-}
-
 // The leader is the arc the alarm grades, so a target in a turn does not draw a tangent.
 TEST_CASE("radar: a turning target's leader is its arc") {
     RadarTarget straight[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0}};

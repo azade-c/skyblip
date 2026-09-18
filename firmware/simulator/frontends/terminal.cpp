@@ -97,8 +97,7 @@ void render(simulator::Simulator& s) {
         " device: [p]age [m]enu [t]ouch pad [b]acklight [o]n/off   sensors: [f]ix [n]o-pps\n");
     std::printf(
         " alt a/z  speed s/x  track d/c  turn r/e/w=0   traffic: [g]+1 [j]+ALP-TAS [h]threat"
-        " [k]clear\n"
-        " formation: [y]es join  [u]ndo   [q]uit\n");
+        " [k]clear   [q]uit\n");
     std::fflush(stdout);
 }
 
@@ -165,8 +164,6 @@ int main(int argc, char** argv) {
                                            protocol::System::Alptas);
                     break;
                 case 'k': s.world().clear_aircraft(); break;
-                case 'y': s.product().alarm().admit_formation(); break;
-                case 'u': s.product().alarm().release_formation(); break;
                 default: break;
             }
         }

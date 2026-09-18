@@ -1,4 +1,4 @@
-// What a pilot-admitted formation does to the annunciator, and the one thing it cannot silence.
+// What a formation the device found by itself does to the annunciator, and what takes it back.
 #include "core/traffic/formation.h"
 #include "core/util/intmath.h"
 #include "doctest/doctest.h"
@@ -56,72 +56,94 @@ struct Flight {
         return at < 0 ? nullptr : rig.state.traffic.at(at);
     }
 
-    uint32_t hold_station(uint32_t from_ms) {
+    uint32_t hold_station(int north_m, int east_m, uint32_t from_ms) {
         uint32_t t = from_ms;
         for (; t <= from_ms + formation::kSteadyMs + 2000; t += 1000)
-            hear(-60, -120, 10, 40, 90, t);
+            hear(north_m, east_m, 10, 40, 90, t);
         return t;
     }
+
+    uint32_t hold_station(uint32_t from_ms) { return hold_station(-60, -120, from_ms); }
 };
 
 }  // namespace
 
-TEST_CASE("formation: a neighbour holding station is offered, and admitting it takes the level") {
+TEST_CASE("formation: a neighbour holding station joins by itself, and takes its level with it") {
     Flight flight;
     const uint32_t after = flight.hold_station(1000);
 
-    CHECK(flight.rig.state.formation.offered);
-    CHECK(flight.rig.state.formation.offer_clock == 5);
-    CHECK(flight.rig.state.alarm_level == traffic::Level::Info);
-
-    flight.rig.alarm_service.admit_formation();
+    CHECK(flight.target()->in_formation);
     CHECK(flight.rig.alarm_service.formation_members() == 1);
+    CHECK(flight.rig.state.alarm_level == traffic::Level::None);
+    CHECK(flight.target()->alarm_level == traffic::Level::None);
 
     flight.hear(-60, -120, 10, 40, 90, after);
     CHECK(flight.target()->in_formation);
     CHECK(flight.rig.state.alarm_level == traffic::Level::None);
-    CHECK_FALSE(flight.rig.state.formation.offered);
 }
 
-TEST_CASE("formation: a member on a collision course alarms, and stops being a member") {
+// A pair this close alarms on every fix for as long as it flies, which is the device switched off.
+TEST_CASE("formation: a tight pair that settles down stops the alarm its joining raised") {
+    Flight flight;
+    flight.hear(-20, -30, 10, 40, 90, 1000);
+    REQUIRE(flight.rig.state.alarm_level == traffic::Level::Urgent);
+
+    const uint32_t after = flight.hold_station(-20, -30, 2000);
+    CHECK(flight.target()->in_formation);
+    CHECK(flight.rig.state.alarm_level == traffic::Level::None);
+    CHECK(flight.rig.alarm_service.announcing_level() == traffic::Level::None);
+
+    flight.hear(-20, -30, 10, 40, 90, after);
+    CHECK(flight.rig.state.alarm_level == traffic::Level::None);
+}
+
+TEST_CASE("formation: a member closing on us alarms on that fix, and is no longer a member") {
     Flight flight;
     const uint32_t after = flight.hold_station(1000);
-    flight.rig.alarm_service.admit_formation();
-    flight.hear(-60, -120, 10, 40, 90, after);
     REQUIRE(flight.target()->in_formation);
-    REQUIRE(flight.rig.state.alarm_level == traffic::Level::None);
 
     // The same aircraft, now 400 m off the nose coming the other way.
-    flight.hear(0, 400, 0, 40, 270, after + 1000);
+    flight.hear(0, 400, 0, 40, 270, after);
     CHECK(flight.rig.state.alarm_level == traffic::Level::Urgent);
     CHECK_FALSE(flight.target()->in_formation);
     CHECK(flight.rig.alarm_service.formation_members() == 0);
 }
 
-TEST_CASE("formation: a member that leaves says so once") {
+TEST_CASE("formation: a pair splitting is not alarmed while it separates") {
     Flight flight;
-    const uint32_t after = flight.hold_station(1000);
-    flight.rig.alarm_service.admit_formation();
-    flight.hear(-60, -120, 10, 40, 90, after);
-    CHECK_FALSE(flight.rig.state.formation.split);
+    uint32_t t = flight.hold_station(1000);
+    REQUIRE(flight.target()->in_formation);
 
-    flight.hear(-60, -400, 10, 40, 90, after + 1000);
-    CHECK_FALSE(flight.rig.state.formation.split);
-    flight.hear(-60, -700, 10, 40, 90, after + 2000);
-    CHECK(flight.rig.state.formation.split);
+    for (int east = -300; east >= -900; east -= 200, t += 1000) {
+        flight.hear(-60, east, 10, 40, 90, t);
+        CHECK(flight.rig.state.alarm_level == traffic::Level::None);
+        CHECK(flight.rig.alarm_service.announcing_level() == traffic::Level::None);
+    }
     CHECK(flight.rig.alarm_service.formation_members() == 0);
 }
 
-TEST_CASE("formation: refusing the offer leaves the contact as traffic") {
+TEST_CASE("formation: a split that turns back into a closure is alarmed again") {
+    Flight flight;
+    uint32_t t = flight.hold_station(1000);
+    flight.hear(-60, -300, 10, 40, 90, t);
+    t += 1000;
+    flight.hear(-60, -500, 10, 40, 90, t);
+    t += 1000;
+    REQUIRE(flight.rig.state.alarm_level == traffic::Level::None);
+
+    // The one that left is overtaking us from behind at 40 m/s.
+    flight.hear(-60, -500, 10, 80, 90, t);
+    CHECK(flight.rig.state.alarm_level > traffic::Level::None);
+    CHECK_FALSE(flight.target()->in_formation);
+}
+
+TEST_CASE("formation: a contact nobody has heard from is forgotten, membership and all") {
     Flight flight;
     const uint32_t after = flight.hold_station(1000);
-    REQUIRE(flight.rig.state.formation.offered);
+    REQUIRE(flight.rig.alarm_service.formation_members() == 1);
 
-    flight.rig.alarm_service.release_formation();
-    CHECK_FALSE(flight.rig.state.formation.offered);
+    const uint32_t gone = after + formation::kForgetMs + 1;
+    flight.rig.state.traffic.age_out(gone / 1000);
+    flight.rig.alarm_service.tick(gone);
     CHECK(flight.rig.alarm_service.formation_members() == 0);
-
-    flight.hear(-60, -120, 10, 40, 90, after);
-    CHECK_FALSE(flight.target()->in_formation);
-    CHECK(flight.rig.state.alarm_level == traffic::Level::Info);
 }

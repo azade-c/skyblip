@@ -39,11 +39,6 @@ class AlarmService : public runtime::Service {
 
     traffic::Level announcing_level() const { return policy_.announcing_level(); }
 
-    // The pilot answering the offer on the glass. A member is silenced on the
-    // annunciator and never on the plot, and a breach inside the urgent horizon
-    // takes the silence away again (core/traffic/README.md).
-    void admit_formation();
-    void release_formation();
     int formation_members() const { return formation_.members(); }
     bool sounding() const { return policy_.sounding(); }
 
@@ -54,8 +49,9 @@ class AlarmService : public runtime::Service {
     indication::Lamp lamp() const { return lamp_.lamp(); }
 
    private:
-    bool silenced(traffic::Target& target, const traffic::AlarmAssessment& assessment);
-    void watch_formation(traffic::Target& target, uint32_t now_ms);
+    bool silenced(traffic::Target& target, formation::State state,
+                  const traffic::AlarmAssessment& assessment, uint32_t now_ms);
+    formation::State watch_formation(traffic::Target& target, uint32_t now_ms);
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
 

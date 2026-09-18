@@ -49,10 +49,7 @@ export async function load() {
     addAircraftAt: call('simulator_add_aircraft_at', null, Array(8).fill('number')),
     addThreat: call('simulator_add_threat', null, num),
     clearTraffic: call('simulator_clear_traffic', null, n),
-    admitFormation: call('simulator_admit_formation', null, n),
-    releaseFormation: call('simulator_release_formation', null, n),
     formationMembers: call('simulator_formation_members', 'number', n),
-    formationOffer: call('simulator_formation_offer', 'number', n),
 
     fb: call('simulator_fb', 'number', n),
     W: call('simulator_fb_w', 'number', n)(),

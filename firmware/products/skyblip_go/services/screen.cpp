@@ -56,11 +56,6 @@ void ScreenService::handle_input(uint32_t now_ms) {
         if (readable && quiet) gesture_.arm(now_ms);
     }
 
-    if (offer_on_glass() && !formation_gesture_.armed())
-        formation_gesture_.arm(now_ms);
-    else if (!offer_on_glass() && formation_gesture_.armed())
-        formation_gesture_.disarm();
-
     sync_editor(now_ms);
 
     events::ContactEvent event{};
@@ -71,27 +66,7 @@ void ScreenService::handle_input(uint32_t now_ms) {
         resolve(gesture_.tick(now_ms));
         return;
     }
-    if (offer_on_glass()) answer_formation(formation_gesture_.tick(now_ms));
     step_editor(now_ms);
-}
-
-// The offer is answered the way everything else on this device is answered: two
-// presses inside the double-press window admit the neighbour, one refuses it.
-// Armed only while the offer is on the radar with no prompt over it, so a press
-// meant for a page can never join a formation.
-bool ScreenService::offer_on_glass() const {
-    return mode_ == Mode::Traffic && page_ == Page::Radar && prompt_ == comms::Pending::None &&
-           context_.state.formation.offered;
-}
-
-void ScreenService::answer_formation(Gesture gesture) {
-    if (gesture == Gesture::None) return;
-    if (gesture == Gesture::Confirm)
-        alarm_.admit_formation();
-    else
-        alarm_.release_formation();
-    formation_gesture_.disarm();
-    dirty_ = true;
 }
 
 void ScreenService::obey(Command command, uint32_t now_ms) {
@@ -110,10 +85,6 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
     pressed_once_ = true;
     if (prompt_ != comms::Pending::None) {
         if (gesture_.armed()) resolve(gesture_.press(now_ms));
-        return;
-    }
-    if (offer_on_glass() && formation_gesture_.armed()) {
-        answer_formation(formation_gesture_.press(now_ms));
         return;
     }
     if (editor_.active()) {
@@ -427,9 +398,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
             snap.formation_members = context_.state.formation.members;
-            snap.formation_offered = context_.state.formation.offered;
-            snap.formation_offer_clock = context_.state.formation.offer_clock;
-            snap.formation_split = context_.state.formation.split;
             int n = 0;
             if (own.fix_valid) {
                 const model::OwnState own_now = flight::carried_to(own, now_ms);

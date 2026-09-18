@@ -9,7 +9,7 @@
 
 namespace skyblip::formation {
 
-enum class State : uint8_t { None, Candidate, Together, Broken };
+enum class State : uint8_t { None, Together, Parting };
 
 constexpr int32_t kRangeM = 1000;
 constexpr int32_t kVertM = 100;
@@ -19,6 +19,7 @@ constexpr uint32_t kSteadyMs = 6000;
 constexpr int kBreakFixes = 2;
 constexpr int kTrackedContacts = 8;
 constexpr uint32_t kForgetMs = 30000;
+constexpr int32_t kClosingMps = 3;
 
 struct Report {
     State state{State::None};
@@ -28,15 +29,12 @@ struct Report {
     bool valid{false};
 };
 
-int8_t clock_of(int32_t ahead_m, int32_t right_m);
-
 class Tracker {
    public:
     Report observe(const model::OwnState& own_fix, const model::AircraftObs& reported,
                    uint32_t now_ms);
 
-    void admit(uint8_t addr_table, uint32_t addr);
-    void release(uint8_t addr_table, uint32_t addr);
+    void release(uint8_t addr_table, uint32_t addr, uint32_t now_ms);
     bool together(uint8_t addr_table, uint32_t addr) const;
     int members() const;
 

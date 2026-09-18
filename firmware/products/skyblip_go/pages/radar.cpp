@@ -76,8 +76,6 @@ constexpr int kFormationD = 13;
 constexpr int kFormationCorner = 4;
 constexpr int kFormationInset = 3;
 constexpr int kDigitW = 5;
-constexpr int kNoticeY = 149;
-constexpr int kNoticePad = 3;
 constexpr int kMinutesMarked = 2;
 
 int half_chord_in_half_pixels(int r, int b) {
@@ -273,26 +271,6 @@ void formation_counts(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) 
         buf[fmt_uint(buf, static_cast<uint32_t>(count[q] > 9 ? 9 : count[q]))] = 0;
         fb.draw_text(x[q], y[q], buf, true, 1);
     }
-}
-
-void notice(ui::Canvas& fb, const char* text) {
-    const int w = text_width(text, 1);
-    const int x = kCx - w / 2;
-    clear_behind(fb, x, kNoticeY, w, kGlyphH, kNoticePad);
-    fb.draw_text(x, kNoticeY, text, true, 1);
-}
-
-void formation_notice(ui::Canvas& fb, const RadarSnapshot& snap) {
-    if (snap.formation_offered) {
-        char buf[32];
-        int n = fmt_string(buf, "HOLD TO ADD ");
-        n += fmt_uint(buf + n, static_cast<uint32_t>(snap.formation_offer_clock));
-        n += fmt_string(buf + n, " OCLOCK");
-        buf[n] = 0;
-        notice(fb, buf);
-        return;
-    }
-    if (snap.formation_split) notice(fb, "FORMATION SPLIT");
 }
 
 int own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track, Box* marked) {
@@ -545,7 +523,6 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     if (snap.formation_members > 0) formation_counts(fb, snap, track);
 
     const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
-    if (snap.fix_valid) formation_notice(fb, snap);
 
     flight_clock(fb, snap);
     flight_state(fb, snap);

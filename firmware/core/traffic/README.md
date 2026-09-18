@@ -38,12 +38,16 @@ ADS-L carries position, speed, track and climb, and no turn rate (G.1.8, G.1.10)
 
 Aircraft fly together on purpose: a patrol, a tug and its glider, two friends on a task, a gaggle in one thermal. The device cannot see intent, so `formation` names the observable: a contact within `kRangeM` and `kVertM` whose position in own-ship's own heading-up frame has not moved more than `kDriftM` for `kSteadyMs`. That covers all four cases without naming any of them, and a circling pair matches it for the same reason a patrol does.
 
-Three rules keep it honest:
+Nothing is asked and nothing is announced. The device says it in the picture it was already drawing: the square closes around own-ship as the formation forms, the count moves between quadrants, the square opens again when the last member leaves. A pilot who wanted a word for it is a pilot reading words instead of a plot, and the aircraft it is about is out of the window.
 
-The detector only ever proposes. `State::Candidate` raises an offer on the glass, and nothing is silenced until the pilot answers it with the same double press that authorises a firmware upload on this device. FLARM-style automatic suppression is what this work deleted, and it is not coming back in through the detector.
+Three rules keep it honest:
 
 A member is silenced on the annunciator and never on the plot. It stops being drawn as a separate symbol because the square around own-ship and the count in its quadrant are its depiction, and drawing it twice would be two aircraft.
 
-**A mute cannot survive a breach.** If the arcs say a member enters the protection volume inside `kUrgentTtiS`, the membership is dropped and the contact alarms, on that fix. The pilot can silence a neighbour flying with them; nobody can silence a collision.
+**Closure takes the silence back.** A member closing at `kClosingMps` or more is released on that fix and graded like any other traffic. Holding station is the whole claim the detector makes, and an aircraft coming at us is not holding station, so the silence ends before the drift test has had two fixes to notice. The figure is 3 m/s because the wire cannot say anything smaller and mean it: ADS-L quantises ground speed at 0.25 m/s and track at 512 steps of a turn, which is half a metre a second of phantom closure at 40 m/s (G.1.8, G.1.10). What it costs is named below.
 
-The lease ends by itself: `kBreakFixes` consecutive fixes of drift, or leaving the range and altitude band, report `State::Broken` once, which is the `FORMATION SPLIT` notice, and a contact nobody has heard for `kForgetMs` is forgotten with its membership. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None` and costs the pilot one re-tap.
+**A split is not a conflict.** When station keeping breaks, the contact becomes `State::Parting` rather than traffic again, and stays quiet while it goes. Two aircraft leaving each other are the least surprising thing in the sky, and the geometry of a break reads like a closure to an alarm that grades distance. Parting ends the way it must: the moment they close again by `kClosingMps`, or when they are out of the band entirely and are two aircraft that have nothing to do with each other.
+
+The lease ends by itself: a contact nobody has heard for `kForgetMs` is forgotten with its membership, and a neighbour that settles back on station for `kSteadyMs` rejoins. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None`.
+
+What this design gives up, deliberately, is the slow merge. A member drifting in at less than `kClosingMps` stays silent, and 3 m/s across a 30 m gap is ten seconds. The alarm is not the thing protecting that pair: they have been in formation for at least `kSteadyMs`, the pilot is looking out at an aircraft they chose to fly next to, and an annunciator that shouts through the whole flight to cover those ten seconds is an annunciator switched off before them.

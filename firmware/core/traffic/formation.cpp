@@ -10,9 +10,6 @@ namespace {
 
 constexpr int kTrackC9ToAngle = 7;
 constexpr int32_t kQ14One = 16384;
-constexpr int32_t kTurn16 = 65536;
-constexpr int32_t kDegreesPerClock = 30;
-constexpr int32_t kClockFace = 12;
 
 int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
@@ -29,14 +26,6 @@ void heading_up(int32_t north_m, int32_t east_m, uint16_t track_c9, int32_t& ahe
 }
 
 }  // namespace
-
-int8_t clock_of(int32_t ahead_m, int32_t right_m) {
-    const int32_t bearing = static_cast<int32_t>(static_cast<uint16_t>(iatan2(right_m, ahead_m)));
-    const int32_t deg = (bearing * 360) / kTurn16;
-    int32_t hour = ((deg + kDegreesPerClock / 2) / kDegreesPerClock) % kClockFace;
-    if (hour == 0) hour = kClockFace;
-    return static_cast<int8_t>(hour);
-}
 
 Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs& reported,
                         uint32_t now_ms) {
@@ -56,9 +45,7 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
 
     const int32_t range_m = static_cast<int32_t>(idistance(north_m, east_m));
     if (range_m > kRangeM || iabs32(up_m) > kVertM) {
-        const bool was_together = slot->state == State::Together;
         *slot = Slot{};
-        out.state = was_together ? State::Broken : State::None;
         return out;
     }
 
@@ -69,8 +56,8 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
 
     if (station_kept) {
         slot->drift_fixes = 0;
-        if (slot->state == State::None && now_ms - slot->steady_since_ms >= kSteadyMs)
-            slot->state = State::Candidate;
+        if (slot->state != State::Together && now_ms - slot->steady_since_ms >= kSteadyMs)
+            slot->state = State::Together;
         out.state = slot->state;
         return out;
     }
@@ -80,29 +67,20 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
     slot->ref_right_m = out.right_m;
     slot->ref_up_m = out.up_m;
     slot->steady_since_ms = now_ms;
-    if (slot->state == State::Together) {
-        if (slot->drift_fixes < kBreakFixes) {
-            out.state = State::Together;
-            return out;
-        }
-        slot->state = State::None;
+    if (slot->state == State::Together && slot->drift_fixes >= kBreakFixes) {
+        slot->state = State::Parting;
         slot->drift_fixes = 0;
-        out.state = State::Broken;
-        return out;
     }
-    slot->state = State::None;
-    out.state = State::None;
+    out.state = slot->state;
     return out;
 }
 
-void Tracker::admit(uint8_t addr_table, uint32_t addr) {
+void Tracker::release(uint8_t addr_table, uint32_t addr, uint32_t now_ms) {
     Slot* slot = find(addr_table, addr);
-    if (slot != nullptr) slot->state = State::Together;
-}
-
-void Tracker::release(uint8_t addr_table, uint32_t addr) {
-    Slot* slot = find(addr_table, addr);
-    if (slot != nullptr) slot->state = State::None;
+    if (slot == nullptr) return;
+    slot->state = State::None;
+    slot->drift_fixes = 0;
+    slot->steady_since_ms = now_ms;
 }
 
 bool Tracker::together(uint8_t addr_table, uint32_t addr) const {

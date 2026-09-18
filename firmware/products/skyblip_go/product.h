@@ -302,7 +302,7 @@ class Product {
     AlarmService alarm_{ctx_, settings_};
     NmeaService nmea_{ctx_, kFeatures, config_.config()};
     FlightLogService flight_log_{ctx_, config_.config()};
-    ScreenService screen_{ctx_, settings_, config_.config(), alarm_, boot_snapshot_};
+    ScreenService screen_{ctx_, settings_, config_.config(), boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
     // published the slot plan it defers to, and before the screen, which is the

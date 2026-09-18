@@ -65,6 +65,7 @@ class AlarmTracker {
     Decision update(const model::OwnState& own, const model::AircraftObs& target, uint32_t now_ms);
 
     void forget_stale(uint32_t now_ms);
+    void withdraw(uint8_t addr_table, uint32_t addr);
 
     Level announced_level(uint32_t now_ms) const;
 
