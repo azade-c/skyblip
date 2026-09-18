@@ -34,6 +34,10 @@ class L76k : public io::Uart, public io::UartRate {
     int32_t alt_m{1000};
     int32_t geoid_separation_m{47};
     bool emit_geoid_separation{true};
+    uint8_t gps_in_view{9};
+    uint8_t beidou_in_view{7};
+    uint8_t glonass_in_view{5};
+    uint8_t cn0_dbhz_base{44};
     uint16_t hdop_e2{90};
     uint16_t vdop_e2{150};
     uint16_t pdop_e2{180};
@@ -53,6 +57,7 @@ class L76k : public io::Uart, public io::UartRate {
     // sentences and never acknowledges them: the only evidence they landed is
     // the receiver's own behaviour changing (oss/SoftRF-lyusupov
     // .../src/driver/GNSS.cpp:1029-1057). This model behaves the same way.
+    static constexpr int kGsaSlots = 12;
     static constexpr uint32_t kFactoryPeriodMs = 1000;
     static constexpr uint8_t kAviationDynamicModel = 6;
 
@@ -83,6 +88,10 @@ class L76k : public io::Uart, public io::UartRate {
     // as a broken device, compressed to the datasheet's cold TTFF.
     static constexpr uint32_t kColdStartTtffMs = 30000;
     static constexpr uint32_t kRebootMs = 300;
+
+    // INFO: fc 18sep26 a cold receiver's solutions walk: metres of error at the first fix, decaying
+    uint32_t walk_m{0};
+    uint32_t walk_ms{15000};
 
     uint32_t solution_period_ms{kFactoryPeriodMs};
     uint8_t constellations{0};
@@ -249,6 +258,9 @@ class L76k : public io::Uart, public io::UartRate {
     bool rebooting_{false};
     bool cold_{false};
     uint32_t port_baud_{parts::L76k::kBaudRate};
+    uint32_t solving_since_ms_{0};
+    uint32_t walk_step_{0};
+    bool solving_since_set_{false};
     std::string heard_;
 
     static bool starts_with(const char* s, int len, const char* prefix) {
@@ -292,18 +304,16 @@ class L76k : public io::Uart, public io::UartRate {
             apply_restart(static_cast<int>(argument(command_, command_len_, 8)));
     }
 
-    // INFO: fc 13sep26 $PCAS03,GGA,GLL,GSA,GSV,RMC,VTG,... each 0 or 1, obeyed silently
+    // INFO: fc 18sep26 $PCAS03 fields are GGA,GLL,GSA,GSV,RMC,VTG and an empty one keeps its
+    // setting
     void apply_sentence_set() {
+        bool* flags[6] = {&gga_enabled, &gll_enabled, &gsa_enabled,
+                          &gsv_enabled, &rmc_enabled, &vtg_enabled};
         int field = 0;
         int at = 8;
         while (at < command_len_ && field < 6) {
-            const bool on = command_[at] == '1';
-            if (field == 0) gga_enabled = on;
-            if (field == 1) gll_enabled = on;
-            if (field == 2) gsa_enabled = on;
-            if (field == 3) gsv_enabled = on;
-            if (field == 4) rmc_enabled = on;
-            if (field == 5) vtg_enabled = on;
+            const bool empty = command_[at] == ',' || command_[at] == '*';
+            if (!empty) *flags[field] = command_[at] == '1';
             while (at < command_len_ && command_[at] != ',') at++;
             at++;
             field++;
@@ -313,6 +323,7 @@ class L76k : public io::Uart, public io::UartRate {
 
     // INFO: fc 13sep26 the part emits the cycle in $PCAS03's own field order, so RMC closes a burst
     void emit_burst() {
+        step_walk();
         if (gga_enabled) emit_gga();
         if (gll_enabled) emit_gll();
         if (gsa_enabled) emit_gsa();
@@ -342,6 +353,32 @@ class L76k : public io::Uart, public io::UartRate {
         gga_enabled = gll_enabled = gsa_enabled = true;
         gsv_enabled = rmc_enabled = vtg_enabled = true;
         solution_period_ms = kFactoryPeriodMs;
+    }
+
+    int32_t walk_now_m() const {
+        if (walk_m == 0 || !solving_since_set_) return 0;
+        const uint32_t elapsed = last_tick_ms_ - solving_since_ms_;
+        if (elapsed >= walk_ms) return 0;
+        const uint32_t amplitude = walk_m * (walk_ms - elapsed) / walk_ms;
+        return static_cast<int32_t>(amplitude) * (walk_step_ % 2 == 0 ? 1 : -1);
+    }
+
+    int32_t walked_lat_1e7() const {
+        return lat_1e7 + static_cast<int32_t>(walk_now_m() * 1e7 / 111320.0);
+    }
+
+    void step_walk() {
+        if (!solving()) {
+            solving_since_set_ = false;
+            return;
+        }
+        if (!solving_since_set_) {
+            solving_since_ms_ = last_tick_ms_;
+            solving_since_set_ = true;
+            walk_step_ = 0;
+            return;
+        }
+        walk_step_++;
     }
 
     bool deaf() const { return deaf_ && last_tick_ms_ - deaf_since_ms_ < kWakeMs; }
@@ -377,7 +414,7 @@ class L76k : public io::Uart, public io::UartRate {
         int n = fmt_string(s, "$GPRMC,");
         n += put_time(s + n);
         n += fmt_string(s + n, solving() ? ",A," : ",V,");
-        n += fmt_nmea_lat(s + n, lat_1e7);
+        n += fmt_nmea_lat(s + n, walked_lat_1e7());
         s[n++] = ',';
         n += fmt_nmea_lon(s + n, lon_1e7);
         s[n++] = ',';
@@ -391,12 +428,34 @@ class L76k : public io::Uart, public io::UartRate {
         pending_.append(s, static_cast<size_t>(n));
     }
 
+    // INFO: fc 18sep26 one GSA per constellation, each naming its own satellites and system id
     void emit_gsa() {
+        const uint8_t budget = solving() ? sats : uint8_t{0};
+        const uint8_t in_view =
+            static_cast<uint8_t>(gps_in_view + beidou_in_view + glonass_in_view);
+        const uint8_t gps = share_of_solution(budget, gps_in_view, in_view);
+        const uint8_t beidou = share_of_solution(budget, beidou_in_view, in_view);
+        emit_gsa_for(1, 1, gps_in_view, gps);
+        emit_gsa_for(4, 7, beidou_in_view, beidou);
+        emit_gsa_for(2, 65, glonass_in_view, static_cast<uint8_t>(budget - gps - beidou));
+    }
+
+    static uint8_t share_of_solution(uint8_t budget, uint8_t in_view, uint8_t total_in_view) {
+        if (total_in_view == 0) return 0;
+        return static_cast<uint8_t>(budget * in_view / total_in_view);
+    }
+
+    void emit_gsa_for(uint8_t system_id, uint8_t first_id, uint8_t in_view, uint8_t budget) {
+        const uint8_t used = budget < in_view ? budget : in_view;
         char s[128];
-        int n = fmt_string(s, "$GPGSA,A,");
+        int n = fmt_string(s, "$GNGSA,A,");
         n += fmt_uint(s + n, solving() ? 3u : 1u, 1);
-        n += fmt_string(s + n, ",01,02,03,04,,,,,,,,,");
-        if (solving()) {
+        for (int slot = 0; slot < kGsaSlots; slot++) {
+            s[n++] = ',';
+            if (slot < used) n += fmt_uint(s + n, static_cast<uint32_t>(first_id + slot), 2);
+        }
+        s[n++] = ',';
+        if (solving() && used > 0) {
             n += fmt_uint(s + n, pdop_e2, 3, 2);
             s[n++] = ',';
             n += fmt_uint(s + n, hdop_e2, 3, 2);
@@ -405,6 +464,8 @@ class L76k : public io::Uart, public io::UartRate {
         } else {
             n += fmt_string(s + n, ",,");
         }
+        s[n++] = ',';
+        n += fmt_uint(s + n, system_id, 1);
         n = protocol::nmea_finish(s, n);
         pending_.append(s, static_cast<size_t>(n));
     }
@@ -412,7 +473,7 @@ class L76k : public io::Uart, public io::UartRate {
     void emit_gll() {
         char s[128];
         int n = fmt_string(s, "$GPGLL,");
-        n += fmt_nmea_lat(s + n, lat_1e7);
+        n += fmt_nmea_lat(s + n, walked_lat_1e7());
         s[n++] = ',';
         n += fmt_nmea_lon(s + n, lon_1e7);
         s[n++] = ',';
@@ -422,11 +483,48 @@ class L76k : public io::Uart, public io::UartRate {
         pending_.append(s, static_cast<size_t>(n));
     }
 
+    // INFO: fc 18sep26 one set per talker, four satellites a sentence, and no C/N0 on one not
+    // tracked
     void emit_gsv() {
-        char s[128];
-        int n = fmt_string(s, "$GPGSV,1,1,04,01,40,083,42,02,30,120,38,03,60,200,40,04,20,300,35");
-        n = protocol::nmea_finish(s, n);
-        pending_.append(s, static_cast<size_t>(n));
+        emit_gsv_set("GP", gps_in_view, 1);
+        emit_gsv_set("BD", beidou_in_view, 7);
+        emit_gsv_set("GL", glonass_in_view, 65);
+    }
+
+    void emit_gsv_set(const char* talker, uint8_t in_view, uint8_t first_id) {
+        if (in_view == 0) return;
+        const int sentences = (in_view + 3) / 4;
+        uint8_t at = 0;
+        for (int sentence = 1; sentence <= sentences; sentence++) {
+            char s[128];
+            int n = fmt_string(s, "$");
+            n += fmt_string(s + n, talker);
+            n += fmt_string(s + n, "GSV,");
+            n += fmt_uint(s + n, static_cast<uint32_t>(sentences), 1);
+            s[n++] = ',';
+            n += fmt_uint(s + n, static_cast<uint32_t>(sentence), 1);
+            s[n++] = ',';
+            n += fmt_uint(s + n, in_view, 2);
+            for (int slot = 0; slot < 4 && at < in_view; slot++, at++) {
+                const uint8_t id = static_cast<uint8_t>(first_id + at);
+                s[n++] = ',';
+                n += fmt_uint(s + n, id, 2);
+                s[n++] = ',';
+                n += fmt_uint(s + n, static_cast<uint32_t>(15 + (at * 7) % 70), 2);
+                s[n++] = ',';
+                n += fmt_uint(s + n, static_cast<uint32_t>((at * 47) % 360), 3);
+                s[n++] = ',';
+                if (at < tracked_of(in_view))
+                    n += fmt_uint(s + n, static_cast<uint32_t>(cn0_dbhz_base - at), 2);
+            }
+            n += fmt_string(s + n, ",0");
+            n = protocol::nmea_finish(s, n);
+            pending_.append(s, static_cast<size_t>(n));
+        }
+    }
+
+    uint8_t tracked_of(uint8_t in_view) const {
+        return solving() ? in_view : static_cast<uint8_t>(in_view / 2);
     }
 
     void emit_vtg() {
@@ -449,7 +547,7 @@ class L76k : public io::Uart, public io::UartRate {
         int n = fmt_string(s, "$GPGGA,");
         n += put_time(s + n);
         s[n++] = ',';
-        n += fmt_nmea_lat(s + n, lat_1e7);
+        n += fmt_nmea_lat(s + n, walked_lat_1e7());
         s[n++] = ',';
         n += fmt_nmea_lon(s + n, lon_1e7);
         s[n++] = ',';

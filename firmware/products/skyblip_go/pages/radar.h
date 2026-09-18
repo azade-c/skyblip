@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "core/gnss/acquisition.h"
 #include "core/traffic/alarm.h"
 #include "core/units/units.h"
 #include "products/skyblip_go/glass.h"
@@ -31,6 +32,7 @@ struct RadarTarget {
 
 struct RadarSnapshot {
     bool fix_valid{false};
+    gnss::Stage stage{gnss::Stage::Silent};
     go::Units units{go::Units::Nautical};
     int32_t range_nm{kDefaultRangeNm};
     uint16_t track_deg{0};

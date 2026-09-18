@@ -11,6 +11,7 @@
 #include "core/events/link.h"
 #include "core/events/sensor.h"
 #include "core/input/contact.h"
+#include "core/timing/transmit.h"
 #include "hardware/parts/bhi260/bhi260.h"
 #include "hardware/parts/drv2605/drv2605.h"
 #include "hardware/parts/l76k/l76k.h"
@@ -185,8 +186,14 @@ class TEchoPlus {
         }
 
         if (ports::has(capabilities_, ports::Capability::Gnss)) {
+            // INFO: fc 18sep26 at 9600 baud the widest GSV set and a fix do not fit in one second
+            gnss_.request_satellites_in_view(!timing::own_ship_transmits(state.own, state.clock));
             gnss_.service(now_ms);
-            if (gnss_.poll()) bus_.gnss.push(gnss_.solution());
+            if (gnss_.poll()) {
+                bus_.gnss.push(gnss_.solution());
+                state.gnss.sky = gnss_.sky();
+            }
+            state.gnss.levels_live = gnss_.satellites_in_view_live();
         }
 
         poll_battery(now_ms);

@@ -514,3 +514,67 @@ TEST_CASE("l76k: a cold start keeps the configuration and loses only the almanac
     run(gnss, chip, t + 5010, t + models::L76k::kColdStartTtffMs + 3000);
     CHECK(gnss.solution().is_fix);
 }
+
+// The satellites a pilot wants to see while nothing is being transmitted are the
+// bytes that would push the fix past the transmit window when something is.
+TEST_CASE("l76k: satellites in view are asked for, and given up again, one sentence each way") {
+    models::L76k chip;
+    parts::L76k gnss(chip, chip);
+    run(gnss, chip, 0, kBringUpLeadMs + 4000);
+    REQUIRE(gnss.configured());
+    REQUIRE_FALSE(chip.gsv_enabled);  // the bring-up sentence set switches it off
+    REQUIRE(gnss.sky().count() == 0);
+
+    const uint32_t commands = chip.commands_seen;
+    gnss.request_satellites_in_view(true);
+    run(gnss, chip, kBringUpLeadMs + 4010, kBringUpLeadMs + 7000);
+    CHECK(chip.commands_seen == commands + 1);
+    CHECK(chip.gsv_enabled);
+    CHECK(gnss.satellites_in_view_live());
+    CHECK(gnss.sky().count() == chip.gps_in_view + chip.beidou_in_view + chip.glonass_in_view);
+    CHECK(gnss.sky().in_view_of(gnss::System::Gps) == chip.gps_in_view);
+    CHECK(gnss.sky().in_view_of(gnss::System::Beidou) == chip.beidou_in_view);
+
+    // Nothing else in the sentence set moved: the nulls in $PCAS03 mean "keep".
+    CHECK(chip.gga_enabled);
+    CHECK(chip.rmc_enabled);
+    CHECK(chip.gsa_enabled);
+    CHECK_FALSE(chip.gll_enabled);
+    CHECK_FALSE(chip.vtg_enabled);
+
+    gnss.request_satellites_in_view(false);
+    run(gnss, chip, kBringUpLeadMs + 7010, kBringUpLeadMs + 9000);
+    CHECK(chip.commands_seen == commands + 2);
+    CHECK_FALSE(chip.gsv_enabled);
+    CHECK_FALSE(gnss.satellites_in_view_live());
+
+    // Asking again for what is already so costs nothing.
+    gnss.request_satellites_in_view(false);
+    run(gnss, chip, kBringUpLeadMs + 9010, kBringUpLeadMs + 11000);
+    CHECK(chip.commands_seen == commands + 2);
+}
+
+// Every GSV set the L76K can send does not fit in the second a fix belongs to.
+TEST_CASE("l76k: the satellites-in-view burst is why it is off while we transmit") {
+    CHECK(parts::L76k::kSearchingBurstMs > parts::L76k::kSolutionPeriodMs);
+    CHECK(parts::L76k::kBurstMs < parts::L76k::kSolutionPeriodMs);
+    CHECK(parts::L76k::kSolutionPeriodMs == parts::L76k::kFixPeriodMs);
+}
+
+// A receiver still searching reports satellites in view it is not yet tracking.
+TEST_CASE("l76k: a satellite in view with no level is not a satellite at zero dB-Hz") {
+    models::L76k chip;
+    chip.fix = false;
+    parts::L76k gnss(chip, chip);
+    run(gnss, chip, 0, kBringUpLeadMs + 4000);
+    gnss.request_satellites_in_view(true);
+    run(gnss, chip, kBringUpLeadMs + 4010, kBringUpLeadMs + 7000);
+
+    REQUIRE(gnss.sky().count() > 0);
+    int tracked = 0, silent = 0;
+    for (int i = 0; i < gnss.sky().count(); i++)
+        (gnss.sky().at(i).cn0_dbhz > 0 ? tracked : silent)++;
+    CHECK(tracked > 0);
+    CHECK(silent > 0);
+    CHECK(gnss.sky().in_use() == 0);  // nothing solved, so nothing is in a solution
+}

@@ -41,6 +41,16 @@ uint32_t past_settling(simulator::Simulator& h) {
     return gnss::kFirstFixSettleMs;
 }
 
+// What own-ship had already spent when a case starts measuring.
+struct Spent {
+    uint32_t tx_ok{0};
+    uint32_t air_time_ms{0};
+};
+
+Spent spent_so_far(simulator::Simulator& h) {
+    return {h.product().state().air.tx_ok, h.product().radio().transmitter().air_time().total_ms()};
+}
+
 void run_on(simulator::Simulator& h, uint32_t from_ms, uint32_t for_ms,
             uint32_t step_ms = simulator::Simulator::kStepMs) {
     for (uint32_t t = from_ms; t <= from_ms + for_ms; t += step_ms) h.step(t);
@@ -274,6 +284,7 @@ TEST_CASE("rf: own-ship transmits once a second, inside its window, alternating 
     h.world().set_fix(true);
     h.world().set_speed_kt(50);
     const uint32_t from_ms = past_settling(h);
+    const Spent before = spent_so_far(h);
     run_on(h, from_ms, 6000);
 
     const simulator::Air& air = h.world().air();
@@ -292,13 +303,13 @@ TEST_CASE("rf: own-ship transmits once a second, inside its window, alternating 
     }
     // Six seconds of flight, one burst a second, less the one the cleared tape cut in half.
     CHECK(transmissions >= 5);
-    CHECK(h.product().state().air.tx_ok == static_cast<uint32_t>(transmissions));
+    CHECK(h.product().state().air.tx_ok - before.tx_ok == static_cast<uint32_t>(transmissions));
 
     // E1 and E2, read off the service that spent them: the floor the carrier
     // sense threshold is derived from, and every millisecond that went on air.
     CHECK(h.product().radio().noise_floor().samples() > 0);
     CHECK(h.product().radio().noise_floor().dbm() < timing::NoiseFloor::kSeedDbm);
-    CHECK(h.product().radio().transmitter().air_time().total_ms() ==
+    CHECK(h.product().radio().transmitter().air_time().total_ms() - before.air_time_ms ==
           static_cast<uint32_t>(transmissions) * timing::Transmitter::kAirTimeMs);
     CHECK(h.product().radio().duty_permille(from_ms + 6000) < timing::AirTime::kLimitPermille);
     CHECK_FALSE(h.product().radio().over_budget());
@@ -409,11 +420,14 @@ TEST_CASE("rf: on the ground the transmit rate drops to 0.1 Hz") {
 // from ground speed decides the transmit rate, so transmitting through that
 // window publishes a track nobody flew. gnss::FirstFix has held the answer
 // since it was written; until now nothing asked it.
-TEST_CASE("rf: nothing goes on air until the first fix has settled") {
+TEST_CASE("rf: nothing goes on air while the receiver's solutions still walk") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
     h.world().set_fix(true);
     h.world().set_speed_kt(50);
+    // Sixty metres of error at the first fix, decaying over half a minute.
+    h.world().gnss().walk_m = 60;
+    h.world().gnss().walk_ms = 30000;
 
     h.run(gnss::kFirstFixSettleMs - 2000);
     CHECK_FALSE(h.product().state().own.tx_settled);
@@ -422,6 +436,8 @@ TEST_CASE("rf: nothing goes on air until the first fix has settled") {
     // Not because it has nothing to say: the fix is good and the clock anchored.
     CHECK(h.product().state().own.fix_valid);
     CHECK(h.product().state().clock.pps_locked);
+    CHECK(h.product().state().own.pred_resid_m >= gnss::kSettleResidualM);
+    CHECK(h.product().ownship().first_fix().converged_fixes() == 0);
 
     // And there is one copy of that fact. Own-ship owns the window; the flag on
     // the bus is how the transmit gate reads it, and how anything else that
@@ -430,10 +446,34 @@ TEST_CASE("rf: nothing goes on air until the first fix has settled") {
     CHECK(h.product().ownship().first_fix().ever_fixed());
     CHECK_FALSE(h.product().ownship().first_fix().settled(gnss::kFirstFixSettleMs - 2000));
 
+    // The clock is a ceiling: a receiver that never steadies still goes on air.
     run_on(h, gnss::kFirstFixSettleMs - 2000, 4000);
     CHECK(h.product().state().own.tx_settled);
     CHECK(h.product().ownship().first_fix().settled(gnss::kFirstFixSettleMs + 2000));
     CHECK(count_of(h.world().air(), simulator::AirEvent::Tx) > 0);
+}
+
+// F5. Three solutions the model predicted are the evidence the wait stood in for.
+TEST_CASE("rf: a receiver the model predicts goes on air in seconds, not in twenty") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(true);
+    h.world().set_speed_kt(50);
+
+    uint32_t settled_at = 0;
+    for (uint32_t t = 0; t <= gnss::kFirstFixSettleMs; t += simulator::Simulator::kStepMs) {
+        h.step(t);
+        if (settled_at == 0 && h.product().state().own.tx_settled) settled_at = t;
+    }
+    REQUIRE(settled_at > 0);
+    const uint32_t first_fix_ms = h.product().ownship().first_fix().fix_since_ms();
+    MESSAGE("first fix at " << first_fix_ms << " ms, settled at " << settled_at << " ms");
+
+    // Three residuals is the floor, and the twenty second ceiling is never reached.
+    CHECK(settled_at - first_fix_ms >= gnss::kSettleFixes * 1000);
+    CHECK(settled_at - first_fix_ms < gnss::kFirstFixSettleMs / 2);
+    CHECK(h.product().ownship().first_fix().converged_fixes() == gnss::kSettleFixes);
+    CHECK(h.product().state().own.pred_resid_m < gnss::kSettleResidualM);
 }
 
 // F3. The burst leaves in the direct slot, 450 to 1000 ms into the second, and

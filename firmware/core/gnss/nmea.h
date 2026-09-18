@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+#include "core/gnss/sky.h"
+
 namespace skyblip::gnss {
 
 // INFO: gn 09Jun25 GGA field 11 is the geoid separation and plenty of receivers
@@ -30,10 +32,24 @@ constexpr int kMaxTwoDigitYear = 70;
 
 // Which sentence a parse consumed. The caller ages GGA and RMC separately, so it
 // has to be told which one just arrived; a fix is not a fix on one of them.
-enum class Sentence : uint8_t { None, Rmc, Gga, Gsa, Txt };
+enum class Sentence : uint8_t { None, Rmc, Gga, Gsa, Gsv, Txt };
 
 // INFO: fc 13sep26 GSA holds twelve satellite slots before its DOPs, so VDOP is field 17
 constexpr int kGsaVdopField = 17;
+
+// INFO: fc 18sep26 GSA field 2, the receiver's own answer: 1 no fix, 2 solved without height, 3
+// with
+constexpr int kGsaFixModeField = 2;
+constexpr int kGsaPdopField = 15;
+constexpr int kGsaFirstSatField = 3;
+constexpr int kGsaSatSlots = 12;
+constexpr int kGsaSystemField = 18;
+
+// INFO: fc 18sep26 GSV repeats id, elevation, azimuth and C/N0 for up to four satellites a sentence
+constexpr int kGsvFirstSatField = 4;
+constexpr int kGsvFieldsPerSat = 4;
+constexpr uint8_t kFixMode2D = 2;
+constexpr uint8_t kFixMode3D = 3;
 
 struct GnssSolution {
     bool is_fix{false};
@@ -59,6 +75,7 @@ struct GnssSolution {
     uint16_t pps_latency_ms{0};
     uint8_t sats{0};
     uint8_t fix_quality{0};
+    uint8_t fix_mode{0};
     bool alt_msl_valid{false};
     bool alt_hae_valid{false};
     bool geoid_separation_measured{false};
@@ -84,8 +101,10 @@ class NmeaParser {
     const char* firmware_version() const { return version_; }
     bool identified() const { return version_[0] != 0; }
 
-    // INFO: fc 13sep26 GLL, GSV or VTG still arriving means the sentence set was never taken
+    // INFO: fc 13sep26 GLL or VTG still arriving means the sentence set was never taken
     uint32_t unrequested() const { return unrequested_; }
+
+    const SkyView& sky() const { return sky_; }
 
    private:
     static constexpr int kVersionCap = 24;
@@ -93,6 +112,7 @@ class NmeaParser {
     char buf_[100];
     int pos_{0};
     GnssSolution solution_;
+    SkyView sky_{};
     char version_[kVersionCap]{};
     uint32_t unrequested_{0};
     Sentence last_{Sentence::None};
@@ -100,6 +120,7 @@ class NmeaParser {
     bool apply_rmc(const char* fields[], int nf);
     bool apply_gga(const char* fields[], int nf, int len);
     bool apply_gsa(const char* fields[], int nf);
+    bool apply_gsv(const char* talker, const char* fields[], int nf);
     bool apply_txt(const char* line, int len);
 };
 

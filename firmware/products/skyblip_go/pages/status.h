@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "core/gnss/acquisition.h"
 #include "core/power/charging.h"
 #include "products/skyblip_go/glass.h"
 
@@ -18,6 +19,9 @@ struct StatusSnapshot {
     bool transmitting{false};
     bool baro_valid{false};
     uint8_t sats{0};
+    gnss::Stage stage{gnss::Stage::Silent};
+    uint32_t stage_s{0};
+    uint8_t fix_mode{0};
     int32_t lat_1e7{0};
     int32_t lon_1e7{0};
     int32_t alt_m{0};      // GNSS, WGS-84 ellipsoid

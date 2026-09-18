@@ -251,12 +251,19 @@ The two contacts mean here what they mean everywhere else: a tap of the pad move
 
 A pilot cannot get stuck here: the rows only ever advance and the tap past the last one leaves, the button on the `Leave` row leaves, a long touch of the pad goes back to the radar, and a page nobody has touched for `kIdleReturnMs` shows the traffic again on its own.
 
+## sats
+
+The page a pilot opens on the apron, and the answer to why a device has been on for two minutes and is still not transmitting. One bar per satellite in view, ordered by constellation and labelled underneath, the height its C/N0 against a dotted line at 40 dB-Hz, which is a satellite being received well. A bar is filled when GSA named that satellite as being in the solution and hollow when it is only in view, so the picture separates what the antenna can hear from what the receiver could use. A satellite in view with no level reported is a foot on the baseline rather than a bar of no height: the receiver is saying it knows where to look and has heard nothing yet, which is not a signal of zero.
+
+The levels stop when the fix arrives, and the page says so rather than leaving the last set of bars standing. GSV and a fix do not fit in the same second at 9600 baud (`core/gnss/README.md`), so the sentences are given up the moment own-ship starts transmitting, and what survives is what GSA and GGA still carry: how many satellites are in the solution, how they are split across the constellations, and the two DOPs. Bars that nobody is measuring any more are a picture of the sky as it was, which on an instrument is a lie with a timestamp nobody reads.
+
 ## The others
 
 | Page | What it answers |
 |---|---|
 | `sixpack` | what own-ship is doing: speed, altitude, vertical speed, track, turn |
 | `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |
+| `sats` | what is above the antenna, how loud, and which satellites solved |
 | `signal` | every emitter heard, nearest first, with the e.r.p. its level implies |
 | `settings` | the values a pilot can change without a phone |
 | `confirm`, `installing` | the two moments that are not pages: being asked, being written |

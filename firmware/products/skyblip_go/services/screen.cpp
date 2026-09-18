@@ -399,6 +399,7 @@ void ScreenService::render(uint32_t now_ms) {
         case Page::Radar: {
             RadarSnapshot snap;
             snap.fix_valid = own.fix_valid;
+            snap.stage = context_.state.gnss.stage;
             snap.units = settings.units;
             snap.range_nm = range_nm_;
             snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
@@ -463,6 +464,19 @@ void ScreenService::render(uint32_t now_ms) {
             draw_sixpack(fb_, snap);
             break;
         }
+        case Page::Sats: {
+            SatsSnapshot snap;
+            snap.fix_valid = own.fix_valid;
+            snap.levels_live = context_.state.gnss.levels_live;
+            snap.stage = context_.state.gnss.stage;
+            snap.stage_s = context_.state.gnss.stage_s;
+            snap.sats = own.sats;
+            snap.hdop_e2 = own.hdop_e2;
+            snap.vdop_e2 = own.vdop_e2;
+            snap.sky = &context_.state.gnss.sky;
+            draw_sats(fb_, snap);
+            break;
+        }
         case Page::Signal: {
             SignalSnapshot snap;
             snap.fix_valid = own.fix_valid;
@@ -498,6 +512,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.utc_valid = own.utc_valid;
             snap.transmitting = timing::own_ship_transmits(own, context_.state.clock);
             snap.sats = own.sats;
+            snap.stage = context_.state.gnss.stage;
+            snap.stage_s = context_.state.gnss.stage_s;
+            snap.fix_mode = context_.state.gnss.fix_mode;
             snap.lat_1e7 = own.lat_1e7;
             snap.lon_1e7 = own.lon_1e7;
             snap.alt_m = own.alt_m;

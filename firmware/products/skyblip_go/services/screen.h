@@ -11,6 +11,7 @@
 #include "products/skyblip_go/pages/confirm.h"
 #include "products/skyblip_go/pages/radar.h"
 #include "products/skyblip_go/pages/radio_log.h"
+#include "products/skyblip_go/pages/sats.h"
 #include "products/skyblip_go/pages/settings.h"
 #include "products/skyblip_go/pages/signal.h"
 #include "products/skyblip_go/pages/sixpack.h"
@@ -20,7 +21,7 @@
 
 namespace skyblip::go {
 
-enum class Page : uint8_t { Radar, SixPack, Status, Signal, RadioLog, kCount };
+enum class Page : uint8_t { Radar, SixPack, Status, Sats, Signal, RadioLog, kCount };
 
 enum class Mode : uint8_t { Traffic, Settings };
 

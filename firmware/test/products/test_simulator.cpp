@@ -347,3 +347,30 @@ TEST_CASE("simulator: holding the button switches the device off, a tap never do
     CHECK(h.product().ready_to_power_off());
     CHECK_FALSE(h.panel_powered());
 }
+
+// The satellites a pilot reads while the device owes the air nothing, given up
+// again the moment it does: at 9600 baud a GSV set and a fix do not share a second.
+TEST_CASE("simulator: satellites in view are asked for until own ship transmits") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(false);
+    run(h, 0, 6000);
+
+    CHECK(h.world().gnss().gsv_enabled);
+    CHECK(h.product().state().gnss.levels_live);
+    CHECK(h.product().state().gnss.sky.count() > 0);
+    CHECK(h.product().state().gnss.sky.in_use() == 0);
+    CHECK(h.product().state().gnss.stage != gnss::Stage::Fixed);
+
+    h.world().set_fix(true);
+    run(h, 6000, 20000);
+    REQUIRE(h.product().state().own.fix_valid);
+    REQUIRE(h.product().state().own.tx_settled);
+
+    CHECK_FALSE(h.world().gnss().gsv_enabled);
+    CHECK_FALSE(h.product().state().gnss.levels_live);
+    // What GSA says is still true with GSV off: these are the satellites that solved.
+    CHECK(h.product().state().gnss.sky.in_use() > 0);
+    CHECK(h.product().state().gnss.sky.in_use_of(gnss::System::Gps) > 0);
+    CHECK(h.product().state().gnss.sky.in_use_of(gnss::System::Beidou) > 0);
+}

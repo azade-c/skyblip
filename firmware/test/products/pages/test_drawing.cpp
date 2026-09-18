@@ -9,6 +9,7 @@
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/pages/radar.h"
+#include "products/skyblip_go/pages/sats.h"
 #include "products/skyblip_go/pages/status.h"
 #include "test/support/glass_text.h"
 
@@ -782,6 +783,30 @@ TEST_CASE("radar: anything but a flight is said in the ring, and a flight over t
     CHECK_FALSE(reads_in(airborne, "FLIGHT", 20, 20, 180, 160, 2));
 }
 
+// NO FIX says the plot is not being fed; the word under it says whether that is going anywhere.
+TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
+    RadarSnapshot searching;
+    searching.stage = skyblip::gnss::Stage::Search;
+    const Glass looking = radar(searching);
+    CHECK(reads_in(looking, "NO FIX", 40, 120, 160, 160, 2));
+    CHECK(reads_in(looking, "SEARCH", 40, 145, 160, 170));
+
+    RadarSnapshot reading = searching;
+    reading.stage = skyblip::gnss::Stage::Time;
+    CHECK(reads_in(radar(reading), "TIME", 40, 145, 160, 170));
+
+    RadarSnapshot quiet = searching;
+    quiet.stage = skyblip::gnss::Stage::Silent;
+    CHECK(reads_in(radar(quiet), "SILENT", 40, 145, 160, 170));
+
+    // A fix is the plot itself: no word, and no seconds ticking a partial refresh out of the panel.
+    RadarSnapshot fixed = flying(0);
+    fixed.stage = skyblip::gnss::Stage::Fixed;
+    const Glass plotted = radar(fixed);
+    CHECK_FALSE(reads_in(plotted, "FIX", 0, 0, 200, 199));
+    CHECK_FALSE(reads_in(plotted, "SEARCH", 0, 0, 200, 199));
+}
+
 TEST_CASE("radar: a tag lands off the state word rather than erasing it") {
     // 4428 m behind is 54 px on the 4 NM ring, and the tag over that symbol falls on the word.
     RadarTarget behind[1] = {{-4428, 0, 100, Level::None}};
@@ -938,29 +963,64 @@ TEST_CASE("status: the battery row states the voltage, the charge and which curv
         for (int x = 0; x < Glass::kW; x++) CHECK_FALSE(charging.get_pixel(x, y));
 }
 
-TEST_CASE("status: a receiver with no fix says so where a fix would have read 3D") {
+TEST_CASE("status: a receiver with no fix says how far it has got, and for how long") {
     StatusSnapshot s;
     s.sats = 9;
+    s.stage = skyblip::gnss::Stage::Search;
+    s.stage_s = 48;
     Glass searching;
     draw_status(searching, s);
 
-    CHECK(reads_in(searching, "NO FIX", 0, 24, 120, 40));
-    CHECK_FALSE(reads_in(searching, "SAT", 0, 24, 120, 40));
-    CHECK_FALSE(reads_in(searching, "3D", 0, 24, 120, 40));
+    CHECK(reads_in(searching, "SEARCH 0:48", 0, 24, 140, 40));
+    CHECK_FALSE(reads_in(searching, "SAT", 0, 24, 140, 40));
+    CHECK_FALSE(reads_in(searching, "3D", 0, 24, 140, 40));
+
+    // A date decoded is a satellite read, which is the rung a bare NO FIX hid.
+    StatusSnapshot timed = s;
+    timed.stage = skyblip::gnss::Stage::Time;
+    timed.stage_s = 80;
+    Glass reading;
+    draw_status(reading, timed);
+    CHECK(reads_in(reading, "TIME 1:20", 0, 24, 140, 40));
+
+    StatusSnapshot silent = s;
+    silent.stage = skyblip::gnss::Stage::Silent;
+    silent.stage_s = 5;
+    Glass quiet;
+    draw_status(quiet, silent);
+    CHECK(reads_in(quiet, "SILENT 0:05", 0, 24, 140, 40));
 
     StatusSnapshot fixed = s;
     fixed.fix_valid = true;
+    fixed.fix_mode = skyblip::gnss::kFixMode3D;
     Glass solved;
     draw_status(solved, fixed);
-    CHECK(reads_in(solved, "3D", 0, 24, 120, 40));
-    CHECK(reads_in(solved, "9 SAT", 0, 24, 120, 40));
-    CHECK_FALSE(reads_in(solved, "NO FIX", 0, 24, 120, 40));
+    CHECK(reads_in(solved, "3D", 0, 24, 140, 40));
+    CHECK(reads_in(solved, "9 SAT", 0, 24, 140, 40));
+    CHECK_FALSE(reads_in(solved, "SEARCH", 0, 24, 140, 40));
+}
 
-    StatusSnapshot flat = fixed;
-    flat.sats = 3;
+// The receiver's own GSA answer where it gave one, the satellite count where it did not.
+TEST_CASE("status: a solution without height reads 2D") {
+    StatusSnapshot s;
+    s.fix_valid = true;
+    s.sats = 9;
+    s.fix_mode = skyblip::gnss::kFixMode2D;
     Glass two_d;
-    draw_status(two_d, flat);
-    CHECK(reads_in(two_d, "2D", 0, 24, 120, 40));
+    draw_status(two_d, s);
+    CHECK(reads_in(two_d, "2D", 0, 24, 140, 40));
+
+    StatusSnapshot unreported = s;
+    unreported.fix_mode = 0;
+    unreported.sats = 3;
+    Glass inferred;
+    draw_status(inferred, unreported);
+    CHECK(reads_in(inferred, "2D", 0, 24, 140, 40));
+
+    unreported.sats = 9;
+    Glass plenty;
+    draw_status(plenty, unreported);
+    CHECK(reads_in(plenty, "3D", 0, 24, 140, 40));
 }
 
 // The page used to report PPS lock, a pin a pilot cannot act on.
@@ -1185,4 +1245,81 @@ TEST_CASE("status: the widest position on earth still fits its row") {
     }
     CHECK(blank >= 1);
     for (int y = y0; y < y1; y++) CHECK_FALSE(fb.get_pixel(23, y));
+}
+
+namespace {
+
+skyblip::gnss::SkyView sky_of(int gps, int beidou, int used) {
+    using namespace skyblip::gnss;
+    SkyView sky;
+    for (int i = 0; i < used; i++) sky.solving(System::Gps, static_cast<uint8_t>(1 + i));
+    sky.open(System::Gps);
+    for (int i = 0; i < gps; i++) {
+        SatelliteView sat;
+        sat.id = static_cast<uint8_t>(1 + i);
+        sat.system = System::Gps;
+        sat.cn0_dbhz = static_cast<uint8_t>(i < gps - 1 ? 45 - i : 0);
+        sky.add(sat);
+    }
+    sky.open(System::Beidou);
+    for (int i = 0; i < beidou; i++) {
+        SatelliteView sat;
+        sat.id = static_cast<uint8_t>(7 + i);
+        sat.system = System::Beidou;
+        sat.cn0_dbhz = 38;
+        sky.add(sat);
+    }
+    return sky;
+}
+
+}  // namespace
+
+// The page a pilot on the apron opens: what is up there, how loud, and which ones solved.
+TEST_CASE("sats: a bar for every satellite in view, filled for the ones in the solution") {
+    const skyblip::gnss::SkyView sky = sky_of(6, 4, 3);
+    SatsSnapshot snap;
+    snap.levels_live = true;
+    snap.sky = &sky;
+    snap.hdop_e2 = 90;
+    snap.vdop_e2 = 150;
+    Glass fb;
+    draw_sats(fb, snap);
+
+    CHECK(reads_in(fb, "SATELLITES", 0, 0, 120, 12));
+    CHECK(reads_in(fb, "USED 3 OF 10", 60, 0, 200, 12));
+    CHECK(reads_in(fb, "GPS", 0, 130, 60, 145));
+    CHECK(reads_in(fb, "BDS", 0, 130, 120, 145));
+    CHECK(reads_in(fb, "HDOP 0.90", 0, 150, 130, 172));
+
+    // A filled bar carries more ink than the hollow one beside it at the same height.
+    const int first = ink_in(fb, 4, 22, 9, 132);
+    const int fourth = ink_in(fb, 4 + 3 * 5, 22, 9 + 3 * 5, 132);
+    CHECK(first > fourth);
+}
+
+// A level nobody is measuring any more is not drawn as a level of zero.
+TEST_CASE("sats: with the fix in hand the levels stop, and the page says why") {
+    const skyblip::gnss::SkyView sky = sky_of(6, 4, 3);
+    SatsSnapshot snap;
+    snap.fix_valid = true;
+    snap.levels_live = false;
+    snap.sky = &sky;
+    snap.sats = 9;
+    Glass fb;
+    draw_sats(fb, snap);
+
+    CHECK(reads_in(fb, "LEVELS OFF WHILE TRANSMITTING", 0, 170, 200, 190));
+    CHECK(reads_in(fb, "USED 3", 60, 0, 200, 12));
+    CHECK(reads_in(fb, "GPS 3", 0, 18, 120, 32));
+    CHECK(ink_in(fb, 4, 40, 196, 130) == 0);
+}
+
+TEST_CASE("sats: a receiver that has heard nothing says so rather than drawing an empty chart") {
+    SatsSnapshot snap;
+    snap.stage = skyblip::gnss::Stage::Search;
+    Glass fb;
+    draw_sats(fb, snap);
+    CHECK(reads_in(fb, "NO SATELLITE HEARD", 0, 170, 200, 190));
+    CHECK(reads_in(fb, "SEARCH", 0, 140, 80, 158));
+    CHECK(reads_in(fb, "HDOP ---", 0, 150, 130, 172));
 }

@@ -33,6 +33,10 @@ void OwnshipService::tick(uint32_t now_ms) {
     context_.state.flight.time_valid = timer_.flown();
     context_.state.flight.running = timer_.running();
 
+    acquisition_.tick(now_ms);
+    context_.state.gnss.stage = acquisition_.stage();
+    context_.state.gnss.stage_s = acquisition_.stage_ms(now_ms) / 1000;
+
     context_.state.baro.active = baro_active();
     context_.state.own.tx_settled = settle_.settled(now_ms);
     context_.state.own.fix_acquired = settle_.take_acquired();
@@ -42,7 +46,8 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     model::OwnState& own = context_.state.own;
     const model::OwnState previous = own;
     context_.state.flight.gnss_solutions++;
-    settle_.update(solution.is_fix, now_ms);
+    acquisition_.observe(solution, now_ms);
+    context_.state.gnss.fix_mode = solution.fix_mode;
 
     own.fix_valid = solution.is_fix;
     own.utc_valid = solution.utc_valid;
@@ -75,11 +80,18 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     ground_.update(declared);
     update_turn_rate(now_ms);
     update_residual(previous);
+    settle_.update(convergence_of(own), now_ms);
 }
 
-// The model, run over the interval that has just elapsed, against the fix that
-// closed it. Nothing acts on the answer: it is the bench's measure of whether
-// the extrapolation the transmitter applies is describing this aircraft.
+gnss::Convergence OwnshipService::convergence_of(const model::OwnState& own) {
+    gnss::Convergence c{};
+    c.fix_valid = own.fix_valid;
+    c.resid_valid = own.pred_resid_valid;
+    c.height_solved = own.vdop_e2 != 0;
+    c.resid_m = own.pred_resid_m;
+    return c;
+}
+
 void OwnshipService::update_residual(const model::OwnState& previous) {
     model::OwnState& own = context_.state.own;
     if (!previous.fix_valid || !own.fix_valid) {

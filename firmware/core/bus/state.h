@@ -4,6 +4,8 @@
 #include "core/events/rf.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/ground.h"
+#include "core/gnss/acquisition.h"
+#include "core/gnss/sky.h"
 #include "core/model/ownship.h"
 #include "core/power/battery.h"
 #include "core/power/charging.h"
@@ -53,6 +55,15 @@ struct FlightStatus {
     flight::FlightState confirmed_state{flight::FlightState::Unknown};
 };
 
+struct GnssStatus {
+    gnss::Stage stage{gnss::Stage::Silent};
+    uint32_t stage_s{0};
+    uint8_t fix_mode{0};
+    // INFO: fc 18sep26 false once GSV is switched off, so no page draws a level nobody measured
+    bool levels_live{false};
+    gnss::SkyView sky{};
+};
+
 struct BaroState {
     uint32_t pressure_mpa{0};
     // The altimeter subscale, as the pilot sets it: standard until told otherwise.
@@ -86,6 +97,7 @@ struct State {
     RfState rf{};
     PowerState power{};
     FlightStatus flight{};
+    GnssStatus gnss{};
     BaroState baro{};
     SlipState slip{};
     ImuState imu{};

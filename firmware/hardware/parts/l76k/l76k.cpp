@@ -11,6 +11,7 @@ void L76k::send(const char* sentence, uint32_t now_ms) {
 
 void L76k::start_sequence(uint32_t now_ms) {
     next_command_ = 0;
+    gsv_on_ = false;  // kCommands sets nGSV to 0, whatever the receiver was doing
     state_ = Config::Sending;
     send_next(now_ms);
 }
@@ -116,6 +117,11 @@ void L76k::service(uint32_t now_ms) {
             break;
         case Config::Ready:
         case Config::Degraded: break;
+    }
+
+    if (state_ == Config::Ready && gsv_on_ != gsv_wanted_) {
+        send(gsv_wanted_ ? kSatellitesInViewOn : kSatellitesInViewOff, now_ms);
+        gsv_on_ = gsv_wanted_;
     }
 }
 

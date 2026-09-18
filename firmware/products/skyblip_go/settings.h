@@ -74,7 +74,7 @@ struct Settings {
     uint8_t alarm_volume{3};
     bool stealth{false};
     Units units{Units::Nautical};
-    uint8_t page_mask{0x1F};
+    uint8_t page_mask{0x3F};
     char callsign[kCallsignCap]{0};
 
     // The companion-link contract, which is what schemas/config.v1.schema.json

@@ -86,6 +86,10 @@ constexpr int kBannerScale = 2;
 constexpr int kBannerPad = 4;
 constexpr int kOwnShipTail = kNear - ui::kSkyshipRowsToNose + ui::kSkyshipRows;
 constexpr int kBannerY = (kOwnShipTail + kFooterTop - kGlyphH * kBannerScale) / 2;
+constexpr int kNoteScale = 1;
+constexpr int kNotePad = 2;
+constexpr int kNoteGap = 5;
+constexpr int kNoteY = kBannerY + kGlyphH * kBannerScale + kBannerPad + kNoteGap;
 constexpr int kMinutesMarked = 2;
 
 int half_chord_in_half_pixels(int r, int b) {
@@ -223,6 +227,23 @@ const char* ring_word(const RadarSnapshot& snap) {
     if (!snap.fix_valid) return "NO FIX";
     if (snap.airborne) return nullptr;
     return snap.taxiing ? "TAXI" : "GROUND";
+}
+
+// INFO: fc 18sep26 how far the receiver has got, under the word that says it has not got there
+const char* ring_note(const RadarSnapshot& snap) {
+    return snap.fix_valid ? nullptr : gnss::stage_name(snap.stage);
+}
+
+Box note_box(const char* note) {
+    const int w = text_width(note, kNoteScale);
+    return {kCx - w / 2 - kNotePad, kNoteY - kNotePad, w + 2 * kNotePad,
+            kGlyphH * kNoteScale + 2 * kNotePad};
+}
+
+void state_note(ui::Canvas& fb, const char* note) {
+    const Box b = note_box(note);
+    fb.rect(b.x, b.y, b.w, b.h, false, true);
+    fb.draw_text(b.x + kNotePad, b.y + kNotePad, note, true, kNoteScale);
 }
 
 void aircraft(ui::Canvas& fb, int in_view, bool counting) {
@@ -563,6 +584,7 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     taken[n_taken++] = footer_band();
     taken[n_taken++] = own_ship_box();
     if (const char* word = ring_word(snap)) taken[n_taken++] = banner_box(word);
+    if (const char* note = ring_note(snap)) taken[n_taken++] = note_box(note);
     if (snap.formation_members > 0) taken[n_taken++] = formation_box();
     for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
 
@@ -675,6 +697,7 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
     }
 
     if (const char* word = ring_word(snap)) state_banner(fb, word);
+    if (const char* note = ring_note(snap)) state_note(fb, note);
 }
 
 }  // namespace skyblip::go

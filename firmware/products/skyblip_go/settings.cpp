@@ -6,6 +6,7 @@
 #include "core/settings/address.h"
 #include "core/settings/blob.h"
 #include "core/util/json_min.h"
+#include "products/skyblip_go/pages/settings.h"
 
 namespace skyblip::go {
 
@@ -186,6 +187,9 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     } else {
         return Status::Unsupported;
     }
+    // INFO: fc 18sep26 a unit that was showing every page keeps showing every page when one is
+    // added
+    if (out.page_mask == kPageMaskEveryPageBeforeSats) out.page_mask = kPageMaskAll;
     if (validate(out) != Status::Ok) return Status::Invalid;
     return Status::Ok;
 }

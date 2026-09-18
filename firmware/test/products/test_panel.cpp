@@ -40,6 +40,8 @@ TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Status);
     rig.tap_pad(t);
+    CHECK(rig.product.screen().page() == go::Page::Sats);
+    rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Signal);
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::RadioLog);

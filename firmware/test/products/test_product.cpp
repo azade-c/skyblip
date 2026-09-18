@@ -722,3 +722,35 @@ TEST_CASE("product: the free-running dwell phase steps forward through the 49.7-
     }
     CHECK(wrapped);
 }
+
+// A pilot on the apron asks how long this will take, and NO FIX is the same word
+// for a receiver reading satellites and one that has said nothing at all.
+TEST_CASE("product: with no fix the bus says how far the receiver has got") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+
+    rig.run(0, 100);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Silent);
+
+    gnss::GnssSolution looking{};
+    rig.product.bus().gnss.push(looking);
+    rig.run(150, 200);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Search);
+
+    // A date is read off a satellite, so it is the first evidence of one.
+    gnss::GnssSolution dated{};
+    dated.utc_valid = true;
+    dated.utc = Rig::kUtcBase;
+    rig.product.bus().gnss.push(dated);
+    rig.run(250, 300);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Time);
+    CHECK(rig.state().gnss.stage_s == 0u);
+
+    rig.push_timed_fix(0, 500);
+    rig.run(350, 400);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Fixed);
+
+    // A receiver that stops talking is silent again, whatever it last managed.
+    rig.run(450, 450 + gnss::kSentenceMaxAgeMs);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Silent);
+}

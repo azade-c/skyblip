@@ -23,6 +23,22 @@ constexpr int kSiNumberEnd = kColumn(22);
 constexpr int kSiUnitX = kColumn(22);
 
 constexpr uint8_t kSatellitesForAltitude = 4;
+
+const char* solution_dimensions(const StatusSnapshot& s) {
+    if (s.fix_mode == gnss::kFixMode3D) return "3D";
+    if (s.fix_mode == gnss::kFixMode2D) return "2D";
+    return s.sats >= kSatellitesForAltitude ? "3D" : "2D";
+}
+
+int fmt_elapsed(char* out, uint32_t seconds) {
+    constexpr uint32_t kMaxSeconds = 99 * 60 + 59;
+    const uint32_t capped = seconds > kMaxSeconds ? kMaxSeconds : seconds;
+    int n = fmt_uint(out, capped / 60, 1);
+    out[n++] = ':';
+    n += fmt_uint(out + n, capped % 60, 2);
+    out[n] = 0;
+    return n;
+}
 constexpr uint32_t kImuCountCeiling = 99;
 
 // 1 m/s = 1.94384 kt, from quarter-m/s.
@@ -195,10 +211,15 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
         n = fmt_uint(sats, s.sats, 2);
         sats[n] = 0;
         text_row(fb, y, "GNSS", sats, " SAT", "UTC", buf);
-        fb.draw_text(kValueX, y, s.sats >= kSatellitesForAltitude ? "3D" : "2D", true, 1);
+        fb.draw_text(kValueX, y, solution_dimensions(s), true, 1);
     } else {
+        char stage[16];
+        n = fmt_string(stage, gnss::stage_name(s.stage));
+        stage[n++] = ' ';
+        n += fmt_elapsed(stage + n, s.stage_s);
+        stage[n] = 0;
         text_row(fb, y, "GNSS", "", "", "UTC", buf);
-        fb.draw_text(kValueX, y, "NO FIX", true, 1);
+        fb.draw_text(kValueX, y, stage, true, 1);
     }
     y += kLineH;
 

@@ -7,6 +7,7 @@
 #include "core/flight/slip.h"
 #include "core/flight/state.h"
 #include "core/flight/timer.h"
+#include "core/gnss/acquisition.h"
 #include "core/gnss/first_fix.h"
 #include "core/model/ownship.h"
 #include "products/skyblip_go/settings.h"
@@ -44,6 +45,7 @@ class OwnshipService : public runtime::Service {
     void update_derived_qnh(const events::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const model::OwnState& previous);
+    static gnss::Convergence convergence_of(const model::OwnState& own);
     void adopt_climb(int32_t mm_s);
     static bool vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,
                                int32_t& ref_alt_mm, uint32_t& ref_ms, int32_t& out_mm_s);
@@ -53,6 +55,7 @@ class OwnshipService : public runtime::Service {
     flight::FlightTimer timer_{};
     flight::GroundLatch ground_{};
     gnss::FirstFix settle_{};
+    gnss::Acquisition acquisition_{};
     int32_t vs_ref_alt_mm_{0};
     uint32_t vs_ref_ms_{0};
     int32_t baro_ref_alt_mm_{0};

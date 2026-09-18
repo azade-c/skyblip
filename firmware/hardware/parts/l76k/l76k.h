@@ -48,6 +48,7 @@ class L76k : public ports::Gnss {
 
     // INFO: fc 13sep26 one solution per second, transmitted extrapolated to the burst's own instant
     static constexpr uint32_t kFixRateHz = 1;
+    static constexpr uint32_t kSolutionPeriodMs = 1000;
     static constexpr uint32_t kFixPeriodMs = 1000 / kFixRateHz;
 
     // INFO: fc 13sep26 GGA + three GSA (one per constellation) + RMC, the widest burst we ask for
@@ -84,6 +85,15 @@ class L76k : public ports::Gnss {
 
     // INFO: fc 13sep26 GSA is the only sentence carrying VDOP, which G.1.12 asks us to claim
     static constexpr bool kGsaEnabled = true;
+
+    // INFO: fc 18sep26 $PCAS03 takes a null per field meaning keep, so these two move nGSV alone
+    static constexpr const char* kSatellitesInViewOn = "$PCAS03,,,,1,,,,,,,,,,*33\r\n";
+    static constexpr const char* kSatellitesInViewOff = "$PCAS03,,,,0,,,,,,,,,,*32\r\n";
+
+    // INFO: fc 18sep26 four talkers, up to 32 satellites, four to a sentence and 72 bytes each
+    static constexpr uint32_t kSatellitesInViewBytes = 648;
+    static constexpr uint32_t kSearchingBurstBytes = kBurstBytes + kSatellitesInViewBytes;
+    static constexpr uint32_t kSearchingBurstMs = kSearchingBurstBytes * 10 * 1000 / kBaudRate;
 
     // $PCAS10 reboots the receiver. It answers nothing for about a second after
     // it, so the sequence behind a factory reset waits before it starts talking.
@@ -141,6 +151,12 @@ class L76k : public ports::Gnss {
     // configuration with it, so the sequence runs again behind it.
     void request_restart(ports::Restart kind) override;
 
+    void request_satellites_in_view(bool wanted) { gsv_wanted_ = wanted; }
+    bool satellites_in_view_requested() const { return gsv_wanted_; }
+    bool satellites_in_view_live() const { return gsv_on_ && gsv_wanted_; }
+
+    const gnss::SkyView& sky() const { return parser_.sky(); }
+
     // Sentences the parser accepted since boot. A receiver that is wired but
     // silent (or babbling at the wrong baud) never moves this off zero, which is
     // what the DFU health gate watches.
@@ -179,6 +195,8 @@ class L76k : public ports::Gnss {
     uint8_t baud_tried_{1};
     uint8_t attempts_{0};
     uint8_t pending_restart_{kNoRestart};
+    bool gsv_wanted_{false};
+    bool gsv_on_{false};
 };
 
 }  // namespace skyblip::parts

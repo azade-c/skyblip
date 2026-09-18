@@ -474,3 +474,28 @@ TEST_CASE("product: a screen change wipes the glass, and no keypress asks for a 
     rig.run(t, t + 4000);
     CHECK_FALSE(rig.platform.chips().epd.last_full);
 }
+
+// A page added to the walk with no bit for it is a page nobody can reach.
+TEST_CASE("product: the ALL mask covers every page there is") {
+    CHECK(go::kPageMaskAll == (1u << static_cast<int>(go::Page::kCount)) - 1);
+    CHECK(go::kPageMaskEveryPageBeforeSats == go::kPageMaskAll >> 1);
+}
+
+// A unit upgrading was showing everything there was, and it keeps showing everything.
+TEST_CASE("product: a stored mask from before the satellites page still means all of them") {
+    go::Settings s;
+    s.device_addr = 0x3FA21C;
+    s.page_mask = go::kPageMaskEveryPageBeforeSats;
+    uint8_t blob[128];
+    go::to_blob(s, blob, sizeof(blob));
+
+    go::Settings loaded;
+    REQUIRE(go::from_blob(blob, go::blob_size(), loaded) == Status::Ok);
+    CHECK(loaded.page_mask == go::kPageMaskAll);
+
+    // A mask the pilot narrowed is left alone.
+    s.page_mask = go::kPageMaskTrafficOnly;
+    go::to_blob(s, blob, sizeof(blob));
+    REQUIRE(go::from_blob(blob, go::blob_size(), loaded) == Status::Ok);
+    CHECK(loaded.page_mask == go::kPageMaskTrafficOnly);
+}

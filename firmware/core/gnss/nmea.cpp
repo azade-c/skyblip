@@ -135,10 +135,9 @@ bool NmeaParser::parse_line(const char* line, int len) {
     if (memcmp(tag + 3, "RMC", 3) == 0) return apply_rmc(fields, nf);
     if (memcmp(tag + 3, "GGA", 3) == 0) return apply_gga(fields, nf, len);
     if (memcmp(tag + 3, "GSA", 3) == 0) return apply_gsa(fields, nf);
+    if (memcmp(tag + 3, "GSV", 3) == 0) return apply_gsv(tag + 1, fields, nf);
     if (memcmp(tag + 3, "TXT", 3) == 0) return apply_txt(line, len);
-    if (memcmp(tag + 3, "GLL", 3) == 0 || memcmp(tag + 3, "GSV", 3) == 0 ||
-        memcmp(tag + 3, "VTG", 3) == 0)
-        unrequested_++;
+    if (memcmp(tag + 3, "GLL", 3) == 0 || memcmp(tag + 3, "VTG", 3) == 0) unrequested_++;
     return false;
 }
 
@@ -146,11 +145,44 @@ bool NmeaParser::parse_line(const char* line, int len) {
 bool NmeaParser::apply_gsa(const char* f[], int nf) {
     if (nf <= kGsaVdopField) return false;
     last_ = Sentence::Gsa;
+    // INFO: fc 18sep26 one GSA per constellation, and one that solved nothing carries no DOP at all
+    long pdop_e2 = 0;
+    if (!parse_scaled(f[kGsaPdopField], 100, pdop_e2) || pdop_e2 <= 0) return true;
+    solution_.fix_mode = static_cast<uint8_t>(parse_long(f[kGsaFixModeField], 1));
     long vdop_e2 = 0;
     solution_.vdop_e2 =
         parse_scaled(f[kGsaVdopField], 100, vdop_e2) && vdop_e2 > 0 && vdop_e2 <= 0xFFFF
             ? static_cast<uint16_t>(vdop_e2)
             : 0;
+
+    const System system =
+        nf > kGsaSystemField
+            ? system_of_gsa_id(static_cast<uint8_t>(parse_long(f[kGsaSystemField], 1)))
+            : System::Unknown;
+    for (int slot = 0; slot < kGsaSatSlots && kGsaFirstSatField + slot < nf; slot++)
+        sky_.solving(system, static_cast<uint8_t>(parse_long(f[kGsaFirstSatField + slot], 3)));
+    return true;
+}
+
+// INFO: fc 18sep26 QZSS rides on the GP talker and is told apart by its satellite id alone
+bool NmeaParser::apply_gsv(const char* talker, const char* f[], int nf) {
+    if (nf <= kGsvFirstSatField) return false;
+    last_ = Sentence::Gsv;
+    const System talker_system = system_of_talker(talker, 0);
+    if (parse_long(f[2], 2) == 1) {
+        sky_.open(talker_system);
+        if (talker_system == System::Gps) sky_.open(System::Qzss);
+    }
+    for (int at = kGsvFirstSatField; at + kGsvFieldsPerSat - 1 < nf; at += kGsvFieldsPerSat) {
+        SatelliteView sat;
+        sat.id = static_cast<uint8_t>(parse_long(f[at], 3));
+        if (sat.id == 0) continue;
+        sat.system = system_of_talker(talker, sat.id);
+        sat.elevation_deg = static_cast<uint8_t>(parse_long(f[at + 1], 2));
+        sat.azimuth_deg = static_cast<uint16_t>(parse_long(f[at + 2], 3));
+        sat.cn0_dbhz = static_cast<uint8_t>(parse_long(f[at + 3], 2));
+        sky_.add(sat);
+    }
     return true;
 }
 
@@ -236,6 +268,7 @@ bool NmeaParser::apply_gga(const char* f[], int nf, int len) {
     // that catches it, which is why moshe-braner measures it.
     if (nf < 10 || len < kMinGgaLength) return false;
     last_ = Sentence::Gga;
+    sky_.clear_solution();
     solution_.fix_quality = static_cast<uint8_t>(parse_long(f[6], 2));
     solution_.sats = static_cast<uint8_t>(parse_long(f[7], 2));
 

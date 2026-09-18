@@ -7,6 +7,8 @@
 
 #include <cstdint>
 
+#include "core/flight/state.h"
+
 namespace skyblip::gnss {
 
 // INFO: hk 02aug26 the moshe-braner SoftRF fork holds transmission for 20 s
@@ -18,9 +20,21 @@ namespace skyblip::gnss {
 constexpr uint32_t kFirstFixSettleMs = 20000;
 constexpr uint32_t kRefixSettleMs = 5000;
 
+// INFO: fc 18sep26 the takeoff speed over the second a residual spans, so no smaller error invents
+// a flight
+constexpr uint16_t kSettleResidualM = flight::kFlightSpeedQ / 4;
+constexpr uint8_t kSettleFixes = 3;
+
+struct Convergence {
+    bool fix_valid{false};
+    bool resid_valid{false};
+    bool height_solved{false};
+    uint16_t resid_m{0};
+};
+
 class FirstFix {
    public:
-    void update(bool fix_valid, uint32_t now_ms);
+    void update(const Convergence& solution, uint32_t now_ms);
 
     // True once, on the first valid fix since boot. The caller that annunciates
     // consumes it, so nothing can chirp twice.
@@ -30,13 +44,16 @@ class FirstFix {
     bool has_fix() const { return has_fix_; }
     uint32_t fix_since_ms() const { return fix_since_ms_; }
 
-    // What a transmit policy asks: this device holds a fix, and it has held it
-    // long enough for the solution behind it to have settled.
     bool settled(uint32_t now_ms) const;
 
+    uint8_t converged_fixes() const { return converged_; }
+
    private:
+    static bool converged(const Convergence& solution);
+
     uint32_t fix_since_ms_{0};
     uint32_t settle_ms_{kFirstFixSettleMs};
+    uint8_t converged_{0};
     bool has_fix_{false};
     bool ever_fixed_{false};
     bool acquired_pending_{false};

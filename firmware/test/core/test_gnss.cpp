@@ -172,6 +172,32 @@ TEST_CASE("gnss: GSA carries VDOP in hundredths") {
     CHECK(p.solution().vdop_e2 == 0);
 }
 
+// Field 2 is the receiver's own answer, where the page used to infer it from the satellite count.
+TEST_CASE("gnss: GSA says whether the receiver solved for height") {
+    NmeaParser p;
+    const char* solid = "$GPGSA,A,3,04,05,,09,12,,,24,,,,,2.50,1.25,2.10*0D";
+    REQUIRE(p.parse_line(solid, static_cast<int>(strlen(solid))));
+    CHECK(p.solution().fix_mode == kFixMode3D);
+
+    const char* flat = "$GPGSA,A,2,04,05,,09,12,,,24,,,,,2.50,1.25,*11";
+    REQUIRE(p.parse_line(flat, static_cast<int>(strlen(flat))));
+    CHECK(p.solution().fix_mode == kFixMode2D);
+}
+
+// One GSA per constellation, and the one whose satellites are in no solution carries no DOP.
+TEST_CASE("gnss: a GSA with no DOP at all is a constellation that solved nothing") {
+    NmeaParser p;
+    const char* solved = "$GNGSA,A,3,04,05,,09,12,,,24,,,,,2.50,1.25,2.10,1*0E";
+    REQUIRE(p.parse_line(solved, static_cast<int>(strlen(solved))));
+    REQUIRE(p.solution().fix_mode == kFixMode3D);
+    REQUIRE(p.solution().vdop_e2 == 210);
+
+    const char* idle = "$GNGSA,A,1,,,,,,,,,,,,,,,,2*1E";
+    REQUIRE(p.parse_line(idle, static_cast<int>(strlen(idle))));
+    CHECK(p.solution().fix_mode == kFixMode3D);
+    CHECK(p.solution().vdop_e2 == 210);
+}
+
 // A $PCAS sentence is never acknowledged: what the receiver stops saying is the only evidence.
 TEST_CASE("gnss: sentences we switched off are counted, not silently dropped") {
     NmeaParser p;
@@ -304,4 +330,78 @@ TEST_CASE("gnss: corrupt checksum is rejected, no update") {
     const char* bad = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*00";
     CHECK_FALSE(p.parse_line(bad, static_cast<int>(strlen(bad))));
     CHECK(p.solution().updates == 0);
+}
+
+// GSV is the only sentence carrying a satellite's signal level, and the talker its constellation.
+TEST_CASE("gnss: GSV fills the sky view, four satellites to a sentence") {
+    NmeaParser p;
+    const char* first = "$GPGSV,2,1,05,01,40,083,42,02,30,120,38,03,60,200,40,04,20,300,35,0*62";
+    const char* second = "$GPGSV,2,2,05,05,10,010,,0*55";
+    REQUIRE(p.parse_line(first, static_cast<int>(strlen(first))));
+    REQUIRE(p.parse_line(second, static_cast<int>(strlen(second))));
+
+    const SkyView& sky = p.sky();
+    CHECK(sky.count() == 5);
+    CHECK(sky.in_view_of(System::Gps) == 5);
+    CHECK(sky.at(0).id == 1);
+    CHECK(sky.at(0).elevation_deg == 40);
+    CHECK(sky.at(0).azimuth_deg == 83);
+    CHECK(sky.at(0).cn0_dbhz == 42);
+    // In view and not tracked: the level field is empty, which is not a level of zero dB-Hz.
+    CHECK(sky.at(4).id == 5);
+    CHECK(sky.at(4).cn0_dbhz == 0);
+}
+
+TEST_CASE("gnss: a second GSV set replaces the first, it does not pile up") {
+    NmeaParser p;
+    const char* set = "$GPGSV,1,1,02,01,40,083,42,02,30,120,38,0*66";
+    REQUIRE(p.parse_line(set, static_cast<int>(strlen(set))));
+    REQUIRE(p.parse_line(set, static_cast<int>(strlen(set))));
+    CHECK(p.sky().count() == 2);
+
+    // Another constellation is another set: the two stand side by side.
+    const char* beidou = "$BDGSV,1,1,01,07,50,150,44,0*43";
+    REQUIRE(p.parse_line(beidou, static_cast<int>(strlen(beidou))));
+    CHECK(p.sky().count() == 3);
+    CHECK(p.sky().in_view_of(System::Gps) == 2);
+    CHECK(p.sky().in_view_of(System::Beidou) == 1);
+    CHECK(p.sky().at(2).system == System::Beidou);
+}
+
+// GSA lists what solved, GSV what is up there: the page draws the difference.
+TEST_CASE("gnss: the satellites GSA named are the ones GSV marks as in the solution") {
+    NmeaParser p;
+    const char* gsa = "$GNGSA,A,3,01,03,,,,,,,,,,,2.50,1.25,2.10,1*01";
+    const char* gsv = "$GPGSV,1,1,03,01,40,083,42,02,30,120,38,03,60,200,40,0*54";
+    REQUIRE(p.parse_line(gsa, static_cast<int>(strlen(gsa))));
+    REQUIRE(p.parse_line(gsv, static_cast<int>(strlen(gsv))));
+
+    const SkyView& sky = p.sky();
+    REQUIRE(sky.count() == 3);
+    CHECK(sky.at(0).in_use);
+    CHECK_FALSE(sky.at(1).in_use);
+    CHECK(sky.at(2).in_use);
+    CHECK(sky.in_use() == 2);
+    CHECK(sky.in_use_of(System::Gps) == 2);
+}
+
+// QZSS answers on the GP talker, so the id is the only thing that tells it from a GPS satellite.
+TEST_CASE("gnss: a QZSS satellite on the GP talker is not counted as GPS") {
+    NmeaParser p;
+    const char* gsv = "$GPGSV,1,1,02,01,40,083,42,193,70,140,45,0*57";
+    REQUIRE(p.parse_line(gsv, static_cast<int>(strlen(gsv))));
+    CHECK(p.sky().in_view_of(System::Gps) == 1);
+    CHECK(p.sky().in_view_of(System::Qzss) == 1);
+}
+
+// The solution set is the burst's, so a satellite that drops out of it stops being marked.
+TEST_CASE("gnss: each burst's GGA starts the solution set again") {
+    NmeaParser p;
+    const char* gsa = "$GNGSA,A,3,01,03,,,,,,,,,,,2.50,1.25,2.10,1*01";
+    const char* gga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
+    REQUIRE(p.parse_line(gsa, static_cast<int>(strlen(gsa))));
+    REQUIRE(p.sky().in_use() == 2);
+
+    REQUIRE(p.parse_line(gga, static_cast<int>(strlen(gga))));
+    CHECK(p.sky().in_use() == 0);
 }
