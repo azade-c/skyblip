@@ -23,6 +23,7 @@ struct Target {
     model::AircraftObs obs;
     TargetTurn turn;
     Level alarm_level{Level::None};
+    bool in_formation{false};
     bool used{false};
 };
 

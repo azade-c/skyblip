@@ -61,6 +61,23 @@ struct BaroState {
     bool active{false};
 };
 
+// What the formation layer is asking the pilot, and what it has just told them.
+// Owned by AlarmService, read by the page: an offer is a contact flying with us
+// that nobody has admitted yet, a split is a member that has just left.
+struct FormationState {
+    uint32_t offer_addr{0};
+    uint8_t offer_addr_table{0};
+    int8_t offer_clock{0};
+    bool offered{false};
+    bool split{false};
+    int members{0};
+};
+
+struct SlipState {
+    int16_t lateral_mg{0};
+    bool valid{false};
+};
+
 struct State {
     model::OwnState own{};
     timing::ClockState clock{};
@@ -70,6 +87,8 @@ struct State {
     PowerState power{};
     FlightStatus flight{};
     BaroState baro{};
+    SlipState slip{};
+    FormationState formation{};
 
     traffic::Level alarm_level{traffic::Level::None};
 

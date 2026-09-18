@@ -72,6 +72,12 @@ constexpr int kOwnNoseAhead = ui::kSkyshipRowsToNose + 1;
 constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
 constexpr int kFooterTop = kStateY - kLabelPad;
 constexpr int kMinuteDotW = 2;
+constexpr int kFormationD = 13;
+constexpr int kFormationCorner = 4;
+constexpr int kFormationInset = 3;
+constexpr int kDigitW = 5;
+constexpr int kNoticeY = 149;
+constexpr int kNoticePad = 3;
 constexpr int kMinutesMarked = 2;
 
 int half_chord_in_half_pixels(int r, int b) {
@@ -221,6 +227,72 @@ HeadingUp on_glass_at(const flight::Position& p, const RadarSnapshot& snap, int1
     const HeadingUp at = heading_up(p.north_m, p.east_m, track);
     const int64_t range = range_metres(snap);
     return {to_px(at.ahead, range), to_px(at.right, range)};
+}
+
+Box formation_box() {
+    return {kNear - kFormationD, kNear - kFormationD, 2 * kFormationD + 2, 2 * kFormationD + 2};
+}
+
+void formation_square(ui::Canvas& fb) {
+    const int d = kFormationD, r = kFormationCorner;
+    const int x0 = kNear - d, x1 = kFar + d, y0 = kNear - d, y1 = kFar + d;
+    fb.hline(x0 + r + 1, y0, x1 - x0 - 2 * r - 1, true);
+    fb.hline(x0 + r + 1, y1, x1 - x0 - 2 * r - 1, true);
+    fb.vline(x0, y0 + r + 1, y1 - y0 - 2 * r - 1, true);
+    fb.vline(x1, y0 + r + 1, y1 - y0 - 2 * r - 1, true);
+    for (int step = 0; step <= 90; step++) {
+        const int16_t a = c16(step);
+        const int dx = r - (r * icos(a)) / kQ14One, dy = r - (r * isin(a)) / kQ14One;
+        fb.set_pixel(x0 + dx, y0 + dy, true);
+        fb.set_pixel(x1 - dx, y0 + dy, true);
+        fb.set_pixel(x0 + dx, y1 - dy, true);
+        fb.set_pixel(x1 - dx, y1 - dy, true);
+    }
+}
+
+// One digit per quadrant of own-ship's nose: how many of the formation are over there.
+void formation_counts(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
+    int count[4] = {0, 0, 0, 0};
+    for (int i = 0; i < snap.n_targets; i++) {
+        const RadarTarget& t = snap.targets[i];
+        if (!t.in_formation) continue;
+        const HeadingUp at = heading_up(t.north_m, t.east_m, track);
+        const int quadrant = (at.ahead < 0 ? 2 : 0) + (at.right >= 0 ? 1 : 0);
+        count[quadrant]++;
+    }
+
+    const int left = kNear - kFormationD + kFormationInset;
+    const int right = kFar + kFormationD - kFormationInset - kDigitW + 1;
+    const int fore = kNear - kFormationD + kFormationInset;
+    const int aft = kFar + kFormationD - kFormationInset - kGlyphH + 1;
+    const int x[4] = {left, right, left, right};
+    const int y[4] = {fore, fore, aft, aft};
+    for (int q = 0; q < 4; q++) {
+        if (count[q] <= 0) continue;
+        char buf[4];
+        buf[fmt_uint(buf, static_cast<uint32_t>(count[q] > 9 ? 9 : count[q]))] = 0;
+        fb.draw_text(x[q], y[q], buf, true, 1);
+    }
+}
+
+void notice(ui::Canvas& fb, const char* text) {
+    const int w = text_width(text, 1);
+    const int x = kCx - w / 2;
+    clear_behind(fb, x, kNoticeY, w, kGlyphH, kNoticePad);
+    fb.draw_text(x, kNoticeY, text, true, 1);
+}
+
+void formation_notice(ui::Canvas& fb, const RadarSnapshot& snap) {
+    if (snap.formation_offered) {
+        char buf[32];
+        int n = fmt_string(buf, "HOLD TO ADD ");
+        n += fmt_uint(buf + n, static_cast<uint32_t>(snap.formation_offer_clock));
+        n += fmt_string(buf + n, " OCLOCK");
+        buf[n] = 0;
+        notice(fb, buf);
+        return;
+    }
+    if (snap.formation_split) notice(fb, "FORMATION SPLIT");
 }
 
 int own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track, Box* marked) {
@@ -414,15 +486,21 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     Plotted shown[kMaxRadarTargets];
     const RadarTarget* in_view[kMaxRadarTargets];
     int n = 0;
+    int in_ring = 0;
     for (int i = 0; i < snap.n_targets && n < kMaxRadarTargets; i++) {
         Plotted p;
         if (!plot_point(snap, snap.targets[i], track, p)) continue;
+        // A member of the formation is drawn once, as the square around own ship
+        // and the count in its quadrant. Twice is two aircraft.
+        if (snap.targets[i].in_formation) {
+            if (p.in_ring) in_ring++;
+            continue;
+        }
         shown[n] = p;
         in_view[n] = &snap.targets[i];
         n++;
     }
 
-    int in_ring = 0;
     for (int i = 0; i < n; i++)
         if (shown[i].in_ring) in_ring++;
 
@@ -431,11 +509,12 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
         run[i] = leader_of(snap, *in_view[i], track);
         draw_leader(fb, snap, *in_view[i], track, shown[i], run[i]);
     }
-    Box taken[2 * kMaxRadarTargets + 2 + kMinutesMarked];
+    Box taken[2 * kMaxRadarTargets + 3 + kMinutesMarked];
     int n_taken = 0;
     if (in_ring > 0) n_taken += own_minute_marks(fb, snap, track, taken);
     taken[n_taken++] = footer_band();
     taken[n_taken++] = own_ship_box();
+    if (snap.formation_members > 0) taken[n_taken++] = formation_box();
     for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i], *in_view[i]);
 
     int order[kMaxRadarTargets];
@@ -461,9 +540,12 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
 
     const int16_t track = c16(snap.track_deg);
 
+    if (snap.formation_members > 0) formation_square(fb);
     ui::draw_skyship(fb, kFar, kNear);
+    if (snap.formation_members > 0) formation_counts(fb, snap, track);
 
     const int in_ring = snap.fix_valid ? plot(fb, snap, track) : 0;
+    if (snap.fix_valid) formation_notice(fb, snap);
 
     flight_clock(fb, snap);
     flight_state(fb, snap);

@@ -4,6 +4,50 @@
 
 namespace skyblip::go {
 
+// A pilot who has admitted a neighbour into the formation is not told about it
+// again, right up to the point where the projected arcs say the two of them are
+// about to occupy the same air. Then the silence ends by itself.
+bool AlarmService::silenced(traffic::Target& target, const traffic::AlarmAssessment& a) {
+    if (!target.in_formation) return false;
+    if (a.breaches && a.at_s <= traffic::kUrgentTtiS) {
+        formation_.release(target.obs.addr_table, target.obs.addr);
+        target.in_formation = false;
+        return false;
+    }
+    return true;
+}
+
+void AlarmService::watch_formation(traffic::Target& target, uint32_t now_ms) {
+    const formation::Report r = formation_.observe(context_.state.own, target.obs, now_ms);
+    target.in_formation = formation_.together(target.obs.addr_table, target.obs.addr);
+    bus::FormationState& view = context_.state.formation;
+    if (r.state == formation::State::Broken) {
+        view.split = true;
+        dirty_ = true;
+    }
+    if (r.state != formation::State::Candidate || view.offered) return;
+    view.offered = true;
+    view.offer_addr = target.obs.addr;
+    view.offer_addr_table = target.obs.addr_table;
+    view.offer_clock = formation::clock_of(r.ahead_m, r.right_m);
+    dirty_ = true;
+}
+
+void AlarmService::admit_formation() {
+    const bus::FormationState& view = context_.state.formation;
+    if (!view.offered) return;
+    formation_.admit(view.offer_addr_table, view.offer_addr);
+    context_.state.formation.offered = false;
+    context_.state.formation.split = false;
+    dirty_ = true;
+}
+
+void AlarmService::release_formation() {
+    context_.state.formation.offered = false;
+    context_.state.formation.split = false;
+    dirty_ = true;
+}
+
 void AlarmService::tick(uint32_t now_ms) {
     traffic::Level worst = traffic::Level::None;
     traffic::Level speak = traffic::Level::None;
@@ -12,9 +56,11 @@ void AlarmService::tick(uint32_t now_ms) {
         for (int i = 0; i < traffic::TrafficTable::kCapacity; i++) {
             traffic::Target* t = context_.state.traffic.at(i);
             if (!t || !t->used) continue;
+            watch_formation(*t, now_ms);
             const traffic::AlarmTracker::Decision d =
                 tracker_.update(context_.state.own, t->obs, t->turn.dps, t->turn.valid, now_ms);
             t->alarm_level = d.assessment.level;
+            if (silenced(*t, d.assessment)) continue;
             worst = std::max(d.assessment.level, worst);
             if (!d.notify) continue;
             speak = std::max(d.assessment.level, speak);
@@ -22,6 +68,11 @@ void AlarmService::tick(uint32_t now_ms) {
         }
     }
     tracker_.forget_stale(now_ms);
+    formation_.forget_stale(now_ms);
+    context_.state.formation.members = formation_.members();
+    const bus::FormationState& offer = context_.state.formation;
+    if (offer.offered && context_.state.traffic.find(offer.offer_addr_table, offer.offer_addr) < 0)
+        context_.state.formation.offered = false;
 
     if (worst != context_.state.alarm_level) {
         context_.state.alarm_level = worst;

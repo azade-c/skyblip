@@ -137,6 +137,11 @@
                    oninput="SIM.turn(this.value)">
           </div>
           <div class="dial">
+            <header><label for="slp">SLIP MG</label><output id="slp_o">0 mg</output></header>
+            <input type="range" id="slp" min="-250" max="250" step="5" value="0"
+                   oninput="SIM.slip(this.value)">
+          </div>
+          <div class="dial">
             <header><label for="trk">TRK</label><output id="trk_o">090&deg;</output></header>
             <input type="range" id="trk" min="0" max="359" value="90"
                    oninput="SIM.track(this.value)">
@@ -194,7 +199,12 @@
         <div class="row">
           <button onclick="SIM.addRandom()">+ Aircraft</button>
           <button class="warn" onclick="SIM.addThreat()">+ Collision threat</button>
+          <button onclick="SIM.addWingman()">+ Wingman</button>
           <button onclick="SIM.clearTraffic()">Clear</button>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="SIM.joinFormation()">Join formation</button>
+          <button onclick="SIM.leaveFormation()">Refuse / leave</button>
         </div>
         <div class="row" style="margin-top:8px; align-items:center;">
           <label class="hint" for="tfc_system">new traffic is equipped with</label>
@@ -253,6 +263,7 @@
           <div>Static pressure</div><div id="t_baro">-</div>
           <div>Battery</div><div id="t_bat">-</div>
           <div>Traffic</div><div id="t_tfc">-</div>
+          <div>Formation</div><div id="t_form">-</div>
           <div>RX ok / bad</div><div id="t_rx">-</div>
           <div>TX ok</div><div id="t_tx">-</div>
           <div>Dwell</div><div id="t_dwell">-</div>
@@ -295,6 +306,8 @@ SIM.speed = v => { f.setSpeed(+v); $('spd_o').textContent = v + ' kt'; };
 SIM.track = v => { f.setTrack(+v); $('trk_o').textContent = String(v).padStart(3,'0') + '°'; };
 SIM.turn  = v => { f.setTurn(+v);
                    $('trn_o').textContent = (v >= 0 ? '+' : '') + (v/10).toFixed(1) + ' °/s'; };
+SIM.slip  = v => { f.setSlip(+v);
+                   $('slp_o').textContent = (v > 0 ? '+' : '') + v + ' mg'; };
 SIM.climb = v => { f.setClimb(Math.round(v * 10 / FPM_PER_MPS));
                    $('clb_o').textContent = (v > 0 ? '+' : '') + v + ' fpm'; };
 // Sliders are in tenths of a hectopascal, the firmware speaks pascals.
@@ -363,12 +376,25 @@ SIM.listScenarios = async () => {
 // simulated receiver cannot start out disagreeing about altitude or turn rate.
 for (const [id, apply] of [['alt', SIM.alt], ['spd', SIM.speed], ['trk', SIM.track],
                            ['trn', SIM.turn], ['clb', SIM.climb], ['rng', SIM.range],
+                           ['slp', SIM.slip],
                            ['sats', SIM.sats], ['bat', SIM.battery]])
   apply($(id).value);
 
 SIM.listScenarios();
 SIM.applyMode();
 SIM.clearTraffic = () => f.clearTraffic();
+// A neighbour holding station off the right wing, flying what we fly: after a
+// few seconds of that the radar offers it, and the buttons answer for a thumb.
+const KT_TO_MPS = 0.514444;
+SIM.addWingman = () => {
+  const kt = +$('spd').value, track = +$('trk').value;
+  const rad = track * Math.PI / 180, ahead = -130, right = 60;
+  f.addAircraft(Math.round(ahead * Math.cos(rad) - right * Math.sin(rad)),
+                Math.round(ahead * Math.sin(rad) + right * Math.cos(rad)), 0,
+                Math.round(kt * KT_TO_MPS), track, 0);
+};
+SIM.joinFormation = () => f.admitFormation();
+SIM.leaveFormation = () => f.releaseFormation();
 
 const bandCanvas = $('band'), band = bandCanvas.getContext('2d');
 const EVENT = ['tx', 'rx', 'deaf', 'coll'];
@@ -452,6 +478,9 @@ function draw() {
   $('t_bat').textContent  = (f.batteryMv()/1000).toFixed(2) + ' V · ' + f.batteryPercent() + ' %'
                             + (f.batteryCharging() ? ' charging' : '');
   $('t_tfc').textContent  = f.traffic() + ' target(s)';
+  const offer = f.formationOffer();
+  $('t_form').textContent = f.formationMembers() + ' with us'
+      + (offer ? '  ·  offering ' + offer + " o'clock" : '');
   $('t_rx').textContent   = f.rxOk() + ' / ' + f.rxBad();
   $('t_tx').textContent   = f.txOk();
   $('t_dwell').textContent = DWELL[f.slotState()] || '-';

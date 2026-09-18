@@ -42,6 +42,7 @@ KEEPALIVE void simulator_set_speed(int kt) { g_simulator.world().set_speed_kt(kt
 KEEPALIVE void simulator_set_track(int deg) { g_simulator.world().set_track_deg(deg); }
 KEEPALIVE void simulator_set_climb(int e1) { g_simulator.world().set_climb_e1(e1); }
 KEEPALIVE void simulator_set_turn(int dps_e1) { g_simulator.world().set_turn_dps(dps_e1 / 10.0); }
+KEEPALIVE void simulator_set_slip(int mg) { g_simulator.world().set_slip_mg(mg); }
 // Both in pascals: the subscale the device is set to, and the air outside.
 KEEPALIVE void simulator_set_qnh(int pa) {
     g_simulator.product().state().baro.qnh_pa = static_cast<uint32_t>(pa);
@@ -84,6 +85,15 @@ KEEPALIVE void simulator_add_threat(int alptas) {
     g_simulator.world().add_threat(system_of(alptas));
 }
 KEEPALIVE void simulator_clear_traffic() { g_simulator.world().clear_aircraft(); }
+KEEPALIVE void simulator_admit_formation() { g_simulator.product().alarm().admit_formation(); }
+KEEPALIVE void simulator_release_formation() { g_simulator.product().alarm().release_formation(); }
+KEEPALIVE int simulator_formation_members() {
+    return g_simulator.product().alarm().formation_members();
+}
+KEEPALIVE int simulator_formation_offer() {
+    const bus::FormationState& f = g_simulator.product().state().formation;
+    return f.offered ? f.offer_clock : 0;
+}
 KEEPALIVE int simulator_aircraft_count() { return g_simulator.world().aircraft_count(); }
 
 // Layout: byte = fb[y*stride + (x>>3)], black if (byte & (0x80 >> (x&7))).

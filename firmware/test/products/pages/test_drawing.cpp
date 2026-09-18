@@ -317,6 +317,67 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the 
     CHECK(running_out.get_pixel(kPlotX, 0));
 }
 
+// Own ship becomes the formation: one 28 px square, one digit per quadrant, and the airframe
+// untouched.
+TEST_CASE("radar: a formation is own ship, counted by quadrant") {
+    RadarTarget flight[4] = {
+        {900, 400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+        {700, 600, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+        {-600, 500, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+        {-700, -400, 0, Level::Info, 0, false, 40, 90, 0, false, true},
+    };
+    RadarSnapshot snap = flying(0);
+    snap.speed_mps = 40;
+    snap.n_targets = 4;
+    snap.targets = flight;
+    snap.formation_members = 4;
+    const Glass fb = radar(snap);
+
+    // The square is 86..113 on both axes, one blank pixel clear of the wingtips.
+    CHECK(fb.get_pixel(86, 100));
+    CHECK(fb.get_pixel(113, 100));
+    CHECK(fb.get_pixel(100, 86));
+    CHECK(fb.get_pixel(100, 113));
+    CHECK_FALSE(fb.get_pixel(87, 99));
+    CHECK_FALSE(fb.get_pixel(112, 99));
+
+    // Two off the right nose, one on each quarter behind, none off the left nose.
+    CHECK(reads_in(fb, "2", 106, 89, 111, 96, 1));
+    CHECK(reads_in(fb, "1", 89, 104, 94, 111, 1));
+    CHECK(reads_in(fb, "1", 106, 104, 111, 111, 1));
+    CHECK(ink_in(fb, 89, 89, 94, 96) == 0);
+
+    // A member is not also plotted as traffic: the square is its depiction.
+    RadarSnapshot apart = snap;
+    apart.formation_members = 0;
+    RadarTarget loose[4] = {flight[0], flight[1], flight[2], flight[3]};
+    for (RadarTarget& t : loose) t.in_formation = false;
+    apart.targets = loose;
+    const Glass separate = radar(apart);
+    CHECK(ink_in(separate, 100, 80, 120, 95) > ink_in(fb, 100, 80, 120, 95));
+    CHECK_FALSE(separate.get_pixel(86, 100));
+    CHECK_FALSE(separate.get_pixel(100, 86));
+
+    // The footer still counts them: they are aircraft, and they are on the glass.
+    CHECK(reads_in(fb, "4", 170, 170, 200, 200, 3));
+}
+
+// The offer and the split are the only two things the formation says in words.
+TEST_CASE("radar: the formation offer names the clock, and a split says so") {
+    RadarSnapshot snap = flying(0);
+    snap.speed_mps = 40;
+    snap.formation_offered = true;
+    snap.formation_offer_clock = 5;
+    CHECK(reads_in(radar(snap), "HOLD TO ADD 5 OCLOCK", 0, 140, 200, 162, 1));
+
+    snap.formation_offered = false;
+    snap.formation_split = true;
+    CHECK(reads_in(radar(snap), "FORMATION SPLIT", 0, 140, 200, 162, 1));
+
+    snap.formation_split = false;
+    CHECK_FALSE(reads_in(radar(snap), "FORMATION SPLIT", 0, 140, 200, 162, 1));
+}
+
 // The leader is the arc the alarm grades, so a target in a turn does not draw a tangent.
 TEST_CASE("radar: a turning target's leader is its arc") {
     RadarTarget straight[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0}};

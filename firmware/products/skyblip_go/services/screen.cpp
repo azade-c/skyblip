@@ -56,6 +56,11 @@ void ScreenService::handle_input(uint32_t now_ms) {
         if (readable && quiet) gesture_.arm(now_ms);
     }
 
+    if (offer_on_glass() && !formation_gesture_.armed())
+        formation_gesture_.arm(now_ms);
+    else if (!offer_on_glass() && formation_gesture_.armed())
+        formation_gesture_.disarm();
+
     sync_editor(now_ms);
 
     events::ContactEvent event{};
@@ -66,7 +71,27 @@ void ScreenService::handle_input(uint32_t now_ms) {
         resolve(gesture_.tick(now_ms));
         return;
     }
+    if (offer_on_glass()) answer_formation(formation_gesture_.tick(now_ms));
     step_editor(now_ms);
+}
+
+// The offer is answered the way everything else on this device is answered: two
+// presses inside the double-press window admit the neighbour, one refuses it.
+// Armed only while the offer is on the radar with no prompt over it, so a press
+// meant for a page can never join a formation.
+bool ScreenService::offer_on_glass() const {
+    return mode_ == Mode::Traffic && page_ == Page::Radar && prompt_ == comms::Pending::None &&
+           context_.state.formation.offered;
+}
+
+void ScreenService::answer_formation(Gesture gesture) {
+    if (gesture == Gesture::None) return;
+    if (gesture == Gesture::Confirm)
+        alarm_.admit_formation();
+    else
+        alarm_.release_formation();
+    formation_gesture_.disarm();
+    dirty_ = true;
 }
 
 void ScreenService::obey(Command command, uint32_t now_ms) {
@@ -85,6 +110,10 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
     pressed_once_ = true;
     if (prompt_ != comms::Pending::None) {
         if (gesture_.armed()) resolve(gesture_.press(now_ms));
+        return;
+    }
+    if (offer_on_glass() && formation_gesture_.armed()) {
+        answer_formation(formation_gesture_.press(now_ms));
         return;
     }
     if (editor_.active()) {
@@ -397,6 +426,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.airborne = context_.state.flight.running;
             snap.receiver_listening = receiver_listening();
             snap.max_alarm = context_.state.alarm_level;
+            snap.formation_members = context_.state.formation.members;
+            snap.formation_offered = context_.state.formation.offered;
+            snap.formation_offer_clock = context_.state.formation.offer_clock;
+            snap.formation_split = context_.state.formation.split;
             int n = 0;
             if (own.fix_valid) {
                 const model::OwnState own_now = flight::carried_to(own, now_ms);
@@ -417,6 +450,7 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].track_deg = to_degrees(Cordic9(obs.track_c9)).v;
                     targets_[n].turn_dps = t->turn.dps;
                     targets_[n].turn_valid = t->turn.valid;
+                    targets_[n].in_formation = t->in_formation;
                     n++;
                 }
             }
@@ -438,6 +472,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
+            snap.inclinometer_fitted =
+                ports::has(context_.roles.capabilities, ports::Capability::Inclinometer);
+            snap.lateral_valid = context_.state.slip.valid;
+            snap.lateral_mg = context_.state.slip.lateral_mg;
             draw_sixpack(fb_, snap);
             break;
         }

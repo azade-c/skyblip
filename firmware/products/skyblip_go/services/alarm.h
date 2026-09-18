@@ -4,6 +4,7 @@
 #include "core/annunciation/pattern.h"
 #include "core/indication/lamp.h"
 #include "core/traffic/alarm.h"
+#include "core/traffic/formation.h"
 #include "ports/indicator.h"
 #include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
@@ -37,6 +38,13 @@ class AlarmService : public runtime::Service {
     void clear_dirty() { dirty_ = false; }
 
     traffic::Level announcing_level() const { return policy_.announcing_level(); }
+
+    // The pilot answering the offer on the glass. A member is silenced on the
+    // annunciator and never on the plot, and a breach inside the urgent horizon
+    // takes the silence away again (core/traffic/README.md).
+    void admit_formation();
+    void release_formation();
+    int formation_members() const { return formation_.members(); }
     bool sounding() const { return policy_.sounding(); }
 
     // What the table decided, and what the lamp is showing this instant. Both,
@@ -46,6 +54,8 @@ class AlarmService : public runtime::Service {
     indication::Lamp lamp() const { return lamp_.lamp(); }
 
    private:
+    bool silenced(traffic::Target& target, const traffic::AlarmAssessment& assessment);
+    void watch_formation(traffic::Target& target, uint32_t now_ms);
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
 
@@ -71,6 +81,7 @@ class AlarmService : public runtime::Service {
                   "the service loop is too coarse to resolve the shortest flash");
 
     traffic::AlarmTracker tracker_{};
+    formation::Tracker formation_{};
     annunciation::Policy policy_{};
     indication::Policy lamp_{};
     bool dirty_{false};

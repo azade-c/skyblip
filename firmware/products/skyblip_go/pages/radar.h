@@ -25,6 +25,7 @@ struct RadarTarget {
     uint16_t track_deg{0};
     int16_t turn_dps{0};
     bool turn_valid{false};
+    bool in_formation{false};
 };
 
 struct RadarSnapshot {
@@ -41,6 +42,10 @@ struct RadarSnapshot {
     int n_targets{0};
     const RadarTarget* targets{nullptr};
     traffic::Level max_alarm{traffic::Level::None};
+    int formation_members{0};
+    int8_t formation_offer_clock{0};
+    bool formation_offered{false};
+    bool formation_split{false};
 };
 
 void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap);

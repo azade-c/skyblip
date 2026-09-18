@@ -33,7 +33,8 @@ struct Rig {
     go::SettingsStore store{settings};
     comms::ConfigService config{null.link, store};
     go::BootSnapshot self_test{};
-    go::ScreenService screen{context, settings, config, self_test};
+    go::AlarmService alarm_service{context, settings};
+    go::ScreenService screen{context, settings, config, alarm_service, self_test};
 
     Rig() {
         chip.attach_clock(clock);

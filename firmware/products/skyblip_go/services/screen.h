@@ -14,6 +14,7 @@
 #include "products/skyblip_go/pages/signal.h"
 #include "products/skyblip_go/pages/sixpack.h"
 #include "products/skyblip_go/pages/status.h"
+#include "products/skyblip_go/services/alarm.h"
 #include "runtime/service.h"
 
 namespace skyblip::go {
@@ -40,8 +41,12 @@ class ScreenService : public runtime::Service {
     // so that meaning can be "authorise this" when, and only when, a prompt the
     // pilot can read is on the glass.
     ScreenService(runtime::Context& context, Settings& settings, comms::ConfigService& config,
-                  const BootSnapshot& self_test)
-        : runtime::Service(context), settings_(settings), config_(config), self_test_(self_test) {}
+                  AlarmService& alarm, const BootSnapshot& self_test)
+        : runtime::Service(context),
+          settings_(settings),
+          config_(config),
+          alarm_(alarm),
+          self_test_(self_test) {}
 
     void tick(uint32_t now_ms) override;
 
@@ -86,6 +91,9 @@ class ScreenService : public runtime::Service {
     void sync_editor(uint32_t now_ms);
     void step_editor(uint32_t now_ms);
     void resolve(Gesture gesture);
+    void answer_formation(Gesture gesture);
+    bool offer_on_glass() const;
+    ConfirmGesture formation_gesture_{};
     Page traffic_page() const;
     enum class Change : uint8_t { None, Asked, Wiped };
     bool refresh_allowed() const;
@@ -110,6 +118,7 @@ class ScreenService : public runtime::Service {
 
     Settings& settings_;
     comms::ConfigService& config_;
+    AlarmService& alarm_;
     const BootSnapshot& self_test_;
     comms::Pending prompt_{comms::Pending::None};
     Controls controls_{};
