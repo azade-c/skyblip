@@ -1,6 +1,6 @@
 import createModule from './skyblip_simulator.js';
 
-export const PAGES = ['radar', '6-pack', 'status', 'satellites', 'signal', 'radio log'];
+export const PAGES = ['radar', 'nearby', '6-pack', 'status', 'satellites', 'radio log', 'self test'];
 export const ALARM = ['none', 'info', 'important', 'urgent'];
 export const SHUTDOWN = ['running', 'parking', 'await release', 'off'];
 export const REFRESH = ['idle', 'partial refresh', 'full refresh'];
@@ -61,7 +61,7 @@ export async function load() {
     blOn: call('simulator_backlight_on', 'number', n),
     powered: call('simulator_powered', 'number', n),
     page: call('simulator_page', 'number', n),
-    settingsOpen: call('simulator_settings_open', 'number', n),
+    menuOpen: call('simulator_menu_open', 'number', n),
     shutdownPhase: call('simulator_shutdown_phase', 'number', n),
 
     fixValid: call('simulator_fix_valid', 'number', n),

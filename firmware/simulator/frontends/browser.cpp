@@ -105,8 +105,8 @@ KEEPALIVE int simulator_present_count() { return g_simulator.present_count(); }
 KEEPALIVE int simulator_backlight_on() { return g_simulator.backlight() ? 1 : 0; }
 KEEPALIVE int simulator_powered() { return g_simulator.panel_powered() ? 1 : 0; }
 KEEPALIVE int simulator_page() { return static_cast<int>(g_simulator.product().screen().page()); }
-KEEPALIVE int simulator_settings_open() {
-    return g_simulator.product().screen().mode() == go::Mode::Settings ? 1 : 0;
+KEEPALIVE int simulator_menu_open() {
+    return g_simulator.product().screen().mode() == go::Mode::Menu ? 1 : 0;
 }
 KEEPALIVE int simulator_capabilities() {
     return static_cast<int>(g_simulator.product().capabilities());

@@ -85,7 +85,7 @@ TEST_CASE("screen policy: a second page change on a black glass costs no second 
     rig.tick(t += 600);
     CHECK(rig.chip.present_count == before + 2);
     CHECK_FALSE(rig.glass_all_black());
-    CHECK(rig.screen.page() == go::Page::Status);
+    CHECK(rig.screen.page() == go::Page::SixPack);
 }
 
 TEST_CASE("screen policy: a fix arriving is a data change, presented as a partial") {
@@ -151,18 +151,18 @@ TEST_CASE("screen policy: converging traffic takes the settings mode back off th
     rig.bus.input.push(events::ContactEvent{events::Contact::Button, true, t});
     rig.bus.input.push(events::ContactEvent{events::Contact::Button, false, t + 100});
     rig.run_seconds(t, 2);
-    REQUIRE(rig.screen.mode() == go::Mode::Settings);
+    REQUIRE(rig.screen.mode() == go::Mode::Menu);
     REQUIRE(rig.screen.editor().active());
 
     // An advisory is not worth taking a pilot's page away.
     rig.alarm(traffic::Level::Info);
     rig.run_seconds(t, 2);
-    CHECK(rig.screen.mode() == go::Mode::Settings);
+    CHECK(rig.screen.mode() == go::Mode::Menu);
 
     // A bearing worth turning the head for is: the menu goes and the traffic picture comes back.
     rig.alarm(go::ScreenService::kAlarmTakesGlass);
     rig.run_seconds(t, 2);
-    CHECK(rig.screen.mode() == go::Mode::Traffic);
+    CHECK(rig.screen.mode() == go::Mode::Page);
     CHECK(rig.screen.page() == go::Page::Radar);
     CHECK_FALSE(rig.screen.editor().active());
     CHECK_FALSE(rig.chip.last_full);
@@ -207,19 +207,18 @@ TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe an
     CHECK(rig.screen.page() == go::Page::Radar);
 }
 
-// The wipe belongs to the page that changed, and with one page left in the mask none does.
-TEST_CASE("screen policy: a tap that has nowhere to go costs no wipe") {
+// Nothing may hide a page: the radar is home and the nearby menu opens the rest.
+TEST_CASE("screen policy: the walk is three pages, always, and every tap is a page change") {
     Rig rig;
     uint32_t t = 0;
-    rig.settings.page_mask = 0x01;  // the radar alone
     rig.run_seconds(t, 3);
-    const int settled = rig.chip.present_count;
 
-    rig.screen.next_page();
-    rig.run_seconds(t, 2);
-    CHECK(rig.screen.page() == go::Page::Radar);
-    CHECK_FALSE(rig.glass_all_black());
-    CHECK(rig.chip.present_count == settled);
+    const go::Page walk[3] = {go::Page::Nearby, go::Page::SixPack, go::Page::Radar};
+    for (go::Page expected : walk) {
+        rig.screen.next_page();
+        rig.run_seconds(t, 2);
+        CHECK(rig.screen.page() == expected);
+    }
 }
 
 // A page is asked for by name, and the radar asked for from the radar is a page already there.

@@ -74,7 +74,6 @@ struct Settings {
     uint8_t alarm_volume{3};
     bool stealth{false};
     Units units{Units::Nautical};
-    uint8_t page_mask{0x3F};
     char callsign[kCallsignCap]{0};
 
     // The companion-link contract, which is what schemas/config.v1.schema.json
@@ -82,14 +81,7 @@ struct Settings {
     static constexpr uint8_t kCurrentVersion = 1;
 };
 
-// The flash framing, which is a different thing from the contract above: it
-// moves whenever the struct's bytes move. Version 1 carried region, rotation and
-// power_save between aircraft_type and callsign; version 2 dropped those three
-// and had no battery_offset_mv. from_blob still reads all of them. Version 3 is
-// the same length as version 2 and a different layout, which is exactly the case
-// a length check cannot catch and the version byte must. Version 4 adds
-// freq_trim_e1_ppm and is four bytes longer than version 3.
-constexpr uint8_t kBlobVersion = 4;
+constexpr uint8_t kBlobVersion = 5;
 
 Settings defaults(uint32_t addr = 0);
 

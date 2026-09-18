@@ -7,12 +7,12 @@
 #include "core/traffic/alarm.h"
 #include "core/units/units.h"
 #include "products/skyblip_go/glass.h"
+#include "products/skyblip_go/pages/page.h"
 #include "products/skyblip_go/settings.h"
 
 namespace skyblip::go {
 
 using skyblip::kMetresPerNm;
-constexpr int32_t kDefaultRangeNm = 4;
 constexpr int kMaxRadarTargets = 12;
 
 struct RadarTarget {

@@ -33,8 +33,8 @@ namespace skyblip::traffic {
 //   dipole-referenced antennas at both ends and nothing at all in the way.
 //
 // That is 121 dB of budget, and free space at 868.2 MHz spends 120.8 dB of it by
-// 30 km (core/traffic/link.h's own free_space_loss_db is where that number comes
-// from, and test/core/test_traffic.cpp checks it still holds). A real
+// 30 km (32.4 + 20log10 f_MHz + 20log10 d_km, and test/core/test_traffic.cpp
+// checks the figure still holds). A real
 // installation loses several dB into a cockpit at each end, so the air-to-air
 // figure in practice is a third of this: 30 km is a ceiling, never a promise.
 //

@@ -11,7 +11,6 @@
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/traffic/alarm.h"
-#include "core/traffic/link.h"
 #include "core/traffic/sanity.h"
 #include "core/traffic/table.h"
 #include "core/util/intmath.h"
@@ -21,6 +20,12 @@ using namespace skyblip;
 using namespace skyblip::traffic;
 
 namespace {
+
+// 32.44 + 20log10(f_MHz) + 20log10(d_km), the textbook free-space loss, in the
+// test because no page reads it any more and the gate below is still sized by it.
+double free_space_loss_db(int32_t range_m) {
+    return 32.44 + 20.0 * std::log10(868.2) + 20.0 * std::log10(range_m / 1000.0);
+}
 
 uint16_t c9(int deg) { return static_cast<uint16_t>(((deg % 360 + 360) % 360) * 512 / 360); }
 
@@ -619,6 +624,7 @@ TEST_CASE("traffic: the plausibility gate is exact at its own boundary") {
     // which is what makes this a ceiling rather than a limit on what we display.
     CHECK(free_space_loss_db(kMaxPlausibleRangeM) >= 120);
     CHECK(free_space_loss_db(kMaxPlausibleRangeM / 2) < 121);
+
     // Four times the outermost thing the alarm layer will speak about, so no
     // contact a pilot could act on is inside the part being refused.
     CHECK(kMaxPlausibleRangeM > 4 * kInfoDistM);

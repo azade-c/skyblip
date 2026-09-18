@@ -46,7 +46,6 @@ go::Settings widest_settings() {
     s.addr_table = 63;
     s.aircraft_type = 17;
     s.alarm_volume = 5;
-    s.page_mask = 255;
     s.units = go::Units::Nautical;
     std::memcpy(s.callsign, "ABCDEFGHI", 10);  // the nine characters the schema allows
     return s;
@@ -166,9 +165,8 @@ TEST_CASE("comms: the config reply fits it too, as one flat object instead of an
     CHECK(body.find("\"version\":1") != std::string::npos);
     CHECK(body.find("\"addr\":16777215") != std::string::npos);
     CHECK(body.find("\"addr_table\":63") != std::string::npos);
-    CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
     // The last field written, so its presence is the proof nothing was dropped.
-    CHECK(body.find("\"page_mask\":255") != std::string::npos);
+    CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
 }
 
 TEST_CASE("comms: a link that came up at the BLE minimum is answered with a count, not a frame") {

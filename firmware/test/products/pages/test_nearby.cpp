@@ -1,0 +1,175 @@
+// The list a pilot reads when the plot says something is there: who, how far, how much above.
+#include "core/model/aircraft.h"
+#include "doctest/doctest.h"
+#include "products/skyblip_go/glass.h"
+#include "products/skyblip_go/pages/nearby.h"
+
+using namespace skyblip;
+using namespace skyblip::go;
+
+namespace {
+
+constexpr int kRowH = 7 * kNearbyScale;
+
+int row_y(int index) { return kNearbyFirstRowY + index * kNearbyLineH; }
+
+// Ink inside one row band, so a drawn row is told from an empty one without asserting on glyphs.
+int ink_in_row(const Glass& fb, int index) {
+    const int y0 = row_y(index);
+    int n = 0;
+    for (int y = y0; y < y0 + kRowH; y++)
+        for (int x = 0; x < Glass::kW; x++)
+            if (fb.get_pixel(x, y)) n++;
+    return n;
+}
+
+// A case claims a column reads "2.3", not that there is ink in it.
+bool reads_right_of(const Glass& fb, int x_end, int y, const char* text, int scale) {
+    int n = 0;
+    while (text[n]) n++;
+    Glass wanted;
+    wanted.clear(true);
+    wanted.draw_text(0, 0, text, true, scale);
+    const int x0 = x_end - n * 6 * scale;
+    for (int dy = 0; dy < 7 * scale; dy++)
+        for (int dx = 0; dx < n * 6 * scale - 1; dx++)
+            if (fb.get_pixel(x0 + dx, y + dy) != wanted.get_pixel(dx, dy)) return false;
+    return true;
+}
+
+bool reads_at(const Glass& fb, int x, int y, const char* text, int scale) {
+    int n = 0;
+    while (text[n]) n++;
+    return reads_right_of(fb, x + n * 6 * scale, y, text, scale);
+}
+
+NearbySnapshot listing(const traffic::RangeRow* rows, int n, go::Units units) {
+    NearbySnapshot snap;
+    snap.fix_valid = true;
+    snap.units = units;
+    snap.n_heard = n;
+    snap.n_rows = n;
+    snap.rows = rows;
+    return snap;
+}
+
+traffic::RangeRow row_at(int32_t slant_m, int32_t up_m) {
+    traffic::RangeRow r;
+    r.addr = 0x3FA21C;
+    r.source = model::Source::AdslDirect;
+    r.slant_m = slant_m;
+    r.up_m = up_m;
+    return r;
+}
+
+}  // namespace
+
+TEST_CASE("nearby: one row per emitter heard, and none for the rest") {
+    traffic::RangeRow rows[3] = {row_at(400, 120), row_at(4300, -366), row_at(9100, 0)};
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 3, go::Units::Nautical));
+
+    for (int i = 0; i < 3; i++) CHECK(ink_in_row(fb, i) > 20);
+    CHECK(ink_in_row(fb, 3) == 0);
+}
+
+// The address is what a pilot reads back to a controller or matches against a club list.
+TEST_CASE("nearby: a row names the system that was heard and the whole address") {
+    traffic::RangeRow rows[3] = {row_at(400, 0), row_at(900, 0), row_at(1400, 0)};
+    rows[1].source = model::Source::Alptas;
+    rows[2].source = model::Source::AdslUplink;
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 3, go::Units::Nautical));
+
+    CHECK(reads_at(fb, kNearbyIdX, row_y(0), "A 3FA21C", kNearbyScale));
+    CHECK(reads_at(fb, kNearbyIdX, row_y(1), "F 3FA21C", kNearbyScale));
+    CHECK(reads_at(fb, kNearbyIdX, row_y(2), "U 3FA21C", kNearbyScale));
+}
+
+TEST_CASE("nearby: no fix means no range, and the page says so instead of listing") {
+    traffic::RangeRow rows[1] = {row_at(4300, 120)};
+    NearbySnapshot snap = listing(rows, 1, go::Units::Nautical);
+    snap.fix_valid = false;
+    snap.n_heard = 4;
+
+    Glass fb;
+    draw_nearby(fb, snap);
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyFirstRowY, "NO FIX: NO RANGE", 1));
+}
+
+TEST_CASE("nearby: the header counts what was heard, not what fits") {
+    NearbySnapshot snap;
+    snap.fix_valid = true;
+    snap.n_heard = 26;
+    snap.n_rows = 0;
+    snap.rows = nullptr;
+
+    Glass fb;
+    draw_nearby(fb, snap);
+    CHECK(reads_right_of(fb, kNearbyRelEnd, 2, "26 HEARD", 1));
+    CHECK(ink_in_row(fb, 1) == 0);
+}
+
+// B4. A pilot who asked for miles on the instruments is not handed kilometres here.
+TEST_CASE("nearby: the range column reads in the unit a pilot set") {
+    traffic::RangeRow rows[1] = {row_at(4300, 0)};  // 4.3 km, 2.3 NM
+
+    Glass nautical, metric;
+    draw_nearby(nautical, listing(rows, 1, go::Units::Nautical));
+    draw_nearby(metric, listing(rows, 1, go::Units::Metric));
+
+    CHECK(reads_right_of(nautical, kNearbySlantEnd, row_y(0), "2.3", kNearbyScale));
+    CHECK(reads_right_of(nautical, kNearbySlantEnd, kNearbyUnitsY, "NM", 1));
+    CHECK(reads_right_of(metric, kNearbySlantEnd, row_y(0), "4.3", kNearbyScale));
+    CHECK(reads_right_of(metric, kNearbySlantEnd, kNearbyUnitsY, "km", 1));
+}
+
+// A separation is cleared and flown in feet wherever the aeroplane is.
+TEST_CASE("nearby: relative altitude reads in hundreds of feet under either unit setting") {
+    traffic::RangeRow rows[1] = {row_at(4300, 366)};  // up 366 m, 1200 ft
+
+    Glass nautical, metric;
+    draw_nearby(nautical, listing(rows, 1, go::Units::Nautical));
+    draw_nearby(metric, listing(rows, 1, go::Units::Metric));
+
+    CHECK(reads_right_of(nautical, kNearbyRelEnd, row_y(0), "+12", kNearbyScale));
+    CHECK(reads_right_of(metric, kNearbyRelEnd, row_y(0), "+12", kNearbyScale));
+    CHECK(reads_right_of(metric, kNearbyRelEnd, kNearbyUnitsY, "100FT", 1));
+}
+
+TEST_CASE("nearby: traffic below carries its sign, and traffic at this level carries none") {
+    traffic::RangeRow rows[2] = {row_at(1200, -366), row_at(2000, 3)};
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 2, go::Units::Nautical));
+
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "-12", kNearbyScale));
+    // +0 and -0 are the same number, and a sign an eye has to discard is one not to draw.
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "0", kNearbyScale));
+}
+
+// Three double-height columns fill the glass, so a figure with one more digit hits its neighbour.
+TEST_CASE("nearby: a range or a separation past what the column holds is said in words") {
+    traffic::RangeRow rows[2] = {row_at(200000, 9000), row_at(1000, -9000)};
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 2, go::Units::Nautical));
+
+    CHECK(reads_right_of(fb, kNearbySlantEnd, row_y(0), "FAR", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "+99", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "-99", kNearbyScale));
+}
+
+TEST_CASE("nearby: more emitters than rows are cut, never overdrawn") {
+    traffic::RangeRow rows[kNearbyRows + 4];
+    for (int i = 0; i < kNearbyRows + 4; i++) rows[i] = row_at(500 + 100 * i, 30 * i);
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, kNearbyRows + 4, go::Units::Nautical));
+
+    for (int i = 0; i < kNearbyRows; i++) CHECK(ink_in_row(fb, i) > 20);
+    for (int y = row_y(kNearbyRows - 1) + kRowH; y < Glass::kH; y++)
+        for (int x = 0; x < Glass::kW; x++) CHECK_FALSE(fb.get_pixel(x, y));
+}

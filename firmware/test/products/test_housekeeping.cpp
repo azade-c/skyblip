@@ -187,7 +187,7 @@ TEST_CASE("product: the hold that switches the device off does not page first") 
     rig.hold_button(t, 300, /*down=*/false);
     CHECK(rig.product.screen().page() == page);
     // Nor does it open the settings on the way out: a hold is never a press.
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
 }
 
 // D4 over the link: the same road, from a phone instead of a thumb.
@@ -260,7 +260,7 @@ TEST_CASE("product: a page tap is not a power-off") {
     uint32_t t = 0;
     rig.tap_pad(t);
     rig.run(t, t + 2000);
-    CHECK(rig.product.screen().page() == go::Page::SixPack);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
     CHECK_FALSE(rig.product.shutdown().going_down());
     CHECK(rig.product.board().rf().sleeps() == 0);
 }
@@ -408,7 +408,7 @@ TEST_CASE("product: paging does not authorise a firmware upload") {
 
     // A pilot pages through the screens, on a device with nothing pending.
     rig.tap_pad(t);
-    REQUIRE(rig.product.screen().page() == go::Page::SixPack);
+    REQUIRE(rig.product.screen().page() == go::Page::Nearby);
 
     // Long enough for the question to have reached the glass.
     rig.send("{\"cmd\":\"dfu\"}");
@@ -422,7 +422,7 @@ TEST_CASE("product: paging does not authorise a firmware upload") {
     t += go::ConfirmGesture::kDoublePressMs + 200;
     CHECK_FALSE(rig.config().upload_allowed());
     CHECK(rig.config().pending() == comms::Pending::Dfu);
-    CHECK(rig.product.screen().page() == go::Page::SixPack);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
 
     // The button at a prompt is the answer, and one press alone refuses.
     rig.press(t);
@@ -430,11 +430,11 @@ TEST_CASE("product: paging does not authorise a firmware upload") {
     t += go::ConfirmGesture::kDoublePressMs + 200;
     CHECK_FALSE(rig.config().upload_allowed());
     CHECK(rig.config().pending() == comms::Pending::None);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
 
     // With the prompt gone, the same tap pages again.
     rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Status);
+    CHECK(rig.product.screen().page() == go::Page::SixPack);
 }
 
 TEST_CASE("product: two presses on the ground are what open the upload window") {
@@ -515,7 +515,7 @@ TEST_CASE("product: a prompt nobody answers expires, and the device is not power
     // And the panel is back on the page the pilot left it on.
     CHECK(rig.product.screen().page() == go::Page::Radar);
     rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::SixPack);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
 }
 
 // I: a receiver with a poisoned almanac takes twenty minutes to fix and a pilot

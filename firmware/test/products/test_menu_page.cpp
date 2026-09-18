@@ -11,7 +11,7 @@
 #include "doctest/doctest.h"
 #include "products/skyblip_go/input/gesture.h"
 #include "products/skyblip_go/pages/confirm.h"
-#include "products/skyblip_go/pages/settings.h"
+#include "products/skyblip_go/pages/menu.h"
 #include "products/skyblip_go/settings.h"
 #include "test/support/product_rig.h"
 
@@ -54,12 +54,9 @@ void airborne(Rig& rig, uint32_t& t) {
     }
 }
 
-void open_settings(Rig& rig, uint32_t& t) {
+void open_menu(Rig& rig, uint32_t& t) {
     rig.press(t);
-    REQUIRE(rig.product.screen().mode() == go::Mode::Settings);
-    settle(rig, t);
-    REQUIRE(rig.product.screen().showing_self_test());
-    rig.tap_pad(t);
+    REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
     settle(rig, t);
 }
 
@@ -84,8 +81,8 @@ void run_past_the_write_settle(Rig& rig, uint32_t& t) {
     t += ms;
 }
 
-void focus_on(Rig& rig, uint32_t& t, go::SettingsRow row) {
-    for (int i = 0; i < go::kSettingsRowCount; i++) {
+void focus_on(Rig& rig, uint32_t& t, go::MenuRow row) {
+    for (int i = 0; i < go::menu_for(go::Page::Radar).n; i++) {
         if (rig.product.screen().editor().focus() == row) break;
         move(rig, t);
     }
@@ -109,41 +106,49 @@ bool stored_settings(Rig& rig, go::Settings& out) {
 }
 
 go::Glass expected_page(Rig& rig) {
-    go::SettingsSnapshot snapshot;
+    go::MenuSnapshot snapshot;
+    snapshot.page = rig.product.screen().editor().page();
     snapshot.values.settings = rig.settings();
     snapshot.values.qnh_pa = rig.state().baro.qnh_pa;
+    snapshot.values.range_nm = rig.product.screen().range_nm();
     snapshot.focus = rig.product.screen().editor().focus();
     go::Glass fb;
-    go::draw_settings(fb, snapshot);
+    go::draw_menu(fb, snapshot);
     return fb;
 }
 
 }  // namespace
 
-TEST_CASE("product: a press on any traffic page opens the settings mode") {
+TEST_CASE("product: a press opens the menu of the page a pilot is standing on") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.tap_pad(t);
-    REQUIRE(rig.product.screen().page() == go::Page::SixPack);
 
     rig.press(t);
-    CHECK(rig.product.screen().mode() == go::Mode::Settings);
+    CHECK(rig.product.screen().mode() == go::Mode::Menu);
+    CHECK(rig.product.screen().editor().page() == go::Page::Radar);
     CHECK(rig.product.screen().editor().active());
 
     // On the rows the pad still navigates: it walks them one at a time.
-    rig.tap_pad(t);
-    settle(rig, t);
-    REQUIRE(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
+    REQUIRE(rig.product.screen().editor().focus() == go::MenuRow::Identity);
     move(rig, t);
-    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::AircraftType);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::AircraftType);
 
-    // The button on the Leave row hands the glass back.
-    focus_on(rig, t, go::SettingsRow::Leave);
-    change(rig, t);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    // The pad past the last row hands the glass back to the page the menu belongs to.
+    focus_on(rig, t, go::MenuRow::Stealth);
+    move(rig, t);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
+
+    // And the next page along carries its own menu, not the radar's.
+    rig.tap_pad(t);
+    settle(rig, t);
+    REQUIRE(rig.product.screen().page() == go::Page::Nearby);
+    rig.press(t);
+    settle(rig, t);
+    CHECK(rig.product.screen().editor().page() == go::Page::Nearby);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::RadioLog);
 }
 
 // The pad's gestures are one hold apart from the stow, and this one takes the device off.
@@ -160,35 +165,35 @@ TEST_CASE("product: a hold the button joins switches the device off, it opens no
     t += power::kLongPressMs + 400;
 
     CHECK(rig.product.shutdown().reason() == power::ShutdownReason::Stow);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
 }
 
-// Boot no longer flashes the self test, so the settings mode is the only way to it.
-TEST_CASE("product: the settings mode opens on the self test and a press walks into the rows") {
+// Boot no longer flashes the self test, so the nearby menu is the only way to it.
+TEST_CASE("product: the self test is a page the nearby menu opens") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.press(t);
-    REQUIRE(rig.product.screen().mode() == go::Mode::Settings);
+    rig.tap_pad(t);
     settle(rig, t);
+    REQUIRE(rig.product.screen().page() == go::Page::Nearby);
+
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::SelfTest);
+    change(rig, t);
     rig.run(t, t + 4000);
     t += 4000;
 
-    CHECK(rig.product.screen().showing_self_test());
+    CHECK(rig.product.screen().page() == go::Page::SelfTest);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
     CHECK(std::memcmp(rig.product.screen().framebuffer().data(), rig.product.boot_page().data(),
                       go::Glass::kBytes) == 0);
     CHECK(rig.platform.chips().epd.framebuffer().count_black() ==
           rig.product.boot_page().count_black());
 
-    rig.press(t);
+    // A tap goes back to the page whose menu opened it, not on to a fourth picture.
+    rig.tap_pad(t);
     settle(rig, t);
-    rig.run(t, t + 4000);
-    t += 4000;
-    CHECK_FALSE(rig.product.screen().showing_self_test());
-    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
-    const go::Glass rows = expected_page(rig);
-    CHECK(std::memcmp(rig.product.screen().framebuffer().data(), rows.data(), go::Glass::kBytes) ==
-          0);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
 }
 
 TEST_CASE("product: the settings page reaches the glass, drawn from what the device is running") {
@@ -196,7 +201,7 @@ TEST_CASE("product: the settings page reaches the glass, drawn from what the dev
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     rig.settings().aircraft_type = 4;
-    open_settings(rig, t);
+    open_menu(rig, t);
     rig.run(t, t + 4000);
     t += 4000;
 
@@ -215,8 +220,8 @@ TEST_CASE("product: the alarm volume a pilot sets on the panel is the one that s
     uint32_t t = 100;
     REQUIRE(rig.settings().alarm_volume == 3);
 
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
     change(rig, t);
     rig.run(t, t + 500);
     t += 500;
@@ -244,8 +249,8 @@ TEST_CASE("product: the aircraft type set on the panel is the one that goes on t
     uint32_t t = 100;
     REQUIRE(rig.settings().aircraft_type == go::kAircraftTypeLight);
 
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::AircraftType);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::AircraftType);
     change(rig, t);
     change(rig, t);
     run_past_the_write_settle(rig, t);
@@ -269,15 +274,14 @@ TEST_CASE("product: walking the rows without changing one writes nothing at all"
     uint32_t t = 100;
     const go::Settings before = rig.settings();
 
-    open_settings(rig, t);
-    for (int i = 0; i < go::kSettingsRowCount; i++) move(rig, t);
+    open_menu(rig, t);
+    for (int i = 0; i < go::menu_for(go::Page::Radar).n; i++) move(rig, t);
 
     // Off the last row and back to the traffic picture the pad pages through.
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
     CHECK(rig.settings().aircraft_type == before.aircraft_type);
     CHECK(rig.settings().alarm_volume == before.alarm_volume);
-    CHECK(rig.settings().page_mask == before.page_mask);
 
     // Nothing was staged, so there was nothing to write: the flash has never
     // been touched and the device cannot be half edited.
@@ -285,36 +289,29 @@ TEST_CASE("product: walking the rows without changing one writes nothing at all"
     CHECK_FALSE(stored_settings(rig, stored));
 
     rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::SixPack);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
 }
 
 TEST_CASE("product: a page nobody presses gives the traffic picture back on its own") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
 
-    rig.run(t, t + go::SettingsEditor::kIdleReturnMs + 2000);
-    t += go::SettingsEditor::kIdleReturnMs + 2000;
+    rig.run(t, t + go::MenuEditor::kIdleReturnMs + 2000);
+    t += go::MenuEditor::kIdleReturnMs + 2000;
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
 }
 
-TEST_CASE("product: the settings mode is reachable whatever the page mask says") {
+TEST_CASE("product: the pad walks out of a menu onto the page that opened it") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    // Every traffic page hidden, and the mode that undoes it still one gesture away.
-    rig.settings().page_mask = 0;
-    open_settings(rig, t);
 
-    focus_on(rig, t, go::SettingsRow::Pages);
-    change(rig, t);
-    CHECK(rig.settings().page_mask == go::kPageMaskAll);
-
-    // ... and leaving now lands on the radar, because the mask says it exists.
-    focus_on(rig, t, go::SettingsRow::Leave);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Stealth);
     move(rig, t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
 }
@@ -327,8 +324,8 @@ TEST_CASE("product: an invalid setting is never written by the page that could n
     rig.settings().aircraft_type = 200;
     REQUIRE(go::validate(rig.settings()) != Status::Ok);
 
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
     change(rig, t);
     change(rig, t);
     rig.run(t, t + 500);
@@ -346,8 +343,8 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
     on_ground(rig, t);
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
     const uint8_t volume = rig.settings().alarm_volume;
 
     // A phone asks to overwrite the firmware while the pilot is tapping a value
@@ -393,16 +390,16 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
     CHECK(rig.product.config().config().upload_allowed());
 
     // Back on the rows, at the top: the pilot was reading something else in between.
-    CHECK(rig.product.screen().mode() == go::Mode::Settings);
-    CHECK(rig.product.screen().editor().focus() == go::SettingsRow::Identity);
+    CHECK(rig.product.screen().mode() == go::Mode::Menu);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Identity);
 }
 
 TEST_CASE("product: a long press in the middle of an edit still switches the device off") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
     const uint8_t volume = rig.settings().alarm_volume;
 
     hold_button(rig, t, power::kLongPressMs + 300);
@@ -434,8 +431,8 @@ TEST_CASE("product: the volume can be turned up in the air, where a phone is ref
     // The pilot, on the panel, can. Presence is the thing the phone lacks, and
     // an alarm that is too quiet under a headset is a thing you find out about
     // in the air.
-    open_settings(rig, t);
-    focus_on(rig, t, go::SettingsRow::Volume);
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Volume);
     change(rig, t);
     change(rig, t);
     run_past_the_write_settle(rig, t);
@@ -455,47 +452,31 @@ TEST_CASE("product: a screen change wipes the glass, and no keypress asks for a 
     t += 3000;
     REQUIRE_FALSE(rig.platform.chips().epd.last_full);
 
-    open_settings(rig, t);
+    open_menu(rig, t);
     rig.run(t, t + 4000);
     t += 4000;
     CHECK_FALSE(rig.platform.chips().epd.last_full);
     CHECK(rig.platform.chips().epd.present_count >= 3);  // boot, the black frame, then the page
 
-    focus_on(rig, t, go::SettingsRow::Volume);
+    focus_on(rig, t, go::MenuRow::Volume);
     change(rig, t);
     change(rig, t);
     rig.run(t, t + 2000);
     t += 2000;
     CHECK_FALSE(rig.platform.chips().epd.last_full);
 
-    focus_on(rig, t, go::SettingsRow::Leave);
+    focus_on(rig, t, go::MenuRow::Stealth);
     move(rig, t);
     REQUIRE(rig.product.screen().page() == go::Page::Radar);
     rig.run(t, t + 4000);
     CHECK_FALSE(rig.platform.chips().epd.last_full);
 }
 
-// A page added to the walk with no bit for it is a page nobody can reach.
-TEST_CASE("product: the ALL mask covers every page there is") {
-    CHECK(go::kPageMaskAll == (1u << static_cast<int>(go::Page::kCount)) - 1);
-    CHECK(go::kPageMaskEveryPageBeforeSats == go::kPageMaskAll >> 1);
-}
-
-// A unit upgrading was showing everything there was, and it keeps showing everything.
-TEST_CASE("product: a stored mask from before the satellites page still means all of them") {
-    go::Settings s;
-    s.device_addr = 0x3FA21C;
-    s.page_mask = go::kPageMaskEveryPageBeforeSats;
-    uint8_t blob[128];
-    go::to_blob(s, blob, sizeof(blob));
-
-    go::Settings loaded;
-    REQUIRE(go::from_blob(blob, go::blob_size(), loaded) == Status::Ok);
-    CHECK(loaded.page_mask == go::kPageMaskAll);
-
-    // A mask the pilot narrowed is left alone.
-    s.page_mask = go::kPageMaskTrafficOnly;
-    go::to_blob(s, blob, sizeof(blob));
-    REQUIRE(go::from_blob(blob, go::blob_size(), loaded) == Status::Ok);
-    CHECK(loaded.page_mask == go::kPageMaskTrafficOnly);
+// Every page off the walk hangs on one menu, and a page on no menu is unreachable.
+TEST_CASE("product: every page the pad does not walk is opened by a row that names it") {
+    for (int i = go::kWalkedPages; i < go::kPageCount; i++) {
+        const go::Page page = static_cast<go::Page>(i);
+        CHECK(go::menu_owner(page) == go::Page::Nearby);
+        CHECK(Rig::row_for(page) != go::MenuRow::kCount);
+    }
 }

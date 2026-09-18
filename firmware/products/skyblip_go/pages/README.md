@@ -2,13 +2,13 @@
 
 One file per page, each one a pure function from a snapshot struct to pixels. A page reads nothing, owns nothing and decides nothing: `go::ScreenService` fills the snapshot and the page draws it, which is what lets every page be tested without a device, a bus or a clock.
 
-These pages are what a skyBlip Go is, which is why they live with the product rather than in `ui/`: `radar`, `sixpack`, `signal` and the rest map one for one onto `go::Page`, and none of them is a thing a ground station would draw. What they draw on is `go::Glass`, the 200x200 the T-Echo Plus carries (`boards/lilygo/t_echo_plus/glass.h`), and every figure below is measured for that panel at arm's length in sunlight rather than scaled to it. Another glass re-measures them; it does not divide them.
+These pages are what a skyBlip Go is, which is why they live with the product rather than in `ui/`: `radar`, `nearby`, `sixpack` and the rest map one for one onto `go::Page`, and none of them is a thing a ground station would draw. What they draw on is `go::Glass`, the 200x200 the T-Echo Plus carries (`boards/lilygo/t_echo_plus/glass.h`), and every figure below is measured for that panel at arm's length in sunlight rather than scaled to it. Another glass re-measures them; it does not divide them.
 
 ## The unit every page reads in
 
-`settings::units` is one setting and it reaches every page that prints a distance or a speed: the radar's range ring, `signal`'s slant range, `sixpack`'s speed dial. `Nautical` out of the box, which is nautical miles and knots; `Metric` is kilometres and km/h. The two settings are `Metric` and `Nautical`, not metric and imperial. A knot is a nautical mile an hour and a flight level is a hundred feet of pressure altitude, and neither has anything to do with the imperial system; calling them that invites somebody to add statute miles or Fahrenheit to a page that must never carry them.
+`settings::units` is one setting and it reaches every page that prints a distance or a speed: the radar's range ring, `nearby`'s slant range, `sixpack`'s speed dial. `Nautical` out of the box, which is nautical miles and knots; `Metric` is kilometres and km/h. The two settings are `Metric` and `Nautical`, not metric and imperial. A knot is a nautical mile an hour and a flight level is a hundred feet of pressure altitude, and neither has anything to do with the imperial system; calling them that invites somebody to add statute miles or Fahrenheit to a page that must never carry them.
 
-Vertical is feet whatever the setting says, on every page that shows it: the altimeter, the vertical speed in feet per minute, the radar's altitude tags in hundreds of feet, `signal`'s relative altitude. A level is cleared in feet and a climb rate is flown to in feet per minute wherever the aeroplane is, so a pilot reading km/h on the speed dial still reads feet on the separation to the aircraft above them.
+Vertical is feet whatever the setting says, on every page that shows it: the altimeter, the vertical speed in feet per minute, the radar's altitude tags in hundreds of feet, `nearby`'s relative altitude. A level is cleared in feet and a climb rate is flown to in feet per minute wherever the aeroplane is, so a pilot reading km/h on the speed dial still reads feet on the separation to the aircraft above them.
 
 `status` is the one page the setting does not reach, and that is what the page is for: it has the room for two columns, so it prints the aeronautical figure and the SI one side by side rather than asking which one a pilot wanted. A bench comparing a reading against a phone converts nothing.
 
@@ -60,7 +60,7 @@ The rate is not a choice made here: `ScreenService` flips the phase on each fram
 
 Every graded aircraft flashes a sector of its own, on its own bearing, and where two overlap the glass inverts once rather than twice: two aircraft are two places to look, and a pilot told about only the louder of them looks once and stops. The sectors share the phase, so what flashes is the picture and not a set of lights each keeping its own time.
 
-The sector exists on this page and nowhere else, so an alarm worth `Important` brings the page with it: a pilot reading `sixpack`, the signal page or the settings menu when a contact escalates is put back on the radar, on the pass it happens. It is taken once and not held. Walking off the radar again under a standing alarm is a pilot's to do, and a page that could not be left would be a device arguing with the thumb on it.
+The sector exists on this page and nowhere else, so an alarm worth `Important` brings the page with it: a pilot reading `sixpack`, `nearby` or a menu when a contact escalates is put back on the radar, on the pass it happens. It is taken once and not held. Walking off the radar again under a standing alarm is a pilot's to do, and a page that could not be left would be a device arguing with the thumb on it.
 
 What a flash from the first grade costs is a panel refresh a second for as long as anything is in the ring, which in a busy circuit is most of the flight, and that is exactly what the pad's long touch is for. With an alarm standing that is all the hold does - it does not also change the page, and a hold on the radar leaves the glass alone (`../input/README.md`). It takes the sector, the sound and the lamp together, for every aircraft the device has already spoken about at once, and nothing is written in their place. A sector that has gone out is the whole mark: a word saying so would be a line of 5x7 text explaining a picture that is already the explanation, and it would be there long after the pilot stopped needing it. The plot is what stays - the symbol, the leader and the tag - because those are a claim about the sky, and the dismissal was a claim about what the pilot has seen. An aircraft that gets worse, and any aircraft heard for the first time, takes its own sector, its own tone and the lamp back on the pass it happens, and leaves the rest of the sky quiet.
 
@@ -86,11 +86,25 @@ It is not `fb.circle`, and it is not a Bresenham arc either. A midpoint circle i
 
 The ring is four nautical miles, and the range is carried in whole miles rather than in metres: the label is then the setting itself, and no rounding stands between what a pilot picked and what the glass says. The kilometre label is that same range converted and carries a tenth, because a whole number there would be a ring the footer is half a kilometre wrong about. Miles because that is what a pilot's other instruments and the airspace around them are marked in, and four because at the speeds this device is flown at a head-on conflict entering the ring is around two minutes away. Metres are the plot's business, one multiplication further in.
 
-The count on the right is the ring, not the receiver and not the glass: the aircraft inside the circle the footer names, so a target drawn out in a corner is not in it, and `signal` is where everything heard is listed. It is the biggest figure on the page, a size above the clock, because aircraft in the ring is what a pilot is here for and the clock is read once a leg. `ACT` stays in the small font beside it: the count is what is read, the word only says what it counted.
+The count on the right is the ring, not the receiver and not the glass: the aircraft inside the circle the footer names, so a target drawn out in a corner is not in it, and `nearby` is where everything heard is listed. It is the biggest figure on the page, a size above the clock, because aircraft in the ring is what a pilot is here for and the clock is read once a leg. `ACT` stays in the small font beside it: the count is what is read, the word only says what it counted.
 
 That count reads `-`, not `0`, until the page can make the claim: an SX1262 on the board, PPS locked so the dwells fall where the protocol says, and a position to plot against. Given those, `0` is a measurement and says the ring is clear - a quiet band is not a fault, and the radio is trusted to be listening rather than made to prove it with a frame. Without them an empty sky and a radio that never started look identical on the plot, and `0` would be the half of that the page cannot know. One dash and not three, at the size of the figure it stands in for, because it stands where a single digit stands and the footer should not shift when the first aircraft arrives.
 
 The three of them share one baseline, which stands the same four pixels off the bottom of the glass as the outer two stand off its sides, because type flush to the edge of a round window reads as something that fell off. `FLIGHT` is the only thing off it, stacked over its clock rather than beside it: at double height a word and the widest clock together are wider than the glass has left between the range and the count.
+
+## nearby
+
+What the radar plots, as a list: one row per emitter the device can place, nearest first, and the count of everything it heard in the corner. The radar answers where to look, this page answers who that is and by how much they are above.
+
+Three columns and no more, all of them at double height, because a row read at arm's length in a bumpy cockpit is a row of four or five characters and not a table. The identifier is the system letter and the whole 24-bit address - `A 3FA21C` for a direct ADS-L frame, `F` for ALP-TAS, `U` for a position relayed by a ground station - so the address is the one a pilot reads back, matches against a club list or types into a phone, rather than the last four digits of it. Slant range is next, in the unit `settings::units` asked for, to a tenth. Relative altitude is last, in hundreds of feet with its sign, the same figure and the same convention as the tag beside a symbol on the radar: `+12` is twelve hundred feet above, and level traffic reads `0` without a sign because `+0` and `-0` are the same separation.
+
+Slant range, because a radio wave travels the hypotenuse: the aircraft 2 km overhead is no conflict at all and a 2 km path all the same. The radar and the alarm mean horizontal distance by distance; this page does not, so the header spells the word out. A tenth of a mile is 185 m, which is the resolution two GNSS receivers and one extrapolation to a common instant can honestly support, and hundredths would be a digit that moves when nothing has.
+
+What left this page is the radio: RSSI, and the e.r.p. that level implied at that range. Those are a question about antennas rather than about traffic, they are read on a bench and not in a circuit, and the level of a burst is already on the row `radio_log` prints for it. The link-budget model went with them rather than staying as arithmetic nothing on the glass reads (`git log core/traffic/range.cpp`), and what is left of that file is the geometry the list is ordered by. Eight rows fit at this size where nine fitted at the old one, and the header still counts every emitter heard rather than the handful on the glass: a page that quietly lists eight of twelve says the sky is emptier than it is.
+
+No fix means no range, and the page says so instead of listing: every figure here is geometry against own-ship's position, and without one there is nothing to be nearest.
+
+A range past 99.9 reads `FAR` and a separation past 9900 ft stops at `+99`. Three double-height columns fill a 200 px glass exactly, so a figure that grew a digit would not overflow its own column, it would land in the one beside it. Neither reading is one a pilot acts on: what is that far away is in the ring of the next flight, not this one, and the sanity gate (`core/traffic/README.md`) has already refused anything past 30 km.
 
 ## radio_log
 
@@ -128,7 +142,7 @@ Its title is the state, not the quantity: `FLIGHT` over a running clock, `TAXI` 
 
 A landing keeps the figure and changes only the title, so it is still readable while taxiing in, which is when it is wanted, and the next takeoff carries on from it rather than starting again. `-:--` means nothing has flown since the device was switched on, which is the one case where the dial has a title and no number: the clock withholds in its own shape, where the five dials around it withhold with `---`.
 
-It replaced a derived QNH, the one place on the device that number was shown. What that was worth is in `git log`: the derivation assumed the ISA lapse rate all the way down to the sea, so it was the setting that would make this altimeter agree with GNSS rather than the one a controller would give, drifting about 1.5 hPa per 1000 ft in cold air. The subscale a pilot flies on is still theirs to set, on the settings page.
+It replaced a derived QNH, the one place on the device that number was shown. What that was worth is in `git log`: the derivation assumed the ISA lapse rate all the way down to the sea, so it was the setting that would make this altimeter agree with GNSS rather than the one a controller would give, drifting about 1.5 hPa per 1000 ft in cold air. The subscale a pilot flies on is still theirs to set, in this page's own menu.
 
 ### The two scales that are not linear
 
@@ -210,7 +224,7 @@ The last field of the traffic row is `TX ON` or `TX OFF`, and it answers the que
 
 ## boot
 
-The power-on self test, and the one page worth having on a first flash: it names the part that did not answer, so a device that refuses to fly says why instead of going dark. It is drawn once, from what the board probed at bring-up, and it stays on the glass when a required part is missing.
+The power-on self test, and the one page worth having on a first flash: it names the part that did not answer, so a device that refuses to fly says why instead of going dark. It is drawn once, from what the board probed at bring-up, and it stays on the glass when a required part is missing. A device that did come up keeps it as `SELF TEST`, the last row of the nearby menu, which is the only way to it: boot does not flash it at a pilot who has nothing to do with it.
 
 The header carries the identity and why the device is running at all: `ID 5B5AFE` on the left is the 24-bit address this unit transmits under, and the word on the right is the reset reason (`core/power/reset_reason.h`), which is the answer to "why am I looking at a boot at all". `POWER ON` is a cell being connected, `BUTTON WAKE` is a thumb bringing it out of SYSTEM OFF, `CHARGER WAKE` is a cable doing the same thing to a device in a flight bag, and `WATCHDOG`, `CPU LOCKUP`, `BROWNOUT`, `SOFT RESET`, `RESET PIN` and `DEBUGGER` are the ones worth a bug report. The register is read once at boot and then only remembered, so the companion app reports the same word.
 
@@ -247,13 +261,25 @@ Three verdicts, and the third is not a failure. `PASS` is the part answered. `FA
 
 Under the divider: the cell voltage in volts to two decimals, and the verdict, `READY` or `GROUNDED`, inverted so it cannot be read as one more row.
 
-## settings
+## menu
 
-The panel half of "a pilot with no phone can change the things that matter". It is a list of rows a thumb walks and a small editor that decides what a press means, both pure: the page takes a snapshot, the editor takes the values in and hands new values back, so the service owns the state and the file owns the meaning.
+The panel half of "a pilot with no phone can change the things that matter", and the other side of each page: the button opens the menu of the page a pilot is standing on, and what is on it is what that picture is made of. One file draws all three, because a menu row is a label and a value whichever page it belongs to.
 
-The two contacts mean here what they mean everywhere else: a tap of the pad moves the focus down a row, a press of the button acts on the row the focus is on, and every further press steps the same field again, which is what makes a subscale settable with a thumb. No timing to get right, so nothing here can be produced by accident out of the hold that switches the device off, and a standing prompt takes the button away from this page entirely before the gesture that answers it can be armed.
+| Menu | Rows |
+|---|---|
+| `radar` | `ID`, `AIRCRAFT`, `ALARM`, `VOLUME`, `RANGE`, `UNITS`, `STEALTH` |
+| `nearby` | `RADIO LOG`, `SATELLITES`, `STATUS`, `SELF TEST` |
+| `sixpack` | `QNH FROM GNSS`, and the subscale between its two steps |
 
-A pilot cannot get stuck here: the rows only ever advance and the tap past the last one leaves, the button on the `Leave` row leaves, a long touch of the pad goes back to the radar, and a page nobody has touched for `kIdleReturnMs` shows the traffic again on its own.
+A row either steps a value or opens a page, and the nearby menu is the second kind: the three diagnostic pages and the self test are off the pad's walk entirely, opened by name from the picture they explain, and a tap of the pad on one of them comes back to `nearby` rather than walking on to a fourth picture. That is what took the walk from six pages to three. A pilot cycling the glass in flight passes the plot, the list and the instruments, and never the satellite bars.
+
+The values sit under the page they change: the ring's range and the alarm that watches it belong to the radar, the altimeter subscale belongs to the page with the altimeter on it. `RANGE` steps 1, 2, 4 and 8 NM and comes round again - four rings a thumb can reach in three presses, from a circuit to the whole of what this radio hears - and it is the one menu value that is not stored, so a device comes up on the 4 NM the page is designed around. `ID` is first on the radar's menu and cannot be changed, so a pilot who lands on the menu and presses out of impatience presses on nothing (`MenuRow`), and `STEALTH` is last because it is the one row that makes this aircraft harder for others to see.
+
+`QNH FROM GNSS` is the subscale that makes the barometer agree with the fix, rounded to the whole hectopascal a window turns through, and it reads `---` with no barometer or no fix rather than offering a number it cannot stand behind. Under it the setting stands between a `-` and a `+`, both on one line, because a subscale is stepped in both directions and two rows apart would have the pilot walking the focus past the value to lower it. The reading between them is the one being changed.
+
+The two contacts mean here what they mean everywhere else: a tap of the pad moves the focus down a row, a press of the button acts on the row the focus is on, and every further press steps the same field again, which is what makes a subscale settable with a thumb. No timing to get right, so nothing here can be produced by accident out of the hold that switches the device off, and a standing prompt takes the button away from a menu entirely before the gesture that answers it can be armed.
+
+A pilot cannot get stuck here: the rows only ever advance, the tap past the last one lands back on the page the menu belongs to, a long touch of the pad goes back to the radar, and a menu nobody has touched for `kIdleReturnMs` gives the picture back on its own. There is no `Leave` row, because the pad already leaves and a row that only said "done" was a row to walk past on the way to the one a pilot wanted.
 
 ## sats
 
@@ -268,8 +294,8 @@ The levels stop when the fix arrives, and the page says so rather than leaving t
 | `sixpack` | what own-ship is doing: speed, altitude, vertical speed, track, turn |
 | `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |
 | `sats` | what is above the antenna, how loud, and which satellites solved |
-| `signal` | every emitter heard, nearest first, with the e.r.p. its level implies |
-| `settings` | the values a pilot can change without a phone |
+| `nearby` | every emitter placed, nearest first: who, how far, how far above |
+| `menu` | the other side of a page: what it is made of, and what a pilot can change |
 | `confirm`, `installing` | the two moments that are not pages: being asked, being written |
 
-`go::Page` lists them in the order the pad walks, and a long touch of the pad goes back to `Radar` from any of them, once no alarm is standing to be silenced first. Every page arrives the same way, through one call that takes the page by name, so a page asked for while it is already on the glass is not a screen change and costs no wipe: that is a long touch on the radar, and a tap with one page left in the mask. Settings is not on that walk at all: it is a mode the button opens, and alone among the pages it has no bit in `settings.page_mask`, because that is where the mask is changed and a mask that hid it would be one nobody could undo without a phone.
+`go::Page` lists the three the pad walks first - `Radar`, `Nearby`, `SixPack` - and `go::kWalkedPages` is where the walk ends and the pages opened by name begin. All three always stand: there was a `page_mask` that could hide pages from the rotation, and with six of them on one walk it was worth having. Three is already the short list it was meant to produce, and two of the three are doors - the radar is home, the nearby menu is how every page off the walk is opened - so a mask could only have made the device harder to get around. It left the settings, the JSON and the schema together (`../README.md`). A long touch of the pad goes back to `Radar` from anywhere, once no alarm is standing to be silenced first. Every page arrives the same way, through one call that takes the page by name, so a page asked for while it is already on the glass is not a screen change and costs no wipe: that is a long touch on the radar, and a tap with one page left in the mask.

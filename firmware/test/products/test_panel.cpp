@@ -32,24 +32,33 @@ TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform
 
     uint32_t t = 100;
     rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::SixPack);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
     CHECK_FALSE(rig.platform.chips().epd.last_full);  // power on to power off, partials alone
     rig.run(t, t + 4000);
     t += 4000;
 
     rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Status);
-    rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Sats);
-    rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Signal);
-    rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::RadioLog);
+    CHECK(rig.product.screen().page() == go::Page::SixPack);
 
-    // The rotation is the traffic pages alone, and it wraps.
+    // Three pictures on the walk, and it wraps. The rest are opened by name.
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
+}
+
+// A page opened from a menu is a detour, not a fourth stop on the walk.
+TEST_CASE("product: the pad leaves a page it was sent to for the page that sent it") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 100;
+
+    rig.show(t, go::Page::RadioLog);
+    REQUIRE(rig.product.screen().page() == go::Page::RadioLog);
+
+    rig.tap_pad(t);
+    CHECK(rig.product.screen().page() == go::Page::Nearby);
+    rig.tap_pad(t);
+    CHECK(rig.product.screen().page() == go::Page::SixPack);
 }
 
 // Counting taps back to the traffic picture is what nobody does with traffic converging.
@@ -57,37 +66,20 @@ TEST_CASE("product: a long touch comes back to the radar from wherever the pilot
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.tap_pad(t);
-    rig.tap_pad(t);
+    rig.show(t, go::Page::Status);
     REQUIRE(rig.product.screen().page() == go::Page::Status);
 
     rig.hold_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
 
-    // And out of the settings mode, which the pad did not take the pilot into.
+    // And out of the menu, which the pad did not take the pilot into.
     rig.press(t);
-    REQUIRE(rig.product.screen().mode() == go::Mode::Settings);
+    REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
     rig.hold_pad(t);
-    CHECK(rig.product.screen().mode() == go::Mode::Traffic);
+    CHECK(rig.product.screen().mode() == go::Mode::Page);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());
-}
-
-TEST_CASE("product: page_mask disables pages so the pad skips them") {
-    Rig rig;
-    REQUIRE(rig.setup() == Status::Ok);
-    rig.settings().page_mask = 0x05;  // radar + status only
-    uint32_t t = 100;
-    rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Status);
-
-    rig.tap_pad(t);
-    CHECK(rig.product.screen().page() == go::Page::Radar);
-
-    // The mask cannot hide the settings mode: it is where the mask is changed.
-    rig.press(t);
-    CHECK(rig.product.screen().mode() == go::Mode::Settings);
 }
 
 TEST_CASE("product: powering the panel down leaves the wordmark on it") {
@@ -238,21 +230,21 @@ TEST_CASE("product: the self-test page names the part, not just the failure") {
 
 // B4. The setting is handed to every page that prints a distance or a speed.
 TEST_CASE("product: the unit setting reaches the pages that print one") {
-    auto page_ink = [](go::Units units, int taps, go::Page page) {
+    auto page_ink = [](go::Units units, go::Page page) {
         Rig rig;
         REQUIRE(rig.setup() == Status::Ok);
         rig.settings().units = units;
         uint32_t t = 100;
-        for (int i = 0; i < taps; i++) rig.tap_pad(t);
+        rig.show(t, page);
         rig.run(t, t + 3000);
         REQUIRE(rig.product.screen().page() == page);
         return rig.product.screen().framebuffer().count_black();
     };
 
-    CHECK(page_ink(go::Units::Metric, 1, go::Page::SixPack) !=
-          page_ink(go::Units::Nautical, 1, go::Page::SixPack));
-    CHECK(page_ink(go::Units::Metric, 0, go::Page::Radar) !=
-          page_ink(go::Units::Nautical, 0, go::Page::Radar));
+    CHECK(page_ink(go::Units::Metric, go::Page::SixPack) !=
+          page_ink(go::Units::Nautical, go::Page::SixPack));
+    CHECK(page_ink(go::Units::Metric, go::Page::Radar) !=
+          page_ink(go::Units::Nautical, go::Page::Radar));
 }
 
 // The pilot the word is for is looking out of the window, not at the footer.
@@ -310,8 +302,7 @@ TEST_CASE("product: the status page carries the device's name and a cell that is
         rig.platform.battery().external_power = on_cable;
         for (int i = 0; callsign[i] != 0 && i < 9; i++) rig.settings().callsign[i] = callsign[i];
         uint32_t t = 100;
-        rig.tap_pad(t);  // radar -> six-pack
-        rig.tap_pad(t);  // -> status
+        rig.show(t, go::Page::Status);
         // Long enough for the cutoff monitor to have made its mind up: it wants
         // three consecutive samples before it calls a cell low, and the page
         // draws what it decided rather than deciding again.
@@ -342,8 +333,7 @@ TEST_CASE("product: the status page marks a low cell when the monitor says so, n
     REQUIRE(rig.setup() == Status::Ok);
     rig.platform.battery().millivolts = 3450;
     uint32_t t = 100;
-    rig.tap_pad(t);  // radar -> six-pack
-    rig.tap_pad(t);  // -> status
+    rig.show(t, go::Page::Status);
     REQUIRE(rig.product.screen().page() == go::Page::Status);
 
     // Two samples under the warning is not yet a low cell: a transmit burst
@@ -373,8 +363,7 @@ TEST_CASE("product: the status page marks a cell charging too hot to be charged"
         rig.platform.battery().millivolts = 4000;
         rig.platform.battery().external_power = true;
         uint32_t t = 100;
-        rig.tap_pad(t);
-        rig.tap_pad(t);
+        rig.show(t, go::Page::Status);
         rig.run(t, t + 8000);
         REQUIRE(rig.product.screen().page() == go::Page::Status);
         REQUIRE(rig.state().power.battery.charging);

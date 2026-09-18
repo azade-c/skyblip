@@ -88,23 +88,18 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
         return;
     }
     if (editor_.active()) {
-        if (showing_self_test_)
-            dismiss_self_test(now_ms);
-        else
-            editor_.change(now_ms);
+        editor_.change(now_ms);
         return;
     }
-    enter_settings(now_ms);
+    enter_menu(now_ms);
 }
 
-// INFO: cf 02aug26 the settings mode owns the button until a prompt takes it away unasked
+// INFO: cf 02aug26 the menu owns the button until a prompt takes it away unasked
 void ScreenService::sync_editor(uint32_t now_ms) {
-    const bool wanted = mode_ == Mode::Settings && prompt_ == comms::Pending::None;
-    if (!wanted) showing_self_test_ = false;
+    const bool wanted = mode_ == Mode::Menu && prompt_ == comms::Pending::None;
     if (wanted == editor_.active()) return;
     if (wanted) {
-        showing_self_test_ = true;
-        editor_.enter(now_ms);
+        editor_.enter(page_, now_ms);
         return;
     }
     editor_.leave();
@@ -115,39 +110,22 @@ void ScreenService::change_screen() {
     if (change_ != Change::Wiped) change_ = Change::Asked;
 }
 
-void ScreenService::dismiss_self_test(uint32_t now_ms) {
-    showing_self_test_ = false;
-    editor_.enter(now_ms);
-    change_screen();
-}
-
-void ScreenService::enter_settings(uint32_t now_ms) {
-    mode_ = Mode::Settings;
+void ScreenService::enter_menu(uint32_t now_ms) {
+    if (menu_for(page_).n == 0) return;
+    mode_ = Mode::Menu;
     sync_editor(now_ms);
     change_screen();
 }
 
 void ScreenService::page_forward(uint32_t now_ms) {
-    if (mode_ != Mode::Settings) {
+    if (mode_ != Mode::Menu) {
         next_page();
         return;
     }
-    if (showing_self_test_)
-        dismiss_self_test(now_ms);
-    else
-        editor_.next_row(now_ms);
+    editor_.next_row(now_ms);
 }
 
 void ScreenService::next_page() { show_page(page_after(page_)); }
-
-Page ScreenService::page_after(Page page) const {
-    const int n = static_cast<int>(Page::kCount);
-    for (int i = 1; i <= n; i++) {
-        const int cand = (static_cast<int>(page) + i) % n;
-        if (settings_.page_mask & (1u << cand)) return static_cast<Page>(cand);
-    }
-    return page;
-}
 
 void ScreenService::go_home() {
     if (alarm_stands()) {
@@ -160,32 +138,42 @@ void ScreenService::go_home() {
 void ScreenService::show_radar() { show_page(Page::Radar); }
 
 void ScreenService::show_page(Page page) {
-    if (mode_ == Mode::Settings) leave_settings();
+    if (mode_ == Mode::Menu) leave_menu();
     if (page_ == page) return;
     page_ = page;
     change_screen();
 }
 
-void ScreenService::leave_settings() {
-    mode_ = Mode::Traffic;
-    showing_self_test_ = false;
+void ScreenService::leave_menu() {
+    mode_ = Mode::Page;
+    const Page owner = editor_.page();
     editor_.leave();
-    page_ = traffic_page();
+    page_ = walked(owner) ? owner : Page::Radar;
     change_screen();
+}
+
+MenuValues ScreenService::menu_values() const {
+    MenuValues values;
+    values.settings = settings_;
+    values.qnh_pa = context_.state.baro.qnh_pa;
+    values.range_nm = range_nm_;
+    values.pressure_pa = context_.state.baro.pressure_mpa / 1000;
+    values.gnss_alt_cm = context_.state.own.alt_m * 100;
+    values.alignable = context_.state.baro.active && context_.state.own.fix_valid;
+    return values;
 }
 
 void ScreenService::step_editor(uint32_t now_ms) {
     if (!editor_.active()) return;
 
-    SettingsValues current;
-    current.settings = settings_;
-    current.qnh_pa = context_.state.baro.qnh_pa;
-    SettingsValues next;
+    const MenuValues current = menu_values();
+    MenuValues next;
 
     switch (editor_.tick(now_ms, current, next)) {
-        case SettingsAction::Changed:
+        case MenuAction::Changed:
             settings_ = next.settings;
             context_.state.baro.qnh_pa = next.qnh_pa;
+            range_nm_ = next.range_nm;
             // INFO: cf 02aug26 One owner of the flash blob. The page changes the
             // struct the config service was already given a reference to and
             // says so with the same flag the companion link raises; the write
@@ -194,19 +182,12 @@ void ScreenService::step_editor(uint32_t now_ms) {
             config_.note_settings_changed();
             dirty_ = true;
             break;
-        case SettingsAction::Moved: dirty_ = true; break;
-        case SettingsAction::Leave: leave_settings(); break;
-        case SettingsAction::None:
+        case MenuAction::Moved: dirty_ = true; break;
+        case MenuAction::Open: show_page(editor_.opening()); break;
+        case MenuAction::Leave: leave_menu(); break;
+        case MenuAction::None:
         default: break;
     }
-}
-
-// INFO: cf 02aug26 where the settings mode hands the glass back: the first page the mask leaves
-Page ScreenService::traffic_page() const {
-    const uint8_t mask = settings_.page_mask;
-    for (int i = 0; i < static_cast<int>(Page::kCount); i++)
-        if (mask & (1u << i)) return static_cast<Page>(i);
-    return Page::Radar;
 }
 
 void ScreenService::resolve(Gesture gesture) {
@@ -233,7 +214,7 @@ void ScreenService::tick(uint32_t now_ms) {
         if (escalated_into_glass) show_radar();
     }
 
-    if (mode_ == Mode::Settings && alarm_takes_glass()) leave_settings();
+    if (mode_ == Mode::Menu && alarm_takes_glass()) leave_menu();
 
     if (!ports::has(context_.roles.capabilities, ports::Capability::Display)) return;
     settle_park(now_ms);
@@ -377,12 +358,12 @@ void ScreenService::draw_prompt() {
     draw_confirm(fb_, snapshot);
 }
 
-void ScreenService::draw_settings_page() {
-    SettingsSnapshot snapshot;
-    snapshot.values.settings = settings_;
-    snapshot.values.qnh_pa = context_.state.baro.qnh_pa;
+void ScreenService::draw_menu_page() {
+    MenuSnapshot snapshot;
+    snapshot.page = editor_.page();
+    snapshot.values = menu_values();
     snapshot.focus = editor_.focus();
-    draw_settings(fb_, snapshot);
+    draw_menu(fb_, snapshot);
 }
 
 void ScreenService::render(uint32_t now_ms) {
@@ -390,11 +371,8 @@ void ScreenService::render(uint32_t now_ms) {
         draw_prompt();
         return;
     }
-    if (mode_ == Mode::Settings) {
-        if (showing_self_test_)
-            draw_boot(fb_, self_test_);
-        else
-            draw_settings_page();
+    if (mode_ == Mode::Menu) {
+        draw_menu_page();
         return;
     }
 
@@ -485,17 +463,18 @@ void ScreenService::render(uint32_t now_ms) {
             draw_sats(fb_, snap);
             break;
         }
-        case Page::Signal: {
-            SignalSnapshot snap;
+        case Page::Nearby: {
+            NearbySnapshot snap;
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
             snap.n_rows =
-                traffic::rank_by_range(context_.state.traffic, own, signal_rows_, kSignalRows);
-            snap.rows = signal_rows_;
-            draw_signal(fb_, snap);
+                traffic::rank_by_range(context_.state.traffic, own, nearby_rows_, kNearbyRows);
+            snap.rows = nearby_rows_;
+            draw_nearby(fb_, snap);
             break;
         }
+        case Page::SelfTest: draw_boot(fb_, self_test_); break;
         case Page::RadioLog: {
             RadioLogSnapshot snap;
             snap.gnss.fix_valid = own.fix_valid;

@@ -9,7 +9,7 @@ What the sky around this aircraft contains, how dangerous it is, and who in it i
 | `conflict` | whether two projected paths enter the volume neither may enter |
 | `alarm` | the level a contact is graded at, and what the annunciator is allowed to say |
 | `formation` | which contacts are flying with us, on geometry alone |
-| `link` | the rows the signal page reads |
+| `range` | how far an emitter is and how far above, and the order the nearby page lists them in |
 
 ## The model
 

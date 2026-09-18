@@ -13,7 +13,7 @@
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/input/gesture.h"
-#include "products/skyblip_go/pages/settings.h"
+#include "products/skyblip_go/pages/menu.h"
 #include "test/support/product_rig.h"
 
 using namespace skyblip;
@@ -133,11 +133,10 @@ TEST_CASE("flash window: a thumb stepping the volume on the panel writes flash o
     stand_on_the_ground(rig, t);
 
     rig.press(t);
-    REQUIRE(rig.product.screen().mode() == go::Mode::Settings);
-    rig.tap_pad(t);  // off the self test, onto the rows
+    REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
 
     // Down to the volume row: a tap of the pad moves the focus.
-    while (rig.product.screen().editor().focus() != go::SettingsRow::Volume) rig.tap_pad(t);
+    while (rig.product.screen().editor().focus() != go::MenuRow::Volume) rig.tap_pad(t);
 
     const uint32_t before = writes(rig);
     const uint8_t started_at = rig.settings().alarm_volume;

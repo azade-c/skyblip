@@ -9,11 +9,12 @@
 #include "products/skyblip_go/input/gesture.h"
 #include "products/skyblip_go/pages/boot.h"
 #include "products/skyblip_go/pages/confirm.h"
+#include "products/skyblip_go/pages/menu.h"
+#include "products/skyblip_go/pages/nearby.h"
+#include "products/skyblip_go/pages/page.h"
 #include "products/skyblip_go/pages/radar.h"
 #include "products/skyblip_go/pages/radio_log.h"
 #include "products/skyblip_go/pages/sats.h"
-#include "products/skyblip_go/pages/settings.h"
-#include "products/skyblip_go/pages/signal.h"
 #include "products/skyblip_go/pages/sixpack.h"
 #include "products/skyblip_go/pages/status.h"
 #include "products/skyblip_go/services/alarm.h"
@@ -21,9 +22,7 @@
 
 namespace skyblip::go {
 
-enum class Page : uint8_t { Radar, SixPack, Status, Sats, Signal, RadioLog, kCount };
-
-enum class Mode : uint8_t { Traffic, Settings };
+enum class Mode : uint8_t { Page, Menu };
 
 class ScreenService : public runtime::Service {
    public:
@@ -33,15 +32,9 @@ class ScreenService : public runtime::Service {
     // INFO: fc 06sep26 Good Display rates the glass 0..50 C, read on a die above ambient
     static constexpr int16_t kHoldAboveDeciCelsius = 500;
 
-    // INFO: cf 02aug26 The level at which the radar carries a bearing worth
-    // turning the head for. At or above it the settings page gives the glass
-    // back on its own: a menu in front of converging traffic is a bug.
+    // INFO: cf 02aug26 at this level a menu in front of converging traffic is a bug, so it goes
     static constexpr traffic::Level kAlarmTakesGlass = traffic::Level::Important;
 
-    // The one consumer of bus.input, and therefore the one place a press is
-    // given a meaning. The companion link's state machine is handed over here
-    // so that meaning can be "authorise this" when, and only when, a prompt the
-    // pilot can read is on the glass.
     ScreenService(runtime::Context& context, Settings& settings, comms::ConfigService& config,
                   AlarmService& alarm, const BootSnapshot& self_test)
         : runtime::Service(context),
@@ -69,8 +62,7 @@ class ScreenService : public runtime::Service {
     Page page() const { return page_; }
     Mode mode() const { return mode_; }
     comms::Pending prompt() const { return prompt_; }
-    const SettingsEditor& editor() const { return editor_; }
-    bool showing_self_test() const { return showing_self_test_; }
+    const MenuEditor& editor() const { return editor_; }
     int32_t range_nm() const { return range_nm_; }
     bool backlight() const { return backlight_; }
     bool powered() const { return powered_; }
@@ -82,21 +74,19 @@ class ScreenService : public runtime::Service {
     void render(uint32_t now_ms);
     void change_screen();
     void draw_prompt();
-    void draw_settings_page();
-    void dismiss_self_test(uint32_t now_ms);
-    void enter_settings(uint32_t now_ms);
-    void leave_settings();
+    void draw_menu_page();
+    void enter_menu(uint32_t now_ms);
+    void leave_menu();
     void page_forward(uint32_t now_ms);
     void go_home();
     void show_radar();
     void show_page(Page page);
-    Page page_after(Page page) const;
     void handle_input(uint32_t now_ms);
     void obey(Command command, uint32_t now_ms);
     void sync_editor(uint32_t now_ms);
     void step_editor(uint32_t now_ms);
+    MenuValues menu_values() const;
     void resolve(Gesture gesture);
-    Page traffic_page() const;
     enum class Change : uint8_t { None, Asked, Wiped };
     bool refresh_allowed() const;
     void wipe_glass(uint32_t now_ms);
@@ -141,13 +131,9 @@ class ScreenService : public runtime::Service {
     comms::Pending prompt_{comms::Pending::None};
     Controls controls_{};
     ConfirmGesture gesture_{};
-    SettingsEditor editor_{};
+    MenuEditor editor_{};
 
-    // INFO: cf 02aug26 What arms the authorising gesture: the prompt has
-    // reached the glass, and the thumb has been still for a whole double-press
-    // window. A pilot stepping a value on the settings page taps faster than
-    // that, so a prompt landing mid-stream cannot be answered by the presses
-    // already on their way - it has to be read first, and then answered.
+    // INFO: cf 02aug26 a prompt is answered once read and once the thumb has stopped, never sooner
     uint32_t last_press_ms_{0};
     uint32_t prompt_since_ms_{0};
     bool pressed_once_{false};
@@ -156,9 +142,9 @@ class ScreenService : public runtime::Service {
     Glass fb_{};
     Glass presented_{};
     RadarTarget targets_[kMaxRadarTargets]{};
-    traffic::LinkRow signal_rows_[kSignalRows]{};
+    traffic::RangeRow nearby_rows_[kNearbyRows]{};
     Page page_{Page::Radar};
-    Mode mode_{Mode::Traffic};
+    Mode mode_{Mode::Page};
     int32_t range_nm_{kDefaultRangeNm};
     uint32_t last_tick_ms_{0};
     uint32_t last_render_ms_{0};
@@ -168,7 +154,6 @@ class ScreenService : public runtime::Service {
     bool dirty_{true};
     Change change_{Change::Asked};
     bool presented_once_{false};
-    bool showing_self_test_{false};
     ParkStep park_{ParkStep::None};
     ParkFrame park_frame_{ParkFrame::Wordmark};
     bool backlight_{false};

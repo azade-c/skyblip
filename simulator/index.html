@@ -87,21 +87,21 @@
     <div class="device">
       <div class="sb-case">
         <canvas id="epd" class="sb-glass" width="200" height="200"></canvas>
-        <button class="sb-pad" title="capacitive pad on the top edge, P0.11: tap it to page through the traffic screens or to walk the settings rows, hold it 1 s to come back to the radar, or hold it through a 2 s press to switch off with a blank panel"
+        <button class="sb-pad" title="capacitive pad on the top edge, P0.11: tap it to page through radar, nearby and the six-pack or to walk the rows of a menu, hold it 1 s to come back to the radar, or hold it through a 2 s press to switch off with a blank panel"
                 onpointerdown="SIM.pad(1)" onpointerup="SIM.pad(0)"
                 onpointerleave="SIM.pad(0)"></button>
         <button class="sb-key sb-key--reset" title="RESET (button 1), P0.18 = nRESET: reboot"
                 onclick="SIM.reset()"></button>
-        <button class="sb-key sb-key--action" title="button 2, P1.10: a press opens the settings and changes the focused row once inside, a hold of 2 s switches off"
+        <button class="sb-key sb-key--action" title="button 2, P1.10: a press opens the menu of the page on the glass and changes the focused row once inside, a hold of 2 s switches off"
                 onpointerdown="SIM.hold(1)" onpointerup="SIM.hold(0)"
                 onpointerleave="SIM.hold(0)"></button>
         <span class="sb-led sb-led--alarm" id="led_alarm" title="the LED we drive: lit on a traffic alarm"></span>
         <span class="sb-led sb-led--charge" id="led_charge" title="charge state: the charger drives this one, not the MCU"></span>
       </div>
       <div class="keymap">
-        <div><b>top pad</b></div><div><code>P0.11</code></div><div>tap: page or next row · hold 1 s: radar · held through a hold: off, blank glass</div>
+        <div><b>top pad</b></div><div><code>P0.11</code></div><div>tap: next page or next row · hold 1 s: radar · held through a hold: off, blank glass</div>
         <div><b>left top</b></div><div><code>P0.18</code></div><div>reset (nRESET)</div>
-        <div><b>left bottom</b></div><div><code>P1.10</code></div><div>press: settings, then change the row · hold: off</div>
+        <div><b>left bottom</b></div><div><code>P1.10</code></div><div>press: this page's menu, then change the row · hold: off</div>
       </div>
       <div class="row">
         <button onclick="SIM.backlight()">Backlight</button>

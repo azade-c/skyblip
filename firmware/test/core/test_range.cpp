@@ -1,0 +1,114 @@
+// How far an emitter is and how far it is above, and the order the nearby page lists them in.
+#include "core/model/aircraft.h"
+#include "core/model/ownship.h"
+#include "core/traffic/range.h"
+#include "doctest/doctest.h"
+
+using namespace skyblip;
+using namespace skyblip::traffic;
+
+namespace {
+
+// 1e-7 degrees of latitude per metre north, the same 11132 m/deg the position
+// maths uses, so a test distance and the code's distance cannot drift apart.
+int32_t lat_offset_for(int32_t north_m) {
+    return static_cast<int32_t>((static_cast<int64_t>(north_m) * 1000000) / 11132);
+}
+
+model::OwnState own_at_equator() {
+    model::OwnState o{};
+    o.fix_valid = true;
+    o.lat_1e7 = 0;
+    o.lon_1e7 = 0;
+    o.alt_m = 1000;
+    return o;
+}
+
+model::AircraftObs emitter(int32_t north_m, model::Source src = model::Source::AdslDirect) {
+    model::AircraftObs t{};
+    t.position_valid = true;
+    t.addr = 0xABCD;
+    t.lat_1e7 = lat_offset_for(north_m);
+    t.lon_1e7 = 0;
+    t.alt_m = 1000;
+    t.source = src;
+    return t;
+}
+
+}  // namespace
+
+TEST_CASE("range: an emitter carries the address and the system it was heard on") {
+    RangeRow row;
+    REQUIRE(range_to(own_at_equator(), emitter(1000, model::Source::Alptas), row));
+    CHECK(row.addr == 0xABCD);
+    CHECK(row.source == model::Source::Alptas);
+    CHECK(row.slant_m == doctest::Approx(1000).epsilon(0.01));
+    CHECK(row.up_m == 0);
+}
+
+TEST_CASE("range: an emitter without a position cannot be ranged") {
+    model::AircraftObs t = emitter(1000);
+    t.position_valid = false;
+    RangeRow row;
+    CHECK_FALSE(range_to(own_at_equator(), t, row));
+
+    model::OwnState blind = own_at_equator();
+    blind.fix_valid = false;
+    CHECK_FALSE(range_to(blind, emitter(1000), row));
+}
+
+TEST_CASE("range: vertical separation counts as range") {
+    // Directly overhead by 2 km is a 2 km path, not a zero one.
+    model::AircraftObs t = emitter(0);
+    t.alt_m = 3000;
+    RangeRow row;
+    REQUIRE(range_to(own_at_equator(), t, row));
+    CHECK(row.up_m == 2000);
+    CHECK(row.slant_m == doctest::Approx(2000).epsilon(0.01));
+}
+
+TEST_CASE("range: the wave takes the hypotenuse, not the ground track") {
+    // 3 km out and 4 km up is a 5 km path, which is the distance the page prints.
+    model::AircraftObs t = emitter(3000);
+    t.alt_m = 5000;
+    RangeRow row;
+    REQUIRE(range_to(own_at_equator(), t, row));
+    CHECK(row.up_m == 4000);
+    CHECK(row.slant_m == doctest::Approx(5000).epsilon(0.01));
+}
+
+TEST_CASE("range: ranking puts the nearest emitters first and drops the rest") {
+    TrafficTable table;
+    const int32_t ranges[6] = {8000, 1000, 5000, 300, 12000, 2500};
+    for (int i = 0; i < 6; i++) {
+        model::AircraftObs t = emitter(ranges[i]);
+        t.addr = 0x100u + static_cast<uint32_t>(i);
+        table.update(t, 100);
+    }
+
+    RangeRow rows[4];
+    const int n = rank_by_range(table, own_at_equator(), rows, 4);
+    REQUIRE(n == 4);
+    CHECK(rows[0].addr == 0x103);  // 300 m
+    CHECK(rows[1].addr == 0x101);  // 1000 m
+    CHECK(rows[2].addr == 0x105);  // 2500 m
+    CHECK(rows[3].addr == 0x102);  // 5000 m
+    for (int i = 1; i < n; i++) CHECK(rows[i - 1].slant_m <= rows[i].slant_m);
+}
+
+TEST_CASE("range: ranking skips what it cannot range") {
+    TrafficTable table;
+    model::AircraftObs positioned = emitter(4000);
+    positioned.addr = 0x200;
+    table.update(positioned, 100);
+
+    model::AircraftObs blind = emitter(1000);
+    blind.addr = 0x201;
+    blind.position_valid = false;
+    table.update(blind, 100);
+
+    RangeRow rows[4];
+    const int n = rank_by_range(table, own_at_equator(), rows, 4);
+    CHECK(n == 1);
+    CHECK(rows[0].addr == 0x200);
+}

@@ -162,6 +162,27 @@ struct Rig {
     // The pad held on its own, button up: the way back to the radar.
     void hold_pad(uint32_t& t) { touch_pad(t, go::Controls::kHomeTouchMs + 200); }
 
+    // Reached the way a thumb reaches it: the pad along the walk, then the menu.
+    void show(uint32_t& t, go::Page page) {
+        for (int i = 0; i < go::kPageCount && product.screen().page() != go::menu_owner(page); i++)
+            tap_pad(t);
+        if (go::walked(page)) return;
+        press(t);
+        const go::Menu menu = go::menu_for(go::menu_owner(page));
+        for (int i = 0; i < menu.n && product.screen().editor().focus() != row_for(page); i++)
+            tap_pad(t);
+        press(t);
+        run(t, t + 200);
+        t += 200;
+    }
+
+    static go::MenuRow row_for(go::Page page) {
+        const go::Menu menu = go::menu_for(go::menu_owner(page));
+        for (int i = 0; i < menu.n; i++)
+            if (go::page_behind(menu.rows[i]) == page) return menu.rows[i];
+        return go::MenuRow::kCount;
+    }
+
     void touch_pad(uint32_t& t, uint32_t ms) {
         platform.board_gpio().pad_down = true;
         run(t, t + ms);

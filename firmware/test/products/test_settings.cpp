@@ -200,7 +200,6 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
-    CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     CHECK(int(out.version) == int(Settings::kCurrentVersion));
 
@@ -318,7 +317,6 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
-    CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the trim existed was never
     // calibrated, so it comes back reading exactly as it did yesterday.
@@ -329,13 +327,14 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
     CHECK(int(rewritten[0]) == int(kBlobVersion));
-    CHECK(int(kBlobVersion) == 4);
+    CHECK(int(kBlobVersion) == 5);
 }
 
-// J, the migration. Version 4 added the radio's frequency trim; the two 16-bit
-// per-unit trims now fill one word between the address and the byte fields, so
-// this blob is four bytes SHORTER than the current one rather than the same
-// length version 2 and 3 shared. Both mistakes are refused by the same reader.
+// J, the migration. Version 4 added the radio's frequency trim, version 5
+// dropped the page mask, and between them the padding gave back what it took:
+// this payload is the same length as the current one, and only the version byte
+// says which is which. A reader that went by length would read a trim as a
+// callsign.
 TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, untrimmed") {
     // The version-3 payload, byte for byte as that firmware memcpy'd its struct.
     struct V3 {
@@ -351,7 +350,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
         uint8_t page_mask{0x0F};
         char callsign[10]{0};
     };
-    CHECK(sizeof(V3) + 4 == blob_size() - 5);
+    CHECK(sizeof(V3) == blob_size() - 5);
 
     V3 old{};
     old.device_addr = 0x5B7E57;
@@ -381,7 +380,6 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     CHECK(int(out.alarm_volume) == 5);
     CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
-    CHECK(int(out.page_mask) == 0x05);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the radio trim existed was never
     // measured, so it comes back on the reference its TCXO actually has: the
@@ -395,6 +393,67 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     REQUIRE(from_blob(rewritten, blob_size(), again) == Status::Ok);
     CHECK(int(again.battery_offset_mv) == -120);
     CHECK(int(again.freq_trim_e1_ppm) == 0);
+}
+
+// K, the migration. Version 5 dropped the page mask: the pad walks three pages
+// and the two that open everything else always stand, so the byte had no reader
+// left. A unit that stored one comes back without it and loses nothing else.
+TEST_CASE("settings: a blob written by version-4 firmware comes back without its page mask") {
+    // The version-4 payload, byte for byte as that firmware memcpy'd its struct.
+    struct V4 {
+        uint8_t version{1};
+        uint32_t device_addr{0};
+        int16_t battery_offset_mv{0};
+        int16_t freq_trim_e1_ppm{0};
+        uint8_t addr_table{0};
+        uint8_t aircraft_type{4};
+        bool alarm_enabled{true};
+        uint8_t alarm_volume{3};
+        bool stealth{false};
+        Units units{Units::Metric};
+        uint8_t page_mask{0x0F};
+        char callsign[10]{0};
+    };
+
+    V4 old{};
+    old.device_addr = 0x5B7E57;
+    old.battery_offset_mv = -120;
+    old.freq_trim_e1_ppm = -37;
+    old.addr_table = 6;
+    old.aircraft_type = 9;
+    old.alarm_enabled = false;
+    old.alarm_volume = 5;
+    old.stealth = true;
+    old.units = Units::Nautical;
+    old.page_mask = 0x05;
+    std::memcpy(old.callsign, "D-KXYZ", 7);
+
+    uint8_t blob[128] = {0};
+    blob[0] = 4;
+    std::memcpy(blob + 1, &old, sizeof(V4));
+    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V4));
+    for (int i = 0; i < 4; i++) blob[1 + sizeof(V4) + i] = static_cast<uint8_t>(crc >> (8 * i));
+
+    Settings out;
+    REQUIRE(from_blob(blob, 1 + sizeof(V4) + 4, out) == Status::Ok);
+    CHECK(out.device_addr == 0x5B7E57u);
+    CHECK(int(out.battery_offset_mv) == -120);
+    CHECK(int(out.freq_trim_e1_ppm) == -37);
+    CHECK(int(out.addr_table) == 6);
+    CHECK(int(out.aircraft_type) == 9);
+    CHECK_FALSE(out.alarm_enabled);
+    CHECK(int(out.alarm_volume) == 5);
+    CHECK(out.stealth);
+    CHECK(out.units == Units::Nautical);
+    CHECK(std::string(out.callsign) == "D-KXYZ");
+    CHECK(blob_size() < 1 + sizeof(V4) + 4);
+
+    uint8_t rewritten[128] = {0};
+    to_blob(out, rewritten, sizeof(rewritten));
+    CHECK(int(rewritten[0]) == int(kBlobVersion));
+    Settings again;
+    REQUIRE(from_blob(rewritten, blob_size(), again) == Status::Ok);
+    CHECK(std::string(again.callsign) == "D-KXYZ");
 }
 
 // J. The frequency trim: the field exists because a TCXO gives no way to find
@@ -471,8 +530,11 @@ TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
     CHECK(json.find("region") == std::string::npos);
     CHECK(json.find("rotation") == std::string::npos);
     CHECK(json.find("power_save") == std::string::npos);
+    // And the page mask went the same way when the pad's walk became three
+    // pages the device may not hide.
+    CHECK(json.find("page_mask") == std::string::npos);
     // Kept, because each of these is read: the air (stealth), the panel
-    // (callsign, page_mask, units), the annunciator (alarm, alarm_volume).
+    // (callsign, units), the annunciator (alarm, alarm_volume).
     CHECK(json.find("stealth") != std::string::npos);
     CHECK(json.find("callsign") != std::string::npos);
     // units survived the same audit the three above failed, on one page: the

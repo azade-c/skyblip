@@ -78,8 +78,7 @@ TEST_CASE("inclinometer: the status page names the stage the hub stopped in") {
     rig.run(0, kBootToBall);
 
     uint32_t t = kBootToBall;
-    rig.tap_pad(t);
-    rig.tap_pad(t);
+    rig.show(t, go::Page::Status);
     REQUIRE(rig.product.screen().page() == go::Page::Status);
     rig.run(t, t + 1000);
     CHECK(reads_in(rig.product.screen().framebuffer(), "IMU RUN", 0, 55, 200, 70));

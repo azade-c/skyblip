@@ -6,7 +6,6 @@
 #include "core/settings/address.h"
 #include "core/settings/blob.h"
 #include "core/util/json_min.h"
-#include "products/skyblip_go/pages/settings.h"
 
 namespace skyblip::go {
 
@@ -64,9 +63,27 @@ struct SettingsV3 {
     char callsign[kCallsignCap]{0};
 };
 
+// The version-4 payload, byte for byte: the same members version 5 has, plus the
+// page_mask that no longer has a reader.
+struct SettingsV4 {
+    uint8_t version{1};
+    uint32_t device_addr{0};
+    int16_t battery_offset_mv{0};
+    int16_t freq_trim_e1_ppm{0};
+    uint8_t addr_table{0};
+    uint8_t aircraft_type{4};
+    bool alarm_enabled{true};
+    uint8_t alarm_volume{3};
+    bool stealth{false};
+    Units units{Units::Metric};
+    uint8_t page_mask{0x0F};
+    char callsign[kCallsignCap]{0};
+};
+
 constexpr size_t kPayloadV1 = sizeof(SettingsV1);
 constexpr size_t kPayloadV2 = sizeof(SettingsV2);
 constexpr size_t kPayloadV3 = sizeof(SettingsV3);
+constexpr size_t kPayloadV4 = sizeof(SettingsV4);
 constexpr size_t kPayload = sizeof(Settings);
 
 void migrate_v1(const SettingsV1& old, Settings& out) {
@@ -79,7 +96,6 @@ void migrate_v1(const SettingsV1& old, Settings& out) {
     out.alarm_volume = old.alarm_volume;
     out.stealth = old.stealth;
     out.units = old.units;
-    out.page_mask = old.page_mask;
     std::memcpy(out.callsign, old.callsign, kCallsignCap);
     out.callsign[kCallsignCap - 1] = 0;
 }
@@ -97,7 +113,6 @@ void migrate_v2(const SettingsV2& old, Settings& out) {
     out.alarm_volume = old.alarm_volume;
     out.stealth = old.stealth;
     out.units = old.units;
-    out.page_mask = old.page_mask;
     out.battery_offset_mv = 0;
     std::memcpy(out.callsign, old.callsign, kCallsignCap);
     out.callsign[kCallsignCap - 1] = 0;
@@ -118,8 +133,25 @@ void migrate_v3(const SettingsV3& old, Settings& out) {
     out.alarm_volume = old.alarm_volume;
     out.stealth = old.stealth;
     out.units = old.units;
-    out.page_mask = old.page_mask;
     out.freq_trim_e1_ppm = 0;
+    std::memcpy(out.callsign, old.callsign, kCallsignCap);
+    out.callsign[kCallsignCap - 1] = 0;
+}
+
+// A unit that stored a page mask stored a choice about six pages that no longer
+// exist: the pad walks three and the two that open everything else always stand.
+void migrate_v4(const SettingsV4& old, Settings& out) {
+    out = Settings{};
+    out.version = Settings::kCurrentVersion;
+    out.device_addr = old.device_addr;
+    out.battery_offset_mv = old.battery_offset_mv;
+    out.freq_trim_e1_ppm = old.freq_trim_e1_ppm;
+    out.addr_table = old.addr_table;
+    out.aircraft_type = old.aircraft_type;
+    out.alarm_enabled = old.alarm_enabled;
+    out.alarm_volume = old.alarm_volume;
+    out.stealth = old.stealth;
+    out.units = old.units;
     std::memcpy(out.callsign, old.callsign, kCallsignCap);
     out.callsign[kCallsignCap - 1] = 0;
 }
@@ -169,6 +201,11 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     if (version == kBlobVersion) {
         const Status st = settings::open(in, len, kPayload, &out);
         if (st != Status::Ok) return st;
+    } else if (version == 4) {
+        SettingsV4 old;
+        const Status st = settings::open(in, len, kPayloadV4, &old);
+        if (st != Status::Ok) return st;
+        migrate_v4(old, out);
     } else if (version == 3) {
         SettingsV3 old;
         const Status st = settings::open(in, len, kPayloadV3, &old);
@@ -187,9 +224,6 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     } else {
         return Status::Unsupported;
     }
-    // INFO: fc 18sep26 a unit that was showing every page keeps showing every page when one is
-    // added
-    if (out.page_mask == kPageMaskEveryPageBeforeSats) out.page_mask = kPageMaskAll;
     if (validate(out) != Status::Ok) return Status::Invalid;
     return Status::Ok;
 }
@@ -203,7 +237,6 @@ void write_json_fields(json::Writer& w, const Settings& s) {
     w.kv_int("alarm_volume", s.alarm_volume);
     w.kv_bool("stealth", s.stealth);
     w.kv_int("units", static_cast<long>(s.units));
-    w.kv_int("page_mask", s.page_mask);
     w.kv_str("callsign", s.callsign);
 }
 
@@ -225,7 +258,6 @@ Status apply_json(Settings& s, const char* json, int len) {
     if (r.get_int("alarm_volume", v)) n.alarm_volume = static_cast<uint8_t>(v);
     if (r.get_bool("stealth", b)) n.stealth = b;
     if (r.get_int("units", v)) n.units = v ? Units::Metric : Units::Nautical;
-    if (r.get_int("page_mask", v)) n.page_mask = static_cast<uint8_t>(v);
     // Narrowed before it is validated, not after: 65536 truncates to 0 in an
     // int16 and would pass a bound check that never saw the value sent.
     if (r.get_int("battery_offset_mv", v)) {

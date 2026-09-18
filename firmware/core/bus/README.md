@@ -14,7 +14,7 @@ The groups are subjects, not owners. A reader wants every barometric fact in one
 
 | Field | Writer |
 |---|---|
-| `settings` | `config` at boot (defaults, then the stored blob), `screen` when a pilot changes one on the settings page. The flash write itself is `config`'s alone. |
+| `settings` | `config` at boot (defaults, then the stored blob), `screen` when a pilot changes one in a menu. The flash write itself is `config`'s alone. |
 | `own` | `ownship` |
 | `clock` | `ownship` for UTC and the PPS edge, the board for `pps_locked` and `ms_since_pps` |
 | `traffic` | `traffic` |
@@ -23,7 +23,7 @@ The groups are subjects, not owners. A reader wants every barometric fact in one
 | `air` | `traffic` |
 | `power` | `power` |
 | `flight` | `ownship` |
-| `baro` | `ownship`, except `baro.qnh_pa`, which the pilot sets on the settings page and `screen` writes |
+| `baro` | `ownship`, except `baro.qnh_pa`, which the pilot sets in the six-pack's menu and `screen` writes |
 | `slip` | `ownship` |
 | `imu` | the board, which owns the sensor hub the ball comes from and is the only code that can see where its bring-up stopped |
 | `alarm_level` | `alarm` |

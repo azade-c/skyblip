@@ -11,7 +11,7 @@
 #include "core/timing/transmit.h"
 #include "core/util/varint.h"
 #include "doctest/doctest.h"
-#include "products/skyblip_go/pages/settings.h"
+#include "products/skyblip_go/pages/menu.h"
 
 using namespace skyblip;
 
