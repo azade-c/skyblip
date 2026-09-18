@@ -75,7 +75,7 @@
   box-shadow: inset -2px 0 4px #0000001f;
 }
 .sb-key--reset { inset-block-start: 19%; background: linear-gradient(90deg, #fff, #e9e7e1); }
-.sb-key--action { inset-block-start: 72%; background: linear-gradient(90deg, #b9bcc0, #8d9296); }
+.sb-key--action { inset-block-start: 72%; background: linear-gradient(90deg, #fff, #e9e7e1); }
 .sb-key:active { transform: translateX(2px); box-shadow: inset 2px 0 4px #00000033; }
 
 /* The two lamps, side by side, middle of the right edge. Only the left one is
