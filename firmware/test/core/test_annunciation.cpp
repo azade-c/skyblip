@@ -7,6 +7,8 @@
 // at the urgent pitch for as long as anything at all stayed inside the 3 km
 // info ring. Every case below is either a pattern that ends by itself or a
 // release the service used to miss.
+#include <initializer_list>
+
 #include "core/annunciation/pattern.h"
 #include "doctest/doctest.h"
 

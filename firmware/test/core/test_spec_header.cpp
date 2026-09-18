@@ -1,6 +1,6 @@
-// ADS-L 4 SRD-860 issue 2 Subpart F: the ADS-L header, who a packet says it is from and what it
-// carries.
+// ADS-L 4 SRD-860 issue 2 Subpart F: the ADS-L header, who a packet is from and what it carries.
 #include <cstdint>
+#include <initializer_list>
 
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
@@ -49,8 +49,7 @@ TEST_CASE("ADS-L.4.SRD860.F.2: the header is a type byte, 30 bits of sender, res
     CHECK(p.is_relay());
     CHECK((p.Address[3] & 0x80) != 0);
 
-    // Address[30] is the AMT in bits 0..5 and the address in bits 6..29 of the same little-endian
-    // word.
+    // One little-endian word: the AMT in bits 0 to 5, the address in bits 6 to 29.
     CHECK((protocol::AdslPacket::get4(p.Address) & 0x3Fu) == 6u);
     CHECK(((protocol::AdslPacket::get4(p.Address) >> 6) & 0x00FFFFFFu) == 0x123456u);
 }
@@ -63,8 +62,7 @@ TEST_CASE(
     CHECK((p.Type & 0x80) == 0);
 }
 
-// Issue 2 puts Status, Remote Identification and the uplinks on the same band, and none of them is
-// an aeroplane.
+// Issue 2 puts Status, Remote ID and the uplinks on this band, and none of them is an aeroplane.
 TEST_CASE("ADS-L.4.SRD860.F.2.1: a payload that is not Traffic never becomes an aircraft") {
     model::AircraftObs obs{};
     for (uint8_t type : {uint8_t(0x00), uint8_t(0x03), uint8_t(0x04), uint8_t(0x05), uint8_t(0x06),
@@ -85,8 +83,7 @@ TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits
     CHECK(p.addr_table() == 63);
     CHECK(p.address() == 0x00FFFFFFu);
 
-    // Table 9 and up split the address again: an 8-bit manufacturer prefix, then 16 bits of base
-    // address.
+    // Table 9 and up split the address: an 8-bit manufacturer prefix, then a 16-bit base.
     p.set_addr_table(9);
     p.set_address(0xAB1234u);
     CHECK(p.addr_table() == 9);
@@ -101,8 +98,7 @@ TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits
     CHECK(go::validate(s) == Status::Ok);
 }
 
-// Table 5 is the aircraft's Mode-S code, which is not ours to move: it has to match what a 1090
-// receiver sees.
+// Table 5 is the aircraft's Mode-S code, and it has to match what a 1090 receiver sees.
 TEST_CASE("ADS-L.4.SRD860.F.2.3: an ICAO address goes on the air exactly as it was configured") {
     CHECK(settings::safe_air_address(0xDD1234u, 5) == 0xDD1234u);
     CHECK(settings::safe_air_address(0x3C0A11u, 5) == 0x3C0A11u);
