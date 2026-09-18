@@ -79,6 +79,8 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
         entry.tx_keyed_us = radio::tx_span_of(event.keyed_at_us, state.rf.tx_deadline_us);
         entry.tx_span_us = radio::tx_span_of(event.at_us, state.rf.tx_deadline_us);
         entry.tx_span_valid = true;
+        context_.state.rf.last_tx_keyed_us = entry.tx_keyed_us;
+        context_.state.rf.last_tx_span_us = entry.tx_span_us;
     }
     if (obs != nullptr) {
         entry.source = obs->source;
@@ -97,6 +99,10 @@ void TrafficService::on_frame(const events::RfEvent& event, uint32_t now_ms) {
         return;
     }
     if (system == protocol::System::Unknown) {
+        if (protocol::framed_noise(frame)) {
+            context_.state.air.rx_noise++;
+            return;
+        }
         context_.state.air.rx_bad++;
         log(event, stamp, radio::Event::Undecoded);
         return;

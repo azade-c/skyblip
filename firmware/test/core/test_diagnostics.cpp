@@ -30,7 +30,10 @@ Diagnostics busy_device() {
     d.duty_permille = 7;
     d.rx_ok = 1204;
     d.rx_bad = 37;
+    d.rx_noise = 96;
     d.tx_ok = 880;
+    d.tx_keyed_us = 609;
+    d.tx_span_us = 5919;
     d.range_refused = 5;
 
     d.tracked = 4;
@@ -148,8 +151,8 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
     // up, then the radio, then what it heard, then what it knows about itself.
     CHECK(has(text, "sys up_s=3725 reset=\"WATCHDOG\" link_drops=2\n"));
     CHECK(has(text,
-              "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 tx_ok=880 "
-              "range_refused=5\n"));
+              "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 rx_noise=96 tx_ok=880 "
+              "tx_keyed_us=609 tx_span_us=5919 range_refused=5\n"));
     CHECK(has(text, "traffic tracked=4 alarm=2\n"));
     CHECK(has(text,
               "gnss fixes=5210 valid=true baud=38400 identified=true "
@@ -344,16 +347,18 @@ TEST_CASE("diagnostics: one subsystem can be asked for on its own, under its own
     CHECK(report.line_count() == 1);
 
     char buf[DiagnosticsReport::kFrameCap];
-    const int len = report.next_frame(kSmallestSupportedPayload, buf, sizeof(buf));
-    REQUIRE(len > 0);
-    const std::string body(buf, static_cast<size_t>(len));
+    std::string body;
+    while (!report.exhausted()) {
+        const int len = report.next_frame(kSmallestSupportedPayload, buf, sizeof(buf));
+        REQUIRE(len > 0);
+        body += std::string(buf, static_cast<size_t>(len));
+    }
     CHECK(has(body, "\"cmd\":\"radio\""));
     CHECK(has(body, "\"group\":\"radio\""));
     CHECK(has(body, "\"range_refused\":5"));
     // And nothing from any other subsystem came with it.
     CHECK_FALSE(has(body, "up_s"));
     CHECK_FALSE(has(body, "firmware"));
-    CHECK(report.exhausted());
 }
 
 // A dump is a witness. A witness that consumes its evidence makes the second

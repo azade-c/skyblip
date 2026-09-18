@@ -66,6 +66,14 @@ size_t encode_mband(uint32_t sync_word, const uint8_t* frame, uint8_t frame_len,
            mband_payload(sync_word, frame, frame_len, chips + kSyncWindowChipBytes);
 }
 
+bool framed_noise(const Frame& frame) {
+    if (frame.system != System::Unknown) return false;
+    uint16_t bad = 0;
+    for (uint8_t i = 0; i < kNoiseWindowBytes; i++)
+        bad = static_cast<uint16_t>(bad + __builtin_popcount(frame.err[i]));
+    return bad >= kNoiseBadChips;
+}
+
 bool receive_mband(const uint8_t* chips, size_t chip_bytes, Frame& out) {
     out = Frame{};
     if (chip_bytes < kRxChipBytes) return false;

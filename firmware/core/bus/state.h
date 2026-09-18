@@ -10,6 +10,7 @@
 #include "core/power/cutoff.h"
 #include "core/radio/log.h"
 #include "core/settings/settings.h"
+#include "core/timing/channel.h"
 #include "core/timing/durable_write.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
@@ -28,6 +29,9 @@ struct RfState {
     // the PPS half, products/skyblip_go/services/radio.cpp of the dwell half.
     timing::SlotTimingStats timing_stats{};
     uint64_t tx_deadline_us{0};
+    uint16_t last_tx_keyed_us{0};
+    uint16_t last_tx_span_us{0};
+    int8_t noise_dbm{timing::NoiseFloor::kSeedDbm};
 };
 
 struct PowerState {

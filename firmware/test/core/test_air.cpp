@@ -7,6 +7,7 @@
 #include "core/model/band.h"
 #include "core/protocol/air.h"
 #include "doctest/doctest.h"
+#include "test/support/rf_channel.h"
 
 using namespace skyblip;
 
@@ -159,6 +160,50 @@ TEST_CASE("air: a foreign sync word frames as nothing") {
     CHECK_FALSE(protocol::receive_mband(reported, sizeof(reported), frame));
     CHECK(frame.system == protocol::System::Unknown);
     CHECK(frame.len == 0);
+    CHECK_FALSE(protocol::framed_noise(frame));
+}
+
+// The 16-chip window is thin enough that the band's own noise walks through it.
+TEST_CASE("air: the window a neighbour missed reads apart from the one noise walked through") {
+    uint8_t reported[protocol::kRxChipBytes];
+    models::RfChannel channel(0xA1B2);
+    for (uint8_t& byte : reported) byte = static_cast<uint8_t>(channel.next());
+
+    protocol::Frame frame{};
+    CHECK_FALSE(protocol::receive_mband(reported, sizeof(reported), frame));
+    CHECK(frame.system == protocol::System::Unknown);
+    CHECK(protocol::framed_noise(frame));
+}
+
+TEST_CASE("air: a foreign burst keeps its chips, so it is not counted as noise") {
+    uint8_t payload[protocol::kAdslFrameBytes];
+    fill(payload, sizeof(payload), 5);
+    uint8_t chips[protocol::kTxChipBytes] = {0};
+    const size_t chip_len = protocol::encode_mband(0xF5F3656Cu, payload, sizeof(payload), chips);
+
+    uint8_t reported[protocol::kRxChipBytes] = {0};
+    deliver(chips, chip_len, reported, sizeof(reported));
+    protocol::Frame frame{};
+    CHECK_FALSE(protocol::receive_mband(reported, sizeof(reported), frame));
+    CHECK_FALSE(protocol::framed_noise(frame));
+}
+
+// The dwell reads past the end of a short burst, and those chips are nobody's.
+TEST_CASE("air: the noise window ends inside the shortest burst the band carries") {
+    uint8_t payload[protocol::kAdslFrameBytes];
+    fill(payload, sizeof(payload), 5);
+    uint8_t chips[protocol::kTxChipBytes] = {0};
+    const size_t chip_len = protocol::encode_mband(0xF5F3656Cu, payload, sizeof(payload), chips);
+
+    uint8_t reported[protocol::kRxChipBytes] = {0};
+    deliver(chips, chip_len, reported, sizeof(reported));
+    protocol::Frame frame{};
+    CHECK_FALSE(protocol::receive_mband(reported, sizeof(reported), frame));
+    int past_the_burst = 0;
+    for (uint8_t i = protocol::kNoiseWindowBytes; i < protocol::kRxFrameBytes; i++)
+        past_the_burst += __builtin_popcount(frame.err[i]);
+    CHECK(past_the_burst > 0);
+    CHECK_FALSE(protocol::framed_noise(frame));
 }
 
 TEST_CASE("air: a report shorter than the dwell reads is refused") {
