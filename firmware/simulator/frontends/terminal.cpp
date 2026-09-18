@@ -96,7 +96,8 @@ void render(simulator::Simulator& s) {
     std::printf(
         " device: [p]age [m]enu [t]ouch pad [b]acklight [o]n/off   sensors: [f]ix [n]o-pps\n");
     std::printf(
-        " alt a/z  speed s/x  track d/c   traffic: [g]+1 [j]+ALP-TAS [h]threat [k]clear  [q]uit\n");
+        " alt a/z  speed s/x  track d/c  turn r/e/w=0   traffic: [g]+1 [j]+ALP-TAS [h]threat"
+        " [k]clear  [q]uit\n");
     std::fflush(stdout);
 }
 
@@ -118,7 +119,7 @@ int main(int argc, char** argv) {
 
     uint32_t last_step_ms = now_ms();
     bool fix = true, pps = true, pad = false;
-    int32_t alt = 1000, spd = 45, trk = 90;
+    int32_t alt = 1000, spd = 45, trk = 90, turn_dps = 0;
 
     TermRaw raw;
     bool running = true;
@@ -149,6 +150,13 @@ int main(int argc, char** argv) {
                 case 'x': s.world().set_speed_kt(spd = spd > 5 ? spd - 5 : 0); break;
                 case 'd': s.world().set_track_deg(trk = (trk + 15) % 360); break;
                 case 'c': s.world().set_track_deg(trk = (trk + 345) % 360); break;
+                case 'r':
+                    s.world().set_turn_dps(turn_dps = turn_dps < 24 ? turn_dps + 3 : 24);
+                    break;
+                case 'e':
+                    s.world().set_turn_dps(turn_dps = turn_dps > -24 ? turn_dps - 3 : -24);
+                    break;
+                case 'w': s.world().set_turn_dps(turn_dps = 0); break;
                 case 'g': s.world().add_aircraft(1500, 800, 50, 30, 250); break;
                 case 'h': s.world().add_threat(); break;
                 case 'j':

@@ -41,6 +41,12 @@
   .ctl { display:grid; grid-template-columns:64px 1fr 62px; align-items:center; gap:8px; margin:7px 0; }
   .ctl label { font-size:12px; color:var(--dim); }
   .ctl output { font-size:12px; font-variant-numeric:tabular-nums; text-align:right; color:var(--accent); }
+  .sixpack { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px 14px; }
+  .sixpack .dial { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .sixpack .dial header { display:flex; justify-content:space-between; align-items:baseline;
+                          font-size:11px; letter-spacing:.06em; color:var(--dim); }
+  .sixpack .dial output { font-size:12px; font-variant-numeric:tabular-nums; color:var(--accent); }
+  .sixpack .dial button { padding:5px 9px; font-size:12px; }
   input[type=range] { width:100%; accent-color:#4aa3c7; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   button { background:#23272c; color:#e6e9ee; border:1px solid #3a3f45; border-radius:8px;
@@ -108,25 +114,51 @@
     <div style="display:flex; flex-direction:column; gap:14px; max-width:420px;">
       <!-- ---------------- GNSS / sensors ---------------- -->
       <div class="panel">
-        <h2>GNSS &amp; sensors</h2>
-        <div class="row" style="margin-bottom:8px;">
-          <button id="fixbtn" onclick="SIM.toggleFix()">Fix: ON</button>
+        <h2>Own-ship (six-pack)</h2>
+        <div class="sixpack">
+          <div class="dial">
+            <header><label for="spd">GS KT</label><output id="spd_o">120 kt</output></header>
+            <input type="range" id="spd" min="0" max="180" step="1" value="120"
+                   oninput="SIM.speed(this.value)">
+          </div>
+          <div class="dial">
+            <header><label for="sats">STATE</label><output id="sats_o">14 sats</output></header>
+            <input type="range" id="sats" min="0" max="32" value="14" oninput="SIM.sats(this.value)">
+            <button id="fixbtn" onclick="SIM.toggleFix()">Fix: ON</button>
+          </div>
+          <div class="dial">
+            <header><label for="alt">ALT FT</label><output id="alt_o">3500 ft</output></header>
+            <input type="range" id="alt" min="0" max="18000" step="100" value="3500"
+                   oninput="SIM.alt(this.value)">
+          </div>
+          <div class="dial">
+            <header><label for="trn">TURN D/S</label><output id="trn_o">+0.0 &deg;/s</output></header>
+            <input type="range" id="trn" min="-600" max="600" step="5" value="0"
+                   oninput="SIM.turn(this.value)">
+          </div>
+          <div class="dial">
+            <header><label for="trk">TRK</label><output id="trk_o">090&deg;</output></header>
+            <input type="range" id="trk" min="0" max="359" value="90"
+                   oninput="SIM.track(this.value)">
+          </div>
+          <div class="dial">
+            <header><label for="clb">VS FPM</label><output id="clb_o">0 fpm</output></header>
+            <input type="range" id="clb" min="-2000" max="2000" step="50" value="0"
+                   oninput="SIM.climb(this.value)">
+          </div>
         </div>
-        <div class="ctl"><label>Sats</label>
-          <input type="range" id="sats" min="0" max="24" value="9" oninput="SIM.sats(this.value)">
-          <output id="sats_o">9</output></div>
-        <div class="ctl"><label>Alt</label>
-          <input type="range" id="alt" min="0" max="5000" step="10" value="1000" oninput="SIM.alt(this.value)">
-          <output id="alt_o">1000 m</output></div>
-        <div class="ctl"><label>Speed</label>
-          <input type="range" id="spd" min="0" max="200" value="45" oninput="SIM.speed(this.value)">
-          <output id="spd_o">45 kt</output></div>
-        <div class="ctl"><label>Track</label>
-          <input type="range" id="trk" min="0" max="359" value="90" oninput="SIM.track(this.value)">
-          <output id="trk_o">090°</output></div>
-        <div class="ctl"><label>Climb</label>
-          <input type="range" id="clb" min="-50" max="50" value="0" oninput="SIM.climb(this.value)">
-          <output id="clb_o">0.0 m/s</output></div>
+        <div class="hint" style="margin-top:12px;">Laid out as the device's own six-pack and
+          read in the units it prints: knots, feet, feet per minute, degrees per second.
+          The sliders feed a simulated L76K that emits real NMEA and the production parser
+          decodes it, so the telemetry below is the firmware's answer and not the knob's.
+          Turn is what a bank holds: 3 &deg;/s is a standard rate turn, 13 to 18 a glider
+          thermalling, and past 30 the alarm stops believing the projection, which is why
+          the slider goes to 60.</div>
+      </div>
+
+      <!-- ---------------- air &amp; power ---------------- -->
+      <div class="panel">
+        <h2>Air &amp; power</h2>
         <div class="ctl"><label>Airmass</label>
           <input type="range" id="air" min="9600" max="10500" step="5" value="10132" oninput="SIM.airmass(this.value)">
           <output id="air_o">1013.2 hPa</output></div>
@@ -139,11 +171,10 @@
         <div class="row" style="margin-bottom:8px;">
           <button id="extbtn" onclick="SIM.toggleExternalPower()">USB power: OFF</button>
         </div>
-        <div class="hint">Sliders feed a simulated L76K that emits real NMEA. The
-          production parser decodes it. Airmass is the weather the BME280 sits in;
-          QNH is the subscale the device is set to. The cell slider is the
-          divider's millivolts: plug USB in and the same voltage reads a lower
-          state of charge, because a charger holds the terminal above the cell.</div>
+        <div class="hint">Airmass is the weather the BME280 sits in; QNH is the subscale the
+          device is set to. The cell slider is the divider's millivolts: plug USB in and the
+          same voltage reads a lower state of charge, because a charger holds the terminal
+          above the cell.</div>
       </div>
 
       <!-- ---------------- scenario / mode ---------------- -->
@@ -217,6 +248,7 @@
           <div>Altitude</div><div id="t_alt">-</div>
           <div>Speed</div><div id="t_spd">-</div>
           <div>Track</div><div id="t_trk">-</div>
+          <div>Turn rate</div><div id="t_turn">-</div>
           <div>Vert speed</div><div id="t_vs">-</div>
           <div>Static pressure</div><div id="t_baro">-</div>
           <div>Battery</div><div id="t_bat">-</div>
@@ -252,11 +284,19 @@ SIM.backlight = () => { bl = !bl; f.backlight(bl ? 1 : 0); };
 SIM.power = () => { pwr = !pwr; f.power(pwr ? 1 : 0); };
 SIM.toggleFix = () => { fix = !fix; f.setFix(fix ? 1 : 0);
                         $('fixbtn').textContent = 'Fix: ' + (fix ? 'ON' : 'OFF'); };
-SIM.sats  = v => { f.setSats(+v);  $('sats_o').textContent = v; };
-SIM.alt   = v => { f.setAlt(+v);   $('alt_o').textContent = v + ' m'; };
+SIM.sats  = v => { f.setSats(+v);  $('sats_o').textContent = v + ' sats'; };
+// The knobs read in the units a pilot does: feet, knots, feet per minute,
+// degrees per second. The firmware's own setters take metres and tenths.
+const FEET_PER_METRE = 3.28084;
+const FPM_PER_MPS = 196.85;
+SIM.alt   = v => { f.setAlt(Math.round(v / FEET_PER_METRE));
+                   $('alt_o').textContent = v + ' ft'; };
 SIM.speed = v => { f.setSpeed(+v); $('spd_o').textContent = v + ' kt'; };
 SIM.track = v => { f.setTrack(+v); $('trk_o').textContent = String(v).padStart(3,'0') + '°'; };
-SIM.climb = v => { f.setClimb(+v); $('clb_o').textContent = (v/10).toFixed(1) + ' m/s'; };
+SIM.turn  = v => { f.setTurn(+v);
+                   $('trn_o').textContent = (v >= 0 ? '+' : '') + (v/10).toFixed(1) + ' °/s'; };
+SIM.climb = v => { f.setClimb(Math.round(v * 10 / FPM_PER_MPS));
+                   $('clb_o').textContent = (v > 0 ? '+' : '') + v + ' fpm'; };
 // Sliders are in tenths of a hectopascal, the firmware speaks pascals.
 const HPA_E1_TO_PA = 10;
 SIM.airmass = v => { f.setAirmass(v * HPA_E1_TO_PA); $('air_o').textContent = (v/10).toFixed(1) + ' hPa'; };
@@ -319,6 +359,13 @@ SIM.listScenarios = async () => {
     menu.appendChild(option);
   }
 };
+// The knobs are the source of truth for own-ship at load, so the page and the
+// simulated receiver cannot start out disagreeing about altitude or turn rate.
+for (const [id, apply] of [['alt', SIM.alt], ['spd', SIM.speed], ['trk', SIM.track],
+                           ['trn', SIM.turn], ['clb', SIM.climb], ['rng', SIM.range],
+                           ['sats', SIM.sats], ['bat', SIM.battery]])
+  apply($(id).value);
+
 SIM.listScenarios();
 SIM.applyMode();
 SIM.clearTraffic = () => f.clearTraffic();
@@ -396,6 +443,10 @@ function draw() {
   $('t_alt').textContent  = f.alt() + ' m';
   $('t_spd').textContent  = (f.speedQ()/4).toFixed(1) + ' m/s';
   $('t_trk').textContent  = Math.round(f.trackC9()*360/512).toString().padStart(3,'0') + '°';
+  // What the firmware differentiated out of the track it decoded, which is the
+  // number the alarm projects an arc with.
+  const turn = f.turnDps();
+  $('t_turn').textContent = (turn > 0 ? '+' : '') + turn + ' °/s';
   $('t_vs').textContent   = (f.climbMmS()/1000).toFixed(2) + ' m/s';
   $('t_baro').textContent = (f.pressureMpa()/100000).toFixed(3) + ' hPa';
   $('t_bat').textContent  = (f.batteryMv()/1000).toFixed(2) + ' V · ' + f.batteryPercent() + ' %'

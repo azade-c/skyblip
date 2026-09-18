@@ -41,6 +41,7 @@ KEEPALIVE void simulator_set_alt(int m) { g_simulator.world().set_altitude_m(m);
 KEEPALIVE void simulator_set_speed(int kt) { g_simulator.world().set_speed_kt(kt); }
 KEEPALIVE void simulator_set_track(int deg) { g_simulator.world().set_track_deg(deg); }
 KEEPALIVE void simulator_set_climb(int e1) { g_simulator.world().set_climb_e1(e1); }
+KEEPALIVE void simulator_set_turn(int dps_e1) { g_simulator.world().set_turn_dps(dps_e1 / 10.0); }
 // Both in pascals: the subscale the device is set to, and the air outside.
 KEEPALIVE void simulator_set_qnh(int pa) {
     g_simulator.product().state().baro.qnh_pa = static_cast<uint32_t>(pa);
@@ -126,6 +127,7 @@ KEEPALIVE int simulator_battery_charging() {
 KEEPALIVE int simulator_speed_q() { return g_simulator.product().state().own.speed_q; }
 KEEPALIVE int simulator_track_c9() { return g_simulator.product().state().own.track_c9; }
 KEEPALIVE int simulator_climb_mm_s() { return g_simulator.product().state().own.climb_mm_s; }
+KEEPALIVE int simulator_turn_dps() { return g_simulator.product().state().own.turn_dps; }
 KEEPALIVE int simulator_traffic_count() { return g_simulator.product().state().traffic.count(); }
 KEEPALIVE int simulator_alarm_level() {
     return traffic::to_number(g_simulator.product().state().alarm_level);
