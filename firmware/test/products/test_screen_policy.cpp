@@ -198,12 +198,13 @@ TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe an
 }
 
 // Nothing may hide a page: the radar is home and the nearby menu opens the rest.
-TEST_CASE("screen policy: the walk is three pages, always, and every tap is a page change") {
+TEST_CASE("screen policy: the walk is four pages, always, and every tap is a page change") {
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 
-    const go::Page walk[3] = {go::Page::Nearby, go::Page::SixPack, go::Page::Radar};
+    const go::Page walk[4] = {go::Page::Nearby, go::Page::SixPack, go::Page::GMeter,
+                              go::Page::Radar};
     for (go::Page expected : walk) {
         rig.screen.next_page();
         rig.run_seconds(t, 2);

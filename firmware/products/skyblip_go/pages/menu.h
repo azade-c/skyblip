@@ -23,7 +23,6 @@ enum class MenuRow : uint8_t {
     Sats,
     Status,
     SelfTest,
-    GMeter,
     Gyro,
     AlignQnh,
     QnhDown,
@@ -76,7 +75,7 @@ bool qnh_aligned_with_gnss(const MenuValues& values, uint32_t& out_pa);
 
 constexpr bool opens_a_page(MenuRow row) {
     return row == MenuRow::RadioLog || row == MenuRow::Sats || row == MenuRow::Status ||
-           row == MenuRow::SelfTest || row == MenuRow::GMeter;
+           row == MenuRow::SelfTest;
 }
 
 Page page_behind(MenuRow row);

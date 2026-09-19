@@ -40,13 +40,16 @@ TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::SixPack);
 
-    // Three pictures on the walk, and it wraps. The rest are opened by name.
+    rig.tap_pad(t);
+    CHECK(rig.product.screen().page() == go::Page::GMeter);
+
+    // Four pictures on the walk, and it wraps. The rest are opened by name.
     rig.tap_pad(t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK(rig.product.screen().mode() == go::Mode::Page);
 }
 
-// A page opened from a menu is a detour, not a fourth stop on the walk.
+// A page opened from a menu is a detour, not a fifth stop on the walk.
 TEST_CASE("product: the pad leaves a page it was sent to for the page that sent it") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);

@@ -16,8 +16,8 @@ constexpr MenuRow kRadarMenuRows[] = {MenuRow::Identity, MenuRow::AircraftType, 
                                       MenuRow::Stealth};
 constexpr MenuRow kNearbyMenuRows[] = {MenuRow::RadioLog, MenuRow::Sats, MenuRow::Status,
                                        MenuRow::SelfTest};
-constexpr MenuRow kSixPackMenuRows[] = {MenuRow::GMeter, MenuRow::Gyro, MenuRow::AlignQnh,
-                                        MenuRow::QnhDown, MenuRow::QnhUp};
+constexpr MenuRow kSixPackMenuRows[] = {MenuRow::Gyro, MenuRow::AlignQnh, MenuRow::QnhDown,
+                                        MenuRow::QnhUp};
 
 template <int N>
 constexpr Menu menu_of(const MenuRow (&rows)[N]) {
@@ -99,7 +99,6 @@ const char* menu_row_label(MenuRow row) {
         case MenuRow::Sats: return "SATELLITES";
         case MenuRow::Status: return "STATUS";
         case MenuRow::SelfTest: return "SELF TEST";
-        case MenuRow::GMeter: return "G METER";
         case MenuRow::Gyro: return "GYRO";
         case MenuRow::AlignQnh: return "QNH FROM GNSS";
         case MenuRow::QnhDown:
@@ -114,7 +113,6 @@ Page page_behind(MenuRow row) {
         case MenuRow::Sats: return Page::Sats;
         case MenuRow::Status: return Page::Status;
         case MenuRow::SelfTest: return Page::SelfTest;
-        case MenuRow::GMeter: return Page::GMeter;
         default: return Page::Radar;
     }
 }

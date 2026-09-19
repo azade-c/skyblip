@@ -2352,7 +2352,7 @@ What reaches the glass, driven through the whole product rather than through a s
 - the pad held through the press leaves the glass blank
   > An e-paper stored for months under one image keeps a shadow of it for good.
 - the pad leaves a page it was sent to for the page that sent it
-  > A page opened from a menu is a detour, not a fourth stop on the walk.
+  > A page opened from a menu is a detour, not a fifth stop on the walk.
 - the parts this firmware never drives are named on the bus row
   > The IMU and the RTC have no row because nothing drives them: the bus is their evidence.
 - the self-test page carries what the probes found, not what was expected
@@ -2642,7 +2642,7 @@ The refresh policy over the real SSD1681 driver: partials only, every screen thr
   > A wipe is 360 ms of black over the bearing the pilot was just told to look at.
 - the loudest alarm standing still gets the page its black
   > A radar ghosted over the page under it is worse than 360 ms of black the pilot asked for.
-- the walk is three pages, always, and every tap is a page change
+- the walk is four pages, always, and every tap is a page change
   > Nothing may hide a page: the radar is home and the nearby menu opens the rest.
 
 ### test/products/test_settings.cpp
