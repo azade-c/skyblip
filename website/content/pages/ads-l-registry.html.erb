@@ -1,26 +1,30 @@
 ---
 title: Application for an ADS-L address range
 nav_title: ADS-L registry
-description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.SRD860.F.2.2: who is applying, what the equipment transmits and receives, how the 16-bit base address space would be allocated, and one open question about aircraft callsigns."
+description: "skyBlip applies for AMT entry 58 under ADS-L.4.SRD860.F.2.2, used flat over all 24 bits as OGN-Tracker uses entry 7: who is applying, what the equipment transmits and receives, why the manufacturer prefix does not fit a fleet that is built rather than bought, and one open question about aircraft callsigns."
 ---
 
 <section>
   <h2 class="kicker">For the ADS-L registry</h2>
-  <h3>skyBlip applies for an AMT page and a manufacturer prefix.</h3>
+  <h3>skyBlip applies for AMT entry 58, and for the exception OGN-Tracker has.</h3>
   <p class="lede">
     skyBlip builds open-source electronic conspicuity equipment for general
     aviation. The devices transmit and receive <strong>ADS-L 4 SRD-860</strong>
     air-to-air, receive the ADS-L traffic uplink from ground stations, and
     receive FLARM-generation traffic. Under
-    <strong>ADS-L.4.SRD860.F.2.2</strong> we apply for one manufacturer page of
-    the Address Mapping Table and a unique 8-bit manufacturer prefix, so that a
-    skyBlip leaves production with an address drawn from a range that is ours.
+    <strong>ADS-L.4.SRD860.F.2.2</strong> we apply for <strong>entry 58 of the
+    Address Mapping Table</strong>, manufacturers page 49, and we ask that it
+    carry the whole 24-bit address with no manufacturer prefix, exactly as
+    entry 7 carries OGN-Tracker addresses. A skyBlip would then mint its address
+    inside a space that is ours, whether it was shipped by us or built by its
+    owner.
   </p>
   <p>
     This page is what accompanies the application to
     <a href="mailto:registry@ads-l.aero">registry@ads-l.aero</a>: who is
-    applying, what the equipment does on the air, how we intend to use the
-    range, and one question we would like the registry&rsquo;s view on.
+    applying, what the equipment does on the air, why the manufacturer prefix of
+    F.2.2 does not fit this fleet, and one question we would like the
+    registry&rsquo;s view on.
   </p>
 </section>
 
@@ -177,7 +181,7 @@ description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.S
 
 <section>
   <h2 class="kicker">The address</h2>
-  <h3>What we do today, and what the prefix would change.</h3>
+  <h3>What we do today, and what an entry would change.</h3>
 
   <p>
     Today a skyBlip has no range to draw from, so it mints its own: the 24-bit
@@ -189,10 +193,45 @@ description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.S
     &ldquo;dead SPI read&rdquo;, 0x000000 and 0xFFFFFF.
   </p>
   <p>
-    With an assigned page and prefix, that guesswork ends. We would allocate the
-    16-bit base address space densely from one end, one address per unit
-    recorded at production, and apply for a further page and prefix combination
-    once the range is used up, as F.2.2 requires.
+    F.2.2 offers a manufacturer a page of the AMT and an 8-bit prefix inside it,
+    and asks that the remaining 16 bits be filled densely. That shape assumes a
+    production line: someone issues address n+1 to the next unit and writes it
+    down. This firmware is GPL-3.0 and builds from source, so a share of the
+    fleet is assembled by its owner, flashed at a kitchen table, and passes
+    through no counter we could run. Such a device mints its address the only
+    way an offline device can, from the MCU serial number, and 16 bits are too
+    few to absorb that: derived addresses collide at even odds by about 300
+    devices.
+  </p>
+  <p>
+    So the application is for one AMT entry with the structuring of F.2.2
+    waived: 6 bits of AMT and 24 bits of address, no 8-bit prefix in between. We
+    are asking for a deviation and say so plainly, but it is one the table
+    already grants three times over. Entries 6, 7 and 8 are flat 24-bit spaces,
+    and <strong>OGN-Tracker at entry 7</strong> is a fleet of exactly this
+    shape: devices built rather than bought, each deriving its identity locally,
+    with a public database resolving who is who. Assigned that way, the entry
+    costs the table one page out of 55 and ends the guesswork for every skyBlip
+    ever built, not only for the ones we ship.
+  </p>
+  <p>
+    The entry we ask for is <strong>58</strong>, manufacturers page 49, for one
+    reason only: 58 reads as SB. It is the single piece of vanity in this
+    application and the registry should overrule it without hesitation, since a
+    page issued out of order is a favour and the exception above is the part
+    that matters. Any entry in 9 to 63 works for us.
+  </p>
+  <p>
+    If the registry holds manufacturers pages to the prefix scheme, we take the
+    entry with prefix <strong>0x5B</strong> and a counter for the units we ship,
+    and the self-built ones stay in the self-minted group 0 to 4 where they are
+    today.
+  </p>
+  <p class="note">
+    A 24-bit space does not make collisions impossible either. It makes them
+    rare enough to settle one at a time: about 4,800 derived addresses before
+    even odds of a single colliding pair. What settles them is a register, which
+    is the first of the two answers in the question below.
   </p>
   <p>
     The two other address paths of the specification stay as written. An
@@ -224,8 +263,8 @@ description: "skyBlip applies for an Address Mapping Table entry under ADS-L.4.S
     national registry resolves it to a registration, and F.2.3 is right to
     prefer it. That path is closed for most of the traffic this equipment
     addresses: a French microlight has no ICAO 24-bit address, nor has a
-    paraglider or a paramotor, and under a manufacturer prefix its address is
-    ours rather than the aircraft&rsquo;s.
+    paraglider or a paramotor, and under an entry of ours its address is ours
+    rather than the aircraft&rsquo;s.
   </p>
   <p>
     So we would like the registry&rsquo;s view on which of the two answers it
