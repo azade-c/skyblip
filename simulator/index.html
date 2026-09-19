@@ -331,6 +331,7 @@ const alptas = () => ($('tfc_system').value === 'alptas' ? 1 : 0);
 const KT_TO_MPS = 0.514444;
 const TRAFFIC_CRUISE_KT = [90, 180];
 const TRAFFIC_SLOW_KT = [35, 90];
+const TRAFFIC_VERT_SPREAD_M = 600;
 const TRAFFIC_CRUISE_TURN_DPS_E1 = 20;
 const TRAFFIC_THERMAL_TURN_DPS_E1 = [80, 150];
 const TRAFFIC_CRUISE_CLIMB_MM_S = 4000;
@@ -349,7 +350,7 @@ const trafficClimbMmS = () =>
 SIM.addRandom = () => {
   const brg = Math.random() * 2 * Math.PI, d = 800 + Math.random() * 4000;
   f.addAircraft(Math.round(Math.cos(brg)*d), Math.round(Math.sin(brg)*d),
-                Math.round((Math.random()-0.5)*300),
+                spread(TRAFFIC_VERT_SPREAD_M),
                 trafficSpeedMps(), Math.round(Math.random()*359),
                 trafficTurnDpsE1(), trafficClimbMmS(), alptas());
 };
