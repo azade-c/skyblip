@@ -241,7 +241,7 @@ RadarSnapshot cruising(int32_t speed_mps) {
     return snap;
 }
 
-// The dots and nothing else: the same plot without own-ship's own run under it.
+// Own-ship's vector and nothing else: the same plot without the run under it.
 int marks_in(const RadarSnapshot& snap, int x0, int y0, int x1, int y1) {
     RadarSnapshot still = snap;
     still.speed_mm_s = 0;
@@ -412,8 +412,6 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
 
     CHECK(fb.get_pixel(196, 100));
     CHECK(fb.get_pixel(192, 100));
-    // Its tag would hang off the edge, so it slides inboard instead of being cut.
-    CHECK(reads_in(fb, "00", 160, 74, 200, 94, 2));
     CHECK(reads_in(fb, "0", 170, 170, 200, 200, 3));
     CHECK_FALSE(fb.get_pixel(99, 77));
 
@@ -436,43 +434,60 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
     CHECK(reads_in(empty, "0", 170, 170, 200, 200, 3));
 }
 
-TEST_CASE("radar: two dots off the nose mark the next minute and the one after") {
+TEST_CASE("radar: own ship's track is a line, with a ball on each of the next two minutes") {
     const Glass fb = radar(cruising(30));
 
-    // 30 m/s for 60 s is 1800 m, 22 px up the glass, on the 99|100 pair.
-    CHECK(fb.get_pixel(99, 77));
-    CHECK(fb.get_pixel(100, 77));
+    // 30 m/s for 60 s is 1800 m, 22 px up the glass: the ball straddles the 99|100 pair.
     CHECK(fb.get_pixel(99, 78));
     CHECK(fb.get_pixel(100, 78));
-    CHECK_FALSE(fb.get_pixel(98, 77));
-    CHECK_FALSE(fb.get_pixel(101, 77));
-    CHECK_FALSE(fb.get_pixel(99, 76));
-    // Nothing joins it to the aeroplane: the glass between them stays clear.
-    CHECK_FALSE(fb.get_pixel(99, 85));
-    CHECK_FALSE(fb.get_pixel(100, 85));
+    CHECK(fb.get_pixel(97, 78));
+    CHECK(fb.get_pixel(102, 78));
+    CHECK_FALSE(fb.get_pixel(96, 78));
+    CHECK_FALSE(fb.get_pixel(103, 78));
+    // Six rows across, 75..80, and round: the corners are off it.
+    CHECK(fb.get_pixel(100, 75));
+    CHECK(fb.get_pixel(100, 80));
+    CHECK_FALSE(fb.get_pixel(100, 74));
+    CHECK_FALSE(fb.get_pixel(97, 75));
 
-    // The second minute is twice as far up the same line.
-    CHECK(fb.get_pixel(99, 55));
+    // The line joins it to the aeroplane, and stands clear of the nose at 94.
+    CHECK(fb.get_pixel(100, 85));
+    CHECK(fb.get_pixel(100, 91));
+    CHECK_FALSE(fb.get_pixel(100, 92));
+
+    // Two pixels across, on that same pair, and dashed: 3 px of line, 3 px of glass.
+    CHECK(fb.get_pixel(99, 85));
+    CHECK_FALSE(fb.get_pixel(98, 85));
+    CHECK_FALSE(fb.get_pixel(101, 85));
+    CHECK(fb.get_pixel(100, 83));
+    CHECK_FALSE(fb.get_pixel(99, 87));
+    CHECK_FALSE(fb.get_pixel(100, 87));
+
+    // The second minute is twice as far up the same line, and the line ends on it.
     CHECK(fb.get_pixel(100, 56));
-    CHECK_FALSE(fb.get_pixel(99, 53));
+    CHECK(fb.get_pixel(97, 56));
+    CHECK(fb.get_pixel(100, 65));
+    CHECK_FALSE(fb.get_pixel(100, 52));
 
-    // Twice the speed puts the first dot where the second one was.
-    CHECK(radar(cruising(60)).get_pixel(99, 55));
+    // Twice the speed puts the first ball where the second one was.
+    CHECK(radar(cruising(60)).get_pixel(97, 56));
 
-    // A second minute beyond the ring is dropped, not parked on the stroke.
+    // A second minute beyond the ring is dropped, and the line runs out to the stroke.
     const Glass clipped = radar(cruising(80));
-    CHECK(clipped.get_pixel(99, 40));
-    for (int y = 10; y < 20; y++) CHECK_FALSE(clipped.get_pixel(99, y));
+    CHECK(clipped.get_pixel(100, 41));
+    CHECK(clipped.get_pixel(100, 12));
+    CHECK_FALSE(clipped.get_pixel(97, 12));
+    CHECK_FALSE(clipped.get_pixel(100, 10));
 
-    CHECK_FALSE(radar(cruising(0)).get_pixel(99, 77));
+    CHECK_FALSE(radar(cruising(0)).get_pixel(100, 78));
 
     RadarSnapshot searching;
     searching.speed_mm_s = 30000;
-    CHECK_FALSE(radar(searching).get_pixel(99, 77));
+    CHECK_FALSE(radar(searching).get_pixel(100, 78));
 }
 
-// A pilot in a turn is not going where the nose points, and the dots are where they will be.
-TEST_CASE("radar: the minute dots ride own ship's turn, not its nose") {
+// A pilot in a turn is not going where the nose points, and the line is where they will be.
+TEST_CASE("radar: the vector rides own ship's turn, not its nose") {
     // 30 m/s at 1 deg/s is a 1719 m radius: 60 deg of it is 10 px right, 18 px up.
     RadarTarget behind[1] = {{-3000, 0, 0, Level::Advisory}};
     RadarSnapshot right = flying(0);
@@ -480,103 +495,43 @@ TEST_CASE("radar: the minute dots ride own ship's turn, not its nose") {
     right.n_targets = 1;
     right.targets = behind;
     right.turn_cdps = 100;
-    CHECK(marks_in(right, 101, 70, 140, 90) == 8);
-    CHECK(marks_in(right, 90, 30, 101, 90) == 0);
-    CHECK_FALSE(radar(right).get_pixel(99, 77));
+    CHECK(radar(right).get_pixel(110, 82));
+    // 120 deg of it is 1.5 radii right, and the same 18 px up.
+    CHECK(radar(right).get_pixel(131, 82));
+    CHECK(marks_in(right, 60, 30, 99, 95) == 0);
+    CHECK_FALSE(radar(right).get_pixel(100, 78));
 
     RadarSnapshot left = right;
     left.turn_cdps = -100;
-    CHECK(marks_in(left, 60, 70, 99, 90) == 8);
-    CHECK(marks_in(left, 99, 30, 140, 90) == 0);
+    CHECK(radar(left).get_pixel(89, 82));
+    CHECK(marks_in(left, 101, 30, 140, 95) == 0);
 
     RadarSnapshot straight_on = right;
     straight_on.turn_cdps = 0;
-    CHECK(marks_in(straight_on, 95, 50, 105, 82) == 8);
+    CHECK(radar(straight_on).get_pixel(100, 78));
 
-    // A thermalling turn closes its circle inside the aeroplane: nothing to mark.
+    // A thermalling turn closes its circle inside the aeroplane: nothing to draw.
     RadarSnapshot circling = right;
     circling.turn_cdps = 600;
     CHECK(marks_in(circling, 0, 0, 200, 200) == 0);
 }
 
-// An empty ring needs no scale: the dots are read against traffic or not at all.
-TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
+// An empty ring needs no scale: the vector is read against traffic or not at all.
+TEST_CASE("radar: own ship's vector keeps off a plot with nothing on it") {
     RadarSnapshot alone = flying(0);
     alone.speed_mm_s = 30000;
-    CHECK_FALSE(radar(alone).get_pixel(99, 77));
-    CHECK_FALSE(radar(alone).get_pixel(99, 55));
+    CHECK_FALSE(radar(alone).get_pixel(100, 78));
+    CHECK_FALSE(radar(alone).get_pixel(100, 85));
 
-    CHECK(radar(cruising(30)).get_pixel(99, 77));
+    CHECK(radar(cruising(30)).get_pixel(100, 78));
 
-    // Heard but outside the ring is not on the plot, and does not bring them back.
+    // Heard but outside the ring is not on the plot, and does not bring it back.
     RadarTarget far_out[1] = {{40000, 0, 0, Level::None}};
     RadarSnapshot beyond = flying(0);
     beyond.speed_mm_s = 30000;
     beyond.n_targets = 1;
     beyond.targets = far_out;
-    CHECK_FALSE(radar(beyond).get_pixel(99, 77));
-}
-
-// Stone 7, gap 2, pad 2 and 14 rows of glyph: the digits stand 25 px off the plot.
-constexpr int kTagTop = kPlotY - 25;
-constexpr int kTagBottom = kPlotY + 12;
-
-TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {
-    // 300 m = 984 ft, which is ten hundreds of feet to the nearest hundred.
-    RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory}};
-    const Glass higher = radar(one_target(above));
-    CHECK(reads_in(higher, "+10", 70, kTagTop - 2, 130, kTagTop + 16, 2));
-    CHECK_FALSE(reads_in(higher, "+10", 70, kPlotY, 130, 100, 2));
-    // It is set at double height: the small figure is nowhere on the glass.
-    CHECK_FALSE(reads_in(higher, "+10", 0, 0, 200, 170, 1));
-
-    RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, Level::Advisory}};
-    const Glass lower = radar(one_target(below));
-    CHECK(reads_in(lower, "-10", 70, kTagBottom - 2, 130, kTagBottom + 16, 2));
-    CHECK_FALSE(reads_in(lower, "-10", 70, 20, 130, kPlotY, 2));
-
-    // Level traffic reads 00, unsigned: +0 and -0 are the same separation.
-    RadarTarget level[1] = {{2 * kMetresPerNm, 0, 10, Level::Advisory}};
-    CHECK(reads_in(radar(one_target(level)), "00", 70, kTagTop - 2, 130, kTagTop + 16, 2));
-}
-
-// A third digit is 12 px more tag for a separation no pilot manoeuvres against.
-TEST_CASE("radar: the tag stops at 99 hundreds of feet, the way a TCAS tag does") {
-    RadarTarget high[1] = {{2 * kMetresPerNm, 0, 4000, Level::None}};
-    const Glass fb = radar(one_target(high));
-    CHECK(reads_in(fb, "+99", 60, kTagTop - 4, 140, kTagTop + 16, 2));
-
-    RadarTarget deep[1] = {{2 * kMetresPerNm, 0, -4000, Level::None}};
-    CHECK(reads_in(radar(one_target(deep)), "-99", 60, kTagBottom - 4, 140, kTagBottom + 16, 2));
-}
-
-TEST_CASE("radar: a tag that would land on another is dropped, never overlaid") {
-    // 200 m abeam is 2 px on the 4 NM ring, so the two tags want the same glass.
-    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, Level::Advisory},
-                           {2 * kMetresPerNm, 200, 600, Level::Advisory}};
-    RadarSnapshot snap = flying(0);
-    snap.n_targets = 2;
-    snap.targets = pair;
-    const Glass fb = radar(snap);
-
-    CHECK(reads_in(fb, "+10", 70, kTagTop - 2, 130, kTagTop + 16, 2));
-    CHECK_FALSE(reads_in(fb, "+20", 0, 0, 200, 170, 2));
-    // Both aircraft are still on the glass: the tag goes, the symbol stays.
-    CHECK(fb.get_pixel(kPlotX + 2 + 4, kPlotY));
-    CHECK(fb.get_pixel(kPlotX - 4, kPlotY));
-}
-
-// Tags are four times the area they were, so which one survives a clash is a decision.
-TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
-    RadarTarget pair[2] = {{2 * kMetresPerNm, 0, 300, Level::None},
-                           {2 * kMetresPerNm, 200, 600, Level::Advisory}};
-    RadarSnapshot snap = flying(0);
-    snap.n_targets = 2;
-    snap.targets = pair;
-    const Glass fb = radar(snap);
-
-    CHECK(reads_in(fb, "+20", 60, 20, 140, kPlotY, 2));
-    CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
+    CHECK_FALSE(radar(beyond).get_pixel(100, 78));
 }
 
 // The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your
@@ -611,30 +566,6 @@ TEST_CASE("radar: a caret on the stone says climbing or sinking, past 500 fpm") 
     // A target that never reported a rate is not credited with one.
     RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 40, false}};
     CHECK_FALSE(radar(one_target(silent)).get_pixel(kPlotX, kPlotY - 11));
-}
-
-// A tag is now wide enough to bury the aeroplane it is plotted against.
-TEST_CASE("radar: a tag keeps off own ship and off the line its target is flying") {
-    Glass bare;
-    RadarSnapshot empty = flying(0);
-    draw_radar(bare, empty);
-
-    // 1500 m astern plots 19 px below the ship, so its tag wants the wing and goes instead.
-    RadarTarget astern[1] = {{-1500, 0, 300, Level::Advisory}};
-    const Glass fb = radar(one_target(astern));
-    CHECK(ink_in(fb, 88, 94, 112, 110) == ink_in(bare, 88, 94, 112, 110));
-    CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
-
-    // Clear of the ship it keeps its figure, on the beam rather than over the wing.
-    RadarTarget quarter[1] = {{-1500, 900, 300, Level::Advisory}};
-    CHECK(reads_in(radar(one_target(quarter)), "+10", 110, 90, 180, 115, 2));
-
-    // Flying straight up the glass, the tag would sit on the whole minute of line.
-    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, false, 30000, 0}};
-    const Glass ahead = radar(one_target(running));
-    CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
-    CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
-    CHECK(reads_in(ahead, "+10", 40, kTagTop - 2, kPlotX, kTagTop + 16, 2));
 }
 
 TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glass") {
@@ -835,8 +766,8 @@ TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
     CHECK_FALSE(reads_in(plotted, "SEARCH", 0, 0, 200, 199));
 }
 
-TEST_CASE("radar: a tag lands off the state word rather than erasing it") {
-    // 4428 m behind is 54 px on the 4 NM ring, and the tag over that symbol falls on the word.
+TEST_CASE("radar: a stone lands off the state word rather than erasing it") {
+    // 4428 m behind is 54 px on the 4 NM ring, which is where the word stands.
     RadarTarget behind[1] = {{-4428, 0, 100, Level::None}};
     RadarSnapshot parked = flying(0);
     parked.airborne = false;

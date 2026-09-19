@@ -50,25 +50,19 @@ constexpr int kRangeY = kFooterBottom - kGlyphH * kRangeScale;
 constexpr int kUnitGap = 3;
 constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
-constexpr int kTagScale = 2;
-constexpr int kTagGlyphH = kGlyphH * kTagScale;
-constexpr int kTagGap = 2;
-constexpr int kTagSideClear = kCellW * kTagScale;
-constexpr int kTagPad = 2;
-constexpr int32_t kFeetPerTagUnit = 100;
-constexpr int32_t kMaxTagHundreds = 99;
 constexpr int16_t kCaretClimbE8 = 20;
 constexpr int32_t kLevelM = 60;
 constexpr int32_t kLeaderSeconds = 60;
 constexpr uint32_t kLeaderStepMs = 5000;
-constexpr int kLeaderSteps = static_cast<int>((kLeaderSeconds * 1000) / kLeaderStepMs);
-constexpr uint32_t kMinuteStepMs = 10000;
-constexpr int kStepsPerMinute = static_cast<int>((kLeaderSeconds * 1000) / kMinuteStepMs);
+constexpr int kStepsPerMinute = static_cast<int>((kLeaderSeconds * 1000) / kLeaderStepMs);
 constexpr int kMinLeaderPx = 3;
 constexpr int kOwnNoseAhead = ui::kSkyshipRowsToNose + 1;
 constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
 constexpr int kFooterTop = kStateY - kLabelPad;
-constexpr int kMinuteDotW = 2;
+constexpr int kMinuteBallR = 3;
+constexpr int kBallClearR = kOuterR - kRingW - kMinuteBallR;
+constexpr int kDashPx = 3;
+constexpr int kDashGapPx = 3;
 constexpr int kWedgeInnerR = 15;
 constexpr int kWedgeOuterR = kOuterR - kRingW;
 constexpr int64_t kTanScale = 10000;
@@ -382,22 +376,83 @@ void formation_counts(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) 
     }
 }
 
-int own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track, Box* marked) {
-    if (snap.speed_mm_s <= 0) return 0;
-    flight::Arc arc(motion_of(snap.speed_mm_s, snap.track_cdeg, snap.turn_cdps, true),
-                    kMinuteStepMs);
-    int n = 0;
-    for (int step = 1; step <= kMinutesMarked * kStepsPerMinute; step++) {
-        const flight::Position ahead = arc.advance();
-        if (step % kStepsPerMinute != 0) continue;
-        const HeadingUp at = on_glass_at(ahead, snap, track);
-        if (!inside_ring(at.right, at.ahead)) continue;
-        if (at.right * at.right + at.ahead * at.ahead < kMinuteClearPx * kMinuteClearPx) continue;
-        const int x = px_of(at.right) - kMinuteDotW / 2, y = py_of(at.ahead) - kMinuteDotW / 2;
-        fb.rect(x, y, kMinuteDotW, kMinuteDotW, true, true);
-        marked[n++] = {x, y, kMinuteDotW, kMinuteDotW};
+void minute_ball(ui::Canvas& fb, int x, int y) {
+    const int r = kMinuteBallR;
+    for (int dy = -r; dy < r; dy++)
+        for (int dx = -r; dx < r; dx++) {
+            const int px = 2 * dx + 1, py = 2 * dy + 1;
+            if (px * px + py * py <= 4 * r * r) fb.set_pixel(x + dx, y + dy, true);
+        }
+}
+
+struct DashPen {
+    ui::Canvas& fb;
+    int phase{0};
+    int x{0};
+    int y{0};
+    bool down{false};
+    bool fresh{false};
+
+    void lift() { down = false; }
+
+    void to(int x1, int y1) {
+        if (down)
+            stroke(x1, y1);
+        else
+            fresh = down = true;
+        x = x1;
+        y = y1;
     }
-    return n;
+
+   private:
+    void dash(int at_x, int at_y, bool steep) {
+        if (phase++ % (kDashPx + kDashGapPx) >= kDashPx) return;
+        fb.set_pixel(at_x, at_y, true);
+        fb.set_pixel(steep ? at_x - 1 : at_x, steep ? at_y : at_y - 1, true);
+    }
+
+    void stroke(int x1, int y1) {
+        int at_x = x, at_y = y;
+        const int dx = x1 > at_x ? x1 - at_x : at_x - x1;
+        const int dy = y1 > at_y ? y1 - at_y : at_y - y1;
+        const int sx = at_x < x1 ? 1 : -1, sy = at_y < y1 ? 1 : -1;
+        const bool steep = dy >= dx;
+        int err = dx - dy;
+        if (fresh) dash(at_x, at_y, steep);
+        fresh = false;
+        while (at_x != x1 || at_y != y1) {
+            const int e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                at_x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                at_y += sy;
+            }
+            dash(at_x, at_y, steep);
+        }
+    }
+};
+
+void own_vector(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
+    if (snap.speed_mm_s <= 0) return;
+    flight::Arc arc(motion_of(snap.speed_mm_s, snap.track_cdeg, snap.turn_cdps, true),
+                    kLeaderStepMs);
+    DashPen pen{fb};
+    for (int step = 1; step <= kMinutesMarked * kStepsPerMinute; step++) {
+        const HeadingUp at = on_glass_at(arc.advance(), snap, track);
+        if (!inside_ring(at.right, at.ahead)) return;
+        const int64_t out = at.right * at.right + at.ahead * at.ahead;
+        if (out < kMinuteClearPx * kMinuteClearPx) {
+            pen.lift();
+            continue;
+        }
+        const int x = px_of(at.right), y = py_of(at.ahead);
+        pen.to(x, y);
+        if (step % kStepsPerMinute != 0) continue;
+        if (out <= kBallClearR * kBallClearR) minute_ball(fb, x, y);
+    }
 }
 
 struct Leader {
@@ -411,7 +466,8 @@ Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track)
     flight::Arc arc(motion_of(t.speed_mm_s, t.track_cdeg, t.turn_cdps, t.turn_valid),
                     kLeaderStepMs);
     HeadingUp end{0, 0};
-    for (int step = 0; step < kLeaderSteps; step++) end = on_glass_at(arc.advance(), snap, track);
+    for (int step = 0; step < kStepsPerMinute; step++)
+        end = on_glass_at(arc.advance(), snap, track);
     if (end.right * end.right + end.ahead * end.ahead < kMinLeaderPx * kMinLeaderPx)
         return {0, 0, false};
     return {end.right, end.ahead, true};
@@ -423,7 +479,7 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
     flight::Arc arc(motion_of(t.speed_mm_s, t.track_cdeg, t.turn_cdps, t.turn_valid),
                     kLeaderStepMs);
     int from_x = p.x, from_y = p.y;
-    for (int step = 0; step < kLeaderSteps; step++) {
+    for (int step = 0; step < kStepsPerMinute; step++) {
         const HeadingUp at = on_glass_at(arc.advance(), snap, track);
         const int to_x = px_of(p.right + at.right), to_y = py_of(p.ahead + at.ahead);
         fb.line(from_x, from_y, to_x, to_y, true);
@@ -434,99 +490,6 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
 
 void traffic_symbol(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
     ui::draw_stone(fb, p.x, p.y, p.cut, p.band, p.trend, alarm_level >= traffic::Level::Advisory);
-}
-
-int32_t hundreds_of_feet(int32_t up_m) {
-    const int32_t ft = to_feet(Metres(up_m)).v;
-    const int32_t half = kFeetPerTagUnit / 2;
-    const int32_t hundreds = (ft >= 0 ? ft + half : ft - half) / kFeetPerTagUnit;
-    if (hundreds > kMaxTagHundreds) return kMaxTagHundreds;
-    if (hundreds < -kMaxTagHundreds) return -kMaxTagHundreds;
-    return hundreds;
-}
-
-bool overlap(const Box& a, const Box& b) {
-    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-}
-
-Box footer_band() { return {0, kFooterTop, kGlassW, kGlassH - kFooterTop}; }
-
-Box own_ship_box() {
-    return {kFar - ui::kSkyshipSpan / 2, kNear - ui::kSkyshipRowsToNose, ui::kSkyshipSpan,
-            ui::kSkyshipRows};
-}
-
-bool fits_on_glass(const Box& b) {
-    return on_glass(b.x, b.y) && on_glass(b.x + b.w - 1, b.y + b.h - 1);
-}
-
-struct Tag {
-    char text[8];
-    Box box;
-};
-
-Box symbol_box(const Plotted& p) {
-    const int above = ui::stone_above(p.cut, p.band, p.trend);
-    const int below = ui::stone_below(p.cut, p.band, p.trend);
-    const int beside = ui::stone_beside(p.band);
-    return {p.x - beside, p.y - above, 2 * beside + 1, above + below + 1};
-}
-
-Tag tag_for(const Plotted& p, const RadarTarget& t) {
-    Tag tag{};
-    const int32_t hundreds = hundreds_of_feet(t.up_m);
-    tag.text[fmt_int(tag.text, hundreds, 2, 0, hundreds == 0)] = 0;
-    const int w = text_width(tag.text, kTagScale);
-    const int h = kTagGlyphH + 2 * kTagPad;
-    const int y = t.up_m >= 0 ? p.y - ui::stone_above(p.cut, p.band, p.trend) - kTagGap - h
-                              : p.y + ui::stone_below(p.cut, p.band, p.trend) + 1 + kTagGap;
-    tag.box = {p.x - w / 2 - kTagPad, y, w + 2 * kTagPad, h};
-    return tag;
-}
-
-int slid_inside_margin(int x, int w) {
-    if (x < kMargin) return kMargin;
-    if (x + w > kGlassW - kMargin) return kGlassW - kMargin - w;
-    return x;
-}
-
-Box side_clearance(const Box& b) {
-    return {b.x - kTagSideClear, b.y, b.w + 2 * kTagSideClear, b.h};
-}
-
-bool place_tag(Tag& tag, const Plotted& p, const Leader& v, const Box* taken, int n_taken) {
-    const int w = tag.box.w;
-    const int centred = tag.box.x, beside = p.x + 1, before = p.x - w;
-    int candidate[] = {centred, beside, before};
-    if (v.valid) {
-        candidate[0] = v.right >= 0 ? before : beside;
-        candidate[1] = centred;
-        candidate[2] = v.right >= 0 ? beside : before;
-    }
-    for (const int x : candidate) {
-        tag.box.x = slid_inside_margin(x, w);
-        if (!fits_on_glass(tag.box)) continue;
-        bool clash = false;
-        for (int i = 0; i < n_taken && !clash; i++) clash = overlap(tag.box, taken[i]);
-        if (!clash) return true;
-    }
-    return false;
-}
-
-void draw_tag(ui::Canvas& fb, const Tag& tag) {
-    fb.rect(tag.box.x, tag.box.y, tag.box.w, tag.box.h, false, true);
-    fb.draw_text(tag.box.x + kTagPad, tag.box.y + kTagPad, tag.text, true, kTagScale);
-}
-
-void loudest_first(const RadarTarget* const* in_view, int n, int* order) {
-    for (int i = 0; i < n; i++) {
-        int at = i;
-        while (at > 0 && in_view[order[at - 1]]->alarm_level < in_view[i]->alarm_level) {
-            order[at] = order[at - 1];
-            at--;
-        }
-        order[at] = i;
-    }
 }
 
 int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
@@ -551,30 +514,9 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     for (int i = 0; i < n; i++)
         if (shown[i].in_ring) in_ring++;
 
-    Leader run[kMaxRadarTargets];
-    for (int i = 0; i < n; i++) {
-        run[i] = leader_of(snap, *in_view[i], track);
-        draw_leader(fb, snap, *in_view[i], track, shown[i], run[i]);
-    }
-    Box taken[2 * kMaxRadarTargets + 4 + kMinutesMarked];
-    int n_taken = 0;
-    if (in_ring > 0) n_taken += own_minute_marks(fb, snap, track, taken);
-    taken[n_taken++] = footer_band();
-    taken[n_taken++] = own_ship_box();
-    if (const char* word = ring_word(snap)) taken[n_taken++] = banner_box(word);
-    if (const char* note = ring_note(snap)) taken[n_taken++] = note_box(note);
-    if (snap.formation_members > 0) taken[n_taken++] = formation_box();
-    for (int i = 0; i < n; i++) taken[n_taken++] = symbol_box(shown[i]);
-
-    int order[kMaxRadarTargets];
-    loudest_first(in_view, n, order);
-    for (int i = 0; i < n; i++) {
-        const int at = order[i];
-        Tag tag = tag_for(shown[at], *in_view[at]);
-        if (!place_tag(tag, shown[at], run[at], taken, n_taken)) continue;
-        draw_tag(fb, tag);
-        taken[n_taken++] = side_clearance(tag.box);
-    }
+    for (int i = 0; i < n; i++)
+        draw_leader(fb, snap, *in_view[i], track, shown[i], leader_of(snap, *in_view[i], track));
+    if (in_ring > 0) own_vector(fb, snap, track);
 
     for (int i = 0; i < n; i++) traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
     return in_ring;
