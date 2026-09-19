@@ -19,7 +19,7 @@
   .feature p:last-child { margin-block-end: 0; }
 
   .highlight {
-    background: linear-gradient(transparent 58%, color-mix(in oklch, var(--blip) 42%, transparent) 0);
+    background: linear-gradient(transparent 58%, color-mix(in oklch, var(--blip) 68%, transparent) 0);
   }
 
   .shot {
@@ -31,12 +31,12 @@
 
   .shot img {
     inline-size: 400px;
-    background: #c9c9c4;
+    background: var(--glass);
     image-rendering: pixelated;
     box-shadow:
-      0 0 0 6px #f2f2ef,
-      0 0 0 7px #0000001f,
-      0 14px 28px -20px #0a1220a6;
+      0 0 0 6px var(--glass-bezel),
+      0 0 0 7px color-mix(in oklch, var(--ink) 12%, transparent),
+      0 14px 28px -20px color-mix(in oklch, var(--ink) 65%, transparent);
   }
 
   @media (max-width: 28rem) {
@@ -50,7 +50,7 @@
     background: none;
     image-rendering: auto;
     border-radius: var(--space-inline-2xs);
-    box-shadow: 0 14px 28px -20px #0a1220a6;
+    box-shadow: 0 14px 28px -20px color-mix(in oklch, var(--ink) 65%, transparent);
     mix-blend-mode: multiply;
   }
 

@@ -52,6 +52,9 @@
   --card-bg: #FDFCF9;
   --card-border: #E2DDD2;
 
+  --glass: #C9C9C4;
+  --glass-bezel: #F2F2EF;
+
   --font-sans: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-display: "Fira Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "B612 Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -101,5 +104,8 @@
 
     --card-bg: oklch(from var(--paper) 99.1% 0.004 h);
     --card-border: oklch(from var(--paper) 89.9% 0.016 h);
+
+    --glass: oklch(83.45% 0.0069 106.55);
+    --glass-bezel: oklch(96.03% 0.004 106.47);
   }
 }
