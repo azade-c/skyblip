@@ -350,7 +350,7 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, const BurstInstant& at) {
     p.init(0x02);
-    p.set_address(settings::safe_air_address(addr, addr_table));
+    p.set_address(settings::air_address(addr));
     p.set_addr_table(addr_table);
 
     // The burst leaves later than the fix was solved, so the position goes

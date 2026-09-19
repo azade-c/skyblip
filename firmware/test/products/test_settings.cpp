@@ -88,65 +88,30 @@ TEST_CASE("settings: apply_json rejects out-of-range atomically") {
     CHECK(s.aircraft_type == before);  // unchanged (atomic)
 }
 
-// F4. Address hygiene: the prefixes SoftRF moves off
-// (oss/SoftRF-lyusupov .../src/system/SoC.cpp:83-110), judged against what our
-// own address table already says.
-TEST_CASE("address: a self-minted address leaves the prefixes other trackers crowd") {
-    // 0xD0, 0xDD, 0xDE and 0xDF are the congested FLARM range; 0x11 is Skytraxx.
-    for (uint32_t prefix : {0xD0u, 0xDDu, 0xDEu, 0xDFu, 0x11u}) {
-        for (uint32_t low = 0; low <= 0xFFFF; low += 0x111) {
-            const uint32_t raw = (prefix << 16) | low;
-            const uint32_t safe = safe_device_address(raw);
-            CHECK_FALSE(address_is_crowded(safe));
-            CHECK((safe & 0xFFFFu) == low);            // only the prefix moves
-            CHECK(safe <= kAddressMask);               // and it stays inside 24 bits
-            CHECK(safe_device_address(safe) == safe);  // applying it twice is the same answer
-        }
-    }
-}
-
-TEST_CASE("address: a prefix nobody crowds is left exactly where the chip put it") {
+// F4. The table says which space the address came from, so no prefix is ours to move.
+TEST_CASE("address: every prefix is left exactly where the chip put it") {
     for (uint32_t prefix = 0; prefix <= 0xFF; prefix++) {
         const uint32_t raw = (prefix << 16) | 0xABCD;
-        const uint32_t safe = safe_device_address(raw);
-        if (address_is_crowded(raw))
-            CHECK(safe != raw);
-        else
-            CHECK(safe == raw);
+        CHECK(air_address(raw) == raw);
     }
-    // 0x5B is NOT dodged: SoftRF avoids it for an OGN 0.2.8 decoder bug in the
-    // legacy 'Air V6' frame, which this firmware never transmits.
-    CHECK(safe_device_address(0x5B1234) == 0x5B1234u);
-}
-
-TEST_CASE("address: an address that is not a device's to mint is transmitted as issued") {
-    // Table 5 is ICAO, 6 FLARM, 7 OGN: those were issued to the aircraft, prefix
-    // and all. Tables 0 to 4 are self-minted, and only those may be moved.
-    CHECK(safe_air_address(0xDD1234, 5) == 0xDD1234u);
-    CHECK(safe_air_address(0xDD1234, 6) == 0xDD1234u);
-    CHECK(safe_air_address(0x111111, 7) == 0x111111u);
-    CHECK(safe_air_address(0xDD1234, 0) == 0xED1234u);
-    CHECK(safe_air_address(0x111111, 4) == 0x121111u);
 }
 
 TEST_CASE("address: neither all-zeros nor all-ones goes on the air") {
-    // 0x000000 is 'no address' to every decoder, 0xFFFFFF is what a dead read
-    // produces. A chip id landing on either is answered with a fixed address.
-    CHECK(safe_device_address(0x000000) == kFallbackAddress);
-    CHECK(safe_device_address(0xFFFFFF) == kFallbackAddress);
-    CHECK(safe_device_address(0xFF000000) == kFallbackAddress);  // masked to 24 bits first
+    CHECK(air_address(0x000000) == kFallbackAddress);
+    CHECK(air_address(0xFFFFFF) == kFallbackAddress);
+    CHECK(air_address(0xFF000000) == kFallbackAddress);  // masked to 24 bits first
+    CHECK(air_address(kFallbackAddress) == kFallbackAddress);
     CHECK(defaults(0).device_addr == kFallbackAddress);
 }
 
-// Every device with a dead chip id transmits this address: it is a collision we mint.
-TEST_CASE("address: the fallback sits on the prefix SoftRF moves every device off") {
-    CHECK((kFallbackAddress >> 16) == 0x5Bu);  // DevID_Mapper sends 0x5B to 0x6B
-    CHECK_FALSE(address_is_crowded(kFallbackAddress));
-    CHECK(safe_device_address(kFallbackAddress) == kFallbackAddress);
+// Issue 2 F.2.2: 0 is privacy and must be re-drawn every start-up, 1 to 4 are reserved.
+TEST_CASE("address: a device out of the box claims the OGN-Tracker table") {
+    CHECK(int(defaults(0x123456).addr_table) == 7);
+    CHECK(int(kAddrTableOgn) == 7);
 }
 
-TEST_CASE("settings: the defaults a chip id produces are already hygienic") {
-    CHECK(defaults(0xDD0042).device_addr == 0xED0042u);
+TEST_CASE("settings: a chip id goes out as the number it is, under any table") {
+    CHECK(defaults(0xDD0042).device_addr == 0xDD0042u);
     CHECK(validate(defaults(0xDD0042)) == Status::Ok);
 }
 
@@ -627,19 +592,36 @@ TEST_CASE("settings: a callsign is what a panel can draw, and a patch that is no
     CHECK(std::string(s.callsign) == "123456789");
 }
 
-TEST_CASE("settings: a patched address is hygienic when it is ours to mint, kept when it is not") {
+TEST_CASE("settings: no patch can change what the device says it is") {
     Settings s = defaults(0x5B7E57);
-    const char* self_minted = "{\"addr\":11599823,\"addr_table\":0}";  // 0xB0FFCF -> untouched
-    CHECK(apply_json(s, self_minted, static_cast<int>(strlen(self_minted))) == Status::Ok);
-    CHECK(s.device_addr == 0xB0FFCFu);
+    const char* icao = "{\"addr\":14488116,\"addr_table\":5}";  // 0xDD1234
+    CHECK(apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Unsupported);
+    CHECK(s.device_addr == 0x5B7E57u);
+    CHECK(int(s.addr_table) == 7);
 
-    const char* crowded = "{\"addr\":14488116,\"addr_table\":0}";  // 0xDD1234
-    CHECK(apply_json(s, crowded, static_cast<int>(strlen(crowded))) == Status::Ok);
-    CHECK(s.device_addr == 0xED1234u);
+    const char* volume_too = "{\"addr_table\":5,\"alarm_volume\":1}";
+    CHECK(apply_json(s, volume_too, static_cast<int>(strlen(volume_too))) == Status::Unsupported);
+    CHECK(int(s.alarm_volume) == 3);
 
-    const char* icao = "{\"addr\":14488116,\"addr_table\":5}";
-    CHECK(apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Ok);
-    CHECK(s.device_addr == 0xDD1234u);
+    // A client that sets back what 'get' handed it is patching nothing, not attacking anything.
+    const char* echoed = "{\"addr\":5996119,\"addr_table\":7,\"alarm_volume\":1}";
+    CHECK(apply_json(s, echoed, static_cast<int>(strlen(echoed))) == Status::Ok);
+    CHECK(int(s.alarm_volume) == 1);
+}
+
+// A blob written before the identity stopped being a setting still holds a table of its own.
+TEST_CASE("settings: a stored blob does not get to name the aircraft") {
+    Settings stored = defaults(0x123456);
+    stored.device_addr = 0xDD1234u;
+    stored.addr_table = 6;
+    uint8_t blob[128];
+    to_blob(stored, blob, sizeof(blob));
+
+    Settings out;
+    CHECK(from_blob(blob, blob_size(), out) == Status::Ok);
+    stamp_identity(out, 0x123456);
+    CHECK(out.device_addr == 0x123456u);
+    CHECK(int(out.addr_table) == 7);
 }
 
 TEST_CASE("json_min: the reader parses ints, bools and strings, the writer emits them") {

@@ -152,12 +152,13 @@ class Platform {
         return c;
     }
 
-    // SoC unique id -> 24-bit default ADS-L address.
+    // INFO: fc 19sep26 hwinfo_nrf emits DEVICEID[1] then DEVICEID[0], both big-endian
     uint32_t device_addr() const {
         uint8_t id[8] = {0};
         const ssize_t n = hwinfo_get_device_id(id, sizeof(id));
+        if (n < 8) return 0;
         uint32_t a = 0;
-        for (ssize_t i = 0; i < 3 && i < n; i++) a = (a << 8) | id[i];
+        for (size_t i = 5; i < 8; i++) a = (a << 8) | id[i];
         return a & 0x00FFFFFFu;
     }
 

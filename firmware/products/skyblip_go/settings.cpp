@@ -225,8 +225,13 @@ bool callsign_is_printable(const char* s) {
 
 Settings defaults(uint32_t addr) {
     Settings s;
-    s.device_addr = settings::safe_device_address(addr);
+    stamp_identity(s, addr);
     return s;
+}
+
+void stamp_identity(Settings& s, uint32_t addr) {
+    s.device_addr = settings::air_address(addr);
+    s.addr_table = settings::kAddrTableOgn;
 }
 
 Status validate(const Settings& s) {
@@ -317,8 +322,11 @@ Status apply_json(Settings& s, const char* json, int len) {
     long v;
     bool b;
     Settings n = s;
-    if (r.get_int("addr", v)) n.device_addr = static_cast<uint32_t>(v) & settings::kAddressMask;
-    if (r.get_int("addr_table", v)) n.addr_table = static_cast<uint8_t>(v);
+    if (r.get_int("addr", v) &&
+        (static_cast<uint32_t>(v) & settings::kAddressMask) != s.device_addr)
+        return Status::Unsupported;
+    if (r.get_int("addr_table", v) && static_cast<uint8_t>(v) != s.addr_table)
+        return Status::Unsupported;
     if (r.get_int("aircraft_type", v)) n.aircraft_type = static_cast<uint8_t>(v);
     if (r.get_bool("alarm", b)) n.alarm_enabled = b;
     if (r.get_int("alarm_volume", v)) n.alarm_volume = static_cast<uint8_t>(v);
@@ -335,7 +343,6 @@ Status apply_json(Settings& s, const char* json, int len) {
         n.freq_trim_e1_ppm = static_cast<int16_t>(v);
     }
     r.get_str("callsign", n.callsign, sizeof(n.callsign));
-    n.device_addr = settings::safe_air_address(n.device_addr, n.addr_table);
     Status st = validate(n);
     if (st != Status::Ok) return st;
     s = n;

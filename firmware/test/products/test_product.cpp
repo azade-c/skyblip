@@ -71,17 +71,19 @@ TEST_CASE("product: the e-paper refreshes on change, not on cadence") {
     CHECK_FALSE(rig.platform.chips().epd.last_full);  // differential, no full
 }
 
-TEST_CASE("product: persisted settings are loaded on setup") {
+TEST_CASE("product: persisted settings are loaded on setup, the identity is the board's") {
     Rig rig;
     go::Settings s = go::defaults(0x223344);
     s.alarm_volume = 1;
+    s.addr_table = 5;
     uint8_t blob[64];
     go::to_blob(s, blob, sizeof(blob));
     REQUIRE(rig.platform.kv().write("settings", blob, go::blob_size()) == Status::Ok);
 
     REQUIRE(rig.setup() == Status::Ok);
     CHECK(rig.settings().alarm_volume == 1);
-    CHECK(rig.settings().device_addr == 0x223344);
+    CHECK(rig.settings().device_addr == platform::host::Platform::kDeviceAddr);
+    CHECK(int(rig.settings().addr_table) == 7);
 }
 
 TEST_CASE("product: barometric pressure drives vertical speed") {

@@ -236,7 +236,7 @@ Status Link::begin(uint32_t device_addr) {
 
 // INFO: fc 18sep26 The address the panel shows, so a phone's list says what the glass says.
 void Link::name_after(uint32_t device_addr) {
-    const uint32_t shown = settings::safe_device_address(device_addr);
+    const uint32_t shown = settings::air_address(device_addr);
     int n = fmt_string(g_name, CONFIG_BT_DEVICE_NAME);
     n += fmt_string(g_name + n, " ");
     n += fmt_hex(g_name + n, shown, 6);

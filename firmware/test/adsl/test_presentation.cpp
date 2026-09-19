@@ -1,5 +1,6 @@
 // ADS-L 4 SRD-860 issue 2 Subpart F: the ADS-L header, who a packet is from and what it carries.
 #include <cstdint>
+#include <cstring>
 #include <initializer_list>
 
 #include "core/model/ownship.h"
@@ -96,14 +97,11 @@ TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits
     CHECK(go::validate(s) == Status::Ok);
 }
 
-// Table 5 is the aircraft's Mode-S code, and it has to match what a 1090 receiver sees.
-TEST_CASE("ADS-L.4.SRD860.F.2.3: an ICAO address goes on the air exactly as it was configured") {
-    CHECK(settings::safe_air_address(0xDD1234u, 5) == 0xDD1234u);
-    CHECK(settings::safe_air_address(0x3C0A11u, 5) == 0x3C0A11u);
-    CHECK(traffic_packet(0xDD1234u, 5).address() == 0xDD1234u);
-    CHECK(traffic_packet(0xDD1234u, 5).addr_table() == 5);
-    // A self-minted address is the only one this device is allowed to move off a crowded prefix.
-    CHECK(settings::safe_air_address(0xDD1234u, 0) != 0xDD1234u);
+// TODO: fc 19sep26 no ICAO entry: the identity is the chip's, and no patch moves it
+TEST_CASE("ADS-L.4.SRD860.F.2.3: an ICAO address goes on the air exactly as it was configured" *
+          doctest::skip()) {
+    CHECK(traffic_packet(0x3C0A11u, 5).address() == 0x3C0A11u);
+    FAIL("the packet carries any table it is handed, and no configuration path hands it table 5");
 }
 
 // TODO: fc 19sep26 no privacy mode on this device: the stealth setting and its table 0 are gone
@@ -111,12 +109,15 @@ TEST_CASE("ADS-L.4.SRD860.F.2.4: privacy mode selects table 0, the random one" *
     FAIL("the address table is the one a pilot configured, and nothing switches it at transmit");
 }
 
-// TODO: fc 18sep26 validate() takes any address under any table, ICAO included
-TEST_CASE("ADS-L.4.SRD860.F.2.3: a table the configured address does not belong to is refused" *
-          doctest::skip()) {
-    FAIL(
-        "settings accept table 5 with an address no registry issued, and the clause asks for that "
-        "inconsistency to be refused");
+// The clause asks the device to refuse an inconsistent configuration, and it has only one.
+TEST_CASE("ADS-L.4.SRD860.F.2.3: a table the configured address does not belong to is refused") {
+    go::Settings s = go::defaults(0x123456);
+    CHECK(int(s.addr_table) == 7);
+
+    const char* icao = "{\"addr\":3934737,\"addr_table\":5}";  // 0x3C0A11 under ICAO
+    CHECK(go::apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Unsupported);
+    CHECK(s.device_addr == 0x123456u);
+    CHECK(int(s.addr_table) == 7);
 }
 
 // Every ADS-L data block has to be scramblable, and XXTEA works on whole 32-bit words.

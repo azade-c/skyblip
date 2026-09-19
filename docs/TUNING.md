@@ -95,7 +95,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kParkMs` | 3000 (3 s) | milliseconds | - | The panel is parked with a full refresh and the SSD1681 clocks one out in about 2.5 s. |
 | `kReleaseSettleMs` | 100 | milliseconds | Settle | nRF52 SENSE is a level detect, not an edge, so arming the wake pin while the button is still down wakes the device the instant SYSTEM OFF latches. |
 
-## `firmware/core/protocol`
+## [`firmware/core/protocol`](../firmware/core/protocol/README.md)
 
 | Constant | Value | Unit | Mechanism | Why |
 |---|---|---|---|---|

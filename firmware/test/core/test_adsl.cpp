@@ -9,6 +9,7 @@
 
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
+#include "core/settings/address.h"
 #include "doctest/doctest.h"
 
 using namespace skyblip::protocol;
@@ -275,25 +276,21 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
     CHECK(p.climb_e8() == 16);
 }
 
-// F4. The address goes on the air here, and the shell hands us the chip id
-// straight from hwinfo, so this is the last place that can move it.
-TEST_CASE("adsl: a self-minted address is moved off a crowded prefix on its way out") {
+// F4. The address goes on the air here, so this is the last place a stored blob can be caught.
+TEST_CASE("adsl: an address goes out as configured, unless no decoder could read it") {
     skyblip::model::OwnState own{};
     own.fix_valid = true;
 
-    AdslPacket anonymous{};
-    from_own(anonymous, own, 0xDD1234, 0, 4);
-    CHECK(anonymous.address() == 0xED1234u);
+    for (uint8_t table : {uint8_t(0), uint8_t(5), uint8_t(6), uint8_t(7), uint8_t(9)}) {
+        AdslPacket p{};
+        from_own(p, own, 0xDD1234, table, 4);
+        CHECK(p.address() == 0xDD1234u);
+        CHECK(p.addr_table() == table);
+    }
 
-    // An address that was issued to the aircraft is transmitted as issued,
-    // whatever prefix it carries: it is not ours to move.
-    AdslPacket icao{};
-    from_own(icao, own, 0xDD1234, 5, 4);
-    CHECK(icao.address() == 0xDD1234u);
-
-    AdslPacket flarm{};
-    from_own(flarm, own, 0x111111, 6, 4);
-    CHECK(flarm.address() == 0x111111u);
+    AdslPacket unusable{};
+    from_own(unusable, own, 0x000000, 7, 4);
+    CHECK(unusable.address() == skyblip::settings::kFallbackAddress);
 }
 
 // Every field of the Integrity block has a zero code meaning "unknown / no fix"

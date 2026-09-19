@@ -135,6 +135,7 @@ void ConfigLinkService::load() {
     loaded_ = true;
     go::Settings loaded;
     if (is_ok(go::from_blob(blob, n, loaded)) && is_ok(go::validate(loaded))) settings_ = loaded;
+    go::stamp_identity(settings_, context_.roles.device_addr);
     if (n <= kBlobCap) {
         std::memcpy(stored_, blob, n);
         stored_len_ = n;

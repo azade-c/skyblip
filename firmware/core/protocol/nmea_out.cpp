@@ -28,21 +28,7 @@ uint8_t adsl_cat_to_alptas(uint8_t adsl_cat) {
     return adsl_cat < 18 ? kMap[adsl_cat] : 0;
 }
 
-// INFO: fc 03aug26 ADS-L 4 SRD860 issue 2's address table is 0-4 self-minted/
-// random, 5 ICAO, 6 FLARM, 7 OGN (core/settings/address.h). $PFLAA's IDType
-// carries only three values, and SkyDemon refuses the sentence for anything but
-// 1 or 2 (oss/SoftRF-moshe-braner/.../libraries/OGN/ads-l.h:657-658: "if
-// (AddrType==5) AddrType=1; else AddrType=2; // SkyDemon only accepts 1 or 2").
-// Leaving a self-minted address at IDType 0 draws nothing on that app at all,
-// which is the one failure worth never causing again. Between the two values
-// left, 1 (ICAO) claims a permanent, registry-issued identity for an address we
-// mint fresh every flight; 2 (FLARM) claims a device-class kinship that is at
-// least true of the mechanism - transient and self-assigned - so everything
-// that is not ICAO becomes FLARM. What that costs: an OGN tracker's address (7)
-// and our own random one (0-4) both draw on the tablet as if they were FLARM,
-// which is a lie about provenance too - just a cheaper one than claiming ICAO,
-// because nothing downstream correlates a FLARM ID against an aircraft
-// register the way it might an ICAO one.
+// INFO: fc 03aug26 SkyDemon draws nothing at IDType 0, so ICAO is 1 and all else 2 (README.md)
 uint8_t addr_table_to_idtype(uint8_t addr_table) { return addr_table == 0x05 ? 1 : 2; }
 
 bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32_t& north_m,

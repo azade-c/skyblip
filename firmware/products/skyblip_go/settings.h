@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "core/settings/address.h"
 #include "core/util/json_min.h"
 #include "core/util/result.h"
 
@@ -68,7 +69,7 @@ struct Settings {
     // and its spectrum analyser - which is the instrument that had to be there
     // to know the number in the first place.
     int16_t freq_trim_e1_ppm{0};
-    uint8_t addr_table{0};
+    uint8_t addr_table{settings::kAddrTableOgn};
     uint8_t aircraft_type{kAircraftTypeLight};
     bool alarm_enabled{true};
     uint8_t alarm_volume{3};
@@ -83,6 +84,8 @@ struct Settings {
 constexpr uint8_t kBlobVersion = 7;
 
 Settings defaults(uint32_t addr = 0);
+
+void stamp_identity(Settings& s, uint32_t addr);
 
 Status validate(const Settings& s);
 
