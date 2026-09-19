@@ -6,6 +6,7 @@
 // not. Only the second one collides with anybody.
 #include <cstdlib>  // std::abs - libc++ pulls it in transitively, libstdc++ does not
 #include <cstring>
+#include <initializer_list>  // same: a braced list in a range-for needs it named
 
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
