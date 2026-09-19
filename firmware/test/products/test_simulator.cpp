@@ -2,6 +2,7 @@
 // production parser decodes, and virtual aircraft are encoded as real ADS-L
 // frames that the production receive path decodes into the traffic table and the
 // collision alarm. No mocks of logic.
+#include <algorithm>
 #include <cstdlib>
 
 #include "core/events/link.h"
@@ -128,7 +129,7 @@ TEST_CASE("simulator: traffic reporting no climb holds its level while own ship 
     const int32_t level_at = target->obs.alt_m;
     const int32_t own_at = h.product().state().own.alt_m;
 
-    h.world().set_climb_e1(50);
+    h.world().set_climb_mm_s(5000);
     run(h, 6000, 16000);
 
     // Own ship gains 50 m; the target holds its level within the second of own-ship lag.
@@ -220,7 +221,7 @@ TEST_CASE("simulator: a modelled climb reaches own-ship state through the barome
     REQUIRE(h.setup() == Status::Ok);
     h.world().set_fix(true);
     h.world().set_altitude_m(1000);
-    h.world().set_climb_e1(30);  // +3.0 m/s, integrated by the GNSS model's altitude
+    h.world().set_climb_mm_s(3000);  // +3.0 m/s, integrated by the GNSS model's altitude
     run(h, 0, 6000);
 
     // Both sensors see the same air, and the barometer is what publishes the rate.
@@ -229,9 +230,31 @@ TEST_CASE("simulator: a modelled climb reaches own-ship state through the barome
     // above sea level
     CHECK(h.world().baro().pressure_mpa() < flight::kIsaSeaLevelPa * 1000);
 
-    h.world().set_climb_e1(-30);  // now sinking
+    h.world().set_climb_mm_s(-3000);  // now sinking
     run(h, 6000, 14000);
     CHECK(h.product().state().own.climb_mm_s < 0);
+}
+
+// The pinned bug: instruments fed from the receiver's 1 Hz whole-degree, whole-metre report.
+TEST_CASE("simulator: a turn and a climb held steady are published steady") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.product().settings().gyro_enabled = true;
+    h.world().set_turn_dps(3.0);
+    h.world().set_climb_mm_s(1524);  // 300 fpm, what the page's slider asks for
+    run(h, 0, 10000);
+
+    int32_t worst_turn = 0;
+    int32_t worst_vs = 0;
+    for (uint32_t t = 10000; t <= 30000; t += simulator::Simulator::kStepMs) {
+        h.step(t);
+        const model::OwnState& own = h.product().state().own;
+        worst_turn = std::max(worst_turn, std::abs(own.turn_cdps - 300));
+        worst_vs = std::max(
+            worst_vs, std::abs(to_feet_per_minute(MillimetresPerSec(own.climb_mm_s)).v - 300));
+    }
+    CHECK(worst_turn <= 20);
+    CHECK(worst_vs <= 10);
 }
 
 TEST_CASE("simulator: an aircraft entering the window buzzes and vibrates") {

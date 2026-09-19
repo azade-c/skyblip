@@ -315,6 +315,40 @@ TEST_CASE("l76k: the configured rate fits the baud the devicetree pins") {
     CHECK(parts::L76k::kBurstMs == doctest::Approx(333).epsilon(0.02));
 }
 
+// The gyroscope and the barometer beside this part sample far faster than it reports.
+TEST_CASE("l76k: the receiver solves continuously and reports on its cadence") {
+    models::L76k chip;
+    chip.solution_period_ms = models::L76k::kFactoryPeriodMs;
+    chip.alt_m = 1000;
+    chip.track_deg = 90;
+    chip.climb_mm_s = 1500;
+    chip.turn_dps = 3;
+
+    chip.tick(0);
+    chip.tick(100);
+
+    CHECK(chip.alt_mm() == 1000 * 1000 + 150);
+    CHECK(chip.heading_deg() == doctest::Approx(90.3));
+    CHECK(chip.available() == 0);  // a tenth of a second in, it has said nothing
+
+    chip.tick(1000);
+    CHECK(chip.available() > 0);
+}
+
+// A replayed instant must not fly the aircraft a thousand kilometres: the gap is signed.
+TEST_CASE("l76k: a clock that steps backwards leaves the aircraft where it is") {
+    models::L76k chip;
+    chip.tick(0);
+    chip.tick(1000);
+    const int32_t lat_1e7 = chip.lat_1e7;
+    const int32_t lon_1e7 = chip.lon_1e7;
+
+    chip.tick(995);
+
+    CHECK(chip.lat_1e7 == lat_1e7);
+    CHECK(chip.lon_1e7 == lon_1e7);
+}
+
 // The geometry the circling scenarios rest on, checked against the model that
 // produces it rather than assumed. A glider thermalling at 45 kt (23.15 m/s) and
 // 13 deg/s flies radius = speed / turn rate = 102 m, a 200 m circle closed in

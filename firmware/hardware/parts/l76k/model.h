@@ -47,7 +47,8 @@ class L76k : public io::Uart, public io::UartRate {
     // model emits is the only thing own-ship can differentiate a turn rate out
     // of, so a thermalling own-ship is expressed here and nowhere else.
     double turn_dps{0};
-    int32_t climb_mps_e1{0};  // tenths of m/s, applied to alt over time
+    // INFO: fc 18sep26 millimetres per second, so any rate a pilot can ask for is one the air holds
+    int32_t climb_mm_s{0};
     uint32_t utc_sod{12 * 3600 + 34 * 60 + 56};
     // RMC field 9, ddmmyy. "010180" is the MTK fake date a receiver with no
     // almanac reports beside a position that looks perfectly ordinary.
@@ -183,8 +184,9 @@ class L76k : public io::Uart, public io::UartRate {
     }
     size_t available() override { return pending_.size(); }
 
-    // Advance own-ship along its track and emit an NMEA burst per solution.
     int32_t alt_mm() const { return alt_m * 1000 + static_cast<int32_t>(climbed_m_ * 1000); }
+    // INFO: fc 18sep26 the heading flown, fraction included: NMEA's whole degree is the report
+    double heading_deg() const { return track_deg + turned_deg_; }
 
     void tick(uint32_t now_ms) {
         last_tick_ms_ = now_ms;
@@ -194,45 +196,21 @@ class L76k : public io::Uart, public io::UartRate {
         if (!armed_) {
             armed_ = true;
             last_ms_ = now_ms;
+            report_ms_ = now_ms;
             return;
         }
-        uint32_t dt = now_ms - last_ms_;
-        if (dt < solution_period_ms) return;
+        const int32_t dt = static_cast<int32_t>(now_ms - last_ms_);
+        if (dt <= 0) return;
+        last_ms_ = now_ms;
         // A receiver nobody has spoken to yet is not producing, and one that is
         // rebooting after $PCAS10 has nothing to say either.
         if (asleep || rebooting()) {
-            last_ms_ = now_ms;
+            report_ms_ = now_ms;
             return;
         }
-        last_ms_ = now_ms;
-
-        // Integrate position along the current track at the current speed. In a
-        // turn that is the track halfway through the step, or the path is a
-        // polygon drawn outside the circle actually flown.
-        const double v_mps = speed_kt * 0.514444;
-        const double secs = dt / 1000.0;
-        const double rad = (track_deg + turn_dps * secs * 0.5) * 3.14159265358979 / 180.0;
-        const double north_m = v_mps * std::cos(rad) * secs;
-        const double east_m = v_mps * std::sin(rad) * secs;
-        lat_1e7 += static_cast<int32_t>(north_m * 1e7 / 111320.0);
-        const double coslat = std::cos(lat_1e7 / 1e7 * 3.14159265358979 / 180.0);
-        if (coslat > 0.01) lat_lon_advance(east_m, coslat);
-        turned_deg_ += turn_dps * secs;
-        const int32_t whole_deg = static_cast<int32_t>(turned_deg_);
-        turned_deg_ -= whole_deg;
-        track_deg = ((track_deg + whole_deg) % 360 + 360) % 360;
-        // Metres per solution, not per second: at 5 Hz a 3 m/s climb is 0.6 m a
-        // step, and truncating that to an integer would report level flight.
-        climbed_m_ += climb_mps_e1 * secs / 10.0;
-        const int32_t whole_m = static_cast<int32_t>(climbed_m_);
-        alt_m += whole_m;
-        climbed_m_ -= whole_m;
-        // NMEA carries whole seconds here, so the sub-second solutions of one
-        // second all stamp the same UTC: their freshness is their arrival time.
-        sod_ms_ += dt;
-        utc_sod = (utc_sod + sod_ms_ / 1000u) % 86400u;
-        sod_ms_ %= 1000u;
-
+        fly(dt);
+        if (now_ms - report_ms_ < solution_period_ms) return;
+        report_ms_ = now_ms;
         emit_burst();
     }
 
@@ -242,6 +220,8 @@ class L76k : public io::Uart, public io::UartRate {
     uint32_t sod_ms_{0};
     double climbed_m_{0};
     double turned_deg_{0};
+    double lat_frac_1e7_{0};
+    double lon_frac_1e7_{0};
     char command_[kCommandCap]{};
     int command_len_{0};
     // Three windows, each a START instant plus a flag rather than an end instant.
@@ -321,6 +301,57 @@ class L76k : public io::Uart, public io::UartRate {
         sentence_set_applied = true;
     }
 
+    // INFO: fc 18sep26 a receiver solves continuously and reports on its cadence, ADS-L 4 §C.2.5
+    void fly(int32_t dt_ms) {
+        const double v_mps = speed_kt * 0.514444;
+        const double secs = dt_ms / 1000.0;
+        const double rad = mid_step_track_deg(secs) * 3.14159265358979 / 180.0;
+        advance_lat(v_mps * std::cos(rad) * secs);
+        const double coslat = std::cos(lat_1e7 / 1e7 * 3.14159265358979 / 180.0);
+        if (coslat > 0.01) advance_lon(v_mps * std::sin(rad) * secs, coslat);
+        advance_track(secs);
+        advance_alt(secs);
+        advance_clock(dt_ms);
+    }
+
+    double mid_step_track_deg(double secs) const { return track_deg + turn_dps * secs * 0.5; }
+
+    // INFO: fc 18sep26 a step moves less than the 1.1 cm 1e-7 deg carries, so the rest is banked
+    void advance_lat(double north_m) {
+        lat_frac_1e7_ += north_m * 1e7 / 111320.0;
+        const int32_t whole = static_cast<int32_t>(lat_frac_1e7_);
+        lat_frac_1e7_ -= whole;
+        lat_1e7 += whole;
+    }
+
+    void advance_lon(double east_m, double coslat) {
+        lon_frac_1e7_ += east_m * 1e7 / (111320.0 * coslat);
+        const int32_t whole = static_cast<int32_t>(lon_frac_1e7_);
+        lon_frac_1e7_ -= whole;
+        lon_1e7 += whole;
+    }
+
+    void advance_track(double secs) {
+        turned_deg_ += turn_dps * secs;
+        const int32_t whole_deg = static_cast<int32_t>(turned_deg_);
+        turned_deg_ -= whole_deg;
+        track_deg = ((track_deg + whole_deg) % 360 + 360) % 360;
+    }
+
+    void advance_alt(double secs) {
+        climbed_m_ += climb_mm_s * secs / 1000.0;
+        const int32_t whole_m = static_cast<int32_t>(climbed_m_);
+        alt_m += whole_m;
+        climbed_m_ -= whole_m;
+    }
+
+    // INFO: fc 18sep26 NMEA carries whole seconds, so every solution of one second stamps the same
+    void advance_clock(int32_t dt_ms) {
+        sod_ms_ += static_cast<uint32_t>(dt_ms);
+        utc_sod = (utc_sod + sod_ms_ / 1000u) % 86400u;
+        sod_ms_ %= 1000u;
+    }
+
     // INFO: fc 13sep26 the part emits the cycle in $PCAS03's own field order, so RMC closes a burst
     void emit_burst() {
         step_walk();
@@ -394,10 +425,6 @@ class L76k : public io::Uart, public io::UartRate {
         n += fmt_string(s + n, firmware_version);
         n = protocol::nmea_finish(s, n);
         pending_.append(s, static_cast<size_t>(n));
-    }
-
-    void lat_lon_advance(double east_m, double coslat) {
-        lon_1e7 += static_cast<int32_t>(east_m * 1e7 / (111320.0 * coslat));
     }
 
     int put_time(char* s) const {
@@ -567,6 +594,7 @@ class L76k : public io::Uart, public io::UartRate {
 
     std::string pending_;
     uint32_t last_ms_{0};
+    uint32_t report_ms_{0};
     bool armed_{false};
 };
 

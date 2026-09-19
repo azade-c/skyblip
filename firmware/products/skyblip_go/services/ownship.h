@@ -78,7 +78,6 @@ class OwnshipService : public runtime::Service {
     static constexpr uint32_t kVsWindowMs = 2000;
     static constexpr uint32_t kBaroVsWindowMs = runtime::kBaroPeriodMs / 2;
     static constexpr uint32_t kTurnWindowMs = 1000;
-    static constexpr int32_t kCentiPerUnit = 100;
     static constexpr int32_t kQnhHalfMinuteSamples = 32;
     static constexpr int32_t kQnhSteadyClimbMmS = 4000;
     const Settings& settings_;

@@ -445,8 +445,7 @@ void ScreenService::render(uint32_t now_ms) {
             SixPackSnapshot snap;
             snap.data_valid = own.fix_valid;
             snap.units = settings.units;
-            // 1 m/s = 1.94384 kt, from quarter-m/s.
-            snap.speed_kt = (static_cast<int32_t>(own.speed_q) * 194384) / (4 * 100000);
+            snap.speed_kt = to_knots(QuarterMetresPerSec(own.speed_q)).v;
             snap.alt_ft = to_feet(Metres(own.alt_m)).v;
             snap.vs_fpm = climb_fpm();
             snap.vs_valid = climb_measured();

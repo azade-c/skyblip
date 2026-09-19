@@ -42,13 +42,9 @@ int fmt_elapsed(char* out, uint32_t seconds) {
 constexpr uint32_t kImuCountCeiling = 99;
 constexpr uint8_t kImuMetaInitialised = 16;
 
-// 1 m/s = 1.94384 kt, from quarter-m/s.
-int32_t knots(uint16_t speed_q) { return (static_cast<int32_t>(speed_q) * 194384) / (4 * 100000); }
+int32_t knots(uint16_t speed_q) { return to_knots(QuarterMetresPerSec(speed_q)).v; }
 
-// 1 m/s = 3.6 km/h, from quarter-m/s.
-int32_t kilometres_per_hour(uint16_t speed_q) {
-    return (static_cast<int32_t>(speed_q) * 36) / (4 * 10);
-}
+int32_t kilometres_per_hour(uint16_t speed_q) { return to_kmh(QuarterMetresPerSec(speed_q)).v; }
 
 // Draw "LABEL  value" on one row.
 void row(ui::Canvas& fb, int y, const char* label, const char* value) {

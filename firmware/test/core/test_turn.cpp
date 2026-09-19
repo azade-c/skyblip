@@ -62,4 +62,18 @@ TEST_CASE("turn: the rate is degrees per second, positive to the right") {
 TEST_CASE("turn: straight and level is zero, and no interval is not a turn") {
     CHECK(turn_rate_dps(c9(90), c9(90), 1000) == 0);
     CHECK(turn_rate_dps(c9(90), c9(0), 0) == 0);
+    CHECK(turn_rate_cdps(c9(90), c9(90), 1000) == 0);
+    CHECK(turn_rate_cdps(c9(90), c9(0), 0) == 0);
+}
+
+// Truncating here trimmed the gyroscope onto 2 deg/s and held the six-pack a third low.
+TEST_CASE("turn: a standard rate turn reads as three degrees a second, not two") {
+    // 3 deg/s is 4.27 cordic9 units a second, so a second of it reports 4 or 5.
+    CHECK(turn_rate_dps(c9(93), c9(90), 1000) == 3);
+    CHECK(turn_rate_dps(c9(90), c9(93), 1000) == -3);
+    CHECK(turn_rate_cdps(c9(93), c9(90), 1000) == 281);
+    CHECK(turn_rate_cdps(c9(90), c9(93), 1000) == -281);
+
+    // 30 deg of track is 42 units, 29.53 deg of it, so ten seconds reads 2.95 deg/s.
+    CHECK(turn_rate_cdps(c9(120), c9(90), 10000) == 295);
 }

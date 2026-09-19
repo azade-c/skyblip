@@ -83,7 +83,7 @@ class World {
     void set_speed_kt(int32_t kt) { gnss().speed_kt = kt; }
     void set_track_deg(int32_t deg) { gnss().track_deg = ((deg % 360) + 360) % 360; }
     void set_turn_dps(double dps) { gnss().turn_dps = dps; }
-    void set_climb_e1(int32_t e1) { gnss().climb_mps_e1 = e1; }
+    void set_climb_mm_s(int32_t mm_s) { gnss().climb_mm_s = mm_s; }
     // The weather, not a setting: the sea-level pressure of the air the aircraft
     // is flying through. The barometer reads what that implies at its altitude.
     void set_airmass_qnh_pa(uint32_t pa) { airmass_qnh_pa_ = pa; }
@@ -153,7 +153,8 @@ class World {
     uint32_t track_ref_ms_{0};
     int32_t yaw_cdps_{0};
 
-    static constexpr uint32_t kInertialWindowMs = 1000;
+    // INFO: fc 18sep26 a gyro answers in milliseconds, and the heading it differences is continuous
+    static constexpr uint32_t kInertialWindowMs = 100;
     uint32_t press_since_ms_{0};
     uint32_t tap_since_ms_{0};
     int32_t origin_lat_1e7_{0};

@@ -147,7 +147,7 @@ void World::service_aircraft(uint32_t now_ms, const model::OwnState& own) {
     if (now_ms - last_aircraft_ms_ < 100) return;
     const double dt = (now_ms - last_aircraft_ms_) / 1000.0;
     last_aircraft_ms_ = now_ms;
-    const double own_climb_mps = gnss().climb_mps_e1 / 10.0;
+    const double own_climb_mps = gnss().climb_mm_s / 1000.0;
 
     for (auto& a : aircraft_) {
         if (!a.used) continue;
@@ -169,16 +169,16 @@ void World::service_aircraft(uint32_t now_ms, const model::OwnState& own) {
 void World::update_inertial(uint32_t now_ms) {
     if (track_ref_ms_ == 0) {
         track_ref_ms_ = now_ms;
-        track_ref_deg_ = gnss().track_deg;
+        track_ref_deg_ = gnss().heading_deg();
     }
     const uint32_t dt_ms = now_ms - track_ref_ms_;
     if (dt_ms >= kInertialWindowMs) {
-        double swing = gnss().track_deg - track_ref_deg_;
+        double swing = gnss().heading_deg() - track_ref_deg_;
         while (swing > 180.0) swing -= 360.0;
         while (swing < -180.0) swing += 360.0;
         yaw_cdps_ = static_cast<int32_t>(swing * 100.0 * 1000.0 / dt_ms);
         track_ref_ms_ = now_ms;
-        track_ref_deg_ = gnss().track_deg;
+        track_ref_deg_ = gnss().heading_deg();
     }
 
     imu().set_angular_rate(static_cast<int16_t>(-yaw_cdps_), 0, 0);

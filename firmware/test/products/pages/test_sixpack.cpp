@@ -215,7 +215,7 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     SixPackSnapshot nautical;
     nautical.data_valid = true;
     nautical.units = skyblip::go::Units::Nautical;
-    nautical.speed_kt = 90;  // 166 km/h
+    nautical.speed_kt = 90;  // 166.7 km/h
     nautical.alt_ft = 3450;
     nautical.vs_fpm = 500;
     nautical.vs_valid = true;
@@ -228,9 +228,9 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     draw_sixpack(fm, metric);
 
     // The number under a dial is the converted one, drawn where the page draws
-    // it: 90 kt reads 166, and it is not the same ink as 90.
+    // it: 90 kt reads 167, and it is not the same ink as 90.
     CHECK(value_matches(fi, kTiles[0], "90"));
-    CHECK(value_matches(fm, kTiles[0], "166"));
+    CHECK(value_matches(fm, kTiles[0], "167"));
 
     const Glass* faces[2] = {&fi, &fm};
     for (const Glass* fb : faces) {

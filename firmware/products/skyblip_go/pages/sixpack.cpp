@@ -286,7 +286,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
     const int32_t pitch = flight_path_deg(vs_fpm, kt);
 
     const bool metric = s.units == go::Units::Metric;
-    const int32_t speed = metric ? (kt * 1852) / 1000 : kt;
+    const int32_t speed = metric ? (kt * 1852 + 500) / 1000 : kt;
     const int32_t speed_full = metric ? kAsiFullScaleKmh : kAsiFullScaleKt;
 
     dial(fb, kCx[0], 0, metric ? "GS KM/H" : "GS KT", kAsiTicks);

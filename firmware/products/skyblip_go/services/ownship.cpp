@@ -8,6 +8,22 @@
 
 namespace skyblip::go {
 
+namespace {
+constexpr int32_t kCentiPerDeg = 100;
+constexpr int32_t kTurnLimitCdps = flight::kMaxTurnDps * kCentiPerDeg;
+
+int16_t clamped_turn_cdps(int32_t cdps) {
+    if (cdps > kTurnLimitCdps) return kTurnLimitCdps;
+    if (cdps < -kTurnLimitCdps) return -kTurnLimitCdps;
+    return static_cast<int16_t>(cdps);
+}
+
+int16_t dps_of(int32_t cdps) {
+    const int32_t half = cdps < 0 ? -kCentiPerDeg / 2 : kCentiPerDeg / 2;
+    return static_cast<int16_t>((cdps + half) / kCentiPerDeg);
+}
+}  // namespace
+
 flight::FlightState OwnshipService::flight_state_from(const model::OwnState& own) {
     flight::FlightSample sample{};
     sample.speed_q = own.speed_q;
@@ -181,7 +197,7 @@ void OwnshipService::publish_inertial(uint32_t now_ms) {
 
     if (!gyro_turn_.valid(now_ms)) return;
     context_.state.own.turn_cdps = gyro_turn_.cdps();
-    context_.state.own.turn_dps = static_cast<int16_t>(gyro_turn_.cdps() / kCentiPerUnit);
+    context_.state.own.turn_dps = dps_of(gyro_turn_.cdps());
 }
 
 void OwnshipService::adopt_climb(int32_t mm_s) {
@@ -223,18 +239,17 @@ void OwnshipService::update_turn_rate(uint32_t now_ms) {
     const uint32_t dt = now_ms - turn_ref_ms_;
     if (dt < kTurnWindowMs) return;
 
-    const int16_t gnss_dps =
-        flight::clamped_turn_dps(flight::turn_rate_dps(track_c9, turn_ref_track_c9_, dt));
+    const int16_t gnss_cdps = clamped_turn_cdps(
+        flight::turn_rate_cdps(track_c9, turn_ref_track_c9_, static_cast<uint32_t>(dt)));
     turn_ref_ms_ = now_ms;
     turn_ref_track_c9_ = track_c9;
 
     if (gyro_turn_.valid(now_ms)) {
-        if (flight_.airborne() && context_.state.own.fix_valid)
-            gyro_turn_.trim_to(static_cast<int16_t>(gnss_dps * kCentiPerUnit));
+        if (flight_.airborne() && context_.state.own.fix_valid) gyro_turn_.trim_to(gnss_cdps);
         return;
     }
-    context_.state.own.turn_dps = gnss_dps;
-    context_.state.own.turn_cdps = static_cast<int16_t>(gnss_dps * kCentiPerUnit);
+    context_.state.own.turn_cdps = gnss_cdps;
+    context_.state.own.turn_dps = dps_of(gnss_cdps);
 }
 
 bool OwnshipService::vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,

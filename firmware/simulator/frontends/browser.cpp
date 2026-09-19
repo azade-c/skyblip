@@ -40,7 +40,7 @@ KEEPALIVE void simulator_set_sats(int n) { g_simulator.world().set_sats(n); }
 KEEPALIVE void simulator_set_alt(int m) { g_simulator.world().set_altitude_m(m); }
 KEEPALIVE void simulator_set_speed(int kt) { g_simulator.world().set_speed_kt(kt); }
 KEEPALIVE void simulator_set_track(int deg) { g_simulator.world().set_track_deg(deg); }
-KEEPALIVE void simulator_set_climb(int e1) { g_simulator.world().set_climb_e1(e1); }
+KEEPALIVE void simulator_set_climb(int mm_s) { g_simulator.world().set_climb_mm_s(mm_s); }
 KEEPALIVE void simulator_set_turn(int dps_e1) { g_simulator.world().set_turn_dps(dps_e1 / 10.0); }
 KEEPALIVE void simulator_set_slip(int mg) { g_simulator.world().set_slip_mg(mg); }
 // Both in pascals: the subscale the device is set to, and the air outside.

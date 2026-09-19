@@ -43,6 +43,25 @@ struct MetresPerSec {
 };
 constexpr MetresPerSec to_mps(QuarterMetresPerSec q) { return MetresPerSec(q.v / 4); }
 
+struct Knots {
+    int32_t v{0};
+    constexpr Knots() = default;
+    constexpr explicit Knots(int32_t kt) : v(kt) {}
+};
+struct KilometresPerHour {
+    int32_t v{0};
+    constexpr KilometresPerHour() = default;
+    constexpr explicit KilometresPerHour(int32_t kmh) : v(kmh) {}
+};
+
+// INFO: fc 18sep26 1 m/s = 1.94384 kt = 3.6 km/h, rounded: truncated, 60 kt flown reads 59
+constexpr Knots to_knots(QuarterMetresPerSec q) {
+    return Knots((static_cast<int32_t>(q.v) * 194384 + 200000) / 400000);
+}
+constexpr KilometresPerHour to_kmh(QuarterMetresPerSec q) {
+    return KilometresPerHour((static_cast<int32_t>(q.v) * 36 + 20) / 40);
+}
+
 struct EighthMetresPerSec {
     int16_t v{0};
     constexpr EighthMetresPerSec() = default;
@@ -60,7 +79,9 @@ struct FeetPerMinute {
     constexpr explicit FeetPerMinute(int32_t f) : v(f) {}
 };
 constexpr FeetPerMinute to_feet_per_minute(MillimetresPerSec mm) {
-    return FeetPerMinute(static_cast<int32_t>((static_cast<int64_t>(mm.v) * 19685) / 100000));
+    const int64_t scaled = static_cast<int64_t>(mm.v) * 19685;
+    const int64_t half = scaled < 0 ? -50000 : 50000;
+    return FeetPerMinute(static_cast<int32_t>((scaled + half) / 100000));
 }
 
 struct Cordic9 {

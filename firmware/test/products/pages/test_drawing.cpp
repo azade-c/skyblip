@@ -845,12 +845,12 @@ TEST_CASE("status: the barometer row reads what the sensor resolves, beside the 
     s.baro_valid = true;
     s.pressure_mpa = 101325253;  // the BME280's own tenths of a pascal
     s.qnh_pa = 101300;
-    s.climb_mm_s = -1234;  // -242 fpm, a rate the 0.125 m/s of ADS-L cannot hold
+    s.climb_mm_s = -1234;  // -243 fpm, a rate the 0.125 m/s of ADS-L cannot hold
     draw_status(fb, s);
 
     CHECK(reads_in(fb, "1013.252", 0, 85, 200, 105));
     CHECK(reads_in(fb, "Q1013", 0, 85, 200, 105));
-    CHECK(reads_in(fb, "-242", 0, 165, 200, 185));
+    CHECK(reads_in(fb, "-243", 0, 165, 200, 185));
     CHECK(reads_in(fb, "-1.23", 0, 165, 200, 185));
 }
 
