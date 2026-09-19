@@ -1,0 +1,95 @@
+@layer components {
+  .feature {
+    display: grid;
+    align-items: center;
+    gap: var(--space-l) var(--space-inline-2xl);
+    margin-block: var(--space-2xl);
+  }
+
+  @media (min-width: 58rem) {
+    .feature { grid-template-columns: minmax(0, 1fr) 400px; }
+    .feature--reverse { grid-template-columns: 400px minmax(0, 1fr); }
+    .feature--reverse > .shot { order: -1; }
+  }
+
+  .feature p {
+    color: var(--ink-soft);
+    margin-block: 0 var(--space-s);
+  }
+  .feature p:last-child { margin-block-end: 0; }
+
+  .highlight {
+    background: linear-gradient(transparent 58%, color-mix(in oklch, var(--blip) 42%, transparent) 0);
+  }
+
+  .shot {
+    margin: 0;
+    display: grid;
+    justify-items: center;
+    gap: var(--space-xs);
+  }
+
+  .shot img {
+    inline-size: 400px;
+    background: #c9c9c4;
+    image-rendering: pixelated;
+    box-shadow:
+      0 0 0 6px #f2f2ef,
+      0 0 0 7px #0000001f,
+      0 14px 28px -20px #0a1220a6;
+  }
+
+  @media (max-width: 28rem) {
+    .shot img { inline-size: 200px; }
+  }
+
+  .shot--photo img {
+    inline-size: auto;
+    max-inline-size: min(360px, 100%);
+    max-block-size: 22rem;
+    background: none;
+    image-rendering: auto;
+    border-radius: var(--space-inline-2xs);
+    box-shadow: 0 14px 28px -20px #0a1220a6;
+    mix-blend-mode: multiply;
+  }
+
+  .shot figcaption {
+    font-size: var(--text-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--quiet);
+    margin-block-start: var(--space-2xs);
+  }
+
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+    gap: var(--space-l) var(--space-inline-l);
+    margin-block: var(--space-xl) var(--space-2xl);
+  }
+
+  .shots { justify-items: center; }
+  .shots .shot img { inline-size: 200px; }
+
+  .points {
+    list-style: none;
+    padding: 0;
+    margin-block: var(--space-m) var(--space-3xl);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(28ch, 100%), 1fr));
+    gap: var(--space-2xs) var(--space-inline-xl);
+    font-size: var(--text-s);
+    color: var(--ink-soft);
+  }
+
+  .points li {
+    display: grid;
+    grid-template-columns: 2.5ch 1fr;
+  }
+
+  .points li::before {
+    content: "\2713";
+    color: var(--blip);
+  }
+}

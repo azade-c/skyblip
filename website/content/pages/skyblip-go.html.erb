@@ -1,11 +1,12 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: A skyBlip Go running in your browser, on the firmware a real one runs · what a pilot meets, in the order they meet it, and then why the screen and the cell behave the way they do.
+description: The pocket tracker, screen by screen · the traffic plot, the alarm that says where to look, the three pages, the menus, and what the e-paper and the battery are protected from.
 ---
 
 <section id="simulator">
   <h2 class="kicker">skyBlip Go</h2>
+  <h3>Switch one on. It runs the firmware a real one runs.</h3>
 
   <%= render "shared/simulator",
         wake: "Hold the lower key to switch it back on.",
@@ -21,352 +22,195 @@ description: A skyBlip Go running in your browser, on the firmware a real one ru
         caption: "Sensors are simulated, the firmware is not. It is the build this site was published from.",
         missing: "The simulator is not part of this build of the site." %>
 
-  <p>
-    Nothing is flying out there until you ask for one. Each aircraft the button
-    under the case adds is put at a bearing, a range and a height of its own and
-    then flies on, broadcasting real ADS-L frames that the firmware receives,
-    decodes and plots like any other traffic.
-  </p>
-  <p>
-    The two lamps beside the glass are the device&rsquo;s own. Only the left one
-    is the firmware&rsquo;s, lit while a contact is worth calling an alarm. The
-    right one is wired to the charger and no line of ours reaches it, so in this
-    page, where no cable is ever plugged in, it stays dark.
-  </p>
   <p class="note">
-    What follows is the device in the order a pilot meets it. The technical
-    notes at the foot of the page are the other half: why the screen refreshes
-    the way it does, and what the cell is protected from.
+    Nothing is flying out there until you ask for one, and each aircraft the
+    button adds broadcasts real ADS-L frames that the firmware receives, decodes
+    and plots. The lamp on the left of the glass is the firmware&rsquo;s, lit
+    while a contact is worth an alarm. The one on the right belongs to the
+    charger, so on this page it stays dark. Every screen below is a capture of
+    this same firmware.
   </p>
 </section>
 
 <section>
-  <h2 class="kicker">The first press</h2>
-  <h3>It comes up on the radar and says what it is waiting for.</h3>
-  <p class="lede">
-    One press of the button on the side and the device is on. There is no boot
-    screen to sit through: it goes straight to the traffic picture, and since it
-    has no position yet, the ring carries <span class="mono">NO FIX</span> with
-    one word under it. <span class="mono">SEARCH</span> is a receiver that is
-    solving and has no date yet, <span class="mono">TIME</span> is a date read
-    off a satellite, <span class="mono">SILENT</span> is a receiver that has
-    stopped answering. That is the difference between a device to wait for and a
-    device to move into the open, and it is worth more on the apron than the
-    words <span class="mono">NO FIX</span> on their own.
-  </p>
-  <p>
-    The first fix announces itself with a short jingle, and from then on the page is
-    a picture of the sky rather than a picture of a search. If a part the device
-    cannot fly without did not answer, none of this happens: the self test stays
-    on the glass naming the part, the button still works, and the device refuses
-    to pretend. Only the radio and the receiver can fail that way. A missing
-    buzzer or a board with no barometer reads <span class="mono">NOT FITTED</span>
-    and flies.
-  </p>
-</section>
+  <h2 class="kicker">What it shows you</h2>
 
-<section>
-  <h2 class="kicker">The picture</h2>
-  <h3>Nose up, four miles of sky, and nothing written across the top.</h3>
-  <p>
-    The plot is heading up. Your own aircraft is drawn nose-up in the middle and
-    never turns. The sky turns around it, so a target drawn to the upper right is
-    a target to look for off the right of the nose. There is no compass rose and
-    nothing at all is written across the top of the glass: the half of the
-    picture you are flying into carries the plot and nothing else.
-  </p>
-  <p>
-    Traffic is a circle, and the tag beside it is its height difference in
-    hundreds of feet, sitting above the symbol when the aircraft is above you and
-    below it when it is below. You know which way to look before you have read
-    the digits. A line runs out of each symbol to where that aircraft will be in
-    a minute at the speed and track it reported, so a line reaching halfway to
-    the ring is an aeroplane crossing two miles in the time it takes to look up.
-    A chevron joins the tag when it is climbing or descending at 500&nbsp;ft/min
-    or more.
-  </p>
-  <p>
-    The ring is four nautical miles by default and the figure at the foot of the
-    page is the label of that circle, in miles or in kilometres depending on what
-    you asked for. The glass is wider than the ring, so traffic keeps being
-    plotted out into the corners: something is out there, in that direction,
-    further than the ring. The count beside the range is the ring only, and the
-    clock in the other corner is the time since takeoff, which is the one figure
-    on the device a pilot copies into a logbook.
-  </p>
-  <p>
-    What is not a flight is said in the ring, not in a corner:
-    <span class="mono">NO FIX</span>, <span class="mono">GROUND</span>,
-    <span class="mono">TAXI</span>. A glider pushed to the grid at walking pace
-    is taxiing, which is what anybody watching it would say, and the device
-    transmits in that state because ADS-L has a ground state and taxiing is it.
-  </p>
-</section>
+  <div class="feature">
+    <div>
+      <h3>A plot you read <span class="highlight">like a window</span>.</h3>
+      <p>
+        Your aircraft is in the middle, nose up, and it never turns: the sky
+        turns around it. A target drawn to the upper right is a target to look
+        for off the right of the nose, and nothing at all is written across the
+        top of the glass, because that is the half you are flying into.
+      </p>
+      <p>
+        Beside each circle is its height difference in hundreds of feet, above
+        the symbol when the aircraft is above you. The line out of it is where
+        that aircraft will be in a minute.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "radar.png", alt: "The radar page: three aircraft with their altitude tags, their one-minute leader lines, the four-mile ring, the flight time and the count of aircraft in the ring" %>
+      <figcaption>Radar</figcaption>
+    </figure>
+  </div>
 
-<section>
-  <h2 class="kicker">When one gets close</h2>
-  <h3>One level, and what it tells you is where to look.</h3>
-  <p class="lede">
-    There is one alarm level. An aircraft inside 3&nbsp;km of you and inside
-    300&nbsp;m vertically is a traffic advisory: its circle fills in, the quadrant
-    of the glass it is in inverts and flashes once a second, the buzzer says it
-    twice, and the lamp beside the screen comes on. The flash is the instruction.
-    A quarter of the screen going black and white again is seen without being
-    looked at, and a quadrant is the right precision, because the answer is which
-    way to turn your head and not where to aim.
-  </p>
-  <p>
-    An advisory brings the radar with it. Reading the instruments or a menu when
-    an aircraft enters that window puts you back on the plot, on the pass it
-    happens, because the bearing is what you are being told and only that page
-    carries it. Walking away again afterwards is yours to do.
-  </p>
-  <p>
-    There is nothing above the advisory and there never will be. The level above
-    it in other systems is the resolution advisory, which instructs a crew to
-    climb or descend and is coordinated with the other aircraft. This device has
-    no link to coordinate over and no authority to give an instruction. The
-    loudest thing it can say is look.
-  </p>
-  <p>
-    Once you have the aircraft in sight, hold the pad for a second and the device
-    stops talking about it: the tone, the sector and the lamp go together. The
-    plot stays exactly as it was, because what you dismissed was a claim about
-    what you have seen, not a claim about the sky. It covers the aircraft the
-    device has already spoken about and no others, so the next one heard arrives
-    with its own voice, and there is no timer on it, because a dismissal that
-    expired would shout again about the aeroplane you are looking at.
-  </p>
-</section>
+  <ul class="points">
+    <li>Heading up, never north up</li>
+    <li>Ring of 1, 2, 4 or 8&nbsp;NM</li>
+    <li>Height difference in hundreds of feet</li>
+    <li>A minute of track ahead of each target</li>
+    <li>Aircraft counted inside the ring</li>
+    <li>Time since takeoff, for the logbook</li>
+  </ul>
 
-<section>
-  <h2 class="kicker">Walking the device</h2>
-  <h3>Three pages, one tap apart. The pad moves, the button acts.</h3>
-  <p>
-    Two contacts, and the split between them is the whole vocabulary. The
-    capacitive pad on the top edge moves you around and can change nothing. The
-    button on the side is the one that changes something. Nothing a sleeve
-    brushes against can alter a setting, and nothing you do to walk the pages can
-    be spent answering a question.
-  </p>
-  <p>
-    A tap of the pad is the next page, and the walk is three: the radar, the list
-    of who is out there, the six instrument dials. A touch held for a second is
-    the way home to the radar from anywhere. Three and not six, because a pilot
-    cycling the glass in flight should pass the plot, the list and the
-    instruments, and never the satellite bars.
-  </p>
+  <div class="feature feature--reverse">
+    <div>
+      <h3>One alarm, and what it says is <span class="highlight">where to look</span>.</h3>
+      <p>
+        An aircraft inside 3&nbsp;km and 300&nbsp;m of you fills its circle, and
+        the quadrant it sits in flashes once a second. A quarter of the screen
+        going black and white is seen without being looked at, which is the
+        whole instruction: turn your head that way.
+      </p>
+      <p>
+        There is nothing above it and there never will be. An instruction to
+        climb or descend has to be coordinated with the other aircraft, and this
+        device has no link to coordinate over. The loudest thing it can say is
+        look.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "alarm.png", alt: "The radar page during a traffic advisory: one quadrant of the screen inverted to black, with the filled circle of the converging aircraft and its altitude tag reversed out of it" %>
+      <figcaption>Traffic advisory</figcaption>
+    </figure>
+  </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>Page</th><th>What it answers</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>Radar</th><td>where to look: the nose-up plot, the ring, the alarm sector</td></tr>
-        <tr><th>Nearby</th><td>who they are: one row per aircraft, nearest first, with its slant range and how far above</td></tr>
-        <tr><th>Six-pack</th><td>what you are doing: speed, horizon, altimeter, turn and slip, track, vertical speed, and the flight clock</td></tr>
-      </tbody>
-    </table>
+  <ul class="points">
+    <li>3&nbsp;km around you, 300&nbsp;m above and below</li>
+    <li>The sector flashes at one flip a second</li>
+    <li>Buzzer, vibration and lamp together</li>
+    <li>Any page you are on gives way to the radar</li>
+    <li>One touch of the pad silences it</li>
+    <li>A caution, never an instruction</li>
+  </ul>
+
+  <div class="feature">
+    <div>
+      <h3>Who is out there, <span class="highlight">nearest first</span>.</h3>
+      <p>
+        The radar answers where to look. This page answers who that is: one row
+        per aircraft the device can place, its slant range, and how far above or
+        below you it is.
+      </p>
+      <p>
+        The letter is where the report came from. <span class="mono">A</span> is
+        a direct ADS-L frame, <span class="mono">F</span> is FLARM-compatible
+        traffic, <span class="mono">U</span> is an aircraft relayed by a ground
+        station.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "nearby.png", alt: "The nearby page: five aircraft listed nearest first, each with its source letter, its address, its slant range and its relative altitude" %>
+      <figcaption>Nearby</figcaption>
+    </figure>
+  </div>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Six dials, and <span class="highlight">the clock you copy</span>.</h3>
+      <p>
+        Ground speed, horizon, altimeter on your own subscale, turn and slip,
+        track, vertical speed. The figure over the middle is the time since
+        takeoff, which is the one number on this device that ends up in a
+        logbook.
+      </p>
+      <p>
+        With the gyroscope switched on, the horizon rolls with a measured bank
+        and the ball answers the rudder. Nothing here is certified, and none of
+        it is an attitude indicator to fly in cloud.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "sixpack.png", alt: "The six-pack page: ground speed, artificial horizon with the flight time above it, altimeter, turn coordinator with its ball, track card and vertical speed" %>
+      <figcaption>Six-pack</figcaption>
+    </figure>
   </div>
 </section>
 
 <section>
-  <h2 class="kicker">Changing something</h2>
-  <h3>The button opens the menu of the page you are standing on.</h3>
-  <p class="lede">
-    Everything that matters is settable on the device, with no phone. There is no
-    single settings screen to go and find: each page has its own menu, and what is
-    on it is what that picture is made of. The ring&rsquo;s range and the alarm
-    that watches it belong to the radar. The altimeter subscale belongs to the
-    page with the altimeter on it. The diagnostic pages hang off the traffic list
-    they explain.
-  </p>
-  <p>
-    Inside a menu the two contacts mean what they mean everywhere else: a tap of
-    the pad moves the focus down a row, a press of the button acts on the row it
-    is on, and every further press steps the same field again, which is how a
-    subscale is wound with a thumb. Nothing is a draft. Each press is one finished
-    change, so the device cannot be left half edited.
-  </p>
+  <h2 class="kicker">How you work it</h2>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>The radar&rsquo;s menu</th><th>What a press does</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>ID</th><td>nothing. Your ADS-L address, shown and never changed by a thumb</td></tr>
-        <tr><th>AIRCRAFT</th><td>next type: glider, microlight, helicopter, paraglider, balloon, and the rest of the ADS-L list</td></tr>
-        <tr><th>ALARM</th><td>on or off</td></tr>
-        <tr><th>VOLUME</th><td>0 to 5</td></tr>
-        <tr><th>RANGE</th><td>the ring: 1, 2, 4 or 8&nbsp;NM, and round again</td></tr>
-        <tr><th>UNITS</th><td>nautical, or metric</td></tr>
-        <tr><th>STEALTH</th><td>on or off, and it is last because it is the one row that makes this aircraft harder for others to see</td></tr>
-      </tbody>
-    </table>
+  <div class="feature">
+    <div>
+      <h3>The pad moves, <span class="highlight">the button acts</span>.</h3>
+      <p>
+        Two contacts, and that split is the whole vocabulary. The capacitive pad
+        on the top edge walks the three pages and can change nothing. The button
+        on the side opens the menu of the page you are standing on, and every
+        further press steps the row you are on.
+      </p>
+      <p>
+        So each menu holds what its picture is made of: the ring and the alarm
+        belong to the radar, the subscale belongs to the page with the altimeter.
+        Nothing is a draft, each press is one finished change.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-radar.png", alt: "The radar menu: the device address, aircraft type, alarm, volume, range, units and stealth, with the hint PAD MOVES PRESS CHANGES at the foot" %>
+      <figcaption>The radar menu</figcaption>
+    </figure>
   </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>The list&rsquo;s menu</th><th>What a press does</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>RADIO LOG</th><td>opens the tape of every burst heard and sent, newest first</td></tr>
-        <tr><th>SATELLITES</th><td>opens one bar per satellite, filled when the receiver used it</td></tr>
-        <tr><th>STATUS</th><td>opens what the sensors say, and whether the device is transmitting</td></tr>
-        <tr><th>SELF TEST</th><td>opens the power-on self test, one row per part of the board</td></tr>
-      </tbody>
-    </table>
+  <ul class="points">
+    <li>A tap of the pad: the next page</li>
+    <li>A touch of a second: back to the radar</li>
+    <li>A press: the menu of this page</li>
+    <li>Presses after that: step the row</li>
+    <li>Past the last row: back to the picture</li>
+    <li>A minute untouched: back on its own</li>
+  </ul>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Three pages on the walk, <span class="highlight">the rest by name</span>.</h3>
+      <p>
+        A tap moves between the radar, the list and the instruments, and that is
+        all it moves between: a pilot cycling the glass in flight should never
+        land on the satellite bars.
+      </p>
+      <p>
+        Everything else is opened from the menu of the page it explains, and
+        hands you back where you were. The instruments&rsquo; menu holds the
+        g-meter and the subscale, the list&rsquo;s menu holds the four pages
+        below.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-nearby.png", alt: "The nearby menu: radio log, satellites, status and self test, the four pages opened by name" %>
+      <figcaption>The list&rsquo;s menu</figcaption>
+    </figure>
   </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>The instruments&rsquo; menu</th><th>What a press does</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>G METER</th><td>opens the accelerometer, with the peaks this flight has pulled</td></tr>
-        <tr><th>GYRO</th><td>on or off, and off is how a unit ships: the gyroscope sharpens the turn coordinator and the horizon, and it is the one sensor here that costs a milliamp to run</td></tr>
-        <tr><th>QNH FROM GNSS</th><td>sets the subscale that makes the altimeter agree with the fix</td></tr>
-        <tr><th>QNH - / +</th><td>one hectopascal a press, both signs on one line, because a subscale is wound in both directions</td></tr>
-      </tbody>
-    </table>
+  <div class="shots">
+    <figure class="shot">
+      <%= pages_image_tag "status.png", alt: "The status page: fix and satellites, position, track, traffic count, transmit state, pressure and subscale, altitudes, speed, vertical speed and cell voltage" %>
+      <figcaption>Status</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "satellites.png", alt: "The satellites page: one bar per satellite grouped by constellation, against a dotted line at 40 dB-Hz" %>
+      <figcaption>Satellites</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "radio-log.png", alt: "The radio log: one row per burst heard or sent, newest first, with its time, direction, channel, address and level" %>
+      <figcaption>Radio log</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "self-test.png", alt: "The self test page: one row per part of the board, each with the part that answered and its verdict" %>
+      <figcaption>Self test</figcaption>
+    </figure>
   </div>
-
-  <p>
-    Three rules hold in every menu. The rows only ever advance, and the tap past
-    the last one hands the glass back to the page the menu belongs to, so the
-    thumb that opened a menu closes it with the same gesture. A long touch goes to
-    the radar from inside a menu as it does from anywhere else. And a menu nobody
-    has touched for a minute gives the picture back on its own. There is no
-    <span class="mono">BACK</span> row, because the pad already leaves.
-  </p>
-  <p>
-    Two smaller choices fall out of the same thinking. The unchangeable
-    <span class="mono">ID</span> is the first row of the first menu, so a pilot who
-    lands there and presses out of impatience presses on nothing. And a page opened
-    by name hands you back to the menu that opened it rather than walking on to a
-    fourth picture, which is what keeps your thumb where you left it. The range is
-    the one value that is not stored: a device always comes up on the 4&nbsp;NM ring
-    the radar is designed around.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">In your navigation app</h2>
-  <h3>It appears by name, and three screens can read it at once.</h3>
-  <p>
-    The device advertises itself as <span class="mono">skyBlip Go - 5B5AFE</span>:
-    the product, then its own 24-bit address, the same one the radar&rsquo;s menu
-    shows. Nothing to pair and no code to type. It carries the FLARM NMEA stream
-    on both of the Bluetooth serial profiles navigation software looks for, so an
-    app built for a Nordic UART device and an app built for a FLARM-style
-    <span class="mono">FFE0</span> find the same sentences.
-  </p>
-  <p>
-    Up to three devices can be connected at once and they all read the same
-    traffic: the tablet on the yoke, the phone in a pocket, the passenger&rsquo;s
-    iPad. Configuration is the one thing that is not shared. The first app to send
-    a command keeps that right until it disconnects, and a second one is told who
-    holds it rather than left guessing, because two apps writing settings to one
-    device is two apps disagreeing about what is stored.
-  </p>
-  <p>
-    Each flight also leaves a record on the device, up to sixteen of them, which
-    the same link hands back on the ground.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">When the device asks you a question</h2>
-  <h3>Two presses allow, one press refuses.</h3>
-  <p>
-    When an app asks for something that could change the aircraft you are flying,
-    new firmware, a settings write, erasing your flights, switching the device
-    off, the device does not act on the phone&rsquo;s word. It puts the question
-    on its own glass, names it, and waits thirty seconds:
-    <span class="mono">PRESS TWICE TO ALLOW</span>,
-    <span class="mono">ONE PRESS REFUSES</span>. No answer inside the window is a
-    refusal too.
-  </p>
-  <p>
-    Presses only count once the question has actually reached the glass and your
-    thumb has stopped, so a run of presses that was stepping a value in a menu
-    cannot be spent on an authorisation. The pad is inert while a question stands:
-    there are no pages to walk until it is answered. A double press inside
-    six tenths of a second is the only one of the button&rsquo;s meanings you have
-    to mean to make.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">Putting it away</h2>
-  <h3>A hold of two seconds switches it off. The same hold with a finger on the pad stores it.</h3>
-  <p>
-    Switching off is a hold of two seconds. The radio is parked, the panel is given
-    three seconds to finish drawing the wordmark, and the rails drop only once your
-    thumb is off the button. E-paper keeps its last image with no power at all, so
-    the wordmark is what the device wears while it is off: that image on the glass
-    means off, not asleep.
-  </p>
-  <p>
-    Putting it away for the season is the same hold with a finger on the pad from
-    the start. Same road out, and the glass is left blank instead of wearing the
-    wordmark, because one image left on an e-paper for months leaves a shadow the
-    panel never fully loses. A device going into a cupboard until the spring should
-    be carrying nothing.
-  </p>
-  <p>
-    Two cases are deliberately not what a phone does. A charger plugged into a
-    device that is off leaves it off and charging, because a cable found in a
-    flight bag is not a request to start transmitting; hold the button while you
-    plug in if you want the device as well. And a device that switched itself off
-    on a flat cell will not come back on a press: it waits for a charger, so a
-    button pressed by the weight of a bag cannot finish the battery off.
-  </p>
-
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr><th>From off</th><th>What happens</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>Press the button</th><td>boots, unless the cell is under 3.4&nbsp;V with no charger</td></tr>
-        <tr><th>Plug the charger in</th><td>charges, stays off</td></tr>
-        <tr><th>Hold the button, plug the charger in</th><td>boots and charges</td></tr>
-        <tr><th>Press after a flat-battery shutdown</th><td>nothing, by design: plug the charger in</td></tr>
-        <tr><th>Press <span class="mono">RST</span></th><td>boots</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section>
-  <h2 class="kicker">The third contact</h2>
-  <h3><span class="mono">RST</span> reboots, and nothing else does.</h3>
-  <p>
-    <span class="mono">RST</span> is a hardware reset: press it and the device
-    reboots, whatever the firmware was doing. Two presses inside half a second put
-    it into the USB bootloader instead, where it appears as a drive you can drop a
-    firmware file onto. That route belongs to the bootloader rather than to our
-    firmware, which is what makes it the way back from a device that will not
-    start.
-  </p>
-  <p>
-    The pad is deliberately the harmless contact of the three. A capacitive pad is
-    unusable through winter gloves, and it fires on a cheek and on rain, so nothing
-    that matters is behind it: it cannot switch the device on or off, it cannot
-    change a setting, and it cannot answer a question on the glass. The worst a pad
-    wet with rain can do is turn a page you were not reading, or send a device
-    already on its way off with a blank screen instead of a wordmark.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">The whole vocabulary</h2>
-  <h3>Two contacts, and everything they mean.</h3>
 
   <div class="table-scroll">
     <table>
@@ -407,66 +251,187 @@ description: A skyBlip Go running in your browser, on the firmware a real one ru
 </section>
 
 <section>
+  <h2 class="kicker">On the apron, and in the bag</h2>
+
+  <div class="feature">
+    <div>
+      <h3>It says <span class="highlight">what it is waiting for</span>.</h3>
+      <p>
+        One press and it is on, straight to the traffic picture. With no
+        position yet the ring says so, and the word under it is how far the
+        receiver has got: solving, or a date read off a satellite, or a receiver
+        that has gone quiet.
+      </p>
+      <p>
+        That is the difference between a device to wait for and a device to
+        carry into the open. The first fix announces itself, and the picture
+        becomes a picture of the sky.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "no-fix.png", alt: "The radar page with no position: the empty ring carries the words NO FIX and, under them, how far the receiver has got" %>
+      <figcaption>Waiting for the sky</figcaption>
+    </figure>
+  </div>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>The wordmark on the glass <span class="highlight">means off</span>.</h3>
+      <p>
+        A hold of two seconds switches it off: the radio is parked, the panel is
+        given three seconds to draw the wordmark, and the rails drop once your
+        thumb is off the button. E-paper keeps its image with no power at all,
+        so that is what an off device wears.
+      </p>
+      <p>
+        The same hold with a finger on the pad leaves the glass blank instead.
+        One image left on an e-paper for a winter leaves a shadow the panel
+        never fully loses, and a device going into a cupboard should carry
+        nothing.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "off.png", alt: "The parked screen of a device that has been switched off: the skyBlip wordmark, held by the e-paper with no power" %>
+      <figcaption>Off</figcaption>
+    </figure>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>From off</th><th>What happens</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Press the button</th><td>boots, unless the cell is under 3.4&nbsp;V with no charger</td></tr>
+        <tr><th>Plug the charger in</th><td>charges, stays off: a cable in a flight bag is not a request to transmit</td></tr>
+        <tr><th>Hold the button, plug the charger in</th><td>boots and charges</td></tr>
+        <tr><th>Press after a flat-battery shutdown</th><td>nothing, by design: plug the charger in</td></tr>
+        <tr><th>Press <span class="mono">RST</span></th><td>reboots, and twice inside half a second, the USB bootloader</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2 class="kicker">With your phone</h2>
+
+  <div class="feature">
+    <div>
+      <h3>It appears by name, and <span class="highlight">three screens</span> read it at once.</h3>
+      <p>
+        <span class="mono">skyBlip Go - 5B5AFE</span>: the product, then its own
+        24-bit address. Nothing to pair, no code to type. It carries the FLARM
+        NMEA stream on both of the Bluetooth serial profiles navigation software
+        looks for, so the app you already fly with finds it.
+      </p>
+      <p>
+        The tablet on the yoke, the phone in a pocket and the passenger&rsquo;s
+        iPad all read the same traffic. Configuration is the one thing that is
+        not shared: the first app to write keeps that right until it
+        disconnects, and the second is told who holds it.
+      </p>
+    </div>
+    <figure class="shot shot--photo">
+      <%= image_tag "pages/index/skyblip-go-techo.jpg", alt: "A skyBlip Go, white case with its antenna, the wordmark on the e-paper screen" %>
+    </figure>
+  </div>
+
+  <ul class="points">
+    <li>No pairing, no code, no account</li>
+    <li>Three connections at once</li>
+    <li>Nordic UART and FLARM-style profiles</li>
+    <li>SDVFR Next, SkyDemon, ForeFlight and the rest</li>
+    <li>Up to sixteen flights kept on the device</li>
+    <li>Collected over the same link on the ground</li>
+  </ul>
+
+  <h3>Two presses allow, one press refuses.</h3>
+  <p class="lede">
+    When an app asks for something that could change the aircraft you are flying,
+    new firmware, a settings write, erasing your flights, switching the device
+    off, the device does not act on the phone&rsquo;s word. It puts the question
+    on its own glass, names it, and waits thirty seconds:
+    <span class="mono">PRESS TWICE TO ALLOW</span>,
+    <span class="mono">ONE PRESS REFUSES</span>. No answer inside the window is a
+    refusal too.
+  </p>
+  <p class="lede">
+    Presses only count once the question has reached the glass and your thumb has
+    stopped, so a run of presses that was stepping a value cannot be spent on an
+    authorisation. The pad is inert while a question stands.
+  </p>
+</section>
+
+<section>
   <h2 class="kicker">Technical notes</h2>
-  <h3>The glass</h3>
-  <p>
-    The panel is a 1.54&Prime; e-paper, 200&times;200 pixels, driven by an SSD1681.
-    It holds its last image with the rails down and draws nothing to keep it there,
-    which is what makes the parked wordmark a power indicator and what makes a
-    blank screen the right thing to store.
+
+  <h3>Why the screen behaves the way it does.</h3>
+  <p class="lede">
+    The panel is a 1.54&Prime; e-paper, 200&times;200 pixels. It holds its last
+    image with the rails down and draws nothing to keep it there, which is what
+    makes the parked wordmark an indicator and a blank screen the right thing to
+    store.
   </p>
-  <p>
+  <p class="lede">
     Every frame in flight is a partial refresh. The full waveform, the one that
-    flashes the panel black and white for a second and a half, is used exactly
-    twice in the life of a session: once at power on and once at power off. Hours
-    of changing frames never cost one. A page change goes through a single black
-    wipe of about a third of a second instead, and a second page change made while
-    the glass is already black costs no second wipe.
-  </p>
-  <p>
-    A frame identical to the one already on the glass is never presented, and no
-    frame is presented more than once a second. That floor is also the alarm&rsquo;s
-    blink rate. The part would allow three flips a second and we do not take them:
-    a large black region toggled that hard is ghosting the panel never fully loses,
-    and one flip a second is already motion in the corner of an eye that should be
-    out of the window.
-  </p>
-  <p>
-    Two conditions stop refreshes altogether. Above 50&nbsp;&deg;C read on the
-    processor die the panel is left alone, because that is the top of the
-    manufacturer&rsquo;s rating for the glass. And at the low-battery cutoff the
-    panel is parked as a white field rather than a picture: a cell that low can sag
-    under a refresh, and an interrupted waveform is the state that leaves a mark. A
-    merely low cell still gets its traffic picture.
-  </p>
-  <p>
-    On the way down the panel&rsquo;s data lines are released before its supply,
-    not after. A line left high on a panel with no rail back-feeds it, and the
-    parked image drifts dark over the days in a flight bag.
+    flashes the panel black and white for a second and a half, is spent twice in
+    a session: at power on, and at power off. A page change goes through a
+    single black wipe instead, and the alarm&rsquo;s one flip a second is the
+    panel&rsquo;s own floor rather than a rate we picked. Faster is possible, and
+    a large black region toggled that hard is ghosting the glass never loses.
   </p>
 
-  <h3>The cell</h3>
-  <p>
-    Switching off is a sequence, not a rail drop, and the order is the whole
-    content of it. The radio is put to sleep before anything touches its reset
-    line. The external flash is told to sleep while it still has a supply to hear
-    the command, because after the rail that command is a no-op and the part draws
-    its full standby current for the whole night the device spends in a bag looking
-    switched off. Then the receiver, then the rails, and the pins are released last.
+  <ul class="points">
+    <li>Partial refresh on every frame</li>
+    <li>The full waveform twice a session</li>
+    <li>A page change is one black wipe, a third of a second</li>
+    <li>A frame identical to the last is never sent</li>
+    <li>Left alone above 50&nbsp;&deg;C, its maker&rsquo;s limit</li>
+    <li>Parked white at the cutoff, never mid-picture</li>
+  </ul>
+
+  <h3>Why the cell lasts the day.</h3>
+  <p class="lede">
+    Switching off is a sequence, not a rail drop, and the order is the content of
+    it. The external flash is told to sleep while it still has a supply to hear
+    the command: after the rail that command does nothing, and the part draws its
+    full standby current for the whole night the device spends in a bag looking
+    switched off.
   </p>
-  <p>
-    The transmit schedule is the other half of the budget: 1&nbsp;Hz in the air and
-    0.1&nbsp;Hz on the ground, as ADS-L asks. The ground second is derived from the
-    device&rsquo;s own address, so the parked population spreads itself evenly over
-    the ten rather than all speaking at once.
+  <p class="lede">
+    The rest is the radio and the sensors. Airborne the device speaks once a
+    second, parked once every ten, and which of the ten seconds is its own comes
+    from its address, so a field full of aircraft spreads itself out.
   </p>
-  <p>
-    The gauge reads two curves, not one. On a charger the terminal sits above the
-    cell&rsquo;s own voltage, so the same reading means a far emptier cell, and the
-    percentage says which curve it read. It never walks backwards, and a
-    22&nbsp;dBm burst sagging the rail does not move it: a gauge that jumps when the
-    radio keys is a gauge a pilot stops believing.
-  </p>
+
+  <ul class="points">
+    <li>Radio asleep before its reset line</li>
+    <li>Flash, receiver, rails, pins, in that order</li>
+    <li>1&nbsp;Hz in the air, 0.1&nbsp;Hz on the ground</li>
+    <li>The gyroscope ships off: it costs a milliamp</li>
+    <li>Charging refused outside 5 to 60&nbsp;&deg;C</li>
+    <li>The lamp winks, and is never held solid</li>
+  </ul>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>What the gauge <span class="highlight">will not do</span>.</h3>
+      <p>
+        It reads two curves, not one. On a charger the terminal sits above the
+        cell&rsquo;s own voltage, so the same reading means a far emptier cell,
+        and the percentage says which curve it read.
+      </p>
+      <p>
+        It never walks backwards, and a 22&nbsp;dBm burst sagging the rail does
+        not move it. A gauge that jumps when the radio keys is a gauge a pilot
+        stops believing.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-sixpack.png", alt: "The instruments menu: the g-meter, the gyroscope switched off, the subscale suggested by the fix and the subscale being set" %>
+      <figcaption>The instruments&rsquo; menu</figcaption>
+    </figure>
+  </div>
 
   <div class="table-scroll">
     <table class="modules">
@@ -476,49 +441,27 @@ description: A skyBlip Go running in your browser, on the firmware a real one ru
       <tbody>
         <tr><th>3.50&nbsp;V</th><td>the warning: from here nothing durable is written except the flight record, which is the evidence of the flight that is ending</td></tr>
         <tr><th>3.40&nbsp;V</th><td>a boot on a cell this flat is refused, and the button is left unarmed so a bag cannot keep asking</td></tr>
-        <tr><th>3.20&nbsp;V</th><td>the cutoff: the device switches itself off, three consecutive samples and not one, so a transmit sag cannot act</td></tr>
+        <tr><th>3.20&nbsp;V</th><td>the cutoff: the device switches itself off, on three consecutive samples, so a transmit sag cannot act</td></tr>
         <tr><th>1.80&nbsp;V</th><td>below this the reading is a floating divider, not a flat cell, and nothing acts on it</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>
-    Nothing acts on a terminal a charger is holding up, and a cell that the
-    processor&rsquo;s own power-failure comparator has complained about stops
-    durable writes without switching anything off: by then the brownout is
-    milliseconds away and there is no orderly shutdown left to run. Charging itself
-    is refused outside 5 to 60&nbsp;&deg;C, read on a die that sits above ambient.
+  <h3>Why there is no pairing.</h3>
+  <p class="lede">
+    Turning Bluetooth pairing on encrypts the GATT characteristics, which is a
+    known Web Bluetooth failure on Windows and would break the browser page that
+    installs firmware. So the boundary is the image and not the link.
   </p>
 
-  <h3>The lamp</h3>
-  <p>
-    The lamp exists because the screen cannot say whether there is a device behind
-    it. Nothing it shows is held solid: every state blinks, and a state held for
-    hours is allowed a couple of percent of duty while an alarm may spend thirty.
-    Turning the buzzer off does not darken it, because &ldquo;is this thing
-    on&rdquo; is not a preference. Charge is not one of its states at all, since
-    the charger chip drives its own LED beside it and reports while the processor
-    is asleep, which nothing in the firmware can do.
-  </p>
-
-  <h3>No pairing, and what stands in for it</h3>
-  <p>
-    Bluetooth pairing is off on this product, and that is a decision rather than an
-    omission. Turning it on encrypts the GATT characteristics, which is a known Web
-    Bluetooth failure on Windows, and it would break the browser page that is the
-    primary way firmware is installed. So the security boundary is the image and
-    not the link. The bootloader verifies a signature over our key and refuses
-    anything else, and it refuses an older version than the one installed. An open
-    transport cannot install firmware.
-  </p>
-  <p>
-    What an open transport could otherwise do, waste the spare image slot, mark an
-    image pending, or reboot the device in flight, is refused by the same rule that
-    answers a phone: on the ground only, fail closed, confirmed on the e-paper. No
-    pairing, physical presence instead. Every operation that could change the
-    aircraft you are flying is authorised by a gesture on the device, which asks
-    whoever is asking to be holding it.
-  </p>
+  <ul class="points">
+    <li>The bootloader verifies a signature over our key</li>
+    <li>An older version than the installed one is refused</li>
+    <li>An open transport cannot install firmware</li>
+    <li>Anything else it could ask for is ground-only</li>
+    <li>Refused unless it is confirmed on the glass</li>
+    <li>Physical presence, where a pairing code would be</li>
+  </ul>
 </section>
 
 <section>

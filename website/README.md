@@ -18,6 +18,8 @@ Pages are files, not database rows: `content/pages/<slug>.html.erb`, with YAML f
 
 Parklife discovers pages by crawling from the root, so **a page nothing links to is not built**. Link it from the nav (`app/views/layouts/_nav.html.erb`) or from another page's body.
 
+Images live in `content_images/pages/<slug>/` and are drawn with `pages_image_tag`. The device screens under `pages/skyblip-go/` are not artwork: each is the 200x200 framebuffer of the WASM simulator, driven to that state and read out of `simulator_fb()`, so a page that changes on the device is a capture that has to be taken again. They are stored at 200x200 in two colours and scaled by an integer factor on the page (`features.css`), because any other factor resamples a panel pixel.
+
 Look and layout come from the token sets in `app/assets/stylesheets/`. Colors, spacing and type are CSS variables in `_global.css`; components never hardcode a value.
 
 The one exception is the simulated device. Its case is `simulator/device.css` at the repo root, drawn once for the development harness and for this site, and `bin/simulator-build` copies it into `public/simulator/<commit>/` beside the WASM. The page links it directly, so it is unlayered CSS and the few rules here that override it are unlayered too.

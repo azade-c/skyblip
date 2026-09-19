@@ -1,11 +1,12 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: Un skyBlip Go dans votre navigateur, sur le firmware que fait tourner un vrai · ce qu’un pilote rencontre, dans l’ordre où il le rencontre, puis pourquoi l’écran et la batterie se comportent ainsi.
+description: Le traceur de poche, écran par écran · le tracé du trafic, l’alarme qui dit où regarder, les trois pages, les menus, et ce dont l’e-paper et la batterie sont protégés.
 ---
 
 <section id="simulator">
   <h2 class="kicker">skyBlip Go</h2>
+  <h3>Allumez-en un. Il fait tourner le firmware d&rsquo;un vrai.</h3>
 
   <%= render "shared/simulator",
         wake: "Maintenez la touche du bas pour le rallumer.",
@@ -21,379 +22,196 @@ description: Un skyBlip Go dans votre navigateur, sur le firmware que fait tourn
         caption: "Les capteurs sont simulés, le firmware ne l’est pas : c’est la version depuis laquelle ce site a été publié.",
         missing: "Le simulateur ne fait pas partie de cette version du site." %>
 
-  <p>
-    Rien ne vole là-haut tant que vous n&rsquo;en demandez pas. Chaque aéronef
-    ajouté par le bouton sous le boîtier est placé à un relevé, une distance et
-    une altitude qui lui sont propres, puis poursuit sa route en émettant de
-    vraies trames ADS-L que le firmware reçoit, décode et trace comme n&rsquo;importe
-    quel autre trafic.
-  </p>
-  <p>
-    Les deux voyants à côté de l&rsquo;écran sont ceux de l&rsquo;appareil. Seul
-    celui de gauche appartient au firmware, allumé tant qu&rsquo;un contact mérite
-    une alarme. Celui de droite est câblé au chargeur et aucune de nos lignes ne
-    l&rsquo;atteint&nbsp;: dans cette page, où aucun câble n&rsquo;est jamais
-    branché, il reste éteint.
-  </p>
   <p class="note">
-    Ce qui suit, c&rsquo;est l&rsquo;appareil dans l&rsquo;ordre où un pilote le
-    rencontre. Les notes techniques en bas de page en sont l&rsquo;autre moitié&nbsp;:
-    pourquoi l&rsquo;écran se rafraîchit de cette façon, et de quoi la batterie est
-    protégée.
+    Rien ne vole là-haut tant que vous n&rsquo;en demandez pas, et chaque aéronef
+    ajouté par le bouton émet de vraies trames ADS-L que le firmware reçoit,
+    décode et trace. Le voyant à gauche de l&rsquo;écran est celui du firmware,
+    allumé tant qu&rsquo;un contact mérite une alarme. Celui de droite appartient
+    au chargeur, il reste donc éteint sur cette page. Tous les écrans ci-dessous
+    sont des captures de ce même firmware.
   </p>
 </section>
 
 <section>
-  <h2 class="kicker">La première pression</h2>
-  <h3>Il démarre sur le radar et dit ce qu&rsquo;il attend.</h3>
-  <p class="lede">
-    Une pression sur le bouton latéral et l&rsquo;appareil est allumé. Pas
-    d&rsquo;écran de démarrage à subir&nbsp;: il va directement à l&rsquo;image du
-    trafic, et comme il n&rsquo;a pas encore de position, le cercle porte
-    <span class="mono">NO FIX</span> avec un mot dessous.
-    <span class="mono">SEARCH</span>, le récepteur calcule et n&rsquo;a pas encore
-    de date&nbsp;; <span class="mono">TIME</span>, une date lue sur un satellite&nbsp;;
-    <span class="mono">SILENT</span>, un récepteur qui ne répond plus. C&rsquo;est
-    la différence entre un appareil qu&rsquo;il faut attendre et un appareil
-    qu&rsquo;il faut sortir à découvert, et cela vaut mieux, au parking, que les
-    seuls mots <span class="mono">NO FIX</span>.
-  </p>
-  <p>
-    Le premier point s&rsquo;annonce par une courte mélodie, et à partir de là la
-    page est une image du ciel plutôt qu&rsquo;une image d&rsquo;une recherche. Si
-    une pièce sans laquelle l&rsquo;appareil ne peut pas voler n&rsquo;a pas
-    répondu, rien de tout cela n&rsquo;arrive&nbsp;: l&rsquo;autotest reste à
-    l&rsquo;écran en nommant la pièce, le bouton fonctionne toujours, et
-    l&rsquo;appareil refuse de faire semblant. Seuls la radio et le récepteur
-    peuvent échouer ainsi. Un buzzer absent ou une carte sans baromètre affichent
-    <span class="mono">NOT FITTED</span> et volent.
-  </p>
-</section>
+  <h2 class="kicker">Ce qu&rsquo;il vous montre</h2>
 
-<section>
-  <h2 class="kicker">L&rsquo;image</h2>
-  <h3>Nez en haut, quatre milles de ciel, et rien d&rsquo;écrit en haut de l&rsquo;écran.</h3>
-  <p>
-    Le tracé est orienté route en haut. Votre appareil est dessiné nez en haut au
-    centre et ne tourne jamais&nbsp;; c&rsquo;est le ciel qui tourne autour de lui,
-    donc une cible en haut à droite est une cible à chercher à droite du nez. Il
-    n&rsquo;y a pas de rose des vents et absolument rien n&rsquo;est écrit en haut
-    de l&rsquo;écran&nbsp;: la moitié de l&rsquo;image vers laquelle vous volez
-    porte le tracé et rien d&rsquo;autre.
-  </p>
-  <p>
-    Un trafic est un cercle, et l&rsquo;étiquette à côté est sa différence
-    d&rsquo;altitude en centaines de pieds, posée au-dessus du symbole quand
-    l&rsquo;aéronef est plus haut et en dessous quand il est plus bas. Vous savez
-    où regarder avant d&rsquo;avoir lu les chiffres. Un trait sort de chaque
-    symbole vers l&rsquo;endroit où cet aéronef sera dans une minute, à la vitesse
-    et à la route qu&rsquo;il a annoncées&nbsp;: un trait qui atteint la moitié du
-    cercle, c&rsquo;est un avion qui parcourt deux milles dans le temps de lever
-    les yeux. Un chevron rejoint l&rsquo;étiquette quand il monte ou descend à
-    500&nbsp;ft/min ou plus.
-  </p>
-  <p>
-    Le cercle fait quatre milles nautiques par défaut, et le chiffre en bas de page
-    est l&rsquo;étiquette de ce cercle, en milles ou en kilomètres selon ce que
-    vous avez demandé. L&rsquo;écran est plus large que le cercle, donc le trafic
-    continue d&rsquo;être tracé dans les coins&nbsp;: quelque chose est là-bas,
-    dans cette direction, plus loin que le cercle. Le compteur à côté de la
-    distance, c&rsquo;est le cercle seul, et l&rsquo;horloge dans l&rsquo;autre
-    coin est le temps depuis le décollage, le seul chiffre de l&rsquo;appareil
-    qu&rsquo;un pilote recopie dans un carnet.
-  </p>
-  <p>
-    Ce qui n&rsquo;est pas un vol se dit dans le cercle, pas dans un coin&nbsp;:
-    <span class="mono">NO FIX</span>, <span class="mono">GROUND</span>,
-    <span class="mono">TAXI</span>. Un planeur poussé à la grille au pas roule, ce
-    que dirait n&rsquo;importe qui en le regardant, et l&rsquo;appareil émet dans
-    cet état parce que l&rsquo;ADS-L a un état sol et que le roulage en fait partie.
-  </p>
-</section>
+  <div class="feature">
+    <div>
+      <h3>Un tracé qui se lit <span class="highlight">comme une fenêtre</span>.</h3>
+      <p>
+        Votre appareil est au centre, nez en haut, et il ne tourne jamais&nbsp;:
+        c&rsquo;est le ciel qui tourne autour de lui. Une cible en haut à droite
+        est une cible à chercher à droite du nez, et rien n&rsquo;est écrit en
+        haut de l&rsquo;écran, parce que c&rsquo;est la moitié vers laquelle vous
+        volez.
+      </p>
+      <p>
+        À côté de chaque cercle, sa différence d&rsquo;altitude en centaines de
+        pieds, au-dessus du symbole quand l&rsquo;aéronef est plus haut. Le trait
+        qui en sort mène là où il sera dans une minute.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "radar.png", alt: "La page radar : trois aéronefs avec leur étiquette d’altitude, leur trait d’une minute, le cercle de quatre milles, le temps de vol et le nombre d’aéronefs dans le cercle" %>
+      <figcaption>Radar</figcaption>
+    </figure>
+  </div>
 
-<section>
-  <h2 class="kicker">Quand un aéronef s&rsquo;approche</h2>
-  <h3>Un seul niveau, et ce qu&rsquo;il vous dit, c&rsquo;est où regarder.</h3>
-  <p class="lede">
-    Il y a un seul niveau d&rsquo;alarme. Un aéronef à moins de 3&nbsp;km de vous
-    et à moins de 300&nbsp;m verticalement est un avis de trafic&nbsp;: son cercle
-    se remplit, le quadrant de l&rsquo;écran où il se trouve s&rsquo;inverse et
-    clignote une fois par seconde, le buzzer le dit deux fois, et le voyant à côté
-    de l&rsquo;écran s&rsquo;allume. Le clignotement est l&rsquo;instruction. Un
-    quart d&rsquo;écran qui passe au noir puis au blanc se voit sans être regardé,
-    et le quadrant est la bonne précision, parce que la réponse est de quel côté
-    tourner la tête, pas où viser.
-  </p>
-  <p>
-    Un avis ramène le radar avec lui. Si vous lisez les instruments ou un menu
-    quand un aéronef entre dans cette fenêtre, vous êtes remis sur le tracé, au
-    passage même où cela arrive, parce que le relevé est ce qu&rsquo;on vous dit et
-    que seule cette page le porte. Repartir ensuite vous appartient.
-  </p>
-  <p>
-    Il n&rsquo;y a rien au-dessus de l&rsquo;avis, et il n&rsquo;y aura jamais
-    rien. Le niveau au-dessus, dans les autres systèmes, est l&rsquo;avis de
-    résolution, qui ordonne à un équipage de monter ou de descendre et qui est
-    coordonné avec l&rsquo;autre aéronef. Cet appareil n&rsquo;a aucune liaison
-    pour se coordonner et aucune autorité pour donner un ordre. Le plus fort
-    qu&rsquo;il puisse dire, c&rsquo;est regardez.
-  </p>
-  <p>
-    Une fois l&rsquo;aéronef en vue, maintenez le pavé une seconde et
-    l&rsquo;appareil cesse d&rsquo;en parler&nbsp;: le son, le secteur et le voyant
-    partent ensemble. Le tracé reste exactement tel quel, parce que ce que vous
-    avez levé est une affirmation sur ce que vous avez vu, pas une affirmation sur
-    le ciel. Cela couvre les aéronefs dont l&rsquo;appareil a déjà parlé et aucun
-    autre, donc le suivant entendu arrive avec sa propre voix, et il n&rsquo;y a
-    aucun minuteur là-dessus, parce qu&rsquo;un acquittement qui expire crierait à
-    nouveau à propos de l&rsquo;avion que vous êtes en train de regarder.
-  </p>
-</section>
+  <ul class="points">
+    <li>Route en haut, jamais le nord</li>
+    <li>Cercle de 1, 2, 4 ou 8&nbsp;NM</li>
+    <li>Écart d&rsquo;altitude en centaines de pieds</li>
+    <li>Une minute de route devant chaque cible</li>
+    <li>Aéronefs comptés dans le cercle</li>
+    <li>Temps depuis le décollage, pour le carnet</li>
+  </ul>
 
-<section>
-  <h2 class="kicker">Parcourir l&rsquo;appareil</h2>
-  <h3>Trois pages, à une tape l&rsquo;une de l&rsquo;autre. Le pavé déplace, le bouton agit.</h3>
-  <p>
-    Deux contacts, et le partage entre les deux est tout le vocabulaire. Le pavé
-    capacitif du bord haut vous déplace et ne peut rien changer. Le bouton du côté
-    est celui qui change quelque chose. Rien qu&rsquo;une manche frôle ne peut
-    modifier un réglage, et rien de ce qui sert à parcourir les pages ne peut être
-    dépensé à répondre à une question.
-  </p>
-  <p>
-    Une tape sur le pavé passe à la page suivante, et le parcours en compte
-    trois&nbsp;: le radar, la liste de qui est là-haut, les six instruments. Un
-    contact maintenu une seconde est le chemin du retour au radar depuis
-    n&rsquo;importe où. Trois et pas six, parce qu&rsquo;un pilote qui fait défiler
-    l&rsquo;écran en vol doit passer par le tracé, la liste et les instruments, et
-    jamais par les barres de satellites.
-  </p>
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Une seule alarme, et ce qu&rsquo;elle dit, c&rsquo;est <span class="highlight">où regarder</span>.</h3>
+      <p>
+        Un aéronef à moins de 3&nbsp;km et 300&nbsp;m de vous remplit son cercle,
+        et le quadrant où il se trouve clignote une fois par seconde. Un quart
+        d&rsquo;écran qui passe au noir se voit sans être regardé, et c&rsquo;est
+        toute l&rsquo;instruction&nbsp;: tournez la tête par là.
+      </p>
+      <p>
+        Il n&rsquo;y a rien au-dessus, et il n&rsquo;y aura jamais rien. Un ordre
+        de monter ou de descendre se coordonne avec l&rsquo;autre aéronef, et cet
+        appareil n&rsquo;a aucune liaison pour cela. Le plus fort qu&rsquo;il
+        puisse dire, c&rsquo;est regardez.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "alarm.png", alt: "La page radar pendant un avis de trafic : un quadrant de l’écran inversé en noir, avec le cercle plein de l’aéronef convergent et son étiquette d’altitude en réserve" %>
+      <figcaption>Avis de trafic</figcaption>
+    </figure>
+  </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>Page</th><th>Ce qu&rsquo;elle répond</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>Radar</th><td>où regarder&nbsp;: le tracé nez en haut, le cercle, le secteur d&rsquo;alarme</td></tr>
-        <tr><th>Nearby</th><td>qui c&rsquo;est&nbsp;: une ligne par aéronef, du plus proche au plus loin, avec sa distance oblique et son écart d&rsquo;altitude</td></tr>
-        <tr><th>Six-pack</th><td>ce que vous faites&nbsp;: vitesse, horizon, altimètre, bille et aiguille, route, vario, et le chronomètre de vol</td></tr>
-      </tbody>
-    </table>
+  <ul class="points">
+    <li>3&nbsp;km autour de vous, 300&nbsp;m au-dessus et en dessous</li>
+    <li>Le secteur clignote une fois par seconde</li>
+    <li>Buzzer, vibreur et voyant ensemble</li>
+    <li>La page affichée cède la place au radar</li>
+    <li>Un contact sur le pavé le fait taire</li>
+    <li>Un avertissement, jamais un ordre</li>
+  </ul>
+
+  <div class="feature">
+    <div>
+      <h3>Qui est là-haut, <span class="highlight">du plus proche au plus loin</span>.</h3>
+      <p>
+        Le radar répond où regarder. Cette page répond qui c&rsquo;est&nbsp;: une
+        ligne par aéronef que l&rsquo;appareil sait placer, sa distance oblique,
+        et de combien il est au-dessus ou en dessous de vous.
+      </p>
+      <p>
+        La lettre dit d&rsquo;où vient le report. <span class="mono">A</span> pour
+        une trame ADS-L directe, <span class="mono">F</span> pour un trafic
+        compatible FLARM, <span class="mono">U</span> pour un aéronef relayé par
+        une station au sol.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "nearby.png", alt: "La page nearby : cinq aéronefs listés du plus proche au plus loin, chacun avec sa lettre de source, son adresse, sa distance oblique et son altitude relative" %>
+      <figcaption>Nearby</figcaption>
+    </figure>
+  </div>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Six cadrans, et <span class="highlight">l&rsquo;heure qu&rsquo;on recopie</span>.</h3>
+      <p>
+        Vitesse sol, horizon, altimètre à votre calage, bille et aiguille, route,
+        vario. Le chiffre au-dessus du cadran central est le temps depuis le
+        décollage, le seul nombre de cet appareil qui finisse dans un carnet de
+        vol.
+      </p>
+      <p>
+        Gyroscope activé, l&rsquo;horizon s&rsquo;incline selon une inclinaison
+        mesurée et la bille répond au palonnier. Rien ici n&rsquo;est certifié, et
+        ce n&rsquo;est pas un horizon artificiel pour voler en nuage.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "sixpack.png", alt: "La page six-pack : vitesse sol, horizon artificiel avec le temps de vol au-dessus, altimètre, coordinateur de virage avec sa bille, cap et vario" %>
+      <figcaption>Six-pack</figcaption>
+    </figure>
   </div>
 </section>
 
 <section>
-  <h2 class="kicker">Changer quelque chose</h2>
-  <h3>Le bouton ouvre le menu de la page où vous êtes.</h3>
-  <p class="lede">
-    Tout ce qui compte se règle sur l&rsquo;appareil, sans téléphone. Il n&rsquo;y
-    a pas un écran de réglages unique à aller chercher&nbsp;: chaque page a son
-    menu, et ce qu&rsquo;on y trouve est ce dont cette image est faite. La distance
-    du cercle et l&rsquo;alarme qui le surveille appartiennent au radar. Le calage
-    altimétrique appartient à la page qui porte l&rsquo;altimètre. Les pages de
-    diagnostic pendent à la liste de trafic qu&rsquo;elles expliquent.
-  </p>
-  <p>
-    Dans un menu, les deux contacts veulent dire ce qu&rsquo;ils veulent dire
-    partout ailleurs&nbsp;: une tape sur le pavé descend d&rsquo;une ligne, une
-    pression sur le bouton agit sur la ligne sélectionnée, et chaque pression
-    suivante fait avancer le même champ, ce qui permet de régler un calage au
-    pouce. Rien n&rsquo;est un brouillon. Chaque pression est un changement
-    terminé, donc l&rsquo;appareil ne peut pas rester à moitié configuré.
-  </p>
+  <h2 class="kicker">Comment on s&rsquo;en sert</h2>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>Le menu du radar</th><th>Ce que fait une pression</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>ID</th><td>rien. Votre adresse ADS-L, affichée et jamais changée par un pouce</td></tr>
-        <tr><th>AIRCRAFT</th><td>type suivant&nbsp;: planeur, ULM, hélicoptère, parapente, ballon, et le reste de la liste ADS-L</td></tr>
-        <tr><th>ALARM</th><td>activée ou non</td></tr>
-        <tr><th>VOLUME</th><td>0 à 5</td></tr>
-        <tr><th>RANGE</th><td>le cercle&nbsp;: 1, 2, 4 ou 8&nbsp;NM, puis on recommence</td></tr>
-        <tr><th>UNITS</th><td>nautique, ou métrique</td></tr>
-        <tr><th>STEALTH</th><td>activé ou non, et c&rsquo;est la dernière ligne parce que c&rsquo;est la seule qui rende cet aéronef plus difficile à voir pour les autres</td></tr>
-      </tbody>
-    </table>
+  <div class="feature">
+    <div>
+      <h3>Le pavé déplace, <span class="highlight">le bouton agit</span>.</h3>
+      <p>
+        Deux contacts, et ce partage est tout le vocabulaire. Le pavé capacitif du
+        bord haut parcourt les trois pages et ne peut rien changer. Le bouton du
+        côté ouvre le menu de la page affichée, et chaque pression suivante fait
+        avancer la ligne sélectionnée.
+      </p>
+      <p>
+        Chaque menu contient donc ce dont son image est faite&nbsp;: le cercle et
+        l&rsquo;alarme appartiennent au radar, le calage à la page qui porte
+        l&rsquo;altimètre. Rien n&rsquo;est un brouillon, chaque pression est un
+        changement terminé.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-radar.png", alt: "Le menu du radar : adresse de l’appareil, type d’aéronef, alarme, volume, portée, unités et mode discret, avec l’aide PAD MOVES PRESS CHANGES en bas" %>
+      <figcaption>Le menu du radar</figcaption>
+    </figure>
   </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>Le menu de la liste</th><th>Ce que fait une pression</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>RADIO LOG</th><td>ouvre la bande de toutes les trames reçues et émises, la plus récente en haut</td></tr>
-        <tr><th>SATELLITES</th><td>ouvre une barre par satellite, pleine quand le récepteur l&rsquo;a utilisé</td></tr>
-        <tr><th>STATUS</th><td>ouvre ce que disent les capteurs, et si l&rsquo;appareil émet</td></tr>
-        <tr><th>SELF TEST</th><td>ouvre l&rsquo;autotest de mise sous tension, une ligne par pièce de la carte</td></tr>
-      </tbody>
-    </table>
+  <ul class="points">
+    <li>Une tape sur le pavé&nbsp;: la page suivante</li>
+    <li>Un contact d&rsquo;une seconde&nbsp;: le radar</li>
+    <li>Une pression&nbsp;: le menu de cette page</li>
+    <li>Les pressions suivantes&nbsp;: la ligne avance</li>
+    <li>Après la dernière ligne&nbsp;: retour à l&rsquo;image</li>
+    <li>Une minute sans rien&nbsp;: elle revient seule</li>
+  </ul>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Trois pages sur le parcours, <span class="highlight">le reste par son nom</span>.</h3>
+      <p>
+        Une tape passe du radar à la liste puis aux instruments, et c&rsquo;est
+        tout&nbsp;: un pilote qui fait défiler l&rsquo;écran en vol ne doit jamais
+        tomber sur les barres de satellites.
+      </p>
+      <p>
+        Le reste s&rsquo;ouvre depuis le menu de la page qui l&rsquo;explique, et
+        vous y ramène. Le menu des instruments porte le G-mètre et le calage,
+        celui de la liste porte les quatre pages ci-dessous.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-nearby.png", alt: "Le menu de la liste : journal radio, satellites, état et autotest, les quatre pages qu’on ouvre par leur nom" %>
+      <figcaption>Le menu de la liste</figcaption>
+    </figure>
   </div>
 
-  <div class="table-scroll">
-    <table class="modules">
-      <thead>
-        <tr><th>Le menu des instruments</th><th>Ce que fait une pression</th></tr>
-      </thead>
-      <tbody>
-        <tr><th>G METER</th><td>ouvre l&rsquo;accéléromètre, avec les extrêmes encaissés dans ce vol</td></tr>
-        <tr><th>GYRO</th><td>marche ou arrêt, et un appareil sort d&rsquo;usine sur arrêt&nbsp;: le gyroscope affine le coordinateur de virage et l&rsquo;horizon, et c&rsquo;est le seul capteur d&rsquo;ici qui coûte un milliampère à faire tourner</td></tr>
-        <tr><th>QNH FROM GNSS</th><td>règle le calage qui met l&rsquo;altimètre d&rsquo;accord avec le point GNSS</td></tr>
-        <tr><th>QNH - / +</th><td>un hectopascal par pression, les deux signes sur une ligne, parce qu&rsquo;un calage se règle dans les deux sens</td></tr>
-      </tbody>
-    </table>
+  <div class="shots">
+    <figure class="shot">
+      <%= pages_image_tag "status.png", alt: "La page état : point et satellites, position, route, trafic, émission, pression et calage, altitudes, vitesse, vario et tension de la batterie" %>
+      <figcaption>État</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "satellites.png", alt: "La page satellites : une barre par satellite groupée par constellation, contre une ligne pointillée à 40 dB-Hz" %>
+      <figcaption>Satellites</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "radio-log.png", alt: "Le journal radio : une ligne par trame reçue ou émise, la plus récente en haut, avec son heure, son sens, son canal, son adresse et son niveau" %>
+      <figcaption>Journal radio</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "self-test.png", alt: "La page autotest : une ligne par pièce de la carte, avec la pièce qui a répondu et son verdict" %>
+      <figcaption>Autotest</figcaption>
+    </figure>
   </div>
-
-  <p>
-    Trois règles tiennent dans tous les menus. Les lignes n&rsquo;avancent que dans
-    un sens, et la tape après la dernière rend l&rsquo;écran à la page à laquelle
-    le menu appartient&nbsp;: le pouce qui a ouvert un menu le referme du même
-    geste. Un contact long ramène au radar depuis un menu comme depuis
-    n&rsquo;importe où. Et un menu que personne n&rsquo;a touché depuis une minute
-    rend l&rsquo;image de lui-même. Il n&rsquo;y a pas de ligne
-    <span class="mono">RETOUR</span>, parce que le pavé sort déjà.
-  </p>
-  <p>
-    Deux choix plus petits découlent du même raisonnement.
-    L&rsquo;<span class="mono">ID</span>, qui ne se change pas, est la première
-    ligne du premier menu&nbsp;: un pilote qui arrive là et presse par impatience
-    presse sur rien. Et une page ouverte par son nom vous rend au menu qui
-    l&rsquo;a ouverte plutôt que de continuer vers une quatrième image, ce qui
-    garde le pouce là où vous l&rsquo;avez laissé. La distance du cercle est la
-    seule valeur qui n&rsquo;est pas mémorisée&nbsp;: un appareil démarre toujours
-    sur le cercle de 4&nbsp;NM autour duquel le radar est dessiné.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">Dans votre application de navigation</h2>
-  <h3>Il apparaît par son nom, et trois écrans le lisent à la fois.</h3>
-  <p>
-    L&rsquo;appareil s&rsquo;annonce sous le nom
-    <span class="mono">skyBlip Go - 5B5AFE</span>&nbsp;: le produit, puis sa propre
-    adresse 24 bits, celle-là même qu&rsquo;affiche le menu du radar. Rien à
-    appairer et aucun code à taper. Il porte le flux NMEA FLARM sur les deux
-    profils série Bluetooth que cherchent les logiciels de navigation&nbsp;: une
-    application faite pour un port série Nordic et une application faite pour un
-    <span class="mono">FFE0</span> à la FLARM trouvent les mêmes phrases.
-  </p>
-  <p>
-    Jusqu&rsquo;à trois appareils peuvent être connectés en même temps et lisent
-    tous le même trafic&nbsp;: la tablette sur le manche, le téléphone dans une
-    poche, l&rsquo;iPad du passager. La configuration est la seule chose qui ne se
-    partage pas. La première application à envoyer une commande garde ce droit
-    jusqu&rsquo;à sa déconnexion, et une deuxième s&rsquo;entend dire qui le
-    détient au lieu d&rsquo;être laissée à deviner, parce que deux applications qui
-    écrivent des réglages dans un appareil, ce sont deux applications qui ne sont
-    pas d&rsquo;accord sur ce qui est enregistré.
-  </p>
-  <p>
-    Chaque vol laisse aussi une trace dans l&rsquo;appareil, jusqu&rsquo;à seize,
-    que la même liaison restitue au sol.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">Quand l&rsquo;appareil vous pose une question</h2>
-  <h3>Deux pressions autorisent, une pression refuse.</h3>
-  <p>
-    Quand une application demande quelque chose qui pourrait changer l&rsquo;avion
-    que vous pilotez, un nouveau firmware, une écriture de réglages,
-    l&rsquo;effacement de vos vols, une extinction, l&rsquo;appareil n&rsquo;agit
-    pas sur la parole du téléphone. Il met la question sur son propre écran, la
-    nomme, et attend trente secondes&nbsp;:
-    <span class="mono">PRESS TWICE TO ALLOW</span>,
-    <span class="mono">ONE PRESS REFUSES</span>. Aucune réponse dans la fenêtre est
-    un refus aussi.
-  </p>
-  <p>
-    Les pressions ne comptent qu&rsquo;une fois la question réellement arrivée à
-    l&rsquo;écran et votre pouce arrêté, donc une série de pressions qui faisait
-    avancer une valeur dans un menu ne peut pas être dépensée en autorisation. Le
-    pavé est inerte tant qu&rsquo;une question est posée&nbsp;: il n&rsquo;y a
-    aucune page à parcourir avant d&rsquo;y avoir répondu. Une double pression en
-    moins de six dixièmes de seconde est le seul sens du bouton qu&rsquo;il faut
-    vouloir produire.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">Le ranger</h2>
-  <h3>Un appui de deux secondes éteint. Le même appui, doigt sur le pavé, le range.</h3>
-  <p>
-    Éteindre, c&rsquo;est un appui de deux secondes. La radio est arrêtée,
-    l&rsquo;écran reçoit trois secondes pour finir de dessiner le logo, et les
-    alimentations ne tombent qu&rsquo;une fois le pouce relevé. Le papier
-    électronique garde sa dernière image sans aucune alimentation&nbsp;: le logo
-    est donc ce que l&rsquo;appareil porte pendant qu&rsquo;il est éteint, et cette
-    image veut dire éteint, pas en veille.
-  </p>
-  <p>
-    Le ranger pour la saison, c&rsquo;est le même appui avec un doigt posé sur le
-    pavé dès le début. Même chemin de sortie, mais l&rsquo;écran est laissé vierge
-    au lieu de porter le logo, parce qu&rsquo;une image laissée des mois sur un
-    papier électronique y laisse une ombre que la dalle ne perd jamais tout à fait.
-    Un appareil qui part au placard jusqu&rsquo;au printemps ne doit rien porter.
-  </p>
-  <p>
-    Deux cas ne font délibérément pas ce que ferait un téléphone. Un chargeur
-    branché sur un appareil éteint le laisse éteint et le charge, parce
-    qu&rsquo;un câble trouvé au fond d&rsquo;une sacoche n&rsquo;est pas une
-    demande de se mettre à émettre&nbsp;; maintenez le bouton en branchant si vous
-    voulez aussi l&rsquo;appareil. Et un appareil qui s&rsquo;est éteint sur une
-    batterie vide ne revient pas sur une pression&nbsp;: il attend un chargeur,
-    pour qu&rsquo;un bouton enfoncé par le poids d&rsquo;un sac ne puisse pas
-    achever la batterie.
-  </p>
-
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Appareil éteint</th>
-          <th>Ce qui se passe</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><th>Pression sur le bouton</th><td>démarre, sauf batterie sous 3,4&nbsp;V sans chargeur</td></tr>
-        <tr><th>Branchement du chargeur</th><td>charge, reste éteint</td></tr>
-        <tr><th>Bouton maintenu, chargeur branché</th><td>démarre et charge</td></tr>
-        <tr><th>Pression après une coupure batterie vide</th><td>rien, à dessein&nbsp;: branchez le chargeur</td></tr>
-        <tr><th>Pression sur <span class="mono">RST</span></th><td>démarre</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section>
-  <h2 class="kicker">Le troisième contact</h2>
-  <h3><span class="mono">RST</span> redémarre, et rien d&rsquo;autre ne le fait.</h3>
-  <p>
-    <span class="mono">RST</span> est un reset matériel&nbsp;: une pression et
-    l&rsquo;appareil redémarre, quoi que le firmware fût en train de faire. Deux
-    pressions en moins d&rsquo;une demi-seconde le mettent dans le bootloader USB,
-    où il apparaît comme un disque sur lequel déposer un fichier de firmware. Ce
-    chemin appartient au bootloader et non à notre firmware, et c&rsquo;est ce qui
-    en fait la porte de sortie d&rsquo;un appareil qui ne démarre plus.
-  </p>
-  <p>
-    Le pavé est délibérément le contact inoffensif des trois. Un pavé capacitif est
-    inutilisable à travers des gants d&rsquo;hiver, et il se déclenche sur une joue
-    comme sous la pluie&nbsp;: rien de ce qui compte n&rsquo;est derrière lui. Il
-    ne peut ni allumer ni éteindre, ni changer un réglage, ni répondre à une
-    question. Le pire qu&rsquo;un pavé mouillé puisse faire, c&rsquo;est tourner
-    une page que vous ne lisiez pas, ou envoyer avec un écran vierge un appareil
-    déjà en train de s&rsquo;éteindre.
-  </p>
-</section>
-
-<section>
-  <h2 class="kicker">Tout le vocabulaire</h2>
-  <h3>Deux contacts, et tout ce qu&rsquo;ils veulent dire.</h3>
 
   <div class="table-scroll">
     <table>
@@ -434,76 +252,196 @@ description: Un skyBlip Go dans votre navigateur, sur le firmware que fait tourn
 </section>
 
 <section>
-  <h2 class="kicker">Notes techniques</h2>
-  <h3>L&rsquo;écran</h3>
-  <p>
-    La dalle est un papier électronique de 1,54&Prime;, 200&times;200 pixels, piloté
-    par un SSD1681. Elle garde sa dernière image alimentations coupées et ne
-    consomme rien pour la garder&nbsp;: c&rsquo;est ce qui fait du logo une
-    indication d&rsquo;alimentation, et de l&rsquo;écran vierge la bonne image de
-    rangement.
+  <h2 class="kicker">Au parking, et dans la sacoche</h2>
+
+  <div class="feature">
+    <div>
+      <h3>Il dit <span class="highlight">ce qu&rsquo;il attend</span>.</h3>
+      <p>
+        Une pression et il est allumé, directement sur l&rsquo;image du trafic.
+        Sans position, le cercle le dit, et le mot en dessous indique où en est le
+        récepteur&nbsp;: il calcule, il a lu une date sur un satellite, ou il
+        s&rsquo;est tu.
+      </p>
+      <p>
+        C&rsquo;est la différence entre un appareil qu&rsquo;il faut attendre et un
+        appareil qu&rsquo;il faut sortir à découvert. Le premier point
+        s&rsquo;annonce, et l&rsquo;image devient une image du ciel.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "no-fix.png", alt: "La page radar sans position : le cercle vide porte les mots NO FIX et, dessous, où en est le récepteur" %>
+      <figcaption>En attente du ciel</figcaption>
+    </figure>
+  </div>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Le logo à l&rsquo;écran <span class="highlight">veut dire éteint</span>.</h3>
+      <p>
+        Un appui de deux secondes éteint&nbsp;: la radio est arrêtée,
+        l&rsquo;écran reçoit trois secondes pour dessiner le logo, et les
+        alimentations tombent une fois le pouce relevé. Le papier électronique
+        garde son image sans aucune alimentation&nbsp;: c&rsquo;est donc ce que
+        porte un appareil éteint.
+      </p>
+      <p>
+        Le même appui avec un doigt sur le pavé laisse l&rsquo;écran vierge. Une
+        image laissée tout un hiver sur un papier électronique y laisse une ombre
+        que la dalle ne perd jamais tout à fait, et un appareil qui part au
+        placard ne doit rien porter.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "off.png", alt: "L’écran garé d’un appareil éteint : le logo skyBlip, tenu par le papier électronique sans alimentation" %>
+      <figcaption>Éteint</figcaption>
+    </figure>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Appareil éteint</th><th>Ce qui se passe</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Pression sur le bouton</th><td>démarre, sauf batterie sous 3,4&nbsp;V sans chargeur</td></tr>
+        <tr><th>Branchement du chargeur</th><td>charge et reste éteint&nbsp;: un câble dans une sacoche n&rsquo;est pas une demande d&rsquo;émettre</td></tr>
+        <tr><th>Bouton maintenu, chargeur branché</th><td>démarre et charge</td></tr>
+        <tr><th>Pression après une coupure batterie vide</th><td>rien, à dessein&nbsp;: branchez le chargeur</td></tr>
+        <tr><th>Pression sur <span class="mono">RST</span></th><td>redémarre, et deux fois en moins d&rsquo;une demi-seconde, le bootloader USB</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2 class="kicker">Avec votre téléphone</h2>
+
+  <div class="feature">
+    <div>
+      <h3>Il apparaît par son nom, et <span class="highlight">trois écrans</span> le lisent à la fois.</h3>
+      <p>
+        <span class="mono">skyBlip Go - 5B5AFE</span>&nbsp;: le produit, puis sa
+        propre adresse 24 bits. Rien à appairer, aucun code à taper. Il porte le
+        flux NMEA FLARM sur les deux profils série Bluetooth que cherchent les
+        logiciels de navigation, donc l&rsquo;application avec laquelle vous volez
+        le trouve.
+      </p>
+      <p>
+        La tablette sur le manche, le téléphone dans une poche et l&rsquo;iPad du
+        passager lisent le même trafic. La configuration est la seule chose qui ne
+        se partage pas&nbsp;: la première application à écrire garde ce droit
+        jusqu&rsquo;à sa déconnexion, et la deuxième s&rsquo;entend dire qui le
+        détient.
+      </p>
+    </div>
+    <figure class="shot shot--photo">
+      <%= image_tag "pages/index/skyblip-go-techo.jpg", alt: "Un skyBlip Go, boîtier blanc avec son antenne, le logo affiché sur l’écran e-paper" %>
+    </figure>
+  </div>
+
+  <ul class="points">
+    <li>Pas d&rsquo;appairage, pas de code, pas de compte</li>
+    <li>Trois connexions à la fois</li>
+    <li>Profils Nordic UART et façon FLARM</li>
+    <li>SDVFR Next, SkyDemon, ForeFlight et les autres</li>
+    <li>Jusqu&rsquo;à seize vols gardés dans l&rsquo;appareil</li>
+    <li>Récupérés au sol par la même liaison</li>
+  </ul>
+
+  <h3>Deux pressions autorisent, une pression refuse.</h3>
+  <p class="lede">
+    Quand une application demande quelque chose qui pourrait changer l&rsquo;avion
+    que vous pilotez, un nouveau firmware, une écriture de réglages,
+    l&rsquo;effacement de vos vols, une extinction, l&rsquo;appareil n&rsquo;agit
+    pas sur la parole du téléphone. Il met la question sur son propre écran, la
+    nomme, et attend trente secondes&nbsp;:
+    <span class="mono">PRESS TWICE TO ALLOW</span>,
+    <span class="mono">ONE PRESS REFUSES</span>. Aucune réponse dans la fenêtre est
+    un refus aussi.
   </p>
-  <p>
+  <p class="lede">
+    Les pressions ne comptent qu&rsquo;une fois la question arrivée à
+    l&rsquo;écran et votre pouce arrêté, donc une série de pressions qui faisait
+    avancer une valeur ne peut pas être dépensée en autorisation. Le pavé est
+    inerte tant qu&rsquo;une question est posée.
+  </p>
+</section>
+
+<section>
+  <h2 class="kicker">Notes techniques</h2>
+
+  <h3>Pourquoi l&rsquo;écran se comporte ainsi.</h3>
+  <p class="lede">
+    La dalle est un papier électronique de 1,54&Prime;, 200&times;200 pixels. Elle
+    garde sa dernière image alimentations coupées et ne consomme rien pour la
+    garder&nbsp;: c&rsquo;est ce qui fait du logo garé une indication, et de
+    l&rsquo;écran vierge la bonne image de rangement.
+  </p>
+  <p class="lede">
     En vol, chaque image est un rafraîchissement partiel. La forme d&rsquo;onde
     complète, celle qui fait clignoter la dalle en noir et blanc pendant une
-    seconde et demie, sert exactement deux fois dans une session&nbsp;: à
-    l&rsquo;allumage et à l&rsquo;extinction. Des heures d&rsquo;images changeantes
-    n&rsquo;en coûtent jamais une. Un changement de page passe par un seul
-    effacement au noir d&rsquo;un tiers de seconde environ, et un deuxième
-    changement de page fait pendant que l&rsquo;écran est déjà noir ne coûte pas un
-    second effacement.
-  </p>
-  <p>
-    Une image identique à celle qui est déjà à l&rsquo;écran n&rsquo;est jamais
-    envoyée, et aucune image n&rsquo;est envoyée plus d&rsquo;une fois par seconde.
-    Ce plancher est aussi la cadence de clignotement de l&rsquo;alarme. Le
-    composant permettrait trois basculements par seconde et nous ne les prenons
-    pas&nbsp;: une grande zone noire basculée à ce rythme marque la dalle d&rsquo;une
-    rémanence qu&rsquo;elle ne perd jamais tout à fait, et un basculement par
-    seconde est déjà un mouvement au coin d&rsquo;un &oelig;il qui doit être dehors.
-  </p>
-  <p>
-    Deux conditions arrêtent complètement les rafraîchissements. Au-dessus de
-    50&nbsp;&deg;C lus sur le silicium du processeur, la dalle est laissée
-    tranquille, parce que c&rsquo;est le haut de la plage donnée par le fabricant.
-    Et au seuil de coupure batterie, la dalle est garée en blanc plutôt qu&rsquo;en
-    image&nbsp;: une batterie à ce niveau peut s&rsquo;effondrer sous un
-    rafraîchissement, et une forme d&rsquo;onde interrompue est justement ce qui
-    laisse une trace. Une batterie seulement basse garde son image de trafic.
-  </p>
-  <p>
-    À l&rsquo;extinction, les lignes de données de la dalle sont relâchées avant
-    son alimentation, pas après. Une ligne laissée haute sur une dalle sans
-    alimentation la réalimente par les entrées, et l&rsquo;image garée s&rsquo;assombrit
-    au fil des jours passés dans une sacoche.
+    seconde et demie, est dépensée deux fois par session&nbsp;: à l&rsquo;allumage
+    et à l&rsquo;extinction. Un changement de page passe par un seul effacement au
+    noir, et le clignotement d&rsquo;alarme, une fois par seconde, est le plancher
+    de la dalle plutôt qu&rsquo;un rythme choisi. Plus vite est possible, et une
+    grande zone noire basculée à ce rythme marque la dalle pour de bon.
   </p>
 
-  <h3>La batterie</h3>
-  <p>
+  <ul class="points">
+    <li>Rafraîchissement partiel à chaque image</li>
+    <li>La forme d&rsquo;onde complète deux fois par session</li>
+    <li>Un changement de page&nbsp;: un tiers de seconde de noir</li>
+    <li>Une image identique à la précédente n&rsquo;est jamais envoyée</li>
+    <li>Laissée tranquille au-dessus de 50&nbsp;&deg;C, sa limite</li>
+    <li>Garée en blanc à la coupure, jamais en pleine image</li>
+  </ul>
+
+  <h3>Pourquoi la batterie tient la journée.</h3>
+  <p class="lede">
     Éteindre est une séquence, pas une coupure d&rsquo;alimentation, et
-    l&rsquo;ordre en est tout le contenu. La radio est endormie avant que quoi que
-    ce soit touche sa ligne de reset. La mémoire flash externe reçoit l&rsquo;ordre
-    de dormir pendant qu&rsquo;elle a encore de quoi l&rsquo;entendre, parce
-    qu&rsquo;après la coupure cet ordre ne fait rien et que le composant tire alors
-    son courant de veille complet toute la nuit que l&rsquo;appareil passe dans une
-    sacoche à avoir l&rsquo;air éteint. Ensuite le récepteur, puis les
-    alimentations, et les broches sont relâchées en dernier.
+    l&rsquo;ordre en est tout le contenu. La mémoire flash externe reçoit
+    l&rsquo;ordre de dormir pendant qu&rsquo;elle a encore de quoi
+    l&rsquo;entendre&nbsp;: après la coupure cet ordre ne fait rien, et le
+    composant tire son courant de veille complet toute la nuit que l&rsquo;appareil
+    passe dans une sacoche à avoir l&rsquo;air éteint.
   </p>
-  <p>
-    Le rythme d&rsquo;émission est l&rsquo;autre moitié du budget&nbsp;: 1&nbsp;Hz
-    en vol et 0,1&nbsp;Hz au sol, comme le demande l&rsquo;ADS-L. La seconde
-    utilisée au sol est dérivée de l&rsquo;adresse de l&rsquo;appareil, si bien que
-    la population au parking s&rsquo;étale d&rsquo;elle-même sur les dix au lieu de
-    parler en même temps.
+  <p class="lede">
+    Le reste, c&rsquo;est la radio et les capteurs. En vol l&rsquo;appareil parle
+    une fois par seconde, au sol une fois sur dix, et laquelle des dix secondes
+    est la sienne vient de son adresse, si bien qu&rsquo;un terrain plein
+    d&rsquo;aéronefs s&rsquo;étale de lui-même.
   </p>
-  <p>
-    La jauge lit deux courbes, pas une. Sur un chargeur, la tension aux bornes est
-    tenue au-dessus de celle de la cellule, donc la même lecture signifie une
-    batterie bien plus vide, et le pourcentage dit quelle courbe il a lue. Il ne
-    recule jamais, et l&rsquo;affaissement dû à une émission à 22&nbsp;dBm ne le
-    fait pas bouger&nbsp;: une jauge qui saute quand la radio émet est une jauge
-    qu&rsquo;un pilote cesse de croire.
-  </p>
+
+  <ul class="points">
+    <li>Radio endormie avant sa ligne de reset</li>
+    <li>Flash, récepteur, alimentations, broches, dans cet ordre</li>
+    <li>1&nbsp;Hz en vol, 0,1&nbsp;Hz au sol</li>
+    <li>Le gyroscope est livré éteint&nbsp;: il coûte un milliampère</li>
+    <li>Charge refusée hors de 5 à 60&nbsp;&deg;C</li>
+    <li>Le voyant cligne, il n&rsquo;est jamais tenu fixe</li>
+  </ul>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Ce que la jauge <span class="highlight">ne fera pas</span>.</h3>
+      <p>
+        Elle lit deux courbes, pas une. Sur un chargeur, la tension aux bornes est
+        tenue au-dessus de celle de la cellule&nbsp;: la même lecture signifie
+        alors une batterie bien plus vide, et le pourcentage dit quelle courbe il
+        a lue.
+      </p>
+      <p>
+        Elle ne recule jamais, et l&rsquo;affaissement dû à une émission à
+        22&nbsp;dBm ne la fait pas bouger. Une jauge qui saute quand la radio émet
+        est une jauge qu&rsquo;un pilote cesse de croire.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-sixpack.png", alt: "Le menu des instruments : le G-mètre, le gyroscope éteint, le calage suggéré par le point GNSS et le calage en cours de réglage" %>
+      <figcaption>Le menu des instruments</figcaption>
+    </figure>
+  </div>
 
   <div class="table-scroll">
     <table class="modules">
@@ -513,56 +451,28 @@ description: Un skyBlip Go dans votre navigateur, sur le firmware que fait tourn
       <tbody>
         <tr><th>3,50&nbsp;V</th><td>l&rsquo;alerte&nbsp;: à partir de là, plus rien n&rsquo;est écrit en mémoire sauf l&rsquo;enregistrement du vol, qui est la preuve du vol en train de finir</td></tr>
         <tr><th>3,40&nbsp;V</th><td>un démarrage sur une batterie aussi vide est refusé, et le bouton est laissé désarmé pour qu&rsquo;un sac ne puisse pas redemander</td></tr>
-        <tr><th>3,20&nbsp;V</th><td>la coupure&nbsp;: l&rsquo;appareil s&rsquo;éteint, sur trois échantillons consécutifs et pas un seul, pour qu&rsquo;un affaissement d&rsquo;émission ne puisse pas agir</td></tr>
+        <tr><th>3,20&nbsp;V</th><td>la coupure&nbsp;: l&rsquo;appareil s&rsquo;éteint, sur trois échantillons consécutifs, pour qu&rsquo;un affaissement d&rsquo;émission ne puisse pas agir</td></tr>
         <tr><th>1,80&nbsp;V</th><td>en dessous, la lecture est un pont diviseur en l&rsquo;air, pas une batterie vide, et rien n&rsquo;agit dessus</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>
-    Rien n&rsquo;agit sur une tension qu&rsquo;un chargeur maintient, et une
-    cellule dont le comparateur de défaut d&rsquo;alimentation du processeur
-    s&rsquo;est plaint arrête les écritures en mémoire sans rien éteindre&nbsp;: à
-    ce moment-là le brownout est à quelques millisecondes et il ne reste pas
-    d&rsquo;extinction ordonnée à faire. La charge elle-même est refusée hors de
-    5 à 60&nbsp;&deg;C, lus sur un silicium qui est au-dessus de
-    l&rsquo;ambiante.
+  <h3>Pourquoi il n&rsquo;y a pas d&rsquo;appairage.</h3>
+  <p class="lede">
+    Activer l&rsquo;appairage Bluetooth chiffre les caractéristiques GATT, ce qui
+    est une panne connue de Web Bluetooth sous Windows et casserait la page de
+    navigateur qui installe le firmware. La frontière est donc l&rsquo;image, pas
+    la liaison.
   </p>
 
-  <h3>Le voyant</h3>
-  <p>
-    Le voyant existe parce que l&rsquo;écran ne peut pas dire s&rsquo;il y a un
-    appareil derrière. Rien de ce qu&rsquo;il montre n&rsquo;est tenu fixe&nbsp;:
-    tous les états clignotent, et un état tenu des heures a droit à quelques pour
-    cent de rapport cyclique quand une alarme peut en dépenser trente. Couper le
-    buzzer ne l&rsquo;éteint pas, parce que &laquo;&nbsp;est-ce que ce truc est
-    allumé&nbsp;&raquo; n&rsquo;est pas une préférence. La charge n&rsquo;est pas
-    un de ses états&nbsp;: le circuit de charge pilote sa propre LED à côté et
-    rend compte pendant que le processeur dort, ce qu&rsquo;aucune ligne du
-    firmware ne peut faire.
-  </p>
-
-  <h3>Pas d&rsquo;appairage, et ce qui en tient lieu</h3>
-  <p>
-    L&rsquo;appairage Bluetooth est désactivé sur ce produit, et c&rsquo;est une
-    décision, pas un oubli. L&rsquo;activer chiffre les caractéristiques GATT, ce
-    qui est une panne connue de Web Bluetooth sous Windows, et casserait la page de
-    navigateur qui est la voie principale d&rsquo;installation du firmware. La
-    frontière de sécurité est donc l&rsquo;image, pas la liaison. Le bootloader
-    vérifie une signature avec notre clé et refuse tout le reste, et il refuse une
-    version plus ancienne que celle installée. Un transport ouvert ne peut pas
-    installer de firmware.
-  </p>
-  <p>
-    Ce qu&rsquo;un transport ouvert pourrait faire d&rsquo;autre, gâcher
-    l&rsquo;emplacement d&rsquo;image de réserve, marquer une image en attente ou
-    redémarrer l&rsquo;appareil en vol, est refusé par la règle même qui répond à
-    un téléphone&nbsp;: au sol seulement, fermeture par défaut, confirmation sur
-    le papier électronique. Pas d&rsquo;appairage, présence physique à la place.
-    Toute opération qui pourrait changer l&rsquo;avion que vous pilotez est
-    autorisée par un geste sur l&rsquo;appareil, ce qui demande à celui qui demande
-    de l&rsquo;avoir en main.
-  </p>
+  <ul class="points">
+    <li>Le bootloader vérifie une signature avec notre clé</li>
+    <li>Une version plus ancienne que l&rsquo;installée est refusée</li>
+    <li>Un transport ouvert ne peut pas installer de firmware</li>
+    <li>Tout le reste qu&rsquo;il pourrait demander est réservé au sol</li>
+    <li>Et refusé s&rsquo;il n&rsquo;est pas confirmé à l&rsquo;écran</li>
+    <li>La présence physique, là où serait un code d&rsquo;appairage</li>
+  </ul>
 </section>
 
 <section>
