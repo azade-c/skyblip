@@ -156,6 +156,12 @@ KEEPALIVE int simulator_rx_wait() {
 KEEPALIVE int simulator_rx_type() {
     return static_cast<int>(g_simulator.product().state().air.rx_type);
 }
+KEEPALIVE int simulator_rx_unframed() {
+    return static_cast<int>(g_simulator.product().state().air.rx_unframed);
+}
+KEEPALIVE int simulator_rx_miskeyed() {
+    return static_cast<int>(g_simulator.product().state().air.rx_miskeyed);
+}
 KEEPALIVE int simulator_tx_ok() {
     return static_cast<int>(g_simulator.product().state().air.tx_ok);
 }

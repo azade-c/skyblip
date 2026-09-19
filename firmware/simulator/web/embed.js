@@ -84,6 +84,8 @@ export async function load(options = {}) {
     rxBad: call('simulator_rx_bad', 'number', n),
     rxWait: call('simulator_rx_wait', 'number', n),
     rxType: call('simulator_rx_type', 'number', n),
+    rxUnframed: call('simulator_rx_unframed', 'number', n),
+    rxMiskeyed: call('simulator_rx_miskeyed', 'number', n),
     txOk: call('simulator_tx_ok', 'number', n),
     txLost: call('simulator_tx_lost', 'number', n),
     slotState: call('simulator_slot_state', 'number', n),
