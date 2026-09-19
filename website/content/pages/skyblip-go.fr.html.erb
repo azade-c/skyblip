@@ -46,13 +46,15 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         volez.
       </p>
       <p>
-        À côté de chaque cercle, sa différence d&rsquo;altitude en centaines de
-        pieds, au-dessus du symbole quand l&rsquo;aéronef est plus haut. Le trait
-        qui en sort mène là où il sera dans une minute.
+        Chaque aéronef est une pierre taillée. Un losange, c&rsquo;est un trafic à
+        votre niveau&nbsp;; la moitié haute seule, un trafic au-dessus&nbsp;; la
+        moitié basse, un trafic en dessous. La marque dit donc où regarder avant
+        même d&rsquo;être lue. Un chevron accompagne celui qui monte ou qui
+        descend, et le trait qui en sort mène là où il sera dans une minute.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "radar.png", alt: "La page radar : trois aéronefs avec leur étiquette d’altitude, leur trait d’une minute, le cercle de quatre milles, le temps de vol et le nombre d’aéronefs dans le cercle" %>
+      <%= pages_image_tag "radar.png", alt: "La page radar : trois aéronefs dessinés en pierres taillées, un au-dessus, un en dessous, un au même niveau en montée, chacun avec son trait d’une minute, la route de l’appareil en pointillés avec une bille à chacune des deux minutes suivantes, le cercle de quatre milles, le temps de vol et le nombre d’aéronefs dans le cercle" %>
       <figcaption>Radar</figcaption>
     </figure>
   </div>
@@ -60,7 +62,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
   <ul class="points">
     <li>Route en haut, jamais le nord</li>
     <li>Cercle de 1, 2, 4 ou 8&nbsp;NM</li>
-    <li>Écart d&rsquo;altitude en centaines de pieds</li>
+    <li>Une pierre taillée&nbsp;: au-dessus, au niveau, en dessous</li>
     <li>Une minute de route devant chaque cible</li>
     <li>Aéronefs comptés dans le cercle</li>
     <li>Temps depuis le décollage, pour le carnet</li>
@@ -70,7 +72,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <div>
       <h3>Une seule alarme, et ce qu&rsquo;elle dit, c&rsquo;est <span class="highlight">où regarder</span>.</h3>
       <p>
-        Un aéronef à moins de 3&nbsp;km et 300&nbsp;m de vous remplit son cercle,
+        Un aéronef à moins de 3&nbsp;km et 300&nbsp;m de vous remplit sa pierre,
         et le quadrant où il se trouve clignote une fois par seconde. Un quart
         d&rsquo;écran qui passe au noir se voit sans être regardé, et c&rsquo;est
         toute l&rsquo;instruction&nbsp;: tournez la tête par là.
@@ -83,7 +85,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "alarm.png", alt: "La page radar pendant un avis de trafic : un quadrant de l’écran inversé en noir, avec le cercle plein de l’aéronef convergent et son étiquette d’altitude en réserve" %>
+      <%= pages_image_tag "alarm.png", alt: "La page radar pendant un avis de trafic : un quadrant de l’écran inversé en noir, avec la pierre pleine de l’aéronef convergent et son trait d’une minute en réserve" %>
       <figcaption>Avis de trafic</figcaption>
     </figure>
   </div>
@@ -102,8 +104,10 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <h3>Qui est là-haut, <span class="highlight">du plus proche au plus loin</span>.</h3>
       <p>
         Le radar répond où regarder. Cette page répond qui c&rsquo;est&nbsp;: une
-        ligne par aéronef que l&rsquo;appareil sait placer, sa distance oblique,
-        et de combien il est au-dessus ou en dessous de vous.
+        ligne par aéronef que l&rsquo;appareil sait placer, la distance au sol qui
+        vous en sépare, et de combien il est au-dessus ou en dessous de vous.
+        Votre propre adresse et le compte de tout ce qui a été entendu tiennent la
+        ligne du haut.
       </p>
       <p>
         La lettre dit d&rsquo;où vient le report. <span class="mono">A</span> pour
@@ -113,7 +117,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "nearby.png", alt: "La page nearby : cinq aéronefs listés du plus proche au plus loin, chacun avec sa lettre de source, son adresse, sa distance oblique et son altitude relative" %>
+      <%= pages_image_tag "nearby.png", alt: "La page nearby : l’adresse de l’appareil et le compte de tout ce qui a été entendu sur la ligne du haut, puis cinq aéronefs listés du plus proche au plus loin, chacun avec sa lettre de source, son adresse, sa distance au sol et son altitude relative" %>
       <figcaption>Nearby</figcaption>
     </figure>
   </div>
@@ -122,15 +126,16 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <div>
       <h3>Six cadrans, et <span class="highlight">l&rsquo;heure qu&rsquo;on recopie</span>.</h3>
       <p>
-        Vitesse sol, horizon, altimètre à votre calage, bille et aiguille, route,
-        vario. Le chiffre au-dessus du cadran central est le temps depuis le
-        décollage, le seul nombre de cet appareil qui finisse dans un carnet de
-        vol.
+        Vitesse sol, horizon, altimètre, bille et aiguille, route, vario. Le
+        chiffre au-dessus du cadran central est le temps depuis le décollage, le
+        seul nombre de cet appareil qui finisse dans un carnet de vol.
       </p>
       <p>
-        Gyroscope activé, l&rsquo;horizon s&rsquo;incline selon une inclinaison
-        mesurée et la bille répond au palonnier. Rien ici n&rsquo;est certifié, et
-        ce n&rsquo;est pas un horizon artificiel pour voler en nuage.
+        L&rsquo;horizon s&rsquo;incline de l&rsquo;inclinaison qu&rsquo;un virage
+        symétrique demanderait à cette vitesse, parce que rien à bord ne mesure
+        une inclinaison. La bille, elle, est mesurée, et elle répond au palonnier.
+        Rien ici n&rsquo;est certifié, et ce n&rsquo;est pas un horizon artificiel
+        pour voler en nuage.
       </p>
     </div>
     <figure class="shot">
@@ -175,14 +180,14 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         avancer la ligne sélectionnée.
       </p>
       <p>
-        Chaque menu contient donc ce dont son image est faite&nbsp;: le cercle et
-        l&rsquo;alarme appartiennent au radar, le calage à la page qui porte
-        l&rsquo;altimètre. Rien n&rsquo;est un brouillon, chaque pression est un
-        changement terminé.
+        Deux pages en ont un. Tout ce qu&rsquo;un pouce peut régler tient sous le
+        radar, le premier écran sur lequel on installe un appareil, et le menu de
+        la liste ouvre les pages qui ne sont pas sur le parcours. Rien n&rsquo;est
+        un brouillon, chaque pression est un changement terminé.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-radar.png", alt: "Le menu du radar : adresse de l’appareil, type d’aéronef, alarme, volume, portée, unités et mode discret, avec l’aide PAD MOVES PRESS CHANGES en bas" %>
+      <%= pages_image_tag "menu-radar.png", alt: "Le menu du radar : type d’aéronef, unités, portée, alarme et volume, avec l’aide PAD MOVES - BUTTON CHANGES en bas" %>
       <figcaption>Le menu du radar</figcaption>
     </figure>
   </div>
@@ -190,7 +195,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
   <ul class="points">
     <li>Une tape sur le pavé&nbsp;: la page suivante</li>
     <li>Un contact d&rsquo;une seconde&nbsp;: le radar</li>
-    <li>Une pression&nbsp;: le menu de cette page</li>
+    <li>Une pression&nbsp;: le menu, quand la page en a un</li>
     <li>Les pressions suivantes&nbsp;: la ligne avance</li>
     <li>Après la dernière ligne&nbsp;: retour à l&rsquo;image</li>
     <li>Une minute sans rien&nbsp;: elle revient seule</li>
@@ -208,9 +213,10 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         sur quatre.
       </p>
       <p>
-        Le reste s&rsquo;ouvre depuis le menu de la page qui l&rsquo;explique, et
-        vous y ramène. Le menu des instruments porte le gyroscope et le calage,
-        celui de la liste porte les quatre pages ci-dessous.
+        Le reste s&rsquo;ouvre par son nom depuis le menu de la liste, et vous
+        ramène où vous étiez&nbsp;: les quatre pages ci-dessous sont celles de
+        l&rsquo;établi, du parking et du rapport de bug, et aucune n&rsquo;est une
+        image sur laquelle tomber avec le pouce.
       </p>
     </div>
     <figure class="shot">
@@ -221,7 +227,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <div class="shots">
     <figure class="shot">
-      <%= pages_image_tag "status.png", alt: "La page état : point et satellites, position, route, trafic, émission, pression et calage, altitudes, vitesse, vario et tension de la batterie" %>
+      <%= pages_image_tag "status.png", alt: "La page état : point et satellites, position, route, trafic, émission, la centrale inertielle, pression, les deux altitudes, vitesse, vario et tension de la batterie" %>
       <figcaption>État</figcaption>
     </figure>
     <figure class="shot">
@@ -285,8 +291,8 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <p>
         Une pression et il est allumé, directement sur l&rsquo;image du trafic.
         Sans position, le cercle le dit, et le mot en dessous indique où en est le
-        récepteur&nbsp;: il calcule, il a lu une date sur un satellite, ou il
-        s&rsquo;est tu.
+        récepteur&nbsp;: il s&rsquo;est tu, il envoie des solutions encore sans
+        date, ou il a lu une date sur un satellite.
       </p>
       <p>
         C&rsquo;est la différence entre un appareil qu&rsquo;il faut attendre et un
@@ -346,7 +352,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <div>
       <h3>Il apparaît par son nom, et <span class="highlight">trois écrans</span> le lisent à la fois.</h3>
       <p>
-        <span class="mono">skyBlip Go - 5B5AFE</span>&nbsp;: le produit, puis sa
+        <span class="mono">skyBlip Go 5B5AFE</span>&nbsp;: le produit, puis sa
         propre adresse 24 bits. Rien à appairer, aucun code à taper. Il porte le
         flux NMEA FLARM sur les deux profils série Bluetooth que cherchent les
         logiciels de navigation, donc l&rsquo;application avec laquelle vous volez
@@ -442,31 +448,22 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <li>Radio endormie avant sa ligne de reset</li>
     <li>Flash, récepteur, alimentations, broches, dans cet ordre</li>
     <li>1&nbsp;Hz en vol, 0,1&nbsp;Hz au sol</li>
-    <li>Le gyroscope est livré éteint&nbsp;: il coûte un milliampère</li>
+    <li>Le gyroscope du hub n&rsquo;est jamais lu&nbsp;: il coûte un milliampère</li>
     <li>Charge refusée hors de 5 à 60&nbsp;&deg;C</li>
     <li>Le voyant cligne, il n&rsquo;est jamais tenu fixe</li>
   </ul>
 
-  <div class="feature feature--reverse">
-    <div>
-      <h3>Ce que la jauge <span class="highlight">ne fera pas</span>.</h3>
-      <p>
-        Elle lit deux courbes, pas une. Sur un chargeur, la tension aux bornes est
-        tenue au-dessus de celle de la cellule&nbsp;: la même lecture signifie
-        alors une batterie bien plus vide, et le pourcentage dit quelle courbe il
-        a lue.
-      </p>
-      <p>
-        Elle ne recule jamais, et l&rsquo;affaissement dû à une émission à
-        22&nbsp;dBm ne la fait pas bouger. Une jauge qui saute quand la radio émet
-        est une jauge qu&rsquo;un pilote cesse de croire.
-      </p>
-    </div>
-    <figure class="shot">
-      <%= pages_image_tag "menu-sixpack.png", alt: "Le menu des instruments : le gyroscope éteint, le calage suggéré par le point GNSS et le calage en cours de réglage" %>
-      <figcaption>Le menu des instruments</figcaption>
-    </figure>
-  </div>
+  <h3>Ce que la jauge ne fera pas.</h3>
+  <p class="lede">
+    Elle lit deux courbes, pas une. Sur un chargeur, la tension aux bornes est
+    tenue au-dessus de celle de la cellule&nbsp;: la même lecture signifie alors
+    une batterie bien plus vide, et le pourcentage dit quelle courbe il a lue.
+  </p>
+  <p class="lede">
+    Elle ne recule jamais, et l&rsquo;affaissement dû à une émission à
+    22&nbsp;dBm ne la fait pas bouger. Une jauge qui saute quand la radio émet est
+    une jauge qu&rsquo;un pilote cesse de croire.
+  </p>
 
   <div class="table-scroll">
     <table class="modules">

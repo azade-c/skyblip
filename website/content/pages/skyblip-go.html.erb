@@ -45,13 +45,14 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         top of the glass, because that is the half you are flying into.
       </p>
       <p>
-        Beside each circle is its height difference in hundreds of feet, above
-        the symbol when the aircraft is above you. The line out of it is where
-        that aircraft will be in a minute.
+        Each aircraft is a cut stone. A diamond is traffic at your level, the top
+        half on its own is one above you, the bottom half one below, so the mark
+        says where to look before it is read. A caret rides a target that is climbing
+        or sinking, and the line out of it is where it will be in a minute.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "radar.png", alt: "The radar page: three aircraft with their altitude tags, their one-minute leader lines, the four-mile ring, the flight time and the count of aircraft in the ring" %>
+      <%= pages_image_tag "radar.png", alt: "The radar page: three aircraft drawn as cut stones, one above, one below and one level and climbing, each with its one-minute leader line, own ship's dashed run with a ball at each of the next two minutes, the four-mile ring, the flight time and the count of aircraft in the ring" %>
       <figcaption>Radar</figcaption>
     </figure>
   </div>
@@ -59,7 +60,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
   <ul class="points">
     <li>Heading up, never north up</li>
     <li>Ring of 1, 2, 4 or 8&nbsp;NM</li>
-    <li>Height difference in hundreds of feet</li>
+    <li>A stone cut to say above, level or below</li>
     <li>A minute of track ahead of each target</li>
     <li>Aircraft counted inside the ring</li>
     <li>Time since takeoff, for the logbook</li>
@@ -69,7 +70,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <div>
       <h3>One alarm, and what it says is <span class="highlight">where to look</span>.</h3>
       <p>
-        An aircraft inside 3&nbsp;km and 300&nbsp;m of you fills its circle, and
+        An aircraft inside 3&nbsp;km and 300&nbsp;m of you fills its stone, and
         the quadrant it sits in flashes once a second. A quarter of the screen
         going black and white is seen without being looked at, which is the
         whole instruction: turn your head that way.
@@ -82,7 +83,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "alarm.png", alt: "The radar page during a traffic advisory: one quadrant of the screen inverted to black, with the filled circle of the converging aircraft and its altitude tag reversed out of it" %>
+      <%= pages_image_tag "alarm.png", alt: "The radar page during a traffic advisory: one quadrant of the screen inverted to black, with the filled stone of the converging aircraft and its leader line reversed out of it" %>
       <figcaption>Traffic advisory</figcaption>
     </figure>
   </div>
@@ -101,8 +102,9 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       <h3>Who is out there, <span class="highlight">nearest first</span>.</h3>
       <p>
         The radar answers where to look. This page answers who that is: one row
-        per aircraft the device can place, its slant range, and how far above or
-        below you it is.
+        per aircraft the device can place, the ground distance to it, and how far
+        above or below you it is. Your own address and the count of everything
+        heard stand on the top line.
       </p>
       <p>
         The letter is where the report came from. <span class="mono">A</span> is
@@ -112,7 +114,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "nearby.png", alt: "The nearby page: five aircraft listed nearest first, each with its source letter, its address, its slant range and its relative altitude" %>
+      <%= pages_image_tag "nearby.png", alt: "The nearby page: own address and the count of everything heard on the top line, then five aircraft listed nearest first, each with its source letter, its address, its ground distance and its relative altitude" %>
       <figcaption>Nearby</figcaption>
     </figure>
   </div>
@@ -121,15 +123,16 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <div>
       <h3>Six dials, and <span class="highlight">the clock you copy</span>.</h3>
       <p>
-        Ground speed, horizon, altimeter on your own subscale, turn and slip,
-        track, vertical speed. The figure over the middle is the time since
-        takeoff, which is the one number on this device that ends up in a
-        logbook.
+        Ground speed, horizon, altimeter, turn and slip, track, vertical speed.
+        The figure over the middle is the time since takeoff, which is the one
+        number on this device that ends up in a logbook.
       </p>
       <p>
-        With the gyroscope switched on, the horizon rolls with a measured bank
-        and the ball answers the rudder. Nothing here is certified, and none of
-        it is an attitude indicator to fly in cloud.
+        The horizon pitches with the flight path and rolls with the bank a
+        coordinated turn at that speed would need, because nothing on the board
+        measures a bank. The ball is measured, and it answers the rudder. Nothing
+        here is certified, and none of it is an attitude indicator to fly in
+        cloud.
       </p>
     </div>
     <figure class="shot">
@@ -173,13 +176,14 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         further press steps the row you are on.
       </p>
       <p>
-        So each menu holds what its picture is made of: the ring and the alarm
-        belong to the radar, the subscale belongs to the page with the altimeter.
-        Nothing is a draft, each press is one finished change.
+        Two pages have one. Every setting a thumb can change is under the radar,
+        the first screen a device is set up on, and the list&rsquo;s menu opens
+        the pages that are off the walk. Nothing is a draft, each press is one
+        finished change.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-radar.png", alt: "The radar menu: the device address, aircraft type, alarm, volume, range, units and stealth, with the hint PAD MOVES PRESS CHANGES at the foot" %>
+      <%= pages_image_tag "menu-radar.png", alt: "The radar menu: aircraft type, units, range, alarm and volume, with the hint PAD MOVES - BUTTON CHANGES at the foot" %>
       <figcaption>The radar menu</figcaption>
     </figure>
   </div>
@@ -187,7 +191,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
   <ul class="points">
     <li>A tap of the pad: the next page</li>
     <li>A touch of a second: back to the radar</li>
-    <li>A press: the menu of this page</li>
+    <li>A press: the menu, where the page has one</li>
     <li>Presses after that: step the row</li>
     <li>Past the last row: back to the picture</li>
     <li>A minute untouched: back on its own</li>
@@ -204,10 +208,10 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         picture of <span class="mono">NO SENSOR</span> every fourth time.
       </p>
       <p>
-        Everything else is opened from the menu of the page it explains, and
-        hands you back where you were. The instruments&rsquo; menu holds the
-        gyroscope and the subscale, the list&rsquo;s menu holds the four pages
-        below.
+        Everything else is opened from the menu of the list, by name, and hands
+        you back where you were: the four pages below are the bench&rsquo;s, the
+        apron&rsquo;s and the bug report&rsquo;s, and none of them is a picture to
+        land on with a thumb.
       </p>
     </div>
     <figure class="shot">
@@ -218,7 +222,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <div class="shots">
     <figure class="shot">
-      <%= pages_image_tag "status.png", alt: "The status page: fix and satellites, position, track, traffic count, transmit state, pressure and subscale, altitudes, speed, vertical speed and cell voltage" %>
+      <%= pages_image_tag "status.png", alt: "The status page: fix and satellites, position, track, traffic count, transmit state, the sensor hub, pressure, the two altitudes, speed, vertical speed and cell voltage" %>
       <figcaption>Status</figcaption>
     </figure>
     <figure class="shot">
@@ -282,8 +286,8 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       <p>
         One press and it is on, straight to the traffic picture. With no
         position yet the ring says so, and the word under it is how far the
-        receiver has got: solving, or a date read off a satellite, or a receiver
-        that has gone quiet.
+        receiver has got: a receiver that has gone quiet, solutions arriving with
+        no date on them yet, or a date read off a satellite.
       </p>
       <p>
         That is the difference between a device to wait for and a device to
@@ -342,7 +346,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <div>
       <h3>It appears by name, and <span class="highlight">three screens</span> read it at once.</h3>
       <p>
-        <span class="mono">skyBlip Go - 5B5AFE</span>: the product, then its own
+        <span class="mono">skyBlip Go 5B5AFE</span>: the product, then its own
         24-bit address. Nothing to pair, no code to type. It carries the FLARM
         NMEA stream on both of the Bluetooth serial profiles navigation software
         looks for, so the app you already fly with finds it.
@@ -431,30 +435,22 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <li>Radio asleep before its reset line</li>
     <li>Flash, receiver, rails, pins, in that order</li>
     <li>1&nbsp;Hz in the air, 0.1&nbsp;Hz on the ground</li>
-    <li>The gyroscope ships off: it costs a milliamp</li>
+    <li>The hub&rsquo;s gyroscope is never read: it costs a milliamp</li>
     <li>Charging refused outside 5 to 60&nbsp;&deg;C</li>
     <li>The lamp winks, and is never held solid</li>
   </ul>
 
-  <div class="feature feature--reverse">
-    <div>
-      <h3>What the gauge <span class="highlight">will not do</span>.</h3>
-      <p>
-        It reads two curves, not one. On a charger the terminal sits above the
-        cell&rsquo;s own voltage, so the same reading means a far emptier cell,
-        and the percentage says which curve it read.
-      </p>
-      <p>
-        It never walks backwards, and a 22&nbsp;dBm burst sagging the rail does
-        not move it. A gauge that jumps when the radio keys is a gauge a pilot
-        stops believing.
-      </p>
-    </div>
-    <figure class="shot">
-      <%= pages_image_tag "menu-sixpack.png", alt: "The instruments menu: the gyroscope switched off, the subscale suggested by the fix and the subscale being set" %>
-      <figcaption>The instruments&rsquo; menu</figcaption>
-    </figure>
-  </div>
+  <h3>What the gauge will not do.</h3>
+  <p class="lede">
+    It reads two curves, not one. On a charger the terminal sits above the
+    cell&rsquo;s own voltage, so the same reading means a far emptier cell, and
+    the percentage says which curve it read.
+  </p>
+  <p class="lede">
+    It never walks backwards, and a 22&nbsp;dBm burst sagging the rail does not
+    move it. A gauge that jumps when the radio keys is a gauge a pilot stops
+    believing.
+  </p>
 
   <div class="table-scroll">
     <table class="modules">
