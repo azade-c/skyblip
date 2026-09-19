@@ -24,6 +24,12 @@
 
 namespace skyblip::platform {
 
+struct BaroReading {
+    uint32_t pressure_mpa{0};
+    int16_t temperature_decicelsius{0};
+    bool temperature_valid{false};
+};
+
 template <class P>
 constexpr bool fills_the_platform_contract() {
     using Self = P&;
@@ -83,8 +89,10 @@ constexpr bool fills_the_platform_contract() {
 
     static_assert(
         std::is_convertible_v<
-            decltype(std::declval<Self>().read_pressure_mpa(std::declval<uint32_t&>())), bool>,
-        "platform: read_pressure_mpa(uint32_t&) -> bool, which becomes events::BaroSample");
+            decltype(std::declval<Self>().read_baro(std::declval<BaroReading&>())), bool>,
+        "platform: read_baro(BaroReading&) -> bool, one fetch of the part, which becomes "
+        "events::BaroSample. Temperature carries its own validity: a part that answers with "
+        "pressure and no temperature still answers true");
     static_assert(
         std::is_convertible_v<
             decltype(std::declval<Self>().read_battery_mv(std::declval<uint16_t&>())), bool>,

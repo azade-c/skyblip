@@ -135,6 +135,8 @@ uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& solution,
 
 void OwnshipService::apply_baro(const events::BaroSample& sample) {
     context_.state.baro.pressure_mpa = sample.pressure_mpa;
+    context_.state.baro.temperature_decicelsius = sample.temperature_decicelsius;
+    context_.state.baro.temperature_valid = sample.temperature_valid;
     const int32_t alt_mm = flight::pressure_to_alt_mm(sample.pressure_mpa);
     int32_t mm_s = 0;
     if (vs_from_alt_mm(alt_mm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_mm_, baro_ref_ms_, mm_s))

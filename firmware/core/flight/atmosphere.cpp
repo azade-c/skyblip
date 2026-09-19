@@ -37,6 +37,9 @@ constexpr int32_t kAltCm[] = {
 constexpr int kN = static_cast<int>(sizeof(kAltCm) / sizeof(kAltCm[0]));
 constexpr uint32_t kHiPa = kLoPa + static_cast<uint32_t>(kN - 1) * kStepPa;
 
+constexpr int64_t kIsaLapseDeciCelsiusPerKm = 65;
+constexpr int64_t kMmPerKm = 1000000;
+
 constexpr uint32_t kMilli = 1000;
 constexpr uint32_t kLoMpa = kLoPa * kMilli;
 constexpr uint32_t kHiMpa = kHiPa * kMilli;
@@ -58,6 +61,12 @@ int32_t pressure_to_alt_mm(uint32_t mpa) {
     // Table descends with pressure, so the step is negative. Interpolate on it.
     const int64_t span = alt_mm_at(i + 1) - alt_mm_at(i);
     return alt_mm_at(i) + static_cast<int32_t>(div_round<int64_t>(span * frac, kStepMpa));
+}
+
+int16_t isa_temperature_decicelsius(int32_t alt_mm) {
+    const int64_t drop =
+        div_round<int64_t>(static_cast<int64_t>(alt_mm) * kIsaLapseDeciCelsiusPerKm, kMmPerKm);
+    return static_cast<int16_t>(kIsaSeaLevelDeciCelsius - drop);
 }
 
 int32_t pressure_to_alt_cm(uint32_t pa) {

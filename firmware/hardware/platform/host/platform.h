@@ -63,9 +63,11 @@ class Dfu : public ports::Dfu {
 class Baro {
    public:
     bool ready() const { return present; }
-    bool read_pressure_mpa(uint32_t& out_mpa) const {
+    bool read_baro(BaroReading& out) const {
         if (!present) return false;
-        out_mpa = chip.pressure_mpa();
+        out.pressure_mpa = chip.pressure_mpa();
+        out.temperature_decicelsius = chip.temperature_decicelsius();
+        out.temperature_valid = true;
         return true;
     }
 
@@ -189,7 +191,7 @@ class Platform {
 
     bool buzzer_pin_held_low() const { return buzzer_pin_held_low_; }
     void set_buzzer_pin_held_low(bool held) { buzzer_pin_held_low_ = held; }
-    bool read_pressure_mpa(uint32_t& out_mpa) { return baro_.read_pressure_mpa(out_mpa); }
+    bool read_baro(BaroReading& out) { return baro_.read_baro(out); }
     bool read_battery_mv(uint16_t& out_mv) { return battery_.read_mv(out_mv); }
     bool external_power() const { return battery_.external_power; }
     static constexpr uint32_t kDeviceAddr = 0x5B5AFEu;

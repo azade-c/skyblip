@@ -16,6 +16,9 @@ namespace skyblip::flight {
 
 // ISA sea-level pressure.
 constexpr uint32_t kIsaSeaLevelPa = 101325;
+constexpr int16_t kIsaSeaLevelDeciCelsius = 150;
+
+int16_t isa_temperature_decicelsius(int32_t alt_mm);
 
 int32_t pressure_to_alt_mm(uint32_t mpa);
 int32_t pressure_to_alt_cm(uint32_t pa);

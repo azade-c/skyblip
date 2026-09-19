@@ -69,6 +69,8 @@ struct GnssStatus {
 
 struct BaroState {
     uint32_t pressure_mpa{0};
+    int16_t temperature_decicelsius{0};
+    bool temperature_valid{false};
     bool active{false};
 };
 

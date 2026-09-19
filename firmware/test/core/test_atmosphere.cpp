@@ -107,3 +107,11 @@ TEST_CASE("atmosphere: a pascal is centimetres of altitude, so the curve is walk
     CHECK(flight::pressure_to_alt_mm((flight::kIsaSeaLevelPa - 1) * 1000) - sea == 84);
     CHECK(sea - flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000 + 1000) == 83);
 }
+
+TEST_CASE("atmosphere: the ISA temperature falls 6.5 C every kilometre from 15 C at the sea") {
+    CHECK(flight::isa_temperature_decicelsius(0) == flight::kIsaSeaLevelDeciCelsius);
+    CHECK(flight::isa_temperature_decicelsius(1000000) == 85);
+    CHECK(flight::isa_temperature_decicelsius(3000000) == -45);
+    // Below the sea the air is warmer, and a 500 m mine shaft is 3.25 C of it.
+    CHECK(flight::isa_temperature_decicelsius(-500000) == 183);
+}

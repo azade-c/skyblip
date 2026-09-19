@@ -7,6 +7,8 @@ namespace skyblip::events {
 struct BaroSample {
     uint32_t pressure_mpa;
     uint32_t at_ms;
+    int16_t temperature_decicelsius;
+    bool temperature_valid;
 };
 
 struct AccelSample {

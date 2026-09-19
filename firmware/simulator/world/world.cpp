@@ -33,6 +33,7 @@ void World::step(uint32_t now_ms, const bus::State& state) {
     const int32_t alt_msl_mm = gnss().alt_mm() - gnss().geoid_separation_m * 1000;
     baro().set_pressure_mpa(flight::alt_mm_to_pressure_mpa(
         alt_msl_mm + flight::pressure_to_alt_mm(airmass_qnh_pa_ * 1000)));
+    baro().set_temperature_decicelsius(flight::isa_temperature_decicelsius(alt_msl_mm));
 
     update_inertial();
     service_button(now_ms);

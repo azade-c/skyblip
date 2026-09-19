@@ -130,8 +130,10 @@ struct Rig {
     }
 
     void push_baro(int32_t alt_cm, uint32_t at_ms) {
-        product.bus().baro.push(
-            events::BaroSample{flight::alt_mm_to_pressure_mpa(alt_cm * 10), at_ms});
+        events::BaroSample sample{};
+        sample.pressure_mpa = flight::alt_mm_to_pressure_mpa(alt_cm * 10);
+        sample.at_ms = at_ms;
+        product.bus().baro.push(sample);
     }
 
     // Held across steps, then released across steps: a level has to be stable

@@ -178,9 +178,7 @@ void NmeaService::emit_altitude() {
 // no way to see a flat unit coming (SoftRF MB sends exactly the same
 // battery-only sentence in that case, src/protocol/data/NMEA.cpp:1398-1401).
 //
-// Temperature is absent and stays absent until something publishes one: the
-// BME280 measures it and nothing in the tree reads it, so the field carries its
-// "not available" sentinel rather than a plausible number nobody measured.
+// INFO: cc 19sep26 the BME280 sits inside the case, so field 4 goes out warm and uncorrected
 void NmeaService::emit_vario_and_battery() {
     const model::OwnState& own = context_.state.own;
     protocol::Lk8Ex1 v{};
@@ -195,6 +193,11 @@ void NmeaService::emit_vario_and_battery() {
             flight::pressure_to_alt_cm(div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000)),
             100);
         v.has_alt = true;
+    }
+
+    if (context_.state.baro.temperature_valid) {
+        v.temperature_c = div_round<int32_t>(context_.state.baro.temperature_decicelsius, 10);
+        v.has_temperature = true;
     }
 
     if (own.climb_valid) {

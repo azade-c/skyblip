@@ -17,6 +17,7 @@
 #include "hardware/parts/l76k/l76k.h"
 #include "hardware/parts/ssd1681/ssd1681.h"
 #include "hardware/parts/sx1262/sx1262.h"
+#include "hardware/platform/contract.h"
 #include "ports/inventory.h"
 #include "ports/null.h"
 #include "ports/roles.h"
@@ -133,8 +134,11 @@ class TEchoPlus {
         if (!ports::has(capabilities_, ports::Capability::Baro)) return;
         if (!baro_due(clock, now_ms)) return;
         last_baro_ms_ = now_ms;
-        uint32_t mpa = 0;
-        if (platform_.read_pressure_mpa(mpa)) bus_.baro.push(events::BaroSample{mpa, now_ms});
+        platform::BaroReading reading{};
+        if (platform_.read_baro(reading))
+            bus_.baro.push(events::BaroSample{reading.pressure_mpa, now_ms,
+                                              reading.temperature_decicelsius,
+                                              reading.temperature_valid});
     }
 
     bool baro_due(const timing::ClockState& clock, uint32_t now_ms) const {

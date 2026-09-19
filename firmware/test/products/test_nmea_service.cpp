@@ -409,13 +409,14 @@ TEST_CASE("nmea: $PGRMZ carries pressure altitude on the standard datum") {
 // cell, and it carries the vario picture with it. Field 5 is a voltage below
 // 1000 and a percentage plus 1000 at or above it, which is the distinction the
 // whole sentence turns on: 55 in that field is fifty-five volts.
-TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cadence") {
+TEST_CASE("nmea: the cell and the temperature reach a tablet in $LK8EX1, on the $PGRMZ pass") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
     // A cell in the flat middle, and air the aircraft is really flying through.
     rig.platform.battery().millivolts = 3800;
     rig.platform.baro().chip.set_pressure_mpa(90000000);
+    rig.platform.baro().chip.set_temperature_decicelsius(-72);
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
@@ -441,9 +442,10 @@ TEST_CASE("nmea: the cell reaches a pilot's tablet in $LK8EX1, at the $PGRMZ cad
     CHECK(std::stol(f[5]) == 1000 + rig.state().power.battery.percent);
     CHECK(std::stol(f[5]) >= 1000);
     CHECK(int(rig.state().power.battery.percent) == 55);
-    // Nothing publishes a temperature, so the field carries its "not available"
-    // sentinel rather than a plausible number nobody measured.
-    CHECK(f[4] == "99");
+    // Field 4 is what the part measured, carried in the whole degrees the sentence is read in.
+    REQUIRE(rig.state().baro.temperature_valid);
+    CHECK(rig.state().baro.temperature_decicelsius == -72);
+    CHECK(f[4] == "-7");
 
     // Same pass as $PGRMZ, so the same cadence, second for second.
     rig.platform.link().clear();

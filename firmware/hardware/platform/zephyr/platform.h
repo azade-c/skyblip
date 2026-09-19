@@ -127,9 +127,7 @@ class Platform {
 
     // INFO: fc 18sep26 our Plus reads this pin low and our plain T-Echo reads it high
     bool buzzer_pin_held_low() const { return board_buzzer_pin_held_low() != 0; }
-    bool read_pressure_mpa(uint32_t& out_mpa) {
-        return baro_ != nullptr && baro_->read_pressure_mpa(out_mpa);
-    }
+    bool read_baro(BaroReading& out) { return baro_ != nullptr && baro_->read_baro(out); }
     bool read_battery_mv(uint16_t& out_mv) { return battery_.read_mv(out_mv); }
     bool external_power() { return zephyr::Battery::external_power(); }
 
