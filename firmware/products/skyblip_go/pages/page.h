@@ -50,6 +50,10 @@ constexpr int kWalkedPages = 4;
 
 constexpr bool walked(Page page) { return static_cast<int>(page) < kWalkedPages; }
 
+constexpr bool diagnostic(Page page) { return !walked(page); }
+
+constexpr bool diagnostics_menu(Page owner) { return owner == Page::Nearby; }
+
 constexpr const char* page_title(Page page) {
     switch (page) {
         case Page::Radar: return "RADAR";
@@ -67,8 +71,7 @@ constexpr const char* page_title(Page page) {
 constexpr const char* menu_title(Page page) {
     switch (page) {
         case Page::Radar: return "SETTINGS";
-        case Page::Nearby: return "DIAGNOSTICS";
-        default: return page_title(page);
+        default: return diagnostics_menu(page) ? "DIAGNOSTICS" : page_title(page);
     }
 }
 

@@ -84,6 +84,34 @@ struct Rig {
         tick(t += 100);
     }
 
+    // A press of the button, read on the release: the menu, then the row under the focus.
+    void press(uint32_t& t) {
+        bus.input.push(events::ContactEvent{events::Contact::Button, true, t});
+        tick(t += 100);
+        bus.input.push(events::ContactEvent{events::Contact::Button, false, t});
+        tick(t += 100);
+    }
+
+    // The pad tapped: the next page along the walk, or the next row down a menu.
+    void tap_pad(uint32_t& t) {
+        bus.input.push(events::ContactEvent{events::Contact::Pad, true, t});
+        tick(t += 100);
+        bus.input.push(events::ContactEvent{events::Contact::Pad, false, t});
+        tick(t += 100);
+    }
+
+    // Reached the way a thumb reaches it: the pad along the walk, then the menu row that opens it.
+    void show(uint32_t& t, go::Page page) {
+        for (int i = 0; i < go::kPageCount && screen.page() != go::menu_owner(page); i++)
+            tap_pad(t);
+        if (go::walked(page)) return;
+        press(t);
+        const go::Menu menu = go::menu_for(go::menu_owner(page));
+        for (int i = 0; i < menu.n && go::page_behind(screen.editor().focus()) != page; i++)
+            tap_pad(t);
+        press(t);
+    }
+
     void alarm(traffic::Level level) {
         state.alarm_level = level;
         state.alarm_live = level;

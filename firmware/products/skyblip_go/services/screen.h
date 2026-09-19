@@ -114,7 +114,13 @@ class ScreenService : public runtime::Service {
                ports::has(context_.roles.capabilities, ports::Capability::Display);
     }
 
-    bool alarm_takes_glass() const { return context_.state.alarm_live >= kAlarmTakesGlass; }
+    bool alarm_takes_glass() const {
+        return context_.state.alarm_live >= kAlarmTakesGlass && !diagnostics_on_glass();
+    }
+
+    bool diagnostics_on_glass() const {
+        return mode_ == Mode::Menu ? diagnostics_menu(editor_.page()) : diagnostic(page_);
+    }
 
     bool alarm_stands() const { return context_.state.alarm_live != traffic::Level::None; }
 

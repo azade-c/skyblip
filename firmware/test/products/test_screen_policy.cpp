@@ -120,7 +120,7 @@ TEST_CASE("screen policy: the loudest alarm standing still gets the page its bla
 }
 
 // A pilot reading the sixpack is a pilot who cannot see the bearing the alarm is about.
-TEST_CASE("screen policy: converging traffic takes any page back to the radar") {
+TEST_CASE("screen policy: converging traffic takes a flying page back to the radar") {
     Rig rig;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
@@ -136,6 +136,37 @@ TEST_CASE("screen policy: converging traffic takes any page back to the radar") 
     rig.screen.next_page();
     rig.run_seconds(t, 2);
     CHECK(rig.screen.page() != go::Page::Radar);
+}
+
+// A diagnostics page is read on a bench, where there is no sky to be taken back to.
+TEST_CASE("screen policy: converging traffic leaves the diagnostics pages standing") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.show(t, go::Page::Status);
+    rig.run_seconds(t, 2);
+    REQUIRE(rig.screen.page() == go::Page::Status);
+
+    rig.alarm(go::ScreenService::kAlarmTakesGlass);
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.page() == go::Page::Status);
+}
+
+// The diagnostics menu is the only way to those pages, so an alarm that closed it would seal them.
+TEST_CASE("screen policy: converging traffic leaves the diagnostics menu standing") {
+    Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+    rig.tap_pad(t);
+    REQUIRE(rig.screen.page() == go::Page::Nearby);
+    rig.press(t);
+    rig.run_seconds(t, 2);
+    REQUIRE(rig.screen.editor().page() == go::Page::Nearby);
+
+    rig.alarm(go::ScreenService::kAlarmTakesGlass);
+    rig.run_seconds(t, 2);
+    CHECK(rig.screen.mode() == go::Mode::Menu);
+    CHECK(rig.screen.editor().active());
 }
 
 // The settings mode keeps the button to itself, so it has to give it back unasked.
