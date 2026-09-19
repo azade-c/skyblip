@@ -321,8 +321,8 @@ TEST_CASE("menu editor: a metric pilot steps whole kilometres, not a converted m
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::Range, "8 KM", true));
 
     CHECK(bench.change() == MenuAction::Changed);
-    CHECK(range_value(bench.values.range_step, Units::Metric) == 15);
-    CHECK(range_metres(bench.values.range_step, Units::Metric) == 15000);
+    CHECK(range_value(bench.values.range_step, Units::Metric) == 16);
+    CHECK(range_metres(bench.values.range_step, Units::Metric) == 16000);
 
     // The same step read in the other unit is the ring it was drawn from.
     CHECK(range_value(bench.values.range_step, Units::Nautical) == 8);

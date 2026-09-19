@@ -22,10 +22,8 @@ enum class Page : uint8_t {
 
 constexpr int kPageCount = static_cast<int>(Page::kCount);
 
-// The ring a pilot picks, in the unit they read: four steps, one thumb cycle,
-// and the metric table is the nautical one rounded to whole kilometres.
 constexpr int32_t kRangeStepsNm[] = {1, 2, 4, 8};
-constexpr int32_t kRangeStepsKm[] = {2, 4, 8, 15};
+constexpr int32_t kRangeStepsKm[] = {2, 4, 8, 16};
 constexpr int kRangeStepCount = static_cast<int>(sizeof(kRangeStepsNm) / sizeof(kRangeStepsNm[0]));
 constexpr int kDefaultRangeStep = 2;
 constexpr int32_t kMetresPerKm = 1000;
