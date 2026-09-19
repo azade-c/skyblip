@@ -62,7 +62,7 @@ struct Rig {
         model::OwnState sender = state.own;
         sender.lat_1e7 += 7000;
         protocol::AdslPacket tx;
-        protocol::from_own(tx, sender, addr, 6, 4, false);
+        protocol::from_own(tx, sender, addr, 6, 4);
         tx.scramble();
         tx.set_crc();
 

@@ -3,17 +3,17 @@
 
 #include <cstdint>
 
+#include "core/flight/force.h"
+
 namespace skyblip::flight {
 
-constexpr int32_t kSlipFloorMg = 200;
-constexpr int32_t kSlipDampingSamples = 8;
-constexpr uint32_t kSlipStaleMs = 2000;
+constexpr int32_t kSlipFullScaleMg = 200;
 
-bool slip_from_specific_force(int32_t right_mg, int32_t up_mg, int32_t aft_mg, int16_t& out_mg);
+bool slip_from_specific_force(const SpecificForce& force, int16_t& out_mg);
 
 class SlipBall {
    public:
-    void update(int32_t right_mg, int32_t up_mg, int32_t aft_mg, uint32_t at_ms);
+    void update(const SpecificForce& force, uint32_t at_ms);
     bool valid(uint32_t now_ms) const;
     int16_t mg() const;
 

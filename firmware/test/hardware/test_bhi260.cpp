@@ -286,109 +286,21 @@ TEST_CASE("bhi260: both FIFOs are drained, so nothing is left holding the hub's 
     CHECK((imu.interrupt_status() & kWakeupFifoField) == 0);
 }
 
-// A hub with a gyroscope in its image is a rate of turn as well as a ball.
-TEST_CASE("bhi260: the gyroscope is configured and read when the image carries one") {
-    models::Bhi260 chip;
-    parts::Bhi260 imu{chip};
-    REQUIRE(imu.probe() == Status::Ok);
-    imu.request_gyroscope(true);
-    uint32_t now_ms = bring_up(imu);
-    REQUIRE(imu.stage() == Stage::Running);
-
-    CHECK(imu.gyroscope_fitted());
-    CHECK(int(chip.gyro_sensor_id) == 13);
-    CHECK(int(chip.gyro_range_dps) == parts::Bhi260::kRangeDps);
-    CHECK(chip.gyro_rate_hz == doctest::Approx(12.5));
-
-    chip.set_angular_rate(300, -250, 40);
-    CHECK_FALSE(imu.poll_rate());
-
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-
-    REQUIRE(imu.poll_rate());
-    CHECK(imu.angular_rate().x_cdps == doctest::Approx(300).epsilon(0.02));
-    CHECK(imu.angular_rate().y_cdps == doctest::Approx(-250).epsilon(0.02));
-    CHECK(imu.angular_rate().z_cdps == doctest::Approx(40).epsilon(0.1));
-    CHECK(imu.angular_rate().at_ms == now_ms);
-    CHECK_FALSE(imu.poll_rate());
-}
-
-TEST_CASE("bhi260: an image with no gyroscope still gives the ball, and no rate") {
-    models::Bhi260 chip;
-    chip.gyro_present = false;
-    parts::Bhi260 imu{chip};
-    REQUIRE(imu.probe() == Status::Ok);
-    imu.request_gyroscope(true);
-    uint32_t now_ms = bring_up(imu);
-    REQUIRE(imu.stage() == Stage::Running);
-
-    CHECK_FALSE(imu.gyroscope_fitted());
-    CHECK(int(chip.gyro_sensor_id) == 0);
-
-    chip.set_angular_rate(300, 0, 0);
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-
-    CHECK_FALSE(imu.poll_rate());
-    CHECK(imu.poll());
-}
-
-// The gyroscope costs the better part of a milliamp, so nothing but an explicit ask starts it.
-TEST_CASE("bhi260: a gyroscope nobody asked for is never configured") {
+// The gyroscope costs the better part of a milliamp, and no instrument here reads a rate.
+TEST_CASE("bhi260: the gyroscope in the image is never subscribed to") {
     models::Bhi260 chip;
     parts::Bhi260 imu{chip};
     REQUIRE(imu.probe() == Status::Ok);
     uint32_t now_ms = bring_up(imu);
     REQUIRE(imu.stage() == Stage::Running);
 
-    CHECK(imu.gyroscope_fitted());
-    CHECK_FALSE(imu.gyroscope_running());
     CHECK(int(chip.gyro_sensor_id) == 0);
     CHECK(chip.gyro_rate_hz == doctest::Approx(0));
 
-    chip.set_angular_rate(300, 0, 0);
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-
-    CHECK_FALSE(imu.poll_rate());
-    CHECK(imu.poll());
-}
-
-// Turning the row off in flight is a sensor that stops, not a device that reboots.
-TEST_CASE("bhi260: a running hub takes the gyroscope up and down on the next pass") {
-    models::Bhi260 chip;
-    parts::Bhi260 imu{chip};
-    REQUIRE(imu.probe() == Status::Ok);
-    uint32_t now_ms = bring_up(imu);
-    REQUIRE(imu.stage() == Stage::Running);
-    REQUIRE_FALSE(imu.gyroscope_running());
-
     chip.set_angular_rate(300, -250, 40);
-    imu.request_gyroscope(true);
     now_ms += parts::Bhi260::kSamplePeriodMs;
     imu.service(now_ms);
 
-    CHECK(imu.gyroscope_running());
-    CHECK(int(chip.gyro_sensor_id) == 13);
-    CHECK(chip.gyro_rate_hz == doctest::Approx(12.5));
-    CHECK(int(chip.gyro_range_dps) == parts::Bhi260::kRangeDps);
-
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-    CHECK(imu.poll_rate());
-
-    imu.request_gyroscope(false);
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-
-    CHECK_FALSE(imu.gyroscope_running());
-    CHECK(chip.gyro_rate_hz == doctest::Approx(0));
-    CHECK(imu.stage() == Stage::Running);
-
-    now_ms += parts::Bhi260::kSamplePeriodMs;
-    imu.service(now_ms);
-    CHECK_FALSE(imu.poll_rate());
     CHECK(imu.poll());
 }
 

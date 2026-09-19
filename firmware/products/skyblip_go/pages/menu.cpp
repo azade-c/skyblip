@@ -1,7 +1,5 @@
 #include "products/skyblip_go/pages/menu.h"
 
-#include <algorithm>
-
 #include "core/util/format.h"
 
 namespace skyblip::go {
@@ -11,13 +9,10 @@ namespace {
 constexpr int kHeaderY = 3;
 constexpr int kHeaderRuleY = 21;
 
-constexpr MenuRow kRadarMenuRows[] = {MenuRow::Identity, MenuRow::AircraftType, MenuRow::Alarm,
-                                      MenuRow::Volume,   MenuRow::Range,        MenuRow::Units,
-                                      MenuRow::Stealth};
-constexpr MenuRow kNearbyMenuRows[] = {MenuRow::RadioLog, MenuRow::Sats, MenuRow::Status,
+constexpr MenuRow kRadarMenuRows[] = {MenuRow::AircraftType, MenuRow::Units, MenuRow::Range,
+                                      MenuRow::Alarm, MenuRow::Volume};
+constexpr MenuRow kNearbyMenuRows[] = {MenuRow::Status, MenuRow::Sats, MenuRow::RadioLog,
                                        MenuRow::SelfTest};
-constexpr MenuRow kSixPackMenuRows[] = {MenuRow::Gyro, MenuRow::AlignQnh, MenuRow::QnhDown,
-                                        MenuRow::QnhUp};
 
 template <int N>
 constexpr Menu menu_of(const MenuRow (&rows)[N]) {
@@ -44,29 +39,12 @@ void row_text(ui::Canvas& fb, int line, const char* label, const char* value, bo
     fb.draw_text(kMenuRightX - length(value) * kMenuCellW, y, value, ink, 1);
 }
 
-void step_box(ui::Canvas& fb, int x, int line, const char* mark, bool focused) {
-    const int top = menu_line_top(line);
-    const int y = menu_line_text_y(line);
-    if (focused) fb.rect(x, top, kQnhStepBoxW, kMenuRowHeight - 1, true, /*fill=*/true);
-    fb.draw_text(x + (kQnhStepBoxW - kMenuCellW) / 2, y, mark, !focused, 1);
-}
-
-void qnh_line(ui::Canvas& fb, int line, const MenuValues& values, MenuRow focus) {
-    char value[kMenuValueCap];
-    menu_row_value(value, MenuRow::QnhUp, values);
-    fb.draw_text(kMenuLeftX, menu_line_text_y(line), menu_row_label(MenuRow::QnhUp), true, 1);
-    step_box(fb, kQnhMinusX, line, "-", focus == MenuRow::QnhDown);
-    fb.draw_text(kQnhValueX, menu_line_text_y(line), value, true, 1);
-    step_box(fb, kQnhPlusX, line, "+", focus == MenuRow::QnhUp);
-}
-
 }  // namespace
 
 Menu menu_for(Page page) {
     switch (page) {
         case Page::Radar: return menu_of(kRadarMenuRows);
         case Page::Nearby: return menu_of(kNearbyMenuRows);
-        case Page::SixPack: return menu_of(kSixPackMenuRows);
         default: return Menu{};
     }
 }
@@ -77,32 +55,17 @@ int menu_row_index(const Menu& menu, MenuRow row) {
     return -1;
 }
 
-int menu_row_line(const Menu& menu, MenuRow row) {
-    int line = 0;
-    for (int i = 0; i < menu.n; i++) {
-        if (menu.rows[i] == row) return line;
-        if (menu.rows[i] != MenuRow::QnhDown) line++;
-    }
-    return line;
-}
-
 const char* menu_row_label(MenuRow row) {
     switch (row) {
-        case MenuRow::Identity: return "ID";
         case MenuRow::AircraftType: return "AIRCRAFT";
+        case MenuRow::Units: return "UNITS";
+        case MenuRow::Range: return "RANGE";
         case MenuRow::Alarm: return "ALARM";
         case MenuRow::Volume: return "VOLUME";
-        case MenuRow::Range: return "RANGE";
-        case MenuRow::Units: return "UNITS";
-        case MenuRow::Stealth: return "STEALTH";
-        case MenuRow::RadioLog: return "RADIO LOG";
-        case MenuRow::Sats: return "SATELLITES";
         case MenuRow::Status: return "STATUS";
+        case MenuRow::Sats: return "SATELLITES";
+        case MenuRow::RadioLog: return "RADIO LOG";
         case MenuRow::SelfTest: return "SELF TEST";
-        case MenuRow::Gyro: return "GYRO";
-        case MenuRow::AlignQnh: return "QNH FROM GNSS";
-        case MenuRow::QnhDown:
-        case MenuRow::QnhUp: return "QNH";
         default: return "";
     }
 }
@@ -126,34 +89,9 @@ uint8_t next_aircraft_type(uint8_t code) {
     return static_cast<uint8_t>(code + 1);
 }
 
-int32_t next_range_nm(int32_t nm) {
-    for (int i = 0; i < kRangeStepCount; i++)
-        if (kRangeStepsNm[i] == nm) return kRangeStepsNm[(i + 1) % kRangeStepCount];
-    return kDefaultRangeNm;
-}
-
-uint32_t step_qnh_pa(uint32_t qnh_pa, bool up) {
-    uint32_t whole = ((qnh_pa + kQnhStepPa / 2) / kQnhStepPa) * kQnhStepPa;
-    whole = std::clamp(whole, kQnhMinPa, kQnhMaxPa);
-    if (up) return whole + kQnhStepPa > kQnhMaxPa ? kQnhMaxPa : whole + kQnhStepPa;
-    return whole < kQnhMinPa + kQnhStepPa ? kQnhMinPa : whole - kQnhStepPa;
-}
-
-// INFO: fc 18sep26 the subscale that makes the barometer read the GNSS altitude, not a QNH given
-bool qnh_aligned_with_gnss(const MenuValues& values, uint32_t& out_pa) {
-    if (!values.alignable) return false;
-    uint32_t setting = 0;
-    if (!flight::qnh_from_alt(values.pressure_pa, values.gnss_alt_cm, setting)) return false;
-    setting = ((setting + kQnhStepPa / 2) / kQnhStepPa) * kQnhStepPa;
-    if (setting < kQnhMinPa || setting > kQnhMaxPa) return false;
-    out_pa = setting;
-    return true;
-}
-
 int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
     int n = 0;
     switch (row) {
-        case MenuRow::Identity: n = fmt_hex(out, v.settings.device_addr, 6); break;
         case MenuRow::AircraftType: {
             const char* name = aircraft_type_name(v.settings.aircraft_type);
             if (name[0] != 0) {
@@ -164,34 +102,18 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
             }
             break;
         }
+        case MenuRow::Units:
+            n = fmt_string(out, v.settings.units == go::Units::Metric ? "METRIC" : "NAUTICAL");
+            break;
+        case MenuRow::Range:
+            n = fmt_uint(out, static_cast<uint32_t>(range_value(v.range_step, v.settings.units)));
+            n += fmt_string(out + n, " ");
+            n += fmt_string(out + n, range_unit(v.settings.units));
+            break;
         case MenuRow::Alarm: n = fmt_string(out, v.settings.alarm_enabled ? "ON" : "OFF"); break;
         case MenuRow::Volume:
             n = fmt_uint(out, v.settings.alarm_volume);
             n += fmt_string(out + n, " OF 5");
-            break;
-        case MenuRow::Range:
-            n = fmt_uint(out, static_cast<uint32_t>(v.range_nm));
-            n += fmt_string(out + n, " NM");
-            break;
-        case MenuRow::Units:
-            n = fmt_string(out, v.settings.units == go::Units::Metric ? "METRIC" : "NAUTICAL");
-            break;
-        case MenuRow::Stealth: n = fmt_string(out, v.settings.stealth ? "ON" : "OFF"); break;
-        case MenuRow::Gyro: n = fmt_string(out, v.settings.gyro_enabled ? "ON" : "OFF"); break;
-        case MenuRow::AlignQnh: {
-            uint32_t aligned = 0;
-            if (!qnh_aligned_with_gnss(v, aligned)) {
-                n = fmt_string(out, "---");
-                break;
-            }
-            n = fmt_uint(out, aligned / kQnhStepPa);
-            n += fmt_string(out + n, " HPA");
-            break;
-        }
-        case MenuRow::QnhDown:
-        case MenuRow::QnhUp:
-            n = fmt_uint(out, (v.qnh_pa + kQnhStepPa / 2) / kQnhStepPa);
-            n += fmt_string(out + n, " HPA");
             break;
         default: break;
     }
@@ -208,14 +130,8 @@ void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
     char value[kMenuValueCap];
     for (int i = 0; i < menu.n; i++) {
         const MenuRow row = menu.rows[i];
-        const int line = menu_row_line(menu, row);
-        if (row == MenuRow::QnhDown) {
-            qnh_line(fb, line, s.values, s.focus);
-            continue;
-        }
-        if (row == MenuRow::QnhUp) continue;
         menu_row_value(value, row, s.values);
-        row_text(fb, line, menu_row_label(row), value, row == s.focus);
+        row_text(fb, i, menu_row_label(row), value, row == s.focus);
     }
 
     fb.draw_text(kMenuLeftX - 2, kMenuHintY, kMenuHintText, true, 1);
@@ -285,41 +201,23 @@ MenuAction MenuEditor::act(const MenuValues& current, MenuValues& next) {
         return MenuAction::Open;
     }
     switch (row) {
-        case MenuRow::Identity: return MenuAction::None;
         case MenuRow::AircraftType:
             next.settings.aircraft_type = next_aircraft_type(current.settings.aircraft_type);
             break;
+        case MenuRow::Units:
+            next.settings.units = current.settings.units == go::Units::Metric ? go::Units::Nautical
+                                                                              : go::Units::Metric;
+            break;
+        case MenuRow::Range: next.range_step = next_range_step(current.range_step); break;
         case MenuRow::Alarm: next.settings.alarm_enabled = !current.settings.alarm_enabled; break;
         case MenuRow::Volume:
             next.settings.alarm_volume =
                 static_cast<uint8_t>((current.settings.alarm_volume + 1) % (kMaxAlarmVolume + 1));
             break;
-        case MenuRow::Range: next.range_nm = next_range_nm(current.range_nm); break;
-        case MenuRow::Units:
-            next.settings.units = current.settings.units == go::Units::Metric ? go::Units::Nautical
-                                                                              : go::Units::Metric;
-            break;
-        case MenuRow::Stealth: next.settings.stealth = !current.settings.stealth; break;
-        case MenuRow::Gyro: next.settings.gyro_enabled = !current.settings.gyro_enabled; break;
-        case MenuRow::AlignQnh: {
-            uint32_t aligned = 0;
-            if (!qnh_aligned_with_gnss(current, aligned) || aligned == current.qnh_pa)
-                return MenuAction::None;
-            next.qnh_pa = aligned;
-            break;
-        }
-        case MenuRow::QnhUp:
-        case MenuRow::QnhDown: {
-            const uint32_t stepped = step_qnh_pa(current.qnh_pa, row == MenuRow::QnhUp);
-            if (stepped == current.qnh_pa) return MenuAction::None;
-            next.qnh_pa = stepped;
-            break;
-        }
         default: leave(); return MenuAction::Leave;
     }
 
-    if (go::validate(next.settings) != Status::Ok || next.qnh_pa < kQnhMinPa ||
-        next.qnh_pa > kQnhMaxPa) {
+    if (go::validate(next.settings) != Status::Ok) {
         next = current;
         return MenuAction::None;
     }

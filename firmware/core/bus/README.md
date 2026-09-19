@@ -23,7 +23,7 @@ The groups are subjects, not owners. A reader wants every barometric fact in one
 | `air` | `traffic` |
 | `power` | `power` |
 | `flight` | `ownship` |
-| `baro` | `ownship`, except `baro.qnh_pa`, which the pilot sets in the six-pack's menu and `screen` writes |
+| `baro` | `ownship` |
 | `slip` | `ownship` |
 | `imu` | the board, which owns the sensor hub the ball comes from and is the only code that can see where its bring-up stopped |
 | `alarm_level` | `alarm` |

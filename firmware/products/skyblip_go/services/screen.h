@@ -54,8 +54,8 @@ class ScreenService : public runtime::Service {
     void settle_park(uint32_t now_ms);
     void park_for_install();
     void park_for_stow();
-    void set_range_nm(int32_t nm) {
-        range_nm_ = nm;
+    void set_range_step(int step) {
+        range_step_ = clamped_range_step(step);
         dirty_ = true;
     }
 
@@ -66,7 +66,7 @@ class ScreenService : public runtime::Service {
     Mode mode() const { return mode_; }
     comms::Pending prompt() const { return prompt_; }
     const MenuEditor& editor() const { return editor_; }
-    int32_t range_nm() const { return range_nm_; }
+    int range_step() const { return range_step_; }
     bool backlight() const { return backlight_; }
     bool powered() const { return powered_; }
     bool parking() const { return park_ != ParkStep::None; }
@@ -109,6 +109,11 @@ class ScreenService : public runtime::Service {
                (context_.state.own.fix_valid || context_.state.baro.active);
     }
 
+    bool showing_sky() const {
+        return powered_ && mode_ == Mode::Page && page_ == Page::Sats &&
+               ports::has(context_.roles.capabilities, ports::Capability::Display);
+    }
+
     bool alarm_takes_glass() const { return context_.state.alarm_live >= kAlarmTakesGlass; }
 
     bool alarm_stands() const { return context_.state.alarm_live != traffic::Level::None; }
@@ -148,7 +153,7 @@ class ScreenService : public runtime::Service {
     traffic::RangeRow nearby_rows_[kNearbyRows]{};
     Page page_{Page::Radar};
     Mode mode_{Mode::Page};
-    int32_t range_nm_{kDefaultRangeNm};
+    int range_step_{kDefaultRangeStep};
     uint32_t last_tick_ms_{0};
     uint32_t last_render_ms_{0};
     uint32_t last_present_ms_{0};

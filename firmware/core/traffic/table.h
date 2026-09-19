@@ -28,7 +28,6 @@ struct Target {
     bool used{false};
 };
 
-constexpr uint32_t kTurnWindowMs = 1000;
 constexpr uint32_t kTurnGapMs = 3000;
 
 // How long a first-hand reception keeps a target to itself before a ground

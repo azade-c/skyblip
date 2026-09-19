@@ -16,13 +16,6 @@ struct Acceleration {
     uint32_t at_ms{0};
 };
 
-struct AngularRate {
-    int16_t x_cdps{0};
-    int16_t y_cdps{0};
-    int16_t z_cdps{0};
-    uint32_t at_ms{0};
-};
-
 class Bhi260 {
    public:
     static constexpr uint8_t kAddress = 0x28;
@@ -30,7 +23,6 @@ class Bhi260 {
     static constexpr uint8_t kProductId = 0x89;
 
     static constexpr int32_t kRangeG = 4;
-    static constexpr int32_t kRangeDps = 500;
     static constexpr uint32_t kSampleRateBits = 0x41480000;
     static constexpr uint32_t kSamplePeriodMs = 200;
     static constexpr uint16_t kUploadChunkBytes = 240;
@@ -60,15 +52,10 @@ class Bhi260 {
 
     Status probe();
     void load(ConstByteSpan image, uint32_t now_ms);
-    void request_gyroscope(bool wanted);
     void service(uint32_t now_ms);
     bool poll();
-    bool poll_rate();
 
     const Acceleration& acceleration() const { return sample_; }
-    const AngularRate& angular_rate() const { return rate_; }
-    bool gyroscope_fitted() const { return gyroscope_; }
-    bool gyroscope_running() const { return gyroscope_streaming_; }
     Stage stage() const { return stage_; }
     Status fault() const { return fault_; }
     const char* stage_text() const;
@@ -132,9 +119,7 @@ class Bhi260 {
     static constexpr uint16_t kFirmwareMagic = 0x662B;
     static constexpr uint8_t kErrorHostChannelEmpty = 0x77;
     static constexpr uint8_t kSensorAccelerometer = 0x04;
-    static constexpr uint8_t kSensorGyroscope = 0x0D;
     static constexpr uint8_t kAccelEventBytes = 7;
-    static constexpr uint8_t kGyroEventBytes = 7;
     static constexpr int32_t kCountsPerRange = 32768;
     static constexpr uint16_t kCommandHeaderBytes = 4;
 
@@ -161,8 +146,6 @@ class Bhi260 {
     void step_running(uint32_t now_ms);
 
     bool configure_sensor(uint8_t sensor, int32_t range);
-    bool stop_sensor(uint8_t sensor);
-    void follow_gyroscope_request();
     void read_hub_error();
     void drain_fifos(uint32_t now_ms);
     void drain_fifo(Fifo& fifo, uint32_t now_ms);
@@ -170,7 +153,6 @@ class Bhi260 {
     void note_meta_event(const uint8_t* event);
     static uint8_t event_bytes(uint8_t id);
     static int16_t to_milli_g(const uint8_t* le16);
-    static int16_t to_centi_dps(const uint8_t* le16);
 
     io::I2c& bus_;
     ConstByteSpan image_{};
@@ -191,12 +173,7 @@ class Bhi260 {
     uint8_t errored_sensor_{0};
     uint16_t kernel_version_{0};
     Acceleration sample_{};
-    AngularRate rate_{};
-    bool gyroscope_{false};
-    bool gyroscope_wanted_{false};
-    bool gyroscope_streaming_{false};
     bool fresh_{false};
-    bool fresh_rate_{false};
     uint8_t frame_[1 + kCommandHeaderBytes + kUploadChunkBytes]{};
     Fifo wakeup_{kRegFifoWakeup};
     Fifo non_wakeup_{kRegFifoNonWakeup};

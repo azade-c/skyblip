@@ -1,7 +1,6 @@
 // The menu behind each page: which row is focused, what the pad moves and what the button changes.
 #include <initializer_list>
 
-#include "core/flight/atmosphere.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/pages/menu.h"
@@ -30,7 +29,7 @@ bool reads_at(const Glass& fb, int x, int y, const char* text, bool ink) {
     return true;
 }
 
-int line_of(Page page, MenuRow row) { return menu_row_line(menu_for(page), row); }
+int line_of(Page page, MenuRow row) { return menu_row_index(menu_for(page), row); }
 
 bool row_label_reads(const Glass& fb, Page page, MenuRow row, bool focused) {
     return reads_at(fb, kMenuLeftX, menu_line_text_y(line_of(page, row)), menu_row_label(row),
@@ -45,7 +44,6 @@ bool row_value_reads(const Glass& fb, Page page, MenuRow row, const char* value,
 MenuValues fresh() {
     MenuValues v;
     v.settings = go::defaults(0x3A7F2C);
-    v.qnh_pa = flight::kIsaSeaLevelPa;
     return v;
 }
 
@@ -109,15 +107,12 @@ TEST_CASE("radar menu: every row names what it holds, and the focused one is rev
 
     const Glass fb = page_of(Page::Radar, values, MenuRow::Volume);
 
-    CHECK(row_label_reads(fb, Page::Radar, MenuRow::Identity, false));
-    CHECK(row_value_reads(fb, Page::Radar, MenuRow::Identity, "3A7F2C", false));
     CHECK(row_label_reads(fb, Page::Radar, MenuRow::AircraftType, false));
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::AircraftType, "GLIDER", false));
     CHECK(row_label_reads(fb, Page::Radar, MenuRow::Alarm, false));
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::Alarm, "ON", false));
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::Range, "4 NM", false));
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::Units, "NAUTICAL", false));
-    CHECK(row_value_reads(fb, Page::Radar, MenuRow::Stealth, "OFF", false));
 
     // The focused row is white ink on a filled bar, told apart by shape before a word is read.
     CHECK(row_label_reads(fb, Page::Radar, MenuRow::Volume, true));
@@ -132,14 +127,15 @@ TEST_CASE("radar menu: every row names what it holds, and the focused one is rev
     CHECK(bars == 1);
     CHECK(reads_at(fb, kMenuLeftX - 2, kMenuHintY, kMenuHintText, true));
 
-    // And nothing falls off the bottom of a 200 pixel panel.
+    // And nothing falls off a 200 pixel panel, on either axis.
     CHECK(menu_line_top(menu.n - 1) + kMenuRowHeight <= kMenuHintY);
     CHECK(kMenuHintY + 7 < Glass::kH);
+    CHECK(kMenuLeftX - 2 + length(kMenuHintText) * kMenuCellW <= Glass::kW);
 }
 
 TEST_CASE("menu: each menu is titled with the page it belongs to") {
     const MenuValues values = fresh();
-    for (Page page : {Page::Radar, Page::Nearby, Page::SixPack}) {
+    for (Page page : {Page::Radar, Page::Nearby}) {
         const Glass fb = page_of(page, values, menu_for(page).rows[0]);
         Glass expected;
         expected.clear(true);
@@ -168,7 +164,8 @@ TEST_CASE("nearby menu: every row opens a page rather than changing a value") {
 }
 
 TEST_CASE("menu: a page with nothing behind it opens no menu at all") {
-    for (Page page : {Page::Status, Page::Sats, Page::RadioLog, Page::SelfTest})
+    for (Page page :
+         {Page::SixPack, Page::GMeter, Page::Status, Page::Sats, Page::RadioLog, Page::SelfTest})
         CHECK(menu_for(page).n == 0);
 
     MenuEditor editor;
@@ -179,7 +176,7 @@ TEST_CASE("menu: a page with nothing behind it opens no menu at all") {
 TEST_CASE("menu: a category the phone stored but the page does not name is still shown") {
     MenuValues values = fresh();
     values.settings.aircraft_type = 13;
-    const Glass fb = page_of(Page::Radar, values, MenuRow::Identity);
+    const Glass fb = page_of(Page::Radar, values, MenuRow::Alarm);
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::AircraftType, "TYPE 13", false));
 
     // The first change moves it into the list the page can name.
@@ -189,17 +186,19 @@ TEST_CASE("menu: a category the phone stored but the page does not name is still
 TEST_CASE("menu: the UAV categories are not a choice a pilot can make on the panel") {
     MenuValues values = fresh();
     values.settings.aircraft_type = 11;
-    const Glass fb = page_of(Page::Radar, values, MenuRow::Identity);
+    const Glass fb = page_of(Page::Radar, values, MenuRow::Alarm);
     CHECK(row_value_reads(fb, Page::Radar, MenuRow::AircraftType, "TYPE 11", false));
     CHECK(next_aircraft_type(11) == 0);
 }
 
 TEST_CASE("menu editor: the pad moves down a row, the button changes the row it is on") {
     Bench bench;
-    CHECK(bench.editor.focus() == MenuRow::Identity);
+    CHECK(bench.editor.focus() == MenuRow::AircraftType);
 
     CHECK(bench.move() == MenuAction::Moved);
-    CHECK(bench.editor.focus() == MenuRow::AircraftType);
+    CHECK(bench.editor.focus() == MenuRow::Units);
+    CHECK(bench.move() == MenuAction::Moved);
+    CHECK(bench.editor.focus() == MenuRow::Range);
     CHECK(bench.move() == MenuAction::Moved);
     CHECK(bench.editor.focus() == MenuRow::Alarm);
 
@@ -214,23 +213,13 @@ TEST_CASE("menu editor: the pad moves down a row, the button changes the row it 
     CHECK(bench.values.settings.alarm_enabled);
 }
 
-// A pilot who lands here and presses out of impatience presses on the identity row.
-TEST_CASE("menu editor: the row the radar menu opens on cannot change anything") {
-    Bench bench;
-    const go::Settings before = bench.values.settings;
-    CHECK(bench.change() == MenuAction::None);
-    CHECK(bench.editor.focus() == MenuRow::Identity);
-    CHECK(before.aircraft_type == bench.values.settings.aircraft_type);
-    CHECK(before.alarm_volume == bench.values.settings.alarm_volume);
-}
-
 TEST_CASE("menu editor: the focus only ever advances, and walks out of the menu") {
     Bench bench;
     for (int i = 1; i < bench.rows(); i++) {
         CHECK(bench.move() == MenuAction::Moved);
         CHECK(bench.editor.focus() == menu_for(Page::Radar).rows[i]);
     }
-    REQUIRE(bench.editor.focus() == MenuRow::Stealth);
+    REQUIRE(bench.editor.focus() == MenuRow::Volume);
 
     // One more tap leaves: a thumb that only knows the pad cannot be trapped here.
     CHECK(bench.move() == MenuAction::Leave);
@@ -238,7 +227,7 @@ TEST_CASE("menu editor: the focus only ever advances, and walks out of the menu"
 
     // The next entry starts at the top again, so the focus cycle is closed.
     bench.editor.enter(Page::Radar, bench.t);
-    CHECK(bench.editor.focus() == MenuRow::Identity);
+    CHECK(bench.editor.focus() == MenuRow::AircraftType);
     CHECK(bench.editor.active());
 }
 
@@ -246,15 +235,14 @@ TEST_CASE("menu editor: moving the focus over a row is not editing it") {
     // The abandoned edit: nothing is staged, so nothing is half applied.
     Bench bench;
     const go::Settings before = bench.values.settings;
-    const uint32_t qnh_before = bench.values.qnh_pa;
+    const int range_before = bench.values.range_step;
     for (int i = 0; i < bench.rows(); i++) bench.move();
     CHECK_FALSE(bench.editor.active());
     CHECK(before.aircraft_type == bench.values.settings.aircraft_type);
     CHECK(before.alarm_enabled == bench.values.settings.alarm_enabled);
     CHECK(before.alarm_volume == bench.values.settings.alarm_volume);
     CHECK(before.units == bench.values.settings.units);
-    CHECK(before.stealth == bench.values.settings.stealth);
-    CHECK(qnh_before == bench.values.qnh_pa);
+    CHECK(range_before == bench.values.range_step);
 }
 
 TEST_CASE("menu editor: aircraft type walks the categories that name an aircraft") {
@@ -303,25 +291,42 @@ TEST_CASE("menu editor: the volume a pilot can hear, and it stays inside what is
 TEST_CASE("menu editor: the ring is a range a thumb can step, and the cycle closes") {
     Bench bench;
     bench.focus_on(MenuRow::Range);
-    REQUIRE(bench.values.range_nm == kDefaultRangeNm);
+    REQUIRE(bench.values.range_step == kDefaultRangeStep);
+    REQUIRE(range_value(bench.values.range_step, Units::Nautical) == 4);
 
     CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.range_nm == 8);
+    CHECK(range_value(bench.values.range_step, Units::Nautical) == 8);
     CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.range_nm == 1);
+    CHECK(range_value(bench.values.range_step, Units::Nautical) == 1);
 
     // Every step is a range the radar can label, and the cycle comes back round.
     for (int i = 0; i < kRangeStepCount; i++) {
-        bool on_the_cycle = false;
-        for (int j = 0; j < kRangeStepCount; j++)
-            on_the_cycle = on_the_cycle || bench.values.range_nm == kRangeStepsNm[j];
-        CHECK(on_the_cycle);
+        CHECK(bench.values.range_step >= 0);
+        CHECK(bench.values.range_step < kRangeStepCount);
         bench.change();
     }
-    CHECK(bench.values.range_nm == 1);
+    CHECK(range_value(bench.values.range_step, Units::Nautical) == 1);
 
-    // A range a companion app invented is not on the cycle, and the first step comes back to it.
-    CHECK(next_range_nm(37) == kDefaultRangeNm);
+    // A step a companion app invented is not on the cycle, and the first press comes back to it.
+    CHECK(next_range_step(37) == (kDefaultRangeStep + 1) % kRangeStepCount);
+}
+
+// The ring is picked in the unit it is read in, so switching units keeps the step a pilot chose.
+TEST_CASE("menu editor: a metric pilot steps whole kilometres, not a converted mile") {
+    Bench bench;
+    bench.values.settings.units = Units::Metric;
+    bench.focus_on(MenuRow::Range);
+
+    const Glass fb = page_of(Page::Radar, bench.values, MenuRow::Range);
+    CHECK(row_value_reads(fb, Page::Radar, MenuRow::Range, "8 KM", true));
+
+    CHECK(bench.change() == MenuAction::Changed);
+    CHECK(range_value(bench.values.range_step, Units::Metric) == 15);
+    CHECK(range_metres(bench.values.range_step, Units::Metric) == 15000);
+
+    // The same step read in the other unit is the ring it was drawn from.
+    CHECK(range_value(bench.values.range_step, Units::Nautical) == 8);
+    CHECK(range_metres(bench.values.range_step, Units::Nautical) == 8 * kMetresPerNm);
 }
 
 TEST_CASE("menu editor: a value that would not validate is never handed back") {
@@ -335,88 +340,6 @@ TEST_CASE("menu editor: a value that would not validate is never handed back") {
     CHECK(bench.change() == MenuAction::None);
     CHECK(bench.values.settings.alarm_volume == volume);
     CHECK(bench.values.settings.aircraft_type == 200);
-}
-
-// The row exists so the milliamp the gyroscope costs is a pilot's choice, and it ships unspent.
-TEST_CASE("six-pack menu: the gyroscope reads off until a press turns it on") {
-    Bench bench(Page::SixPack);
-    REQUIRE_FALSE(bench.values.settings.gyro_enabled);
-
-    const Glass off = page_of(Page::SixPack, bench.values, MenuRow::Gyro);
-    CHECK(row_label_reads(off, Page::SixPack, MenuRow::Gyro, true));
-    CHECK(row_value_reads(off, Page::SixPack, MenuRow::Gyro, "OFF", true));
-
-    bench.focus_on(MenuRow::Gyro);
-    CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.settings.gyro_enabled);
-
-    const Glass on = page_of(Page::SixPack, bench.values, MenuRow::Gyro);
-    CHECK(row_value_reads(on, Page::SixPack, MenuRow::Gyro, "ON", true));
-
-    CHECK(bench.change() == MenuAction::Changed);
-    CHECK_FALSE(bench.values.settings.gyro_enabled);
-}
-
-TEST_CASE("six-pack menu: the subscale steps in whole hectopascals and stops at the ends") {
-    Bench bench(Page::SixPack);
-    bench.focus_on(MenuRow::QnhUp);
-
-    // 1013.25 hPa is not a whole one: the first step lands on what the panel showed, plus one.
-    REQUIRE(bench.values.qnh_pa == flight::kIsaSeaLevelPa);
-    CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.qnh_pa == 101400);
-    bench.change();
-    CHECK(bench.values.qnh_pa == 101500);
-
-    // Up to the end of the altimeter window and no further, rather than wrapping.
-    for (int i = 0; i < 200; i++) bench.change();
-    CHECK(bench.values.qnh_pa == kQnhMaxPa);
-    CHECK(bench.change() == MenuAction::None);
-
-    bench.editor.enter(Page::SixPack, bench.t);
-    bench.focus_on(MenuRow::QnhDown);
-    CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.qnh_pa == kQnhMaxPa - kQnhStepPa);
-    for (int i = 0; i < 200; i++) bench.change();
-    CHECK(bench.values.qnh_pa == kQnhMinPa);
-    CHECK(bench.change() == MenuAction::None);
-}
-
-TEST_CASE("six-pack menu: the step marks share one line with the setting between them") {
-    MenuValues values = fresh();
-    const Glass fb = page_of(Page::SixPack, values, MenuRow::QnhDown);
-
-    CHECK(line_of(Page::SixPack, MenuRow::QnhDown) == line_of(Page::SixPack, MenuRow::QnhUp));
-    const int y = menu_line_text_y(line_of(Page::SixPack, MenuRow::QnhUp));
-    CHECK(reads_at(fb, kQnhValueX, y, "1013 HPA", true));
-    CHECK(reads_at(fb, kQnhPlusX + (kQnhStepBoxW - kMenuCellW) / 2, y, "+", true));
-
-    // The focused mark is the one reversed out.
-    CHECK(reads_at(fb, kQnhMinusX + (kQnhStepBoxW - kMenuCellW) / 2, y, "-", false));
-}
-
-TEST_CASE("six-pack menu: the altimeter is set from the fix, or it says it cannot be") {
-    MenuValues values = fresh();
-    // 1000 m of pressure altitude under a fix at 1000 m is the standard setting, to the hPa.
-    values.pressure_pa = 89875;
-    values.gnss_alt_cm = 100000;
-    values.alignable = true;
-
-    uint32_t aligned = 0;
-    REQUIRE(qnh_aligned_with_gnss(values, aligned));
-    CHECK(aligned == 101300);
-
-    Bench bench(Page::SixPack);
-    bench.values = values;
-    bench.focus_on(MenuRow::AlignQnh);
-    CHECK(bench.change() == MenuAction::Changed);
-    CHECK(bench.values.qnh_pa == aligned);
-
-    // With no barometer or no fix there is nothing to align against, and the row says so.
-    values.alignable = false;
-    CHECK_FALSE(qnh_aligned_with_gnss(values, aligned));
-    const Glass fb = page_of(Page::SixPack, values, MenuRow::AlignQnh);
-    CHECK(row_value_reads(fb, Page::SixPack, MenuRow::AlignQnh, "---", true));
 }
 
 TEST_CASE("menu editor: a menu nobody is pressing hands the traffic picture back") {

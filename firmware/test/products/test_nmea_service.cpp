@@ -114,8 +114,7 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     transmitter.speed_mm_s = 40000;
 
     protocol::AdslPacket packet;
-    protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4,
-                       /*stealth=*/false);
+    protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4);
     packet.scramble();
     packet.set_crc();
 
@@ -323,15 +322,12 @@ TEST_CASE("nmea: more targets than one pass carries are all refreshed inside the
               (static_cast<int>(go::NmeaService::kTargetRefreshBoundMs / 1000) + 1));
 }
 
-TEST_CASE(
-    "nmea: $PGRMZ carries pressure altitude on the standard datum, not the pilot's subscale") {
+TEST_CASE("nmea: $PGRMZ carries pressure altitude on the standard datum") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
-    // The air the aircraft is actually flying through, and a subscale nowhere
-    // near standard, set on the device the way the settings page sets it.
+    // The air the aircraft is actually flying through, nowhere near standard.
     rig.platform.baro().chip.set_pressure_mpa(90000000);
-    rig.state().baro.qnh_pa = 98000;
     fly(rig, t, 3);
     rig.raise_link();
     fly(rig, t, 2);
@@ -348,15 +344,11 @@ TEST_CASE(
 
     const uint32_t pressure_pa = rig.state().baro.pressure_mpa / 1000;
     const int32_t standard_cm = flight::pressure_to_alt_cm(pressure_pa);
-    const int32_t on_subscale_cm = flight::alt_cm_on_setting(pressure_pa, rig.state().baro.qnh_pa);
     const int32_t sent_cm = static_cast<int32_t>(std::stoi(f[1])) * 3048 / 100;
     // What an EFB does with this figure is apply its own QNH, so the figure has
-    // to be the datum-free one: pressure altitude on 1013.25. Within a foot of
-    // the standard altitude, and hundreds of metres from the altitude the panel
-    // shows the pilot on the subscale he set.
+    // to be the datum-free one: pressure altitude on 1013.25, within a foot.
     CHECK(standard_cm > 90000);
     CHECK(std::abs(sent_cm - standard_cm) < 40);
-    CHECK(std::abs(standard_cm - on_subscale_cm) > 20000);
 }
 
 // G. Battery state reaches the panel and stops there. $LK8EX1 is the one

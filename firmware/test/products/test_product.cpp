@@ -99,73 +99,6 @@ TEST_CASE("product: barometric pressure drives vertical speed") {
     CHECK(rig.state().own.climb_mm_s == doctest::Approx(5000).epsilon(0.05));
 }
 
-TEST_CASE("product: the barometer read against GNSS is the altimeter setting") {
-    Rig rig{kBaroByHand};
-    REQUIRE(rig.setup() == Status::Ok);
-
-    const uint32_t airmass_pa = 101900;
-    const int32_t alt_msl_m = 800;
-    // The pressure altitude of an aircraft 800 m above the sea, in air of 1019 hPa.
-    const int32_t on_std_cm = alt_msl_m * 100 + flight::pressure_to_alt_cm(airmass_pa);
-
-    uint32_t t = 0;
-    CHECK(rig.state().baro.derived_qnh_pa == 0);
-    for (int i = 0; i < 10; i++) {
-        rig.second(t, 25000, alt_msl_m);
-        rig.push_baro(on_std_cm, t);
-        rig.run(t, t);
-    }
-    CHECK((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
-}
-
-TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors apart") {
-    Rig rig{kBaroByHand};
-    REQUIRE(rig.setup() == Status::Ok);
-
-    const int32_t alt_msl_m = 800;
-    const int32_t on_std_cm = alt_msl_m * 100 + flight::pressure_to_alt_cm(101900);
-
-    uint32_t t = 0;
-    for (int i = 0; i < 10; i++) {
-        rig.second(t, 25000, alt_msl_m);
-        rig.push_baro(on_std_cm, t);
-        rig.run(t, t);
-    }
-    REQUIRE((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
-
-    // The barometer diving 5 m/s with the fix standing still is time skew, not weather.
-    for (int i = 1; i <= 10; i++) {
-        rig.second(t, 25000, alt_msl_m);
-        rig.push_baro(on_std_cm - i * 500, t);
-        rig.run(t, t);
-    }
-    CHECK((rig.state().baro.derived_qnh_pa + 50) / 100 == 1019);
-}
-
-TEST_CASE("product: with the fix gone there is no setting to read, not a stale one") {
-    Rig rig{kBaroByHand};
-    REQUIRE(rig.setup() == Status::Ok);
-
-    const int32_t alt_msl_m = 800;
-    const int32_t on_std_cm = alt_msl_m * 100 + flight::pressure_to_alt_cm(101900);
-
-    uint32_t t = 0;
-    for (int i = 0; i < 10; i++) {
-        rig.second(t, 25000, alt_msl_m);
-        rig.push_baro(on_std_cm, t);
-        rig.run(t, t);
-    }
-    REQUIRE(rig.state().baro.derived_qnh_pa != 0);
-
-    gnss::GnssSolution lost{};
-    rig.product.bus().gnss.push(lost);
-    rig.run(t, t + 100);
-    t += 100;
-    rig.push_baro(on_std_cm, t);
-    rig.run(t, t);
-    CHECK(rig.state().baro.derived_qnh_pa == 0);
-}
-
 TEST_CASE("product: a baro sample inside the window is ignored, not extrapolated") {
     Rig rig{kBaroByHand};
     REQUIRE(rig.setup() == Status::Ok);
@@ -735,7 +668,7 @@ TEST_CASE("product: with no fix the bus says how far the receiver has got") {
     gnss::GnssSolution looking{};
     rig.product.bus().gnss.push(looking);
     rig.run(150, 200);
-    CHECK(rig.state().gnss.stage == gnss::Stage::Search);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Blind);
 
     // A date is read off a satellite, so it is the first evidence of one.
     gnss::GnssSolution dated{};
@@ -743,7 +676,7 @@ TEST_CASE("product: with no fix the bus says how far the receiver has got") {
     dated.utc = Rig::kUtcBase;
     rig.product.bus().gnss.push(dated);
     rig.run(250, 300);
-    CHECK(rig.state().gnss.stage == gnss::Stage::Time);
+    CHECK(rig.state().gnss.stage == gnss::Stage::Solving);
     CHECK(rig.state().gnss.stage_s == 0u);
 
     rig.push_timed_fix(0, 500);

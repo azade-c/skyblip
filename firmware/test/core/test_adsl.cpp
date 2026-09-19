@@ -255,14 +255,14 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
 
     // No fix yet: altitude and ground speed are unavailable, not zero.
     AdslPacket p{};
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(p.alt_invalid());
     CHECK_FALSE(p.has_speed());
     CHECK_FALSE(p.has_climb());  // climb_valid is false too
 
     // Fix, but no vertical rate derived yet: only the climb stays unavailable.
     own.fix_valid = true;
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK_FALSE(p.alt_invalid());
     CHECK(p.alt_m() == 1500);
     CHECK(p.has_speed());
@@ -270,45 +270,9 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
 
     // Everything known.
     own.climb_valid = true;
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(p.has_climb());
     CHECK(p.climb_e8() == 16);
-}
-
-// B4. Stealth is a real setting in this domain and ADS-L has no bit for it:
-// SoftRF forces the transmitted vertical speed to zero and sets the FLARM
-// stealth bit (oss/SoftRF-lyusupov .../src/protocol/radio/Legacy.cpp:300,
-// 308-309). Zero is a lie - it claims level flight - so ours says "unavailable"
-// with the code G.1.9 provides, and drops the address table to an anonymous one.
-TEST_CASE("adsl: stealth withholds the climb rate and claims no registered identity") {
-    skyblip::model::OwnState own{};
-    own.fix_valid = true;
-    own.climb_valid = true;
-    own.lat_1e7 = 485000000;
-    own.lon_1e7 = 85000000;
-    own.alt_mm = 1500000;
-    own.speed_mm_s = 50000;
-    own.climb_mm_s = 3000;
-    own.hdop_e2 = 90;
-
-    AdslPacket open{};
-    from_own(open, own, 0x3C0A11, 5, 4, /*stealth=*/false);
-    CHECK(open.has_climb());
-    CHECK(open.climb_e8() == 24);
-    CHECK(int(open.addr_table()) == 5);
-    CHECK(open.address() == 0x3C0A11u);
-
-    AdslPacket hidden{};
-    from_own(hidden, own, 0x3C0A11, 5, 4, /*stealth=*/true);
-    CHECK_FALSE(hidden.has_climb());
-    CHECK(int(hidden.addr_table()) == 0);
-
-    // Everything a collision alarm needs is still transmitted: stealth hides the
-    // climb and the registry, never the aircraft.
-    CHECK(hidden.alt_m() == 1500);
-    CHECK(hidden.has_speed());
-    CHECK(hidden.lat_1e7() == open.lat_1e7());
-    CHECK(int(hidden.HorizAccuracy) == int(open.HorizAccuracy));
 }
 
 // F4. The address goes on the air here, and the shell hands us the chip id
@@ -318,17 +282,17 @@ TEST_CASE("adsl: a self-minted address is moved off a crowded prefix on its way 
     own.fix_valid = true;
 
     AdslPacket anonymous{};
-    from_own(anonymous, own, 0xDD1234, 0, 4, false);
+    from_own(anonymous, own, 0xDD1234, 0, 4);
     CHECK(anonymous.address() == 0xED1234u);
 
     // An address that was issued to the aircraft is transmitted as issued,
     // whatever prefix it carries: it is not ours to move.
     AdslPacket icao{};
-    from_own(icao, own, 0xDD1234, 5, 4, false);
+    from_own(icao, own, 0xDD1234, 5, 4);
     CHECK(icao.address() == 0xDD1234u);
 
     AdslPacket flarm{};
-    from_own(flarm, own, 0x111111, 6, 4, false);
+    from_own(flarm, own, 0x111111, 6, 4);
     CHECK(flarm.address() == 0x111111u);
 }
 
@@ -346,7 +310,7 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     own.vdop_e2 = 150;
 
     AdslPacket p{};
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(int(p.SourceIntegrity) == 0);
     CHECK(int(p.NavigIntegrity) == 0);
     CHECK(int(p.HorizAccuracy) == 0);
@@ -355,7 +319,7 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
 
     // HDOP 0.9 with a fix: 1.8 m horizontal, 2.7 m vertical.
     own.fix_valid = true;
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(int(p.SourceIntegrity) == AdslPacket::kSourceIntegrity1e3);
     CHECK(int(p.DesignAssurance) == AdslPacket::kDesignAssuranceNone);
     CHECK(int(p.NavigIntegrity) == 12);  // Rc < 7.5 m
@@ -366,13 +330,13 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     // A 2D solution reports no VDOP, and a height nothing measured the quality
     // of gets no claim at all: the horizontal half of the block still stands.
     own.vdop_e2 = 0;
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(int(p.HorizAccuracy) == 7);
     CHECK(int(p.VertAccuracy) == 0);
 
     // A receiver that reports no HDOP is not a receiver reporting a good one.
     own.hdop_e2 = 0;
-    from_own(p, own, 0xABCDEF, 6, 4, false);
+    from_own(p, own, 0xABCDEF, 6, 4);
     CHECK(int(p.SourceIntegrity) == 0);
     CHECK(int(p.HorizAccuracy) == 0);
 }
@@ -424,14 +388,14 @@ TEST_CASE("adsl: a degrading HDOP walks the accuracy claim down") {
 
     own.hdop_e2 = 200;  // 4.0 m horizontal
     own.vdop_e2 = 200;  // 6.0 m vertical
-    from_own(p, own, 1, 6, 4, false);
+    from_own(p, own, 1, 6, 4);
     CHECK(int(p.HorizAccuracy) == 6);
     CHECK(int(p.VertAccuracy) == 3);
     CHECK(int(p.VelAccuracy) == 2);
 
     own.hdop_e2 = 800;  // 16 m horizontal
     own.vdop_e2 = 800;  // 24 m vertical
-    from_own(p, own, 1, 6, 4, false);
+    from_own(p, own, 1, 6, 4);
     CHECK(int(p.HorizAccuracy) == 5);
     CHECK(int(p.VertAccuracy) == 2);
     CHECK(int(p.VelAccuracy) == 1);
@@ -439,13 +403,13 @@ TEST_CASE("adsl: a degrading HDOP walks the accuracy claim down") {
 
     own.hdop_e2 = 9999;  // 200 m horizontal
     own.vdop_e2 = 9999;  // 300 m vertical
-    from_own(p, own, 1, 6, 4, false);
+    from_own(p, own, 1, 6, 4);
     CHECK(int(p.HorizAccuracy) == 2);  // 0.1 to 0.3 NM
     CHECK(int(p.VertAccuracy) == 0);   // beyond 150 m: no claim at all
     CHECK(int(p.VelAccuracy) == 0);
 
     own.hdop_e2 = 60000;  // 1200 m: beyond 0.5 NM, the same code as no fix
-    from_own(p, own, 1, 6, 4, false);
+    from_own(p, own, 1, 6, 4);
     CHECK(int(p.HorizAccuracy) == 0);
     CHECK(int(p.NavigIntegrity) == 6);  // Rc 0.6 to 1 NM, still a bounded claim
 }

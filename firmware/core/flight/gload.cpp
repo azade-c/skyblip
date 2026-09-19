@@ -33,6 +33,6 @@ void GMeter::reset() {
     least_ = now_;
 }
 
-bool GMeter::valid(uint32_t now_ms) const { return seen_ && now_ms - last_ms_ < kGLoadStaleMs; }
+bool GMeter::valid(uint32_t now_ms) const { return seen_ && now_ms - last_ms_ < kIndicatedStaleMs; }
 
 }  // namespace skyblip::flight

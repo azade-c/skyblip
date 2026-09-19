@@ -101,7 +101,6 @@ class Product {
     void step(uint32_t now_ms) {
         if (!flyable_ && !shutdown_.going_down()) guard_cell(now_ms);
         if (flyable_ && !shutdown_.going_down()) {
-            board_.request_gyroscope(settings_.gyro_enabled);
             board_.poll(state_, now_ms);
             // Polled before the services run, so the pass that may write flash is
             // the pass that already knows the rail is going. One atomic read on

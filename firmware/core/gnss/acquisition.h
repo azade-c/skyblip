@@ -7,7 +7,7 @@
 
 namespace skyblip::gnss {
 
-enum class Stage : uint8_t { Silent, Search, Time, Fixed };
+enum class Stage : uint8_t { Silent, Blind, Solving, Fixed };
 
 const char* stage_name(Stage stage);
 

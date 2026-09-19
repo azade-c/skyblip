@@ -31,14 +31,14 @@ TEST_CASE("settings: defaults are valid") {
 TEST_CASE("settings: blob round-trips through version+crc framing") {
     Settings s = defaults(0xABCDEF);
     s.alarm_volume = 4;
-    s.stealth = true;
+    s.units = Units::Metric;
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
     Settings out;
     CHECK(from_blob(blob, blob_size(), out) == Status::Ok);
     CHECK(out.device_addr == 0xABCDEFu);
     CHECK(int(out.alarm_volume) == 4);
-    CHECK(out.stealth);
+    CHECK(out.units == Units::Metric);
 }
 
 TEST_CASE("settings: a corrupted blob is detected (CRC), caller falls back") {
@@ -72,12 +72,12 @@ TEST_CASE("settings: to_json/apply_json round-trip of a patch") {
     CHECK(r.get_int("aircraft_type", v));
     CHECK(v == kAircraftTypeLight);
 
-    // apply a patch: change type + alarm volume + stealth
-    const char* patch = "{\"aircraft_type\":4,\"alarm_volume\":5,\"stealth\":true}";
+    // apply a patch: change type + alarm volume + units
+    const char* patch = "{\"aircraft_type\":4,\"alarm_volume\":5,\"units\":1}";
     CHECK(apply_json(s, patch, static_cast<int>(strlen(patch))) == Status::Ok);
     CHECK(int(s.aircraft_type) == 4);
     CHECK(int(s.alarm_volume) == 5);
-    CHECK(s.stealth);
+    CHECK(s.units == Units::Metric);
 }
 
 TEST_CASE("settings: apply_json rejects out-of-range atomically") {
@@ -198,7 +198,6 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
-    CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     CHECK(int(out.version) == int(Settings::kCurrentVersion));
@@ -210,7 +209,6 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
     Settings again;
     CHECK(from_blob(rewritten, blob_size(), again) == Status::Ok);
     CHECK(std::string(again.callsign) == "D-KXYZ");
-    CHECK(again.stealth);
 }
 
 // H. The per-unit gauge trim: one signed millivolt offset, set once on the line
@@ -315,7 +313,6 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
-    CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the trim existed was never
@@ -327,12 +324,12 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
     CHECK(int(rewritten[0]) == int(kBlobVersion));
-    CHECK(int(kBlobVersion) == 6);
+    CHECK(int(kBlobVersion) == 7);
 }
 
-// L, the migration: a unit that stored no choice about the gyroscope comes back on the default.
-TEST_CASE("settings: a blob written by version-5 firmware comes back with the gyroscope off") {
-    struct V5 {
+// L, the migration: the two settings that left take their stored bytes with them.
+TEST_CASE("settings: a blob written by version-6 firmware comes back without stealth or gyro") {
+    struct V6 {
         uint8_t version{1};
         uint32_t device_addr{0};
         int16_t battery_offset_mv{0};
@@ -342,11 +339,12 @@ TEST_CASE("settings: a blob written by version-5 firmware comes back with the gy
         bool alarm_enabled{true};
         uint8_t alarm_volume{3};
         bool stealth{false};
+        bool gyro_enabled{false};
         Units units{Units::Metric};
         char callsign[10]{0};
     };
 
-    V5 old{};
+    V6 old{};
     old.device_addr = 0x5B7E57;
     old.battery_offset_mv = -120;
     old.freq_trim_e1_ppm = -37;
@@ -355,17 +353,18 @@ TEST_CASE("settings: a blob written by version-5 firmware comes back with the gy
     old.alarm_enabled = false;
     old.alarm_volume = 5;
     old.stealth = true;
+    old.gyro_enabled = true;
     old.units = Units::Nautical;
     std::memcpy(old.callsign, "D-KXYZ", 7);
 
     uint8_t blob[128] = {0};
-    blob[0] = 5;
-    std::memcpy(blob + 1, &old, sizeof(V5));
-    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V5));
-    for (int i = 0; i < 4; i++) blob[1 + sizeof(V5) + i] = static_cast<uint8_t>(crc >> (8 * i));
+    blob[0] = 6;
+    std::memcpy(blob + 1, &old, sizeof(V6));
+    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V6));
+    for (int i = 0; i < 4; i++) blob[1 + sizeof(V6) + i] = static_cast<uint8_t>(crc >> (8 * i));
 
     Settings out;
-    REQUIRE(from_blob(blob, 1 + sizeof(V5) + 4, out) == Status::Ok);
+    REQUIRE(from_blob(blob, 1 + sizeof(V6) + 4, out) == Status::Ok);
     CHECK(out.device_addr == 0x5B7E57u);
     CHECK(int(out.battery_offset_mv) == -120);
     CHECK(int(out.freq_trim_e1_ppm) == -37);
@@ -373,35 +372,17 @@ TEST_CASE("settings: a blob written by version-5 firmware comes back with the gy
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
-    CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
-    CHECK_FALSE(out.gyro_enabled);
-}
 
-// M. The gyroscope is the one sensor with a power bill, so it ships off and says so on the glass.
-TEST_CASE("settings: the gyroscope ships off, survives the framing and is set over the link") {
-    Settings s = defaults(0x5B7E57);
-    CHECK_FALSE(s.gyro_enabled);
-
-    const char* on = "{\"gyro\":true}";
-    REQUIRE(apply_json(s, on, static_cast<int>(strlen(on))) == Status::Ok);
-    CHECK(s.gyro_enabled);
-
-    uint8_t blob[128] = {0};
-    to_blob(s, blob, sizeof(blob));
-    Settings out;
-    REQUIRE(from_blob(blob, blob_size(), out) == Status::Ok);
-    CHECK(out.gyro_enabled);
-
-    const char* off = "{\"gyro\":false}";
-    REQUIRE(apply_json(s, off, static_cast<int>(strlen(off))) == Status::Ok);
-    CHECK_FALSE(s.gyro_enabled);
-
-    // Write-only over the link: the "get" reply has nine bytes spare, "gyro":true is twelve.
-    char buf[256];
-    const int n = to_json(s, buf, sizeof(buf));
-    CHECK(std::string(buf, static_cast<size_t>(n)).find("gyro") == std::string::npos);
+    // The layout it writes back is shorter by the two bytes those settings held.
+    uint8_t rewritten[128] = {0};
+    to_blob(out, rewritten, sizeof(rewritten));
+    CHECK(int(rewritten[0]) == int(kBlobVersion));
+    CHECK(blob_size() < 1 + sizeof(V6) + 4);
+    Settings again;
+    REQUIRE(from_blob(rewritten, blob_size(), again) == Status::Ok);
+    CHECK(std::string(again.callsign) == "D-KXYZ");
 }
 
 // J, the migration: a stored payload is routed by its version byte, never by its length.
@@ -420,7 +401,8 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
         uint8_t page_mask{0x0F};
         char callsign[10]{0};
     };
-    CHECK(sizeof(V3) != blob_size() - 5);
+    // Version 3 is the length the current payload is, so only the version byte parts them.
+    CHECK(sizeof(V3) == blob_size() - 5);
 
     V3 old{};
     old.device_addr = 0x5B7E57;
@@ -448,7 +430,6 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
-    CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
     // A unit that stored its settings before the radio trim existed was never
@@ -511,10 +492,8 @@ TEST_CASE("settings: a blob written by version-4 firmware comes back without its
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
-    CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
-    CHECK(blob_size() == 1 + sizeof(V4) + 4);
 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
@@ -583,7 +562,7 @@ TEST_CASE("settings: a blob from a version this firmware never wrote is refused"
     Settings s = defaults(0x5B7E57);
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
-    blob[0] = 7;
+    blob[0] = kBlobVersion + 1;
     Settings out;
     CHECK(from_blob(blob, blob_size(), out) == Status::Unsupported);
 }
@@ -601,9 +580,11 @@ TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
     // And the page mask went the same way when the pad's walk became three
     // pages the device may not hide.
     CHECK(json.find("page_mask") == std::string::npos);
-    // Kept, because each of these is read: the air (stealth), the panel
-    // (callsign, units), the annunciator (alarm, alarm_volume).
-    CHECK(json.find("stealth") != std::string::npos);
+    // So did the two the menu no longer offers: nothing branches on either.
+    CHECK(json.find("stealth") == std::string::npos);
+    CHECK(json.find("gyro") == std::string::npos);
+    // Kept, because each of these is read: the panel (callsign, units), the
+    // annunciator (alarm, alarm_volume).
     CHECK(json.find("callsign") != std::string::npos);
     // units survived the same audit the three above failed, on one page: the
     // six-pack graduates its dials in km/h, metres and m/s or in kt, ft and

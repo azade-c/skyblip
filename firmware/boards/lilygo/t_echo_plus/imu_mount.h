@@ -13,10 +13,6 @@ inline events::AccelSample device_frame(const parts::Acceleration& chip, uint32_
     return events::AccelSample{chip.y_mg, chip.x_mg, static_cast<int16_t>(-chip.z_mg), now_ms};
 }
 
-inline events::RateSample device_rate(const parts::AngularRate& chip, uint32_t now_ms) {
-    return events::RateSample{chip.z_cdps, chip.y_cdps, static_cast<int16_t>(-chip.x_cdps), now_ms};
-}
-
 }  // namespace skyblip::boards::t_echo_plus
 
 #endif

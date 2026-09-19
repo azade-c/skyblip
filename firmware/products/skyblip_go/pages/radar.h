@@ -34,7 +34,7 @@ struct RadarSnapshot {
     bool fix_valid{false};
     gnss::Stage stage{gnss::Stage::Silent};
     go::Units units{go::Units::Nautical};
-    int32_t range_nm{kDefaultRangeNm};
+    int range_step{kDefaultRangeStep};
     int32_t track_cdeg{0};
     int16_t turn_cdps{0};
     int32_t speed_mm_s{0};

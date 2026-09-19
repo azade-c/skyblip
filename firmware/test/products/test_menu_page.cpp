@@ -109,8 +109,7 @@ go::Glass expected_page(Rig& rig) {
     go::MenuSnapshot snapshot;
     snapshot.page = rig.product.screen().editor().page();
     snapshot.values.settings = rig.settings();
-    snapshot.values.qnh_pa = rig.state().baro.qnh_pa;
-    snapshot.values.range_nm = rig.product.screen().range_nm();
+    snapshot.values.range_step = rig.product.screen().range_step();
     snapshot.focus = rig.product.screen().editor().focus();
     go::Glass fb;
     go::draw_menu(fb, snapshot);
@@ -130,12 +129,12 @@ TEST_CASE("product: a press opens the menu of the page a pilot is standing on") 
     CHECK(rig.product.screen().editor().active());
 
     // On the rows the pad still navigates: it walks them one at a time.
-    REQUIRE(rig.product.screen().editor().focus() == go::MenuRow::Identity);
+    REQUIRE(rig.product.screen().editor().focus() == go::MenuRow::AircraftType);
     move(rig, t);
-    CHECK(rig.product.screen().editor().focus() == go::MenuRow::AircraftType);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Units);
 
     // The pad past the last row hands the glass back to the page the menu belongs to.
-    focus_on(rig, t, go::MenuRow::Stealth);
+    focus_on(rig, t, go::MenuRow::Volume);
     move(rig, t);
     CHECK(rig.product.screen().mode() == go::Mode::Page);
     CHECK(rig.product.screen().page() == go::Page::Radar);
@@ -148,7 +147,7 @@ TEST_CASE("product: a press opens the menu of the page a pilot is standing on") 
     rig.press(t);
     settle(rig, t);
     CHECK(rig.product.screen().editor().page() == go::Page::Nearby);
-    CHECK(rig.product.screen().editor().focus() == go::MenuRow::RadioLog);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Status);
 }
 
 // The pad's gestures are one hold apart from the stow, and this one takes the device off.
@@ -311,7 +310,7 @@ TEST_CASE("product: the pad walks out of a menu onto the page that opened it") {
     uint32_t t = 100;
 
     open_menu(rig, t);
-    focus_on(rig, t, go::MenuRow::Stealth);
+    focus_on(rig, t, go::MenuRow::Volume);
     move(rig, t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
 }
@@ -391,7 +390,7 @@ TEST_CASE("product: a prompt takes the page, and the taps already in flight cann
 
     // Back on the rows, at the top: the pilot was reading something else in between.
     CHECK(rig.product.screen().mode() == go::Mode::Menu);
-    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Identity);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::AircraftType);
 }
 
 TEST_CASE("product: a long press in the middle of an edit still switches the device off") {
@@ -465,7 +464,7 @@ TEST_CASE("product: a screen change wipes the glass, and no keypress asks for a 
     t += 2000;
     CHECK_FALSE(rig.platform.chips().epd.last_full);
 
-    focus_on(rig, t, go::MenuRow::Stealth);
+    focus_on(rig, t, go::MenuRow::Volume);
     move(rig, t);
     REQUIRE(rig.product.screen().page() == go::Page::Radar);
     rig.run(t, t + 4000);

@@ -65,7 +65,7 @@ TEST_CASE("inclinometer: a hub that stops answering takes the ball off the glass
     REQUIRE(rig.state().slip.valid);
 
     rig.platform.chips().imu.answers = false;
-    rig.run(kBootToBall, kBootToBall + flight::kSlipStaleMs + 1000);
+    rig.run(kBootToBall, kBootToBall + flight::kIndicatedStaleMs + 1000);
 
     CHECK(rig.product.board().imu().stage() == parts::Bhi260::Stage::Failed);
     CHECK_FALSE(rig.state().slip.valid);
@@ -84,38 +84,21 @@ TEST_CASE("inclinometer: the status page names the stage the hub stopped in") {
     CHECK(reads_in(rig.product.screen().framebuffer(), "IMU RUN", 0, 55, 200, 70));
 
     rig.platform.chips().imu.answers = false;
-    rig.run(t + 1000, t + 1000 + flight::kSlipStaleMs + 1000);
+    rig.run(t + 1000, t + 1000 + flight::kIndicatedStaleMs + 1000);
     CHECK(reads_in(rig.product.screen().framebuffer(), "IMU RUN DOWN", 0, 55, 200, 70));
 }
 
-// The menu row reaches the hub, not just the page: off, virtual sensor 13 is never subscribed.
-TEST_CASE("inclinometer: the hub runs no gyroscope until the settings ask for one") {
+// The milliamp the gyroscope costs is never spent: virtual sensor 13 is never subscribed.
+TEST_CASE("inclinometer: the hub runs no gyroscope, and the turn rate comes off the fix") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
-    REQUIRE_FALSE(rig.settings().gyro_enabled);
     fly_uncoordinated(rig, 0);
     rig.platform.chips().imu.set_angular_rate(-300, 0, 0);
     rig.run(0, kBootToBall);
 
     REQUIRE(rig.product.board().imu().stage() == parts::Bhi260::Stage::Running);
-    CHECK(rig.product.board().imu().gyroscope_fitted());
-    CHECK_FALSE(rig.product.board().imu().gyroscope_running());
     CHECK(rig.platform.chips().imu.gyro_rate_hz == doctest::Approx(0));
     CHECK(rig.state().own.turn_cdps == 0);
-
-    rig.settings().gyro_enabled = true;
-    rig.run(kBootToBall, kBootToBall + 1000);
-
-    CHECK(rig.product.board().imu().gyroscope_running());
-    CHECK(rig.platform.chips().imu.gyro_rate_hz == doctest::Approx(12.5));
-    CHECK(rig.state().own.turn_cdps > 0);
-
-    rig.settings().gyro_enabled = false;
-    rig.run(kBootToBall + 1000, kBootToBall + 2000);
-
-    CHECK_FALSE(rig.product.board().imu().gyroscope_running());
-    CHECK(rig.platform.chips().imu.gyro_rate_hz == doctest::Approx(0));
-    CHECK(rig.product.board().imu().stage() == parts::Bhi260::Stage::Running);
 }
 
 TEST_CASE("inclinometer: a unit with no hub keeps the dial empty rather than centred") {

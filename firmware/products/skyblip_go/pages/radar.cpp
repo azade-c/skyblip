@@ -179,12 +179,10 @@ struct RangeText {
 
 RangeText range_text(const RadarSnapshot& snap) {
     RangeText t;
-    const bool metric = snap.units == go::Units::Metric;
-    const int32_t km_e1 = div_round(snap.range_nm * kMetresPerNm, 100);
-    const int n = metric ? fmt_uint(t.number, static_cast<uint32_t>(km_e1), 2, 1)
-                         : fmt_uint(t.number, static_cast<uint32_t>(snap.range_nm));
+    const int n =
+        fmt_uint(t.number, static_cast<uint32_t>(range_value(snap.range_step, snap.units)));
     t.number[n] = 0;
-    t.unit = metric ? "KM" : "NM";
+    t.unit = range_unit(snap.units);
     t.number_w = text_width(t.number, kRangeScale);
     t.w = t.number_w + kUnitGap + text_width(t.unit, 1);
     return t;
@@ -287,8 +285,8 @@ ui::Trend trend_of(const RadarTarget& t) {
     return ui::Trend::Level;
 }
 
-int64_t range_metres(const RadarSnapshot& snap) {
-    return static_cast<int64_t>(snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
+int64_t ring_metres(const RadarSnapshot& snap) {
+    return go::range_metres(snap.range_step, snap.units);
 }
 
 int32_t to_px(int32_t metres, int64_t range) {
@@ -302,7 +300,7 @@ bool inside_ring(int32_t right, int32_t ahead) {
 bool on_glass(int x, int y) { return x >= 0 && x < kGlassW && y >= 0 && y < kGlassH; }
 
 bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, Plotted& out) {
-    const int64_t range = range_metres(snap);
+    const int64_t range = ring_metres(snap);
     const HeadingUp at = heading_up(t.north_m, t.east_m, track);
     const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
     const int x = px_of(dx), y = py_of(dy);
@@ -326,7 +324,7 @@ flight::Motion motion_of(int32_t speed_mm_s, int32_t track_cdeg, int16_t turn_cd
 
 HeadingUp on_glass_at(const flight::Position& p, const RadarSnapshot& snap, int16_t track) {
     const HeadingUp at = heading_up(p.north_m, p.east_m, track);
-    const int64_t range = range_metres(snap);
+    const int64_t range = ring_metres(snap);
     return {to_px(at.ahead, range), to_px(at.right, range)};
 }
 

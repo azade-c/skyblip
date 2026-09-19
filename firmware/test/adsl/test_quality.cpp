@@ -20,7 +20,7 @@ protocol::AdslPacket from_dop(uint16_t hdop_e2, uint16_t vdop_e2, bool fix = tru
     own.vdop_e2 = vdop_e2;
     own.flight_state = 2;
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false);
+    protocol::from_own(p, own, 0x123456, 6, 4);
     return p;
 }
 

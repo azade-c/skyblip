@@ -2,11 +2,11 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_OWNSHIP_H
 
 #include "core/events/sensor.h"
-#include "core/flight/bank.h"
+#include "core/flight/atmosphere.h"
 #include "core/flight/extrapolate.h"
+#include "core/flight/force.h"
 #include "core/flight/gload.h"
 #include "core/flight/ground.h"
-#include "core/flight/rate.h"
 #include "core/flight/slip.h"
 #include "core/flight/state.h"
 #include "core/flight/timer.h"
@@ -15,7 +15,6 @@
 #include "core/model/ownship.h"
 #include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
-#include "runtime/tasks.h"
 
 namespace skyblip::go {
 
@@ -45,9 +44,7 @@ class OwnshipService : public runtime::Service {
     void anchor_utc(const gnss::GnssSolution& solution);
     void apply_baro(const events::BaroSample& sample);
     void apply_accel(const events::AccelSample& sample);
-    void apply_rate(const events::RateSample& sample, uint32_t now_ms);
     void publish_inertial(uint32_t now_ms);
-    void update_derived_qnh(const events::BaroSample& sample);
     void update_turn_rate(uint32_t now_ms);
     void update_residual(const model::OwnState& previous);
     static gnss::Convergence convergence_of(const model::OwnState& own);
@@ -56,11 +53,7 @@ class OwnshipService : public runtime::Service {
                                int32_t& ref_alt_mm, uint32_t& ref_ms, int32_t& out_mm_s);
 
     flight::SlipBall ball_{};
-    flight::TurnRate gyro_turn_{};
-    flight::BankAngle bank_{};
     flight::GMeter gmeter_{};
-    flight::SpecificForce force_{};
-    bool force_seen_{false};
     bool flying_{false};
     flight::FlightMonitor flight_{};
     flight::FlightTimer timer_{};
@@ -73,13 +66,9 @@ class OwnshipService : public runtime::Service {
     uint32_t baro_ref_ms_{0};
     uint32_t turn_ref_ms_{0};
     int32_t turn_ref_track_cdeg_{0};
-    int32_t qnh_filter_acc_{0};
 
-    static constexpr uint32_t kVsWindowMs = 2000;
-    static constexpr uint32_t kBaroVsWindowMs = runtime::kBaroPeriodMs / 2;
-    static constexpr uint32_t kTurnWindowMs = 1000;
-    static constexpr int32_t kQnhHalfMinuteSamples = 32;
-    static constexpr int32_t kQnhSteadyClimbMmS = 4000;
+    static constexpr uint32_t kBaroVsWindowMs = flight::kMinWindowMs;
+    static constexpr uint32_t kGnssVsWindowMs = 2000;
     const Settings& settings_;
 };
 

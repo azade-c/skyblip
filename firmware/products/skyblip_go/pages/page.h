@@ -3,6 +3,9 @@
 
 #include <cstdint>
 
+#include "core/units/units.h"
+#include "products/skyblip_go/settings.h"
+
 namespace skyblip::go {
 
 enum class Page : uint8_t {
@@ -19,7 +22,31 @@ enum class Page : uint8_t {
 
 constexpr int kPageCount = static_cast<int>(Page::kCount);
 
-constexpr int32_t kDefaultRangeNm = 4;
+// The ring a pilot picks, in the unit they read: four steps, one thumb cycle,
+// and the metric table is the nautical one rounded to whole kilometres.
+constexpr int32_t kRangeStepsNm[] = {1, 2, 4, 8};
+constexpr int32_t kRangeStepsKm[] = {2, 4, 8, 15};
+constexpr int kRangeStepCount = static_cast<int>(sizeof(kRangeStepsNm) / sizeof(kRangeStepsNm[0]));
+constexpr int kDefaultRangeStep = 2;
+constexpr int32_t kMetresPerKm = 1000;
+
+constexpr int clamped_range_step(int step) {
+    return step >= 0 && step < kRangeStepCount ? step : kDefaultRangeStep;
+}
+
+constexpr int next_range_step(int step) { return (clamped_range_step(step) + 1) % kRangeStepCount; }
+
+constexpr int32_t range_value(int step, Units units) {
+    return units == Units::Metric ? kRangeStepsKm[clamped_range_step(step)]
+                                  : kRangeStepsNm[clamped_range_step(step)];
+}
+
+constexpr int64_t range_metres(int step, Units units) {
+    return static_cast<int64_t>(range_value(step, units)) *
+           (units == Units::Metric ? kMetresPerKm : kMetresPerNm);
+}
+
+constexpr const char* range_unit(Units units) { return units == Units::Metric ? "KM" : "NM"; }
 
 constexpr int kWalkedPages = 4;
 

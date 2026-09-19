@@ -39,7 +39,7 @@ What is deliberately absent: there is no co-circling test, no gaggle range gate,
 
 ## Turn rate
 
-ADS-L carries position, speed, track and climb, and no turn rate (G.1.8, G.1.10), so a neighbour's is differentiated from the tracks it has reported. It lives on the table entry rather than inside the alarm, because the screen needs the same number: `kTurnWindowMs` is the shortest window a 1 Hz track says anything over, and `kTurnGapMs` is the gap past which two reports are two facts rather than a rate, so the estimate re-arms instead of averaging across what it did not see. `flight::kMaxTurnDps` clamps what is believed; above it the figure describes the receiver.
+ADS-L carries position, speed, track and climb, and no turn rate (G.1.8, G.1.10), so a neighbour's is differentiated from the tracks it has reported. It lives on the table entry rather than inside the alarm, because the screen needs the same number: `flight::kTurnWindowMs` is the shortest window a 1 Hz track says anything over, the same figure own-ship differentiates its own track with, and `kTurnGapMs` is the gap past which two reports are two facts rather than a rate, so the estimate re-arms instead of averaging across what it did not see. `flight::kMaxTurnDps` clamps what is believed; above it the figure describes the receiver.
 
 ## Formation
 

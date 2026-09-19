@@ -48,7 +48,7 @@ void TrafficTable::sample_turn(TargetTurn& turn, const model::AircraftObs& obs) 
         turn.ref_track_c9 = obs.track_c9;
         return;
     }
-    if (dt < kTurnWindowMs) return;
+    if (dt < flight::kTurnWindowMs) return;
     turn.dps = flight::turn_rate_dps(obs.track_c9, turn.ref_track_c9, dt);
     turn.valid = true;
     turn.ref_ms = obs.at_ms;

@@ -7,17 +7,17 @@ namespace skyblip::gnss {
 const char* stage_name(Stage stage) {
     switch (stage) {
         case Stage::Silent: return "SILENT";
-        case Stage::Search: return "SEARCH";
-        case Stage::Time: return "TIME";
-        case Stage::Fixed: return "FIX";
+        case Stage::Blind: return "BLIND";
+        case Stage::Solving: return "SOLVING";
+        case Stage::Fixed: return "";
     }
     return "SILENT";
 }
 
 Stage stage_of(const GnssSolution& solution) {
     if (solution.is_fix) return Stage::Fixed;
-    if (solution.utc_valid) return Stage::Time;
-    return Stage::Search;
+    if (solution.utc_valid) return Stage::Solving;
+    return Stage::Blind;
 }
 
 void Acquisition::enter(Stage stage, uint32_t now_ms) {

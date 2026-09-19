@@ -10,7 +10,7 @@ using namespace skyblip::gnss;
 
 namespace {
 
-GnssSolution searching() { return GnssSolution{}; }
+GnssSolution blind() { return GnssSolution{}; }
 
 GnssSolution timed() {
     GnssSolution s;
@@ -27,7 +27,7 @@ GnssSolution fixed() {
 
 }  // namespace
 
-TEST_CASE("acquisition: a receiver that has said nothing is silent, not searching") {
+TEST_CASE("acquisition: a receiver that has said nothing is silent, not blind") {
     Acquisition a;
     CHECK(a.stage() == Stage::Silent);
 
@@ -37,25 +37,25 @@ TEST_CASE("acquisition: a receiver that has said nothing is silent, not searchin
     CHECK(a.stage_ms(3000) == 3000u);
 }
 
-TEST_CASE("acquisition: sentences with no date are a receiver searching") {
+TEST_CASE("acquisition: sentences with no date are a receiver that is blind") {
     Acquisition a;
-    a.observe(searching(), 1000);
-    CHECK(a.stage() == Stage::Search);
+    a.observe(blind(), 1000);
+    CHECK(a.stage() == Stage::Blind);
     CHECK(a.stage_ms(4000) == 3000u);
 
-    a.observe(searching(), 2000);
+    a.observe(blind(), 2000);
     a.tick(2000);
-    CHECK(a.stage() == Stage::Search);
+    CHECK(a.stage() == Stage::Blind);
     // Still the same stage, so the clock behind it was not restarted.
     CHECK(a.stage_ms(4000) == 3000u);
 }
 
 // A date can only be read off a satellite, so it is the rung that says the antenna sees sky.
-TEST_CASE("acquisition: a decoded date is a satellite read, and outranks searching") {
+TEST_CASE("acquisition: a decoded date is a satellite read, and outranks the blind rung") {
     Acquisition a;
-    a.observe(searching(), 1000);
+    a.observe(blind(), 1000);
     a.observe(timed(), 2000);
-    CHECK(a.stage() == Stage::Time);
+    CHECK(a.stage() == Stage::Solving);
     CHECK(a.stage_ms(5000) == 3000u);
 
     a.observe(fixed(), 6000);
@@ -76,14 +76,16 @@ TEST_CASE("acquisition: a receiver that stops talking goes silent, whatever it l
     CHECK(a.stage_ms(1000 + kSentenceMaxAgeMs) == 0u);
 
     a.observe(timed(), 9000);
-    CHECK(a.stage() == Stage::Time);
+    CHECK(a.stage() == Stage::Solving);
 }
 
-TEST_CASE("acquisition: every stage has a word short enough for the ring") {
+// A solved receiver already reads GROUND, TAXI or FLIGHT: a second word for it would be one too many.
+TEST_CASE("acquisition: every rung has a word the row fits, and the fix has none") {
     CHECK(std::string(stage_name(Stage::Silent)) == "SILENT");
-    CHECK(std::string(stage_name(Stage::Search)) == "SEARCH");
-    CHECK(std::string(stage_name(Stage::Time)) == "TIME");
-    CHECK(std::string(stage_name(Stage::Fixed)) == "FIX");
+    CHECK(std::string(stage_name(Stage::Blind)) == "BLIND");
+    CHECK(std::string(stage_name(Stage::Solving)) == "SOLVING");
+    CHECK(std::string(stage_name(Stage::Fixed)).empty());
+    // status draws the word at cell 5 and UTC starts at cell 19: 14 cells, less " 99:59"
     for (uint8_t i = 0; i <= static_cast<uint8_t>(Stage::Fixed); i++)
-        CHECK(std::string(stage_name(static_cast<Stage>(i))).size() <= 6);
+        CHECK(std::string(stage_name(static_cast<Stage>(i))).size() <= 8);
 }

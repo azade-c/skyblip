@@ -169,11 +169,7 @@ void ScreenService::leave_menu() {
 MenuValues ScreenService::menu_values() const {
     MenuValues values;
     values.settings = settings_;
-    values.qnh_pa = context_.state.baro.qnh_pa;
-    values.range_nm = range_nm_;
-    values.pressure_pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
-    values.gnss_alt_cm = div_round(context_.state.own.alt_mm, 10);
-    values.alignable = context_.state.baro.active && context_.state.own.fix_valid;
+    values.range_step = range_step_;
     return values;
 }
 
@@ -186,8 +182,7 @@ void ScreenService::step_editor(uint32_t now_ms) {
     switch (editor_.tick(now_ms, current, next)) {
         case MenuAction::Changed:
             settings_ = next.settings;
-            context_.state.baro.qnh_pa = next.qnh_pa;
-            range_nm_ = next.range_nm;
+            range_step_ = next.range_step;
             // INFO: cf 02aug26 One owner of the flash blob. The page changes the
             // struct the config service was already given a reference to and
             // says so with the same flag the companion link raises; the write
@@ -219,6 +214,7 @@ void ScreenService::resolve(Gesture gesture) {
 void ScreenService::tick(uint32_t now_ms) {
     last_tick_ms_ = now_ms;
     handle_input(now_ms);
+    context_.state.gnss.levels_wanted = showing_sky();
 
     if (context_.state.alarm_live != last_live_) {
         const bool escalated_into_glass =
@@ -401,7 +397,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.fix_valid = own.fix_valid;
             snap.stage = context_.state.gnss.stage;
             snap.units = settings.units;
-            snap.range_nm = range_nm_;
+            snap.range_step = range_step_;
             snap.track_cdeg = own.track_cdeg;
             snap.speed_mm_s = own.speed_mm_s;
             snap.turn_cdps = own.turn_cdps;
@@ -452,8 +448,6 @@ void ScreenService::render(uint32_t now_ms) {
             snap.vs_valid = climb_measured();
             snap.track_deg = to_degrees(CentiDegrees(own.track_cdeg)).v;
             snap.turn_cdps = own.turn_cdps;
-            snap.bank_deg = context_.state.bank.deg;
-            snap.bank_valid = context_.state.bank.valid;
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
@@ -560,11 +554,8 @@ void ScreenService::render(uint32_t now_ms) {
             snap.battery_low =
                 level == power::PowerLevel::Low || level == power::PowerLevel::Cutoff;
             snap.pressure_mpa = context_.state.baro.pressure_mpa;
-            snap.qnh_pa = context_.state.baro.qnh_pa;
             if (context_.state.baro.active) {
                 const uint32_t pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
-                snap.alt_qnh_m =
-                    div_round(flight::alt_cm_on_setting(pa, context_.state.baro.qnh_pa), 100);
                 snap.alt_std_m = div_round(flight::pressure_to_alt_cm(pa), 100);
             }
             draw_status(fb_, snap);

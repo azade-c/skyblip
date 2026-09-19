@@ -1,6 +1,7 @@
 #include "products/skyblip_go/pages/gmeter.h"
 
 #include "core/util/format.h"
+#include "core/util/intmath.h"
 
 namespace skyblip::go {
 
@@ -43,10 +44,7 @@ constexpr int16_t kLevelFlightMg = flight::kLevelFlightMg;
 
 int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-int32_t tenths(int32_t mg) {
-    const int32_t half = mg < 0 ? -kMilliPerTenth / 2 : kMilliPerTenth / 2;
-    return (mg + half) / kMilliPerTenth;
-}
+int32_t tenths(int32_t mg) { return div_round(mg, kMilliPerTenth); }
 
 int fmt_g(char* out, int32_t mg) {
     const int32_t value = tenths(mg);

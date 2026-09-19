@@ -65,7 +65,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     intruder_state.track_cdeg = 18000;  // due south
     intruder_state.utc = own.utc;
     protocol::AdslPacket tx;
-    protocol::from_own(tx, intruder_state, 0xC5D804, /*table=*/6, /*cat=*/4, /*stealth=*/false);
+    protocol::from_own(tx, intruder_state, 0xC5D804, /*table=*/6, /*cat=*/4);
     tx.scramble();
     tx.set_crc();
 

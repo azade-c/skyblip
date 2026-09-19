@@ -40,7 +40,6 @@ export async function load() {
     setClimb: call('simulator_set_climb', null, num),
     setTurn: call('simulator_set_turn', null, num),
     setSlip: call('simulator_set_slip', null, num),
-    setQnh: call('simulator_set_qnh', null, num),
     setAirmass: call('simulator_set_airmass', null, num),
     setBatteryMv: call('simulator_set_battery_mv', null, num),
     setExternalPower: call('simulator_set_external_power', null, num),

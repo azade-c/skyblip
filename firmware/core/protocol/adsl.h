@@ -221,9 +221,9 @@ struct BurstInstant {
 };
 
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
-              uint8_t aircraft_cat, bool stealth);
+              uint8_t aircraft_cat);
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
-              uint8_t aircraft_cat, bool stealth, const BurstInstant& at);
+              uint8_t aircraft_cat, const BurstInstant& at);
 
 }
 

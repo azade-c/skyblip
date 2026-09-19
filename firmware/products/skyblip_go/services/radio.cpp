@@ -191,7 +191,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         a.go && burst_in_ms >= 0 && tx_at_us >= plan.start_us && tx_at_us < plan.end_us;
     if (carries_tx) {
         protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
-                           settings_.addr_table, context_.state.own.aircraft_cat, settings_.stealth,
+                           settings_.addr_table, context_.state.own.aircraft_cat,
                            burst_instant(a, tx_at_us, slot_utc(now_ms)));
         outgoing_.scramble();
         outgoing_.set_crc();

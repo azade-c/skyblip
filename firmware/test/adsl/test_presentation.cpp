@@ -11,8 +11,7 @@
 using namespace skyblip;
 
 namespace {
-protocol::AdslPacket traffic_packet(uint32_t addr = 0x123456, uint8_t table = 6,
-                                    bool stealth = false) {
+protocol::AdslPacket traffic_packet(uint32_t addr = 0x123456, uint8_t table = 6) {
     model::OwnState own{};
     own.fix_valid = true;
     own.utc_valid = true;
@@ -23,7 +22,7 @@ protocol::AdslPacket traffic_packet(uint32_t addr = 0x123456, uint8_t table = 6,
     own.hdop_e2 = 90;
     own.flight_state = 2;
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, addr, table, 4, stealth);
+    protocol::from_own(p, own, addr, table, 4);
     return p;
 }
 }  // namespace
@@ -107,18 +106,9 @@ TEST_CASE("ADS-L.4.SRD860.F.2.3: an ICAO address goes on the air exactly as it w
     CHECK(settings::safe_air_address(0xDD1234u, 0) != 0xDD1234u);
 }
 
-TEST_CASE("ADS-L.4.SRD860.F.2.4: privacy mode selects table 0, the random one") {
-    protocol::AdslPacket open = traffic_packet(0x3C0A11u, 5, /*stealth=*/false);
-    protocol::AdslPacket hidden = traffic_packet(0x3C0A11u, 5, /*stealth=*/true);
-    CHECK(open.addr_table() == 5);
-    CHECK(hidden.addr_table() == 0);
-    CHECK(settings::kAddrTableSelfMintedMax == 4);
-}
-
-// TODO: fc 18sep26 privacy reuses the device address, so the identity it hides is still constant
-TEST_CASE("ADS-L.4.SRD860.F.2.4: a privacy address is drawn at random once per start-up" *
-          doctest::skip()) {
-    FAIL("privacy keeps the configured address: nothing is drawn at start-up, so it never changes");
+// TODO: fc 19sep26 no privacy mode on this device: the stealth setting and its table 0 are gone
+TEST_CASE("ADS-L.4.SRD860.F.2.4: privacy mode selects table 0, the random one" * doctest::skip()) {
+    FAIL("the address table is the one a pilot configured, and nothing switches it at transmit");
 }
 
 // TODO: fc 18sep26 validate() takes any address under any table, ICAO included

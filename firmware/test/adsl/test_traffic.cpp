@@ -75,7 +75,7 @@ model::OwnState flying() {
 
 protocol::AdslPacket traffic_packet() {
     protocol::AdslPacket p{};
-    protocol::from_own(p, flying(), 0x123456, 6, 4, false);
+    protocol::from_own(p, flying(), 0x123456, 6, 4);
     return p;
 }
 
@@ -132,7 +132,7 @@ TEST_CASE("ADS-L.4.SRD860.G.1: a field with no valid information is transmitted 
     own.fix_valid = false;
     own.climb_valid = false;
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false);
+    protocol::from_own(p, own, 0x123456, 6, 4);
     CHECK_FALSE(p.has_position());
     CHECK(p.alt_invalid());
     CHECK_FALSE(p.has_speed());
@@ -164,7 +164,7 @@ TEST_CASE("ADS-L.4.SRD860.G.1.1: the instant the timestamp names is the position
     own.utc = 1785628800;
     const int32_t into_utc_ms = 613;
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false,
+    protocol::from_own(p, own, 0x123456, 6, 4,
                        protocol::BurstInstant{own.utc, into_utc_ms, into_utc_ms});
     const int32_t named_ms = static_cast<int32_t>(p.TimeStamp % 4u) *
                              static_cast<int32_t>(protocol::kTimeStampQuarterMs);
@@ -181,11 +181,11 @@ TEST_CASE("ADS-L.4.SRD860.G.1.1: the timestamp and the position name the same in
     at.since_fix_ms = 500;
 
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false, at);
+    protocol::from_own(p, own, 0x123456, 6, 4, at);
     CHECK(p.TimeStamp == protocol::timestamp_code(own.utc, 500));
 
     protocol::AdslPacket at_fix{};
-    protocol::from_own(at_fix, own, 0x123456, 6, 4, false, protocol::BurstInstant{own.utc, 0, 0});
+    protocol::from_own(at_fix, own, 0x123456, 6, 4, protocol::BurstInstant{own.utc, 0, 0});
     CHECK(at_fix.TimeStamp == protocol::timestamp_code(own.utc, 0));
     // Half a second due east at 120 m/s: the transmitted position moved with the timestamp.
     CHECK(p.lon_1e7() > at_fix.lon_1e7());
@@ -200,7 +200,7 @@ TEST_CASE("ADS-L.4.SRD860.G.1.2: flight state is 0 unknown, 1 on ground, 2 airbo
         model::OwnState own = flying();
         own.flight_state = state;
         protocol::AdslPacket p{};
-        protocol::from_own(p, own, 0x123456, 6, 4, false);
+        protocol::from_own(p, own, 0x123456, 6, 4);
         CHECK(p.FlightState == state);
         CHECK(p.FlightState != 3);
     }
@@ -210,12 +210,12 @@ TEST_CASE("ADS-L.4.SRD860.G.1.3: the aircraft category is five bits, and a glide
     for (uint8_t cat = 0; cat < 32; cat++) {
         model::OwnState own = flying();
         protocol::AdslPacket p{};
-        protocol::from_own(p, own, 0x123456, 6, cat, false);
+        protocol::from_own(p, own, 0x123456, 6, cat);
         CHECK(p.AcftCat == cat);
         CHECK(field(payload_of(p), 8, 5) == cat);
     }
     protocol::AdslPacket glider{};
-    protocol::from_own(glider, flying(), 0x123456, 6, 4, false);
+    protocol::from_own(glider, flying(), 0x123456, 6, 4);
     CHECK(glider.AcftCat == 4);
 
     // Every category a pilot can pick here is one issue 1 names too, which is what E.1.1 rests on.

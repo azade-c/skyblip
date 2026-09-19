@@ -187,7 +187,8 @@ class TEchoPlus {
 
         if (ports::has(capabilities_, ports::Capability::Gnss)) {
             // INFO: fc 18sep26 at 9600 baud the widest GSV set and a fix do not fit in one second
-            gnss_.request_satellites_in_view(!timing::own_ship_transmits(state.own, state.clock));
+            gnss_.request_satellites_in_view(state.gnss.levels_wanted &&
+                                             !timing::own_ship_transmits(state.own, state.clock));
             gnss_.service(now_ms);
             if (gnss_.poll()) {
                 bus_.gnss.push(gnss_.solution());
@@ -215,8 +216,6 @@ class TEchoPlus {
         // histogram is fed here rather than by a second reader of the pin.
         state.rf.timing_stats.record_edge(state.clock.pps_edge_us, state.clock.pps_locked);
     }
-
-    void request_gyroscope(bool wanted) { imu_.request_gyroscope(wanted); }
 
     typename P::Rf& rf() { return rf_; }
     parts::L76k& gnss() { return gnss_; }
@@ -307,7 +306,6 @@ class TEchoPlus {
         if (imu_.stage() == parts::Bhi260::Stage::Idle) imu_.load(platform_.imu_firmware(), now_ms);
         imu_.service(now_ms);
         if (imu_.poll()) bus_.accel.push(t_echo_plus::device_frame(imu_.acceleration(), now_ms));
-        if (imu_.poll_rate()) bus_.rate.push(t_echo_plus::device_rate(imu_.angular_rate(), now_ms));
     }
 
     P& platform_;

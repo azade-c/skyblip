@@ -51,7 +51,7 @@ class World {
     explicit World(platform::host::Platform& platform) : platform_(platform) {}
 
     void step(uint32_t now_ms, const bus::State& state);
-    void update_inertial(uint32_t now_ms);
+    void update_inertial();
 
     void load(const Scenario& scenario);
 
@@ -149,12 +149,6 @@ class World {
     uint32_t last_aircraft_ms_{0};
     uint32_t airmass_qnh_pa_{flight::kIsaSeaLevelPa};
     int32_t slip_mg_{0};
-    double track_ref_deg_{0};
-    uint32_t track_ref_ms_{0};
-    int32_t yaw_cdps_{0};
-
-    // INFO: fc 18sep26 a gyro answers in milliseconds, and the heading it differences is continuous
-    static constexpr uint32_t kInertialWindowMs = 100;
     uint32_t press_since_ms_{0};
     uint32_t tap_since_ms_{0};
     int32_t origin_lat_1e7_{0};

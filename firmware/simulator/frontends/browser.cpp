@@ -32,7 +32,9 @@ KEEPALIVE void simulator_backlight(int on) {
     g_simulator.product().screen().set_backlight(on != 0);
 }
 KEEPALIVE void simulator_power(int on) { g_simulator.product().screen().set_power(on != 0); }
-KEEPALIVE void simulator_set_range(int nm) { g_simulator.product().screen().set_range_nm(nm); }
+KEEPALIVE void simulator_set_range(int step) {
+    g_simulator.product().screen().set_range_step(step);
+}
 
 KEEPALIVE void simulator_set_fix(int on) { g_simulator.world().set_fix(on != 0); }
 KEEPALIVE void simulator_set_pps(int on) { g_simulator.world().set_pps_locked(on != 0); }
@@ -43,11 +45,7 @@ KEEPALIVE void simulator_set_track(int deg) { g_simulator.world().set_track_deg(
 KEEPALIVE void simulator_set_climb(int mm_s) { g_simulator.world().set_climb_mm_s(mm_s); }
 KEEPALIVE void simulator_set_turn(int dps_e1) { g_simulator.world().set_turn_dps(dps_e1 / 10.0); }
 KEEPALIVE void simulator_set_slip(int mg) { g_simulator.world().set_slip_mg(mg); }
-// Both in pascals: the subscale the device is set to, and the air outside.
-KEEPALIVE void simulator_set_qnh(int pa) {
-    g_simulator.product().state().baro.qnh_pa = static_cast<uint32_t>(pa);
-    g_simulator.product().screen().mark_dirty();
-}
+// The air outside, in pascals.
 KEEPALIVE void simulator_set_airmass(int pa) {
     g_simulator.world().set_airmass_qnh_pa(static_cast<uint32_t>(pa));
 }

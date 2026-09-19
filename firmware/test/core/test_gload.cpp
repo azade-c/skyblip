@@ -21,7 +21,7 @@ TEST_CASE("gload: level flight is one g up and nothing across") {
     CHECK(meter.now().normal_mg == 1000);
     CHECK(meter.now().lateral_mg == 0);
     CHECK(meter.now().longitudinal_mg == 0);
-    CHECK_FALSE(meter.valid(1000 + flight::kGLoadStaleMs));
+    CHECK_FALSE(meter.valid(1000 + flight::kIndicatedStaleMs));
 }
 
 // A force to the right throws a loose object left, which is where the ball goes.

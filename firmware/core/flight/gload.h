@@ -3,12 +3,9 @@
 
 #include <cstdint>
 
-#include "core/flight/rate.h"
+#include "core/flight/force.h"
 
 namespace skyblip::flight {
-
-constexpr uint32_t kGLoadStaleMs = 2000;
-constexpr int16_t kLevelFlightMg = 1000;
 
 struct GLoad {
     int16_t normal_mg{0};

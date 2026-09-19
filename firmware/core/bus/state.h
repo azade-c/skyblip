@@ -61,6 +61,7 @@ struct GnssStatus {
     gnss::Stage stage{gnss::Stage::Silent};
     uint32_t stage_s{0};
     uint8_t fix_mode{0};
+    bool levels_wanted{false};
     // INFO: fc 18sep26 false once GSV is switched off, so no page draws a level nobody measured
     bool levels_live{false};
     gnss::SkyView sky{};
@@ -68,9 +69,6 @@ struct GnssStatus {
 
 struct BaroState {
     uint32_t pressure_mpa{0};
-    // The altimeter subscale, as the pilot sets it: standard until told otherwise.
-    uint32_t qnh_pa{flight::kIsaSeaLevelPa};
-    uint32_t derived_qnh_pa{0};
     bool active{false};
 };
 
@@ -80,11 +78,6 @@ struct FormationState {
 
 struct SlipState {
     int16_t lateral_mg{0};
-    bool valid{false};
-};
-
-struct BankState {
-    int16_t deg{0};
     bool valid{false};
 };
 
@@ -118,7 +111,6 @@ struct State {
     GnssStatus gnss{};
     BaroState baro{};
     SlipState slip{};
-    BankState bank{};
     GLoadState gload{};
     ImuState imu{};
     FormationState formation{};

@@ -16,6 +16,7 @@ namespace skyblip::flight {
 
 constexpr int32_t kTrackC9Turn = 512;
 constexpr uint16_t kTrackC9Mask = 0x1FF;
+constexpr uint32_t kTurnWindowMs = 1000;
 
 // The short way from ref to track, in cordic9 units: -256 (a half turn left)
 // through +255, positive to the right.

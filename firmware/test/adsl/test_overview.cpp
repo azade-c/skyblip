@@ -31,7 +31,7 @@ protocol::AdslPacket traffic_packet() {
     own.vdop_e2 = 150;
     own.flight_state = 2;
     protocol::AdslPacket p{};
-    protocol::from_own(p, own, 0x123456, 6, 4, false);
+    protocol::from_own(p, own, 0x123456, 6, 4);
     return p;
 }
 }  // namespace

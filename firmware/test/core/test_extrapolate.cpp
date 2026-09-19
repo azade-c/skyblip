@@ -200,13 +200,13 @@ TEST_CASE("adsl: the transmitted position is the position at the instant transmi
     own.utc = 1000;  // 1000 % 15 == 10 s into the timestamp cycle
 
     AdslPacket at_fix{};
-    from_own(at_fix, own, 0xABCDEF, 6, 4, false);
+    from_own(at_fix, own, 0xABCDEF, 6, 4);
     CHECK(int(at_fix.TimeStamp) == 40);  // 10 s, quarter zero
 
     // 600 ms later: the timestamp advances by two whole quarters and one that
     // rounds down, and the position advances with it.
     AdslPacket in_flight{};
-    from_own(in_flight, own, 0xABCDEF, 6, 4, false, BurstInstant{own.utc, 600, 600});
+    from_own(in_flight, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, 600, 600});
     CHECK(int(in_flight.TimeStamp) == 42);
     CHECK(in_flight.alt_m() == at_fix.alt_m() + 1);
     CHECK(in_flight.lat_1e7() == at_fix.lat_1e7());
@@ -234,16 +234,16 @@ TEST_CASE("adsl: past the extrapolation bound the fix goes out dated as the fix"
     own.utc = 1000;
 
     AdslPacket at_fix{};
-    from_own(at_fix, own, 0xABCDEF, 6, 4, false);
+    from_own(at_fix, own, 0xABCDEF, 6, 4);
 
     const int32_t bound = kMaxExtrapolationMs;
     AdslPacket inside{};
-    from_own(inside, own, 0xABCDEF, 6, 4, false, BurstInstant{own.utc, bound, bound});
+    from_own(inside, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, bound, bound});
     CHECK(inside.lon_1e7() != at_fix.lon_1e7());
     CHECK(int(inside.TimeStamp) == timestamp_code(own.utc, bound));
 
     AdslPacket beyond{};
-    from_own(beyond, own, 0xABCDEF, 6, 4, false, BurstInstant{own.utc, bound + 1, bound + 1});
+    from_own(beyond, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, bound + 1, bound + 1});
     CHECK(beyond.lon_1e7() == at_fix.lon_1e7());
     CHECK(beyond.lat_1e7() == at_fix.lat_1e7());
     CHECK(int(beyond.TimeStamp) == int(at_fix.TimeStamp));

@@ -1,5 +1,6 @@
 #include "products/skyblip_go/pages/sixpack.h"
 
+#include "core/flight/slip.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
 #include "ui/widgets/skyship.h"
@@ -60,7 +61,7 @@ constexpr int kBallR = 4;
 constexpr int kCageHalf = kBallR + 2;
 constexpr int kCageHalfH = 5;
 constexpr int kBallTravel = 16;
-constexpr int32_t kSlipFullMg = 200;
+constexpr int32_t kSlipFullMg = flight::kSlipFullScaleMg;
 constexpr int kFuselageR = 3;
 constexpr int kRefInner = 7;
 constexpr int kRefOuter = 20;
@@ -259,7 +260,7 @@ int32_t flight_path_deg(int32_t vs_fpm, int32_t speed_kt) {
 }
 
 // Coordinated turn: tan(bank) = omega * V / g, which in deg/s and knots is
-// turn_dps * kt / 1093. What the horizon shows when nothing measured the bank.
+// turn_dps * kt / 1093, and no sensor on this device measures a bank.
 int32_t inferred_bank_deg(int32_t turn_dps, int32_t speed_kt) {
     if (speed_kt <= 0) return 0;
     return (static_cast<int32_t>(iatan2(turn_dps * speed_kt, 1093)) * 360) / kTurn;
@@ -282,7 +283,7 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
     const int32_t turn_cdps = s.data_valid ? s.turn_cdps : 0;
     const int32_t turn_dps = (turn_cdps + (turn_cdps < 0 ? -50 : 50)) / 100;
     const int32_t track = s.data_valid ? s.track_deg % 360 : 0;
-    const int32_t bank = s.bank_valid ? s.bank_deg : inferred_bank_deg(turn_dps, kt);
+    const int32_t bank = inferred_bank_deg(turn_dps, kt);
     const int32_t pitch = flight_path_deg(vs_fpm, kt);
 
     const bool metric = s.units == go::Units::Metric;

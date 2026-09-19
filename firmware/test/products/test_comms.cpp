@@ -106,7 +106,7 @@ TEST_CASE("comms: unknown flight-state refuses") {
     ConfigService cs(link, store_cs);
     cs.set_flight_state(flight::FlightState::Unknown);  // never confirmed on ground
     CHECK(cs.flight_state() == flight::FlightState::Unknown);
-    cs.on_rx(frame("{\"cmd\":\"set\",\"stealth\":true}"));
+    cs.on_rx(frame("{\"cmd\":\"set\",\"alarm\":false}"));
     CHECK(link.last().bytes.find("in_flight") != std::string::npos);
 
     cs.set_flight_state(flight::FlightState::OnGround);
@@ -572,7 +572,7 @@ TEST_CASE("comms: link down cancels a pending change") {
     go::SettingsStore store_cs(s);
     ConfigService cs(link, store_cs);
     cs.set_flight_state(flight::FlightState::OnGround);
-    cs.on_rx(frame("{\"cmd\":\"set\",\"stealth\":true}"));
+    cs.on_rx(frame("{\"cmd\":\"set\",\"alarm\":false}"));
     CHECK(cs.pending() == Pending::Set);
     cs.on_link_down(events::LinkDown{1});
     CHECK(cs.pending() == Pending::None);

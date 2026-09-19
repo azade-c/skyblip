@@ -108,8 +108,7 @@ void hear_directly(Rig& rig, uint32_t& t, uint32_t addr, int32_t north_m, int32_
     transmitter.track_cdeg = 18000;
 
     protocol::AdslPacket packet;
-    protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4,
-                       /*stealth=*/false);
+    protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4);
     packet.scramble();
     packet.set_crc();
 

@@ -51,27 +51,6 @@ TEST_CASE("atmosphere: the inverse round-trips through the forward curve") {
     }
 }
 
-TEST_CASE("atmosphere: the setting is recovered from a pressure and a height above the sea") {
-    // The pressure an aircraft would read, back through the derivation, is the QNH it flew in.
-    for (uint32_t qnh = 96000; qnh <= 104000; qnh += 500) {
-        for (int32_t alt_msl_cm = 0; alt_msl_cm <= 400000; alt_msl_cm += 50000) {
-            const uint32_t outside =
-                flight::alt_cm_to_pressure(alt_msl_cm + flight::pressure_to_alt_cm(qnh));
-            uint32_t derived = 0;
-            REQUIRE(flight::qnh_from_alt(outside, alt_msl_cm, derived));
-            CHECK(std::abs(static_cast<int32_t>(derived) - static_cast<int32_t>(qnh)) <= 2);
-        }
-    }
-}
-
-TEST_CASE("atmosphere: a pressure and a height that no weather explains is refused") {
-    uint32_t derived = 7;
-    // Sea-level pressure at 3000 m: the barometer and the fix cannot both be right.
-    CHECK_FALSE(flight::qnh_from_alt(flight::kIsaSeaLevelPa, 300000, derived));
-    CHECK_FALSE(flight::qnh_from_alt(70000, 0, derived));
-    CHECK(derived == 7);
-}
-
 TEST_CASE("atmosphere: climb rate in mm/s, both signs") {
     int32_t mm_s = 0;
     // +10 m over 2 s = +5 m/s.
@@ -127,30 +106,4 @@ TEST_CASE("atmosphere: a pascal is centimetres of altitude, so the curve is walk
     // 8.31 cm a pascal at sea level, and the interpolation rounds to the millimetre.
     CHECK(flight::pressure_to_alt_mm((flight::kIsaSeaLevelPa - 1) * 1000) - sea == 84);
     CHECK(sea - flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000 + 1000) == 83);
-}
-
-TEST_CASE("atmosphere: a subscale setting is what the reading is measured from") {
-    // Airmass at 1000 hPa, aircraft where the sensor reads 900 hPa. The two
-    // readings a cockpit shows differ by the setting alone.
-    const uint32_t outside = 90000, qnh = 100000;
-
-    // Dial the airmass in and the altimeter reads altitude above the sea-level
-    // datum of THAT air: zero when the sensor reads the setting itself.
-    CHECK(flight::alt_cm_on_setting(qnh, qnh) == 0);
-
-    // On standard, the same air reads pressure altitude: higher than the QNH
-    // altitude, because 1013.25 is more pressure than the 1000 outside.
-    const int32_t on_qnh = flight::alt_cm_on_setting(outside, qnh);
-    const int32_t on_std = flight::alt_cm_on_setting(outside, flight::kIsaSeaLevelPa);
-    CHECK(on_std > on_qnh);
-
-    // 1 hPa is about 27 ft near sea level: 13.25 hPa of setting is ~360 ft,
-    // ~110 m, and the two readings differ by that offset (25 cm is the table's
-    // interpolation bound, and sea level itself is not exactly zero on it).
-    CHECK(std::abs((on_std - on_qnh) - flight::pressure_to_alt_cm(qnh)) < 25);
-    CHECK(on_std - on_qnh > 10000);
-    CHECK(on_std - on_qnh < 12000);
-
-    // Standard setting means pressure altitude, so it is the bare curve.
-    CHECK(std::abs(on_std - flight::pressure_to_alt_cm(outside)) < 25);
 }

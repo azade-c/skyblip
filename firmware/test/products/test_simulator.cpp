@@ -40,6 +40,19 @@ uint32_t page(simulator::Simulator& h, uint32_t t) {
     return t;
 }
 
+// Reached the way a thumb reaches it: the pad along the walk, then the menu row.
+uint32_t show_sats(simulator::Simulator& h, uint32_t t) {
+    for (int i = 0; i < go::kPageCount && h.product().screen().page() != go::Page::Nearby; i++)
+        t = page(h, t);
+    t = press(h, t);
+    const go::Menu menu = go::menu_for(go::Page::Nearby);
+    for (int i = 0;
+         i < menu.n && go::page_behind(h.product().screen().editor().focus()) != go::Page::Sats;
+         i++)
+        t = page(h, t);
+    return press(h, t);
+}
+
 }  // namespace
 
 TEST_CASE("simulator: simulated GNSS drives own-ship state via the real NMEA parser") {
@@ -261,22 +274,6 @@ TEST_CASE("simulator: a turn and a climb held steady are published steady") {
     CHECK(worst_kt == 0);
 }
 
-// With a gyroscope fitted and switched on the needle is the instrument's, not the receiver's.
-TEST_CASE("simulator: the gyroscope publishes the turn it is flying") {
-    simulator::Simulator h;
-    REQUIRE(h.setup() == Status::Ok);
-    h.product().settings().gyro_enabled = true;
-    h.world().set_turn_dps(3.0);
-    run(h, 0, 10000);
-
-    int32_t worst_turn = 0;
-    for (uint32_t t = 10000; t <= 30000; t += simulator::Simulator::kStepMs) {
-        h.step(t);
-        worst_turn = std::max(worst_turn, std::abs(h.product().state().own.turn_cdps - 300));
-    }
-    CHECK(worst_turn <= 15);
-}
-
 TEST_CASE("simulator: an aircraft entering the window buzzes and vibrates") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
@@ -396,22 +393,35 @@ TEST_CASE("simulator: holding the button switches the device off, a tap never do
     CHECK_FALSE(h.panel_powered());
 }
 
-// The satellites a pilot reads while the device owes the air nothing, given up
-// again the moment it does: at 9600 baud a GSV set and a fix do not share a second.
-TEST_CASE("simulator: satellites in view are asked for until own ship transmits") {
+// Nothing but the satellites page reads a level, and a GSV set is 648 bytes of a 9600 baud second.
+TEST_CASE("simulator: satellites in view are asked for by the page that draws them") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
     h.world().set_fix(false);
     run(h, 0, 6000);
 
+    CHECK_FALSE(h.world().gnss().gsv_enabled);
+    CHECK_FALSE(h.product().state().gnss.levels_live);
+    CHECK(h.product().state().gnss.sky.count() == 0);
+
+    uint32_t t = show_sats(h, 6000);
+    run(h, t, t + 3000);
+    REQUIRE(h.product().screen().page() == go::Page::Sats);
     CHECK(h.world().gnss().gsv_enabled);
     CHECK(h.product().state().gnss.levels_live);
     CHECK(h.product().state().gnss.sky.count() > 0);
     CHECK(h.product().state().gnss.sky.in_use() == 0);
     CHECK(h.product().state().gnss.stage != gnss::Stage::Fixed);
 
+    t = page(h, t + 3000);
+    run(h, t, t + 3000);
+    REQUIRE(h.product().screen().page() != go::Page::Sats);
+    CHECK_FALSE(h.world().gnss().gsv_enabled);
+    CHECK_FALSE(h.product().state().gnss.levels_live);
+
+    t = show_sats(h, t + 3000);
     h.world().set_fix(true);
-    run(h, 6000, 20000);
+    run(h, t, t + 20000);
     REQUIRE(h.product().state().own.fix_valid);
     REQUIRE(h.product().state().own.tx_settled);
 
