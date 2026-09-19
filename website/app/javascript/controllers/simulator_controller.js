@@ -322,8 +322,8 @@ export default class extends Controller {
   }
 
   #flownState() {
-    this.#show("altitude", Math.round((this.sim.alt() * FEET_PER_METRE) / 10) * 10)
-    this.#show("track", Math.round((this.sim.trackC9() * 360) / 512) % 360)
+    this.#show("altitude", Math.round((this.sim.altMm() * FEET_PER_METRE) / 10_000) * 10)
+    this.#show("track", Math.round(this.sim.trackCdeg() / 100) % 360)
   }
 
   #screen() {
