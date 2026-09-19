@@ -36,7 +36,7 @@ class ConfigLinkService : public runtime::Service {
     ConfigLinkService(runtime::Context& ctx, Settings& settings, const PowerService& power)
         : runtime::Service(ctx),
           settings_(settings),
-          store_(settings),
+          store_(settings, ctx.roles.device_addr),
           config_(ctx.roles.link, store_, &ctx.roles.dfu, &ctx.state.rf.timing_stats),
           power_(power) {
         config_.set_durable_writes(&writes_);

@@ -95,7 +95,7 @@ TEST_CASE("battery: a unit that reads high is corrected by one number from the l
     constexpr uint16_t kBenchMv = 3800;
     constexpr uint16_t kThisUnitReadsMv = 3850;
 
-    go::Settings s = go::defaults(1);
+    go::Settings s = go::defaults();
     const char* patch = "{\"battery_offset_mv\":-50}";
     REQUIRE(go::apply_json(s, patch, 25) == Status::Ok);
 

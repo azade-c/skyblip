@@ -176,7 +176,7 @@ ADS-L 4 SRD-860 issue 2 Subpart F: the ADS-L header, who a packet is from and wh
 **ADS-L.4.SRD860.F.2.3**
 
 - a table the configured address does not belong to is refused
-  > The clause asks the device to refuse an inconsistent configuration, and it has only one.
+  > The clause asks a device to disallow an inconsistent configuration: this one cannot make any.
 
 **ADS-L.4.SRD860.F.2.5**
 
@@ -2449,7 +2449,7 @@ The acceptance invariant on the host: the real product (board, services, drivers
 - a missing optional capability is degraded, a required one refuses
 - barometric pressure drives vertical speed
 - once the barometer speaks, GNSS stops setting vertical speed
-- persisted settings are loaded on setup, the identity is the board's
+- persisted settings are loaded on setup
 - settings changed over the link are persisted
 - setup brings the radio to Rx and reports its capabilities
 - step() runs the service cycle deterministically under a modelled clock
@@ -2466,6 +2466,8 @@ The acceptance invariant on the host: the real product (board, services, drivers
 - the first fix is announced once, then own-ship settles before it flies
 - the free-running dwell phase steps forward through the 49.7-day wrap
   > M. Where the radio believes it is inside the second, across the 49.7-day wrap of ports::Clock::millis(). With PPS locked the phase is measured from the latched edge, which is a 64-bit microsecond figure and cannot wrap in the life of the device. Without it the phase used to be now_ms % 1000, and that is not a phase at all: 2^32 ms is 4294967.296 seconds, so at the wrap the free-running second stepped 705 ms BACKWARDS and the dwell map was armed out of order for a second - with the anchor already lost, which is the worst moment to add a fault. Both branches read micros() now.  The clock is driven in microseconds here because that is what the silicon does: now_ms is the low 32 bits of the same uptime, so millis() wraps underneath a micros() that keeps counting.
+- the identity a tablet is told is the board's, not a stored setting's
+  > The board is the only thing that knows the address, and only this wiring carries it to a phone.
 - the radio executor is armed against slot deadlines, not polled
 - the range gate's refusals leave the device over the link
   > J. The range gate refuses a reception whose claimed position is further away than this radio could have heard it. Whether that fires once a week or once a second is the first question a support case asks, so the counter leaves the device: read off the table that keeps it, on its own reply.
@@ -2670,11 +2672,11 @@ Settings survive a power cycle, so every way a stored blob can be wrong is a way
 
 **address**
 
-- a device out of the box claims the OGN-Tracker table
-  > Issue 2 F.2.2: 0 is privacy and must be re-drawn every start-up, 1 to 4 are reserved.
 - every prefix is left exactly where the chip put it
   > F4. The table says which space the address came from, so no prefix is ours to move.
 - neither all-zeros nor all-ones goes on the air
+- the table is a constant, not a field anything can hold
+  > Issue 2 F.2.2: 0 is privacy and must be re-drawn every start-up, 1 to 4 are reserved.
 
 **json_min**
 
@@ -2696,15 +2698,14 @@ Settings survive a power cycle, so every way a stored blob can be wrong is a way
   > K, the migration: version 6 is version 4's length again, and the version byte parts them.
 - a blob written by version-6 firmware comes back without stealth or gyro
   > L, the migration: the two settings that left take their stored bytes with them.
+- a blob written by version-7 firmware comes back without its identity
+  > M, the migration: the address and its table are the device's now, so they leave the blob.
 - a callsign is what a panel can draw, and a patch that is not is refused
-- a chip id goes out as the number it is, under any table
 - a corrupted blob is detected (CRC), caller falls back
-- a stored blob does not get to name the aircraft
-  > A blob written before the identity stopped being a setting still holds a table of its own.
+- a patch that names an identity changes nothing and refuses nothing
 - apply_json rejects out-of-range atomically
 - blob round-trips through version+crc framing
 - defaults are valid
-- no patch can change what the device says it is
 - the JSON offers nothing the firmware does not read
 - the battery trim is bounded at the boundary, in both framings
   > H. The per-unit gauge trim: one signed millivolt offset, set once on the line against a bench supply, bounded because a calibration field that accepts anything is a support incident of its own.

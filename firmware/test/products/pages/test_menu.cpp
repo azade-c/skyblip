@@ -46,7 +46,7 @@ bool row_value_reads(const Glass& fb, Page page, MenuRow row, const char* value,
 
 MenuValues fresh() {
     MenuValues v;
-    v.settings = go::defaults(0x3A7F2C);
+    v.settings = go::defaults();
     return v;
 }
 

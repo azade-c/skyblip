@@ -42,7 +42,6 @@ constexpr uint8_t kAircraftTypeLight = 1;
 
 struct Settings {
     uint8_t version{kCurrentVersion};
-    uint32_t device_addr{0};
     // The per-unit battery trim, core/power/battery.h's kCalibrationLimitMv
     // either way, applied to every reading before the gauge or the cutoff sees
     // it. Placed here rather than at the end because a signed 16-bit value after
@@ -69,7 +68,6 @@ struct Settings {
     // and its spectrum analyser - which is the instrument that had to be there
     // to know the number in the first place.
     int16_t freq_trim_e1_ppm{0};
-    uint8_t addr_table{settings::kAddrTableOgn};
     uint8_t aircraft_type{kAircraftTypeLight};
     bool alarm_enabled{true};
     uint8_t alarm_volume{3};
@@ -81,11 +79,9 @@ struct Settings {
     static constexpr uint8_t kCurrentVersion = 1;
 };
 
-constexpr uint8_t kBlobVersion = 7;
+constexpr uint8_t kBlobVersion = 8;
 
-Settings defaults(uint32_t addr = 0);
-
-void stamp_identity(Settings& s, uint32_t addr);
+Settings defaults();
 
 Status validate(const Settings& s);
 
@@ -97,9 +93,9 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out);
 // companion link's "config" reply can tag them and stay one flat object. Nesting
 // them as an escaped string cost 53 bytes of backslashes on a 158-byte body,
 // which is what pushed that reply past what an iPhone will carry.
-void write_json_fields(json::Writer& w, const Settings& s);
+void write_json_fields(json::Writer& w, const Settings& s, uint32_t device_addr);
 
-int to_json(const Settings& s, char* buf, int cap);
+int to_json(const Settings& s, uint32_t device_addr, char* buf, int cap);
 Status apply_json(Settings& s, const char* json, int len);
 
 }  // namespace skyblip::go

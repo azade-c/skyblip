@@ -18,7 +18,6 @@ TEST_CASE("product: setup brings the radio to Rx and reports its capabilities") 
     CHECK(rig.state().started);
     CHECK(ports::has(rig.product.capabilities(), ports::Capability::Rf | ports::Capability::Gnss));
     CHECK(rig.product.degraded() == ports::Capability::None);
-    CHECK(rig.settings().device_addr == platform::host::Platform::kDeviceAddr);
 }
 
 TEST_CASE("product: a missing optional capability is degraded, a required one refuses") {
@@ -71,19 +70,30 @@ TEST_CASE("product: the e-paper refreshes on change, not on cadence") {
     CHECK_FALSE(rig.platform.chips().epd.last_full);  // differential, no full
 }
 
-TEST_CASE("product: persisted settings are loaded on setup, the identity is the board's") {
+TEST_CASE("product: persisted settings are loaded on setup") {
     Rig rig;
-    go::Settings s = go::defaults(0x223344);
+    go::Settings s = go::defaults();
     s.alarm_volume = 1;
-    s.addr_table = 5;
     uint8_t blob[64];
     go::to_blob(s, blob, sizeof(blob));
     REQUIRE(rig.platform.kv().write("settings", blob, go::blob_size()) == Status::Ok);
 
     REQUIRE(rig.setup() == Status::Ok);
     CHECK(rig.settings().alarm_volume == 1);
-    CHECK(rig.settings().device_addr == platform::host::Platform::kDeviceAddr);
-    CHECK(int(rig.settings().addr_table) == 7);
+}
+
+// The board is the only thing that knows the address, and only this wiring carries it to a phone.
+TEST_CASE("product: the identity a tablet is told is the board's, not a stored setting's") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.raise_link(1);
+    rig.run(0, 100);
+    rig.send("{\"cmd\":\"get\"}");
+    rig.run(100, 200);
+
+    const std::string reply = rig.last_on(events::Endpoint::Config);
+    CHECK(reply.find("\"addr\":5987070") != std::string::npos);  // 0x5B5AFE, the host board's
+    CHECK(reply.find("\"addr_table\":7") != std::string::npos);
 }
 
 TEST_CASE("product: barometric pressure drives vertical speed") {
@@ -392,7 +402,7 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
     // This unit reads 60 mV high, measured once on the line against a bench
     // supply and written into settings.
     Rig trimmed;
-    go::Settings s = go::defaults(0x223344);
+    go::Settings s = go::defaults();
     s.battery_offset_mv = -60;
     uint8_t blob[64];
     go::to_blob(s, blob, sizeof(blob));
@@ -422,7 +432,7 @@ TEST_CASE("product: the battery trim reaches the gauge and the cutoff rule toget
 
 // Taken before any service runs, so it is the reader that could have been raw.
 TEST_CASE("product: the boot lockout reads the trimmed cell, not the raw divider") {
-    go::Settings s = go::defaults(0x223344);
+    go::Settings s = go::defaults();
     s.battery_offset_mv = -60;
     uint8_t blob[64];
     go::to_blob(s, blob, sizeof(blob));

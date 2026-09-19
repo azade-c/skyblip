@@ -90,11 +90,8 @@ TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits
     CHECK((p.address() & 0xFFFFu) == 0x1234u);
     CHECK(p.address_and_type() == ((9u << 24) | 0xAB1234u));
 
-    go::Settings s = go::defaults(0x123456);
-    s.addr_table = 64;
-    CHECK(go::validate(s) == Status::OutOfRange);
-    s.addr_table = 63;
-    CHECK(go::validate(s) == Status::Ok);
+    CHECK(int(settings::kAddrTableOgn) == 7);
+    CHECK(traffic_packet(0x123456u, settings::kAddrTableOgn).addr_table() == 7);
 }
 
 // TODO: fc 19sep26 no ICAO entry: the identity is the chip's, and no patch moves it
@@ -109,15 +106,20 @@ TEST_CASE("ADS-L.4.SRD860.F.2.4: privacy mode selects table 0, the random one" *
     FAIL("the address table is the one a pilot configured, and nothing switches it at transmit");
 }
 
-// The clause asks the device to refuse an inconsistent configuration, and it has only one.
+// The clause asks a device to disallow an inconsistent configuration: this one cannot make any.
 TEST_CASE("ADS-L.4.SRD860.F.2.3: a table the configured address does not belong to is refused") {
-    go::Settings s = go::defaults(0x123456);
-    CHECK(int(s.addr_table) == 7);
-
+    go::Settings s = go::defaults();
     const char* icao = "{\"addr\":3934737,\"addr_table\":5}";  // 0x3C0A11 under ICAO
-    CHECK(go::apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Unsupported);
-    CHECK(s.device_addr == 0x123456u);
-    CHECK(int(s.addr_table) == 7);
+    CHECK(go::apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Ok);
+
+    char buf[256];
+    const int n = go::to_json(s, 0x123456, buf, static_cast<int>(sizeof(buf)));
+    json::Reader r(buf, n);
+    long v = 0;
+    CHECK(r.get_int("addr", v));
+    CHECK(v == 0x123456);
+    CHECK(r.get_int("addr_table", v));
+    CHECK(v == 7);
 }
 
 // Every ADS-L data block has to be scramblable, and XXTEA works on whole 32-bit words.

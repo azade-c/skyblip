@@ -554,7 +554,7 @@ struct FeatureRig {
     bus::State state{};
     runtime::Context context{roles, bus, state};
     go::Settings settings{};
-    go::SettingsStore store{settings};
+    go::SettingsStore store{settings, roles.device_addr};
     comms::ConfigService config{link, store};
     go::NmeaService nmea;
 

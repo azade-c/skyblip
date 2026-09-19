@@ -109,19 +109,31 @@ struct SettingsV6 {
     char callsign[kCallsignCap]{0};
 };
 
+struct SettingsV7 {
+    uint8_t version{1};
+    uint32_t device_addr{0};
+    int16_t battery_offset_mv{0};
+    int16_t freq_trim_e1_ppm{0};
+    uint8_t addr_table{0};
+    uint8_t aircraft_type{4};
+    bool alarm_enabled{true};
+    uint8_t alarm_volume{3};
+    Units units{Units::Metric};
+    char callsign[kCallsignCap]{0};
+};
+
 constexpr size_t kPayloadV1 = sizeof(SettingsV1);
 constexpr size_t kPayloadV2 = sizeof(SettingsV2);
 constexpr size_t kPayloadV3 = sizeof(SettingsV3);
 constexpr size_t kPayloadV4 = sizeof(SettingsV4);
 constexpr size_t kPayloadV5 = sizeof(SettingsV5);
 constexpr size_t kPayloadV6 = sizeof(SettingsV6);
+constexpr size_t kPayloadV7 = sizeof(SettingsV7);
 constexpr size_t kPayload = sizeof(Settings);
 
 void migrate_v1(const SettingsV1& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
-    out.addr_table = old.addr_table;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -136,8 +148,6 @@ void migrate_v1(const SettingsV1& old, Settings& out) {
 void migrate_v2(const SettingsV2& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
-    out.addr_table = old.addr_table;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -154,9 +164,7 @@ void migrate_v2(const SettingsV2& old, Settings& out) {
 void migrate_v3(const SettingsV3& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
     out.battery_offset_mv = old.battery_offset_mv;
-    out.addr_table = old.addr_table;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -171,10 +179,8 @@ void migrate_v3(const SettingsV3& old, Settings& out) {
 void migrate_v4(const SettingsV4& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
     out.battery_offset_mv = old.battery_offset_mv;
     out.freq_trim_e1_ppm = old.freq_trim_e1_ppm;
-    out.addr_table = old.addr_table;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -186,10 +192,8 @@ void migrate_v4(const SettingsV4& old, Settings& out) {
 void migrate_v5(const SettingsV5& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
     out.battery_offset_mv = old.battery_offset_mv;
     out.freq_trim_e1_ppm = old.freq_trim_e1_ppm;
-    out.addr_table = old.addr_table;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -201,10 +205,21 @@ void migrate_v5(const SettingsV5& old, Settings& out) {
 void migrate_v6(const SettingsV6& old, Settings& out) {
     out = Settings{};
     out.version = Settings::kCurrentVersion;
-    out.device_addr = old.device_addr;
     out.battery_offset_mv = old.battery_offset_mv;
     out.freq_trim_e1_ppm = old.freq_trim_e1_ppm;
-    out.addr_table = old.addr_table;
+    out.aircraft_type = old.aircraft_type;
+    out.alarm_enabled = old.alarm_enabled;
+    out.alarm_volume = old.alarm_volume;
+    out.units = old.units;
+    std::memcpy(out.callsign, old.callsign, kCallsignCap);
+    out.callsign[kCallsignCap - 1] = 0;
+}
+
+void migrate_v7(const SettingsV7& old, Settings& out) {
+    out = Settings{};
+    out.version = Settings::kCurrentVersion;
+    out.battery_offset_mv = old.battery_offset_mv;
+    out.freq_trim_e1_ppm = old.freq_trim_e1_ppm;
     out.aircraft_type = old.aircraft_type;
     out.alarm_enabled = old.alarm_enabled;
     out.alarm_volume = old.alarm_volume;
@@ -223,21 +238,10 @@ bool callsign_is_printable(const char* s) {
 
 }  // namespace
 
-Settings defaults(uint32_t addr) {
-    Settings s;
-    stamp_identity(s, addr);
-    return s;
-}
-
-void stamp_identity(Settings& s, uint32_t addr) {
-    s.device_addr = settings::air_address(addr);
-    s.addr_table = settings::kAddrTableOgn;
-}
+Settings defaults() { return Settings{}; }
 
 Status validate(const Settings& s) {
     if (s.version != Settings::kCurrentVersion) return Status::Unsupported;
-    if (s.device_addr > settings::kAddressMask) return Status::OutOfRange;
-    if (s.addr_table > 63) return Status::OutOfRange;
     if (s.aircraft_type > 17) return Status::OutOfRange;
     if (s.alarm_volume > 5) return Status::OutOfRange;
     if (s.battery_offset_mv > power::kCalibrationLimitMv ||
@@ -263,6 +267,11 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     if (version == kBlobVersion) {
         const Status st = settings::open(in, len, kPayload, &out);
         if (st != Status::Ok) return st;
+    } else if (version == 7) {
+        SettingsV7 old;
+        const Status st = settings::open(in, len, kPayloadV7, &old);
+        if (st != Status::Ok) return st;
+        migrate_v7(old, out);
     } else if (version == 6) {
         SettingsV6 old;
         const Status st = settings::open(in, len, kPayloadV6, &old);
@@ -300,10 +309,10 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     return Status::Ok;
 }
 
-void write_json_fields(json::Writer& w, const Settings& s) {
+void write_json_fields(json::Writer& w, const Settings& s, uint32_t device_addr) {
     w.kv_int("version", s.version);
-    w.kv_int("addr", static_cast<long>(s.device_addr));
-    w.kv_int("addr_table", s.addr_table);
+    w.kv_int("addr", static_cast<long>(settings::air_address(device_addr)));
+    w.kv_int("addr_table", settings::kAddrTableOgn);
     w.kv_int("aircraft_type", s.aircraft_type);
     w.kv_bool("alarm", s.alarm_enabled);
     w.kv_int("alarm_volume", s.alarm_volume);
@@ -311,9 +320,9 @@ void write_json_fields(json::Writer& w, const Settings& s) {
     w.kv_str("callsign", s.callsign);
 }
 
-int to_json(const Settings& s, char* buf, int cap) {
+int to_json(const Settings& s, uint32_t device_addr, char* buf, int cap) {
     json::Writer w(buf, cap);
-    write_json_fields(w, s);
+    write_json_fields(w, s, device_addr);
     return w.finish();
 }
 
@@ -322,11 +331,6 @@ Status apply_json(Settings& s, const char* json, int len) {
     long v;
     bool b;
     Settings n = s;
-    if (r.get_int("addr", v) &&
-        (static_cast<uint32_t>(v) & settings::kAddressMask) != s.device_addr)
-        return Status::Unsupported;
-    if (r.get_int("addr_table", v) && static_cast<uint8_t>(v) != s.addr_table)
-        return Status::Unsupported;
     if (r.get_int("aircraft_type", v)) n.aircraft_type = static_cast<uint8_t>(v);
     if (r.get_bool("alarm", b)) n.alarm_enabled = b;
     if (r.get_int("alarm_volume", v)) n.alarm_volume = static_cast<uint8_t>(v);

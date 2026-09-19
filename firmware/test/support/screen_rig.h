@@ -32,7 +32,7 @@ struct Rig {
     bus::State state{};
     runtime::Context context{roles, bus, state};
     go::Settings settings{};
-    go::SettingsStore store{settings};
+    go::SettingsStore store{settings, roles.device_addr};
     comms::ConfigService config{null.link, store};
     go::BootSnapshot self_test{};
     go::AlarmService alarm_service{context, settings};

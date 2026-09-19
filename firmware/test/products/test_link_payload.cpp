@@ -28,6 +28,8 @@ using namespace skyblip::comms;
 
 namespace {
 
+constexpr uint32_t kWidestAddr = 16777214;  // eight digits, the most air_address can emit
+
 events::RxFrame frame(const char* json) {
     events::RxFrame f{};
     f.session_id = 1;
@@ -41,9 +43,7 @@ events::RxFrame frame(const char* json) {
 // it is allowed to hold, so these cases measure the worst case rather than a
 // convenient one.
 go::Settings widest_settings() {
-    go::Settings s = go::defaults(1);
-    s.device_addr = 16777215;  // the whole 24-bit space: eight digits
-    s.addr_table = 63;
+    go::Settings s = go::defaults();
     s.aircraft_type = 17;
     s.alarm_volume = 5;
     s.units = go::Units::Nautical;
@@ -127,7 +127,7 @@ TEST_CASE("comms: the status a phone is pushed fits the narrowest payload we sup
     link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = widest_settings();
-    go::SettingsStore store_cs(s);
+    go::SettingsStore store_cs(s, kWidestAddr);
     ConfigService cs(link, store_cs);
     make_worst_case(cs);
 
@@ -157,7 +157,7 @@ TEST_CASE("comms: the config reply fits it too, as one flat object instead of an
     link.raise_link(1);
     link.declare_payload_bytes(kSmallestSupportedPayload);
     go::Settings s = widest_settings();
-    go::SettingsStore store_cs(s);
+    go::SettingsStore store_cs(s, kWidestAddr);
     ConfigService cs(link, store_cs);
 
     cs.on_rx(frame("{\"cmd\":\"get\"}"));
@@ -171,8 +171,8 @@ TEST_CASE("comms: the config reply fits it too, as one flat object instead of an
     CHECK(body.find('\\') == std::string::npos);
     CHECK(body.find("\"cmd\":\"config\"") != std::string::npos);
     CHECK(body.find("\"version\":1") != std::string::npos);
-    CHECK(body.find("\"addr\":16777215") != std::string::npos);
-    CHECK(body.find("\"addr_table\":63") != std::string::npos);
+    CHECK(body.find("\"addr\":16777214") != std::string::npos);
+    CHECK(body.find("\"addr_table\":7") != std::string::npos);
     CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
     // The last field written, so its presence is the proof nothing was dropped.
     CHECK(body.find("\"callsign\":\"ABCDEFGHI\"") != std::string::npos);
@@ -184,7 +184,7 @@ TEST_CASE("comms: a link that came up at the BLE minimum is answered with a coun
     link.raise_link(1);
     link.declare_payload_bytes(ports::kMinimumLinkPayload);
     go::Settings s = widest_settings();
-    go::SettingsStore store_cs(s);
+    go::SettingsStore store_cs(s, kWidestAddr);
     ConfigService cs(link, store_cs);
     cs.set_flight_state(flight::FlightState::OnGround);
 
@@ -203,13 +203,13 @@ TEST_CASE("comms: a link that came up at the BLE minimum is answered with a coun
 TEST_CASE("comms: the bench's timing report is one frame on a wide link and several on a narrow") {
     timing::SlotTimingStats stats;
     run_bench(stats);
-    go::Settings s = go::defaults(1);
+    go::Settings s = go::defaults();
 
     // A phone that negotiated the whole L2CAP MTU: one frame, and it says so.
     platform::host::Link wide;
     wide.raise_link(1);
     wide.declare_payload_bytes(495);
-    go::SettingsStore store_on_wide(s);
+    go::SettingsStore store_on_wide(s, kWidestAddr);
     ConfigService on_wide(wide, store_on_wide, nullptr, &stats);
     on_wide.on_rx(frame("{\"cmd\":\"timing\"}"));
     REQUIRE(wide.sent.size() == 1);
@@ -223,7 +223,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
     platform::host::Link narrow;
     narrow.raise_link(1);
     narrow.declare_payload_bytes(kSmallestSupportedPayload);
-    go::SettingsStore store_on_narrow(s);
+    go::SettingsStore store_on_narrow(s, kWidestAddr);
     ConfigService on_narrow(narrow, store_on_narrow, nullptr, &stats);
     on_narrow.on_rx(frame("{\"cmd\":\"timing\"}"));
     REQUIRE(narrow.sent.size() > 1);
@@ -254,7 +254,7 @@ TEST_CASE("comms: the bench's timing report is one frame on a wide link and seve
     platform::host::Link hopeless;
     hopeless.raise_link(1);
     hopeless.declare_payload_bytes(64);
-    go::SettingsStore store_on_hopeless(s);
+    go::SettingsStore store_on_hopeless(s, kWidestAddr);
     ConfigService on_hopeless(hopeless, store_on_hopeless, nullptr, &stats);
     on_hopeless.on_rx(frame("{\"cmd\":\"timing\"}"));
     CHECK(hopeless.sent.empty());
@@ -265,8 +265,8 @@ TEST_CASE("comms: a status push the controller could not take is retried, not lo
     platform::host::Link link;
     link.raise_link(1);
     link.raise_link(1);
-    go::Settings s = go::defaults(1);
-    go::SettingsStore store_cs(s);
+    go::Settings s = go::defaults();
+    go::SettingsStore store_cs(s, kWidestAddr);
     ConfigService cs(link, store_cs);
     cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_link_up(events::LinkUp{1, link.payload_bytes()});
@@ -294,8 +294,8 @@ TEST_CASE("comms: a push that will never fit is counted once and not retried for
     link.raise_link(1);
     link.raise_link(1);
     link.declare_payload_bytes(ports::kMinimumLinkPayload);
-    go::Settings s = go::defaults(1);
-    go::SettingsStore store_cs(s);
+    go::Settings s = go::defaults();
+    go::SettingsStore store_cs(s, kWidestAddr);
     ConfigService cs(link, store_cs);
     cs.set_flight_state(flight::FlightState::OnGround);
     cs.on_link_up(events::LinkUp{1, link.payload_bytes()});

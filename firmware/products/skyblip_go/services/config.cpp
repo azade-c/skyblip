@@ -123,7 +123,7 @@ void ConfigLinkService::flush_settings(uint32_t now_ms) {
 void ConfigLinkService::load() {
     if (loaded_) return;
     load_image_state();
-    settings_ = go::defaults(context_.roles.device_addr);
+    settings_ = go::defaults();
     if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) {
         loaded_ = true;
         return;
@@ -135,7 +135,6 @@ void ConfigLinkService::load() {
     loaded_ = true;
     go::Settings loaded;
     if (is_ok(go::from_blob(blob, n, loaded)) && is_ok(go::validate(loaded))) settings_ = loaded;
-    go::stamp_identity(settings_, context_.roles.device_addr);
     if (n <= kBlobCap) {
         std::memcpy(stored_, blob, n);
         stored_len_ = n;

@@ -22,27 +22,25 @@ using namespace skyblip::go;
 using namespace skyblip::settings;
 
 TEST_CASE("settings: defaults are valid") {
-    Settings s = defaults(0x123456);
+    Settings s = defaults();
     CHECK(validate(s) == Status::Ok);
-    CHECK(s.device_addr == 0x123456u);
     CHECK(int(s.aircraft_type) == kAircraftTypeLight);
 }
 
 TEST_CASE("settings: blob round-trips through version+crc framing") {
-    Settings s = defaults(0xABCDEF);
+    Settings s = defaults();
     s.alarm_volume = 4;
     s.units = Units::Metric;
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
     Settings out;
     CHECK(from_blob(blob, blob_size(), out) == Status::Ok);
-    CHECK(out.device_addr == 0xABCDEFu);
     CHECK(int(out.alarm_volume) == 4);
     CHECK(out.units == Units::Metric);
 }
 
 TEST_CASE("settings: a corrupted blob is detected (CRC), caller falls back") {
-    Settings s = defaults(1);
+    Settings s = defaults();
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
     blob[3] ^= 0xFF;  // flip a payload byte
@@ -51,7 +49,7 @@ TEST_CASE("settings: a corrupted blob is detected (CRC), caller falls back") {
 }
 
 TEST_CASE("settings: wrong version blob is Unsupported (migrate/default)") {
-    Settings s = defaults(1);
+    Settings s = defaults();
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
     blob[0] = 99;  // bogus version
@@ -63,9 +61,9 @@ TEST_CASE("settings: wrong version blob is Unsupported (migrate/default)") {
 }
 
 TEST_CASE("settings: to_json/apply_json round-trip of a patch") {
-    Settings s = defaults(0x010203);
+    Settings s = defaults();
     char buf[256];
-    int n = to_json(s, buf, sizeof(buf));
+    int n = to_json(s, 0x123456, buf, sizeof(buf));
     CHECK(n > 0);
     json::Reader r(buf, n);
     long v;
@@ -81,7 +79,7 @@ TEST_CASE("settings: to_json/apply_json round-trip of a patch") {
 }
 
 TEST_CASE("settings: apply_json rejects out-of-range atomically") {
-    Settings s = defaults(1);
+    Settings s = defaults();
     uint8_t before = s.aircraft_type;
     const char* bad = "{\"aircraft_type\":99}";  // > 17
     CHECK(apply_json(s, bad, static_cast<int>(strlen(bad))) == Status::OutOfRange);
@@ -101,18 +99,19 @@ TEST_CASE("address: neither all-zeros nor all-ones goes on the air") {
     CHECK(air_address(0xFFFFFF) == kFallbackAddress);
     CHECK(air_address(0xFF000000) == kFallbackAddress);  // masked to 24 bits first
     CHECK(air_address(kFallbackAddress) == kFallbackAddress);
-    CHECK(defaults(0).device_addr == kFallbackAddress);
 }
 
 // Issue 2 F.2.2: 0 is privacy and must be re-drawn every start-up, 1 to 4 are reserved.
-TEST_CASE("address: a device out of the box claims the OGN-Tracker table") {
-    CHECK(int(defaults(0x123456).addr_table) == 7);
+TEST_CASE("address: the table is a constant, not a field anything can hold") {
     CHECK(int(kAddrTableOgn) == 7);
-}
-
-TEST_CASE("settings: a chip id goes out as the number it is, under any table") {
-    CHECK(defaults(0xDD0042).device_addr == 0xDD0042u);
-    CHECK(validate(defaults(0xDD0042)) == Status::Ok);
+    char buf[256];
+    const int n = to_json(defaults(), 0xDD0042, buf, static_cast<int>(sizeof(buf)));
+    json::Reader r(buf, n);
+    long v = 0;
+    CHECK(r.get_int("addr", v));
+    CHECK(v == 0xDD0042);  // the chip's number, prefix and all
+    CHECK(r.get_int("addr_table", v));
+    CHECK(v == 7);
 }
 
 // B4. A stored blob is a data format: deleting a field is expand, migrate,
@@ -158,8 +157,6 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
 
     Settings out;
     REQUIRE(from_blob(blob, 1 + sizeof(V1) + 4, out) == Status::Ok);
-    CHECK(out.device_addr == 0x5B7E57u);
-    CHECK(int(out.addr_table) == 6);
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
@@ -180,7 +177,7 @@ TEST_CASE("settings: a blob written by version-1 firmware comes back as itself")
 // against a bench supply, bounded because a calibration field that accepts
 // anything is a support incident of its own.
 TEST_CASE("settings: the battery trim is bounded at the boundary, in both framings") {
-    Settings s = defaults(0x5B7E57);
+    Settings s = defaults();
     CHECK(int(s.battery_offset_mv) == 0);  // an uncalibrated unit reads as it always did
 
     // The bound itself is inclusive, and one millivolt past it is not.
@@ -210,7 +207,7 @@ TEST_CASE("settings: the battery trim is bounded at the boundary, in both framin
 }
 
 TEST_CASE("settings: the battery trim is set over the link and refused whole when it is not") {
-    Settings s = defaults(1);
+    Settings s = defaults();
     const char* trim = "{\"battery_offset_mv\":-40}";
     CHECK(apply_json(s, trim, static_cast<int>(strlen(trim))) == Status::Ok);
     CHECK(int(s.battery_offset_mv) == -40);
@@ -273,8 +270,6 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
 
     Settings out;
     REQUIRE(from_blob(blob, 1 + sizeof(V2) + 4, out) == Status::Ok);
-    CHECK(out.device_addr == 0x5B7E57u);
-    CHECK(int(out.addr_table) == 6);
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
@@ -289,7 +284,56 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
     CHECK(int(rewritten[0]) == int(kBlobVersion));
-    CHECK(int(kBlobVersion) == 7);
+    CHECK(int(kBlobVersion) == 8);
+}
+
+// M, the migration: the address and its table are the device's now, so they leave the blob.
+TEST_CASE("settings: a blob written by version-7 firmware comes back without its identity") {
+    struct V7 {
+        uint8_t version{1};
+        uint32_t device_addr{0};
+        int16_t battery_offset_mv{0};
+        int16_t freq_trim_e1_ppm{0};
+        uint8_t addr_table{0};
+        uint8_t aircraft_type{4};
+        bool alarm_enabled{true};
+        uint8_t alarm_volume{3};
+        Units units{Units::Metric};
+        char callsign[10]{0};
+    };
+
+    V7 old{};
+    old.device_addr = 0xDD1234;
+    old.battery_offset_mv = -120;
+    old.freq_trim_e1_ppm = -37;
+    old.addr_table = 5;
+    old.aircraft_type = 9;
+    old.alarm_volume = 5;
+    old.units = Units::Nautical;
+    std::memcpy(old.callsign, "D-KXYZ", 7);
+
+    uint8_t blob[128] = {0};
+    blob[0] = 7;
+    std::memcpy(blob + 1, &old, sizeof(V7));
+    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V7));
+    for (int i = 0; i < 4; i++) blob[1 + sizeof(V7) + i] = static_cast<uint8_t>(crc >> (8 * i));
+
+    Settings out;
+    REQUIRE(from_blob(blob, 1 + sizeof(V7) + 4, out) == Status::Ok);
+    CHECK(int(out.battery_offset_mv) == -120);
+    CHECK(int(out.freq_trim_e1_ppm) == -37);
+    CHECK(int(out.aircraft_type) == 9);
+    CHECK(int(out.alarm_volume) == 5);
+    CHECK(std::string(out.callsign) == "D-KXYZ");
+
+    char buf[256];
+    const int n = to_json(out, 0x123456, buf, static_cast<int>(sizeof(buf)));
+    json::Reader r(buf, n);
+    long v = 0;
+    CHECK(r.get_int("addr", v));
+    CHECK(v == 0x123456);  // the board's, not the 0xDD1234 that blob carried
+    CHECK(r.get_int("addr_table", v));
+    CHECK(v == 7);
 }
 
 // L, the migration: the two settings that left take their stored bytes with them.
@@ -330,10 +374,8 @@ TEST_CASE("settings: a blob written by version-6 firmware comes back without ste
 
     Settings out;
     REQUIRE(from_blob(blob, 1 + sizeof(V6) + 4, out) == Status::Ok);
-    CHECK(out.device_addr == 0x5B7E57u);
     CHECK(int(out.battery_offset_mv) == -120);
     CHECK(int(out.freq_trim_e1_ppm) == -37);
-    CHECK(int(out.addr_table) == 6);
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
@@ -366,8 +408,8 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
         uint8_t page_mask{0x0F};
         char callsign[10]{0};
     };
-    // Version 3 is the length the current payload is, so only the version byte parts them.
-    CHECK(sizeof(V3) == blob_size() - 5);
+    // Versions 1, 2, 3, 5 and 7 are all 28 bytes: nothing but the version byte parts them.
+    CHECK(sizeof(V3) == 28u);
 
     V3 old{};
     old.device_addr = 0x5B7E57;
@@ -389,9 +431,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
 
     Settings out;
     REQUIRE(from_blob(blob, 1 + sizeof(V3) + 4, out) == Status::Ok);
-    CHECK(out.device_addr == 0x5B7E57u);
     CHECK(int(out.battery_offset_mv) == -120);
-    CHECK(int(out.addr_table) == 6);
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
@@ -450,10 +490,8 @@ TEST_CASE("settings: a blob written by version-4 firmware comes back without its
 
     Settings out;
     REQUIRE(from_blob(blob, 1 + sizeof(V4) + 4, out) == Status::Ok);
-    CHECK(out.device_addr == 0x5B7E57u);
     CHECK(int(out.battery_offset_mv) == -120);
     CHECK(int(out.freq_trim_e1_ppm) == -37);
-    CHECK(int(out.addr_table) == 6);
     CHECK(int(out.aircraft_type) == 9);
     CHECK_FALSE(out.alarm_enabled);
     CHECK(int(out.alarm_volume) == 5);
@@ -471,7 +509,7 @@ TEST_CASE("settings: a blob written by version-4 firmware comes back without its
 // J. The frequency trim: the field exists because a TCXO gives no way to find
 // out it is wrong, so the bound is what says "out of trim" rather than "broken".
 TEST_CASE("settings: the frequency trim is bounded at the boundary, in both framings") {
-    Settings s = defaults(0x5B7E57);
+    Settings s = defaults();
     CHECK(int(s.freq_trim_e1_ppm) == 0);  // the design intent on a TCXO part
 
     s.freq_trim_e1_ppm = kFreqTrimLimitTenthsPpm;
@@ -495,7 +533,7 @@ TEST_CASE("settings: the frequency trim is bounded at the boundary, in both fram
 }
 
 TEST_CASE("settings: the frequency trim is set over the link and refused whole when it is not") {
-    Settings s = defaults(0x5B7E57);
+    Settings s = defaults();
     const char* set = "{\"freq_trim_e1_ppm\":-25,\"alarm_volume\":2}";
     REQUIRE(apply_json(s, set, static_cast<int>(strlen(set))) == Status::Ok);
     CHECK(int(s.freq_trim_e1_ppm) == -25);
@@ -519,12 +557,12 @@ TEST_CASE("settings: the frequency trim is set over the link and refused whole w
     // "get" reply is one frame at comms::kSmallestSupportedPayload with nine
     // bytes of headroom, and "freq_trim_e1_ppm" alone is nineteen.
     char buf[256];
-    const int n = to_json(s, buf, sizeof(buf));
+    const int n = to_json(s, 0x123456, buf, sizeof(buf));
     CHECK(std::string(buf, static_cast<size_t>(n)).find("freq_trim") == std::string::npos);
 }
 
 TEST_CASE("settings: a blob from a version this firmware never wrote is refused") {
-    Settings s = defaults(0x5B7E57);
+    Settings s = defaults();
     uint8_t blob[128];
     to_blob(s, blob, sizeof(blob));
     blob[0] = kBlobVersion + 1;
@@ -533,9 +571,9 @@ TEST_CASE("settings: a blob from a version this firmware never wrote is refused"
 }
 
 TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
-    Settings s = defaults(0x5B7E57);
+    Settings s = defaults();
     char buf[256];
-    const int n = to_json(s, buf, sizeof(buf));
+    const int n = to_json(s, 0x123456, buf, sizeof(buf));
     const std::string json(buf, static_cast<size_t>(n));
     // Removed with their fields: no reader outside this module, and a page that
     // accepts a setting nothing reads is worse than one that does not offer it.
@@ -577,7 +615,7 @@ TEST_CASE("settings: the JSON offers nothing the firmware does not read") {
 }
 
 TEST_CASE("settings: a callsign is what a panel can draw, and a patch that is not is refused") {
-    Settings s = defaults(1);
+    Settings s = defaults();
     const char* ok = "{\"callsign\":\"G-ABCD\"}";
     CHECK(apply_json(s, ok, static_cast<int>(strlen(ok))) == Status::Ok);
     CHECK(std::string(s.callsign) == "G-ABCD");
@@ -592,36 +630,20 @@ TEST_CASE("settings: a callsign is what a panel can draw, and a patch that is no
     CHECK(std::string(s.callsign) == "123456789");
 }
 
-TEST_CASE("settings: no patch can change what the device says it is") {
-    Settings s = defaults(0x5B7E57);
-    const char* icao = "{\"addr\":14488116,\"addr_table\":5}";  // 0xDD1234
-    CHECK(apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Unsupported);
-    CHECK(s.device_addr == 0x5B7E57u);
-    CHECK(int(s.addr_table) == 7);
-
-    const char* volume_too = "{\"addr_table\":5,\"alarm_volume\":1}";
-    CHECK(apply_json(s, volume_too, static_cast<int>(strlen(volume_too))) == Status::Unsupported);
-    CHECK(int(s.alarm_volume) == 3);
-
-    // A client that sets back what 'get' handed it is patching nothing, not attacking anything.
-    const char* echoed = "{\"addr\":5996119,\"addr_table\":7,\"alarm_volume\":1}";
-    CHECK(apply_json(s, echoed, static_cast<int>(strlen(echoed))) == Status::Ok);
+TEST_CASE("settings: a patch that names an identity changes nothing and refuses nothing") {
+    Settings s = defaults();
+    const char* icao = "{\"addr\":14488116,\"addr_table\":5,\"alarm_volume\":1}";  // 0xDD1234
+    CHECK(apply_json(s, icao, static_cast<int>(strlen(icao))) == Status::Ok);
     CHECK(int(s.alarm_volume) == 1);
-}
 
-// A blob written before the identity stopped being a setting still holds a table of its own.
-TEST_CASE("settings: a stored blob does not get to name the aircraft") {
-    Settings stored = defaults(0x123456);
-    stored.device_addr = 0xDD1234u;
-    stored.addr_table = 6;
-    uint8_t blob[128];
-    to_blob(stored, blob, sizeof(blob));
-
-    Settings out;
-    CHECK(from_blob(blob, blob_size(), out) == Status::Ok);
-    stamp_identity(out, 0x123456);
-    CHECK(out.device_addr == 0x123456u);
-    CHECK(int(out.addr_table) == 7);
+    char buf[256];
+    const int n = to_json(s, 0x5B7E57, buf, static_cast<int>(sizeof(buf)));
+    json::Reader r(buf, n);
+    long v = 0;
+    CHECK(r.get_int("addr", v));
+    CHECK(v == 0x5B7E57);
+    CHECK(r.get_int("addr_table", v));
+    CHECK(v == 7);
 }
 
 TEST_CASE("json_min: the reader parses ints, bools and strings, the writer emits them") {
