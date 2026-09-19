@@ -134,6 +134,7 @@ int format_pflau(char* out, size_t cap, const model::OwnState& own, bool transmi
         out[n++] = '0';
         out[n++] = ',';
         out[n++] = ',';
+        out[n++] = ',';
     }
     return nmea_finish(out, n);
 }

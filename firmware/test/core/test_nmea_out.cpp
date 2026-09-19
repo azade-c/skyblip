@@ -3,7 +3,8 @@
 // on the wrong side of the aircraft on a moving map. Without an own position there
 // is no relative anything, and the encoder must emit nothing rather than a target
 // relative to (0, 0).
-#include <cstdlib>  // std::abs
+#include <algorithm>  // std::count
+#include <cstdlib>    // std::abs
 #include <cstring>
 #include <string>
 
@@ -25,6 +26,12 @@ static bool checksum_ok(const std::string& s) {
     for (size_t i = 1; i < star; i++) cs ^= static_cast<uint8_t>(s[i]);
     char hh[3] = {s[star + 1], s[star + 2], 0};
     return static_cast<uint8_t>(std::stoi(hh, nullptr, 16)) == cs;
+}
+
+// The fields after the sentence name: one comma stands in front of each of them.
+static int data_fields(const std::string& sentence) {
+    const std::string body = sentence.substr(0, sentence.find('*'));
+    return static_cast<int>(std::count(body.begin(), body.end(), ','));
 }
 
 static model::OwnState own_at(int32_t lat, int32_t lon, int32_t alt_m) {
@@ -153,6 +160,26 @@ TEST_CASE("nmea: PFLAU GPS 1 on the ground reads as a 2D fix on XCSoar, and is s
     own.flight_state = static_cast<uint8_t>(flight::FlightState::Airborne);
     const int air = format_pflau(buf, sizeof(buf), own, true, 0, nullptr, 0, 0, 0, 0);
     CHECK(std::string(buf, air).rfind("$PFLAU,0,1,2,1,0,", 0) == 0);
+}
+
+// SoftRF sends the tenth field empty rather than dropping it: "$PFLAU,0,1,2,1,0,,0,,,*4C".
+TEST_CASE("nmea: PFLAU carries all ten FTD-012 fields, empty sky or not") {
+    auto own = own_at(481000000, 81000000, 1000);
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::Airborne);
+    char buf[128];
+
+    const int quiet = format_pflau(buf, sizeof(buf), own, true, 0, nullptr, 0, 0, 0, 0);
+    const std::string nothing_out_there(buf, quiet);
+    CHECK(nothing_out_there.rfind("$PFLAU,0,1,2,1,0,,0,,,*4C", 0) == 0);
+    CHECK(data_fields(nothing_out_there) == 10);
+    CHECK(checksum_ok(nothing_out_there));
+
+    model::AircraftObs threat{};
+    threat.addr = 0x112233;
+    const int seen = format_pflau(buf, sizeof(buf), own, true, 1, &threat, 2, -45, -50, 800);
+    const std::string with_a_threat(buf, seen);
+    CHECK(data_fields(with_a_threat) == 10);
+    CHECK(checksum_ok(with_a_threat));
 }
 
 // A unit that hears everything and speaks to nobody is what this field is for.
