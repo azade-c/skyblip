@@ -135,6 +135,16 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
 // position has no meaning without one.
 void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 25000, 900); }
 
+// Parked with the receiver running, which is where a pilot pairs a tablet.
+void park(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 200, 900); }
+
+std::string last_of(Rig& rig, const char* kind) {
+    std::string found;
+    for (const std::string& s : sentences(rig))
+        if (s.rfind(kind, 0) == 0) found = s;
+    return found;
+}
+
 }  // namespace
 
 // THE GUARD. Delete the service from the product's list, or its call to
@@ -197,6 +207,49 @@ TEST_CASE("nmea: an aircraft heard over the air becomes a $PFLAA a tablet can pa
     CHECK(f[5] == "2");
     CHECK(f[6] == "C5D804");
     CHECK(f[11] == "1");  // ALP-TAS aircraft type: glider
+}
+
+// FTD-012's GPS field is 1 for a 3D fix on the ground, 2 for one moving, and XCSoar names 1 GPS_2D.
+TEST_CASE("nmea: PFLAU says GPS 1 on the ground, which XCSoar draws as a 2D fix") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    park(rig, t, 3);
+    rig.raise_link();
+    park(rig, t, 3);
+    REQUIRE(rig.state().own.fix_valid);
+    REQUIRE(flight::state_from(rig.state().own.flight_state) == flight::FlightState::OnGround);
+    CHECK(fields(last_of(rig, "$PFLAU"))[3] == "1");
+
+    // The fix dimension is elsewhere and unaffected: $PGRMZ still says 3D.
+    CHECK(fields(last_of(rig, "$PGRMZ"))[3] == "3");
+
+    rig.platform.link().clear();
+    fly(rig, t, 12);
+    REQUIRE(flight::state_from(rig.state().own.flight_state) == flight::FlightState::Airborne);
+    CHECK(fields(last_of(rig, "$PFLAU"))[3] == "2");
+}
+
+// The TX field is what an app shows as transmitting, and a device can hear all and say nothing.
+TEST_CASE("nmea: PFLAU's TX field is the transmitter's own gate, so a silent device admits it") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    rig.raise_link();
+    // Nothing goes on air before the first fix has settled, so neither does a TX of 1.
+    fly(rig, t, gnss::kFirstFixSettleMs / 1000);
+    REQUIRE(rig.state().own.tx_settled);
+    REQUIRE(fields(last_of(rig, "$PFLAU"))[2] == "1");
+
+    // No PPS lock is no burst (core/timing/transmit.h), while the fix and the pass stay.
+    rig.platform.pps().set_locked(false);
+    rig.platform.link().clear();
+    fly(rig, t, 2);
+    const std::vector<std::string> f = fields(last_of(rig, "$PFLAU"));
+    CHECK(f[2] == "0");
+    CHECK(f[3] == "2");
+    CHECK(rig.state().own.fix_valid);
 }
 
 // FLARM's scale is time to impact, and 1 is its lowest real alarm: a 3 km ring

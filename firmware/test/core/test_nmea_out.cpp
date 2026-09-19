@@ -8,6 +8,7 @@
 #include <string>
 
 #include "core/comms/config.h"
+#include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
@@ -113,14 +114,56 @@ TEST_CASE("nmea: PFLAU reports rx count, gps and threat") {
     model::AircraftObs threat{};
     threat.addr = 0x112233;
     char buf[128];
-    int n = format_pflau(buf, sizeof(buf), own, 5, &threat, 3, 45, -50, 800);
+    int n = format_pflau(buf, sizeof(buf), own, true, 5, &threat, 3, 45, -50, 800);
     std::string s(buf, n);
     CHECK(s.rfind("$PFLAU,5,1,2,1,3,", 0) == 0);
     CHECK(s.find("112233") != std::string::npos);
     // A threat off the left wing is a negative bearing, not 315.
-    const int back = format_pflau(buf, sizeof(buf), own, 5, &threat, 3, -45, -50, 800);
+    const int back = format_pflau(buf, sizeof(buf), own, true, 5, &threat, 3, -45, -50, 800);
     CHECK(std::string(buf, back).find(",-45,") != std::string::npos);
     CHECK(checksum_ok(s));
+}
+
+// FTD-012 defines the GPS field as 0 no fix, 1 a 3D fix on the ground, 2 a 3D fix moving.
+TEST_CASE("nmea: PFLAU's GPS field is the flight state, as FLARM defines it") {
+    auto own = own_at(481000000, 81000000, 1000);
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::OnGround);
+    CHECK(pflau_gps(own) == 1);
+
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::Airborne);
+    CHECK(pflau_gps(own) == 2);
+
+    // Unknown is what every bad solution reports, and it is not a claim to be standing still.
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::Unknown);
+    CHECK(pflau_gps(own) == 2);
+
+    own.fix_valid = false;
+    CHECK(pflau_gps(own) == 0);
+}
+
+// XCSoar names value 1 GPS_2D (src/FLARM/Status.hpp), so a device on the apron shows a 2D fix.
+TEST_CASE("nmea: PFLAU GPS 1 on the ground reads as a 2D fix on XCSoar, and is still sent") {
+    auto own = own_at(481000000, 81000000, 1000);
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::OnGround);
+    char buf[128];
+    const int n = format_pflau(buf, sizeof(buf), own, true, 0, nullptr, 0, 0, 0, 0);
+    CHECK(std::string(buf, n).rfind("$PFLAU,0,1,1,1,0,", 0) == 0);
+
+    // SoftRF sends GNSS_STATUS_3D_MOVING on any fix (lyusupov .../data/NMEA.cpp:547), we do not.
+    own.flight_state = static_cast<uint8_t>(flight::FlightState::Airborne);
+    const int air = format_pflau(buf, sizeof(buf), own, true, 0, nullptr, 0, 0, 0, 0);
+    CHECK(std::string(buf, air).rfind("$PFLAU,0,1,2,1,0,", 0) == 0);
+}
+
+// A unit that hears everything and speaks to nobody is what this field is for.
+TEST_CASE("nmea: PFLAU's TX field follows the transmitter's own gate, not the clock's validity") {
+    auto own = own_at(481000000, 81000000, 1000);
+    char buf[128];
+    const int silent = format_pflau(buf, sizeof(buf), own, false, 2, nullptr, 0, 0, 0, 0);
+    CHECK(std::string(buf, silent).rfind("$PFLAU,2,0,2,1,0,", 0) == 0);
+
+    const int sending = format_pflau(buf, sizeof(buf), own, true, 2, nullptr, 0, 0, 0, 0);
+    CHECK(std::string(buf, sending).rfind("$PFLAU,2,1,2,1,0,", 0) == 0);
 }
 
 TEST_CASE("nmea: category mapping ADS-L glider -> ALP-TAS 1") {
@@ -221,7 +264,7 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     const int traffic = format_pflaa(buf, sizeof(buf), own, t, 3);
     CHECK(traffic > 0);
     CHECK(traffic <= comms::kSmallestSupportedPayload);
-    const int status = format_pflau(buf, sizeof(buf), own, 99, &t, 3, -180, -99999, 999999);
+    const int status = format_pflau(buf, sizeof(buf), own, true, 99, &t, 3, -180, -99999, 999999);
     CHECK(status > 0);
     CHECK(status <= comms::kSmallestSupportedPayload);
     // And neither fits what BLE merely guarantees, which is why a sender here

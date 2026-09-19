@@ -64,6 +64,10 @@ constexpr const char* page_title(Page page) {
     }
 }
 
+constexpr const char* menu_title(Page page) {
+    return page == Page::Radar ? "SETTINGS" : page_title(page);
+}
+
 constexpr Page menu_owner(Page page) { return walked(page) ? page : Page::Nearby; }
 
 // INFO: fc 18sep26 a page off the walk was opened from a menu, so the pad hands it back there

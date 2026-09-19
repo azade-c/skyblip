@@ -1,5 +1,6 @@
 #include "core/protocol/nmea_out.h"
 
+#include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/units/units.h"
@@ -96,17 +97,23 @@ int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model:
     return nmea_finish(out, n);
 }
 
-int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_targets,
-                 const model::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
-                 int32_t rel_alt_m, int32_t rel_dist_m) {
+// INFO: fc 19sep26 Unknown is not a claim of being on the ground, so only OnGround answers 1.
+uint8_t pflau_gps(const model::OwnState& own) {
+    if (!own.fix_valid) return 0;
+    return flight::state_from(own.flight_state) == flight::FlightState::OnGround ? 1 : 2;
+}
+
+int format_pflau(char* out, size_t cap, const model::OwnState& own, bool transmitting,
+                 int n_targets, const model::AircraftObs* threat, uint8_t alarm_level,
+                 int16_t rel_bearing_deg, int32_t rel_alt_m, int32_t rel_dist_m) {
     (void)cap;
     int n = 0;
     n += fmt_string(out + n, "$PFLAU,");
     n += fmt_uint(out + n, static_cast<uint32_t>(n_targets));
     out[n++] = ',';
-    out[n++] = own.utc_valid ? '1' : '0';
+    out[n++] = transmitting ? '1' : '0';
     out[n++] = ',';
-    out[n++] = static_cast<char>('0' + (own.fix_valid ? 2 : 0));
+    out[n++] = static_cast<char>('0' + pflau_gps(own));
     out[n++] = ',';
     out[n++] = '1';
     out[n++] = ',';

@@ -7,6 +7,7 @@
 #include "core/flight/extrapolate.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
+#include "core/timing/transmit.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::go {
@@ -121,13 +122,15 @@ void NmeaService::emit_status(uint32_t now_ms) {
         worst_level = target->alarm_level;
     }
 
+    const bool transmitting = timing::own_ship_transmits(own, context_.state.clock);
     const int len =
         threat != nullptr
-            ? protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, &threat->obs,
-                                     traffic::to_number(worst_level),
+            ? protocol::format_pflau(sentence_, sizeof(sentence_), own, transmitting, heard,
+                                     &threat->obs, traffic::to_number(worst_level),
                                      static_cast<int16_t>(signed_bearing(worst.rel_bearing_deg)),
                                      worst.rel_alt_m, worst.rel_dist_m)
-            : protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, nullptr, 0, 0, 0, 0);
+            : protocol::format_pflau(sentence_, sizeof(sentence_), own, transmitting, heard,
+                                     nullptr, 0, 0, 0, 0);
     write(sentence_, len);
 }
 

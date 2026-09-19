@@ -21,9 +21,13 @@ int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model:
 // rel_bearing_deg is SIGNED, half a turn either way: the field is, and a value
 // pushed through an unsigned parameter puts a threat off the left wing at 340
 // degrees on an app that reads it as written.
-int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_targets,
-                 const model::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
-                 int32_t rel_alt_m, int32_t rel_dist_m);
+// INFO: fc 19sep26 FTD-012's GPS field: 0 no fix, 1 a 3D fix on the ground, 2 a 3D fix moving
+uint8_t pflau_gps(const model::OwnState& own);
+
+// INFO: fc 19sep26 the TX field is whether a burst can leave now: core/timing/transmit.h
+int format_pflau(char* out, size_t cap, const model::OwnState& own, bool transmitting,
+                 int n_targets, const model::AircraftObs* threat, uint8_t alarm_level,
+                 int16_t rel_bearing_deg, int32_t rel_alt_m, int32_t rel_dist_m);
 
 // fix_valid follows the same binary own.fix_valid this device already keeps
 // (no 2D/3D distinction survives to OwnState), which is what format_pflau's own

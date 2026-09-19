@@ -123,7 +123,7 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
 
 void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
     fb.clear(true);
-    fb.draw_text(kMenuLeftX - 2, kHeaderY, page_title(s.page), true, 2);
+    fb.draw_text(kMenuLeftX - 2, kHeaderY, menu_title(s.page), true, 2);
     fb.hline(kMenuLeftX - 2, kHeaderRuleY, kGlassW - 2 * (kMenuLeftX - 2), true);
 
     const Menu menu = menu_for(s.page);

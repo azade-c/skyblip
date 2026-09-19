@@ -1,4 +1,5 @@
 // The menu behind each page: which row is focused, what the pad moves and what the button changes.
+#include <cstring>
 #include <initializer_list>
 
 #include "doctest/doctest.h"
@@ -133,13 +134,17 @@ TEST_CASE("radar menu: every row names what it holds, and the focused one is rev
     CHECK(kMenuLeftX - 2 + length(kMenuHintText) * kMenuCellW <= Glass::kW);
 }
 
-TEST_CASE("menu: each menu is titled with the page it belongs to") {
+TEST_CASE("menu: the radar's menu is titled SETTINGS, every other one by its page") {
+    CHECK(std::strcmp(menu_title(Page::Radar), "SETTINGS") == 0);
+    CHECK(std::strcmp(menu_title(Page::Nearby), page_title(Page::Nearby)) == 0);
+
     const MenuValues values = fresh();
     for (Page page : {Page::Radar, Page::Nearby}) {
         const Glass fb = page_of(page, values, menu_for(page).rows[0]);
+        CHECK(kMenuLeftX - 2 + length(menu_title(page)) * 2 * kMenuCellW <= Glass::kW);
         Glass expected;
         expected.clear(true);
-        expected.draw_text(kMenuLeftX - 2, 3, page_title(page), true, 2);
+        expected.draw_text(kMenuLeftX - 2, 3, menu_title(page), true, 2);
         for (int y = 3; y < 3 + 14; y++)
             for (int x = 0; x < Glass::kW; x++)
                 CHECK(fb.get_pixel(x, y) == expected.get_pixel(x, y));

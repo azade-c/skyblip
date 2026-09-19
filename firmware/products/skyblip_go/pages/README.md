@@ -284,6 +284,8 @@ The panel half of "a pilot with no phone can change the things that matter". The
 | `radar` | `AIRCRAFT`, `UNITS`, `RANGE`, `ALARM`, `VOLUME` |
 | `nearby` | `STATUS`, `SATELLITES`, `RADIO LOG`, `SELF TEST` |
 
+It is the one menu not titled after the page behind it: five settings under a heading reading `RADAR` named where a thumb came from rather than what it is looking at, so the heading is `SETTINGS`. The nearby menu keeps its page's name, because its rows are that page's doors and not its own contents. Eight characters at double height leave half the glass over, so nothing had to shrink to say it.
+
 The radar's menu is every setting a pilot can change on the glass, and nothing else: the first screen is where a device is set up, so the five rows live under it rather than being spread over the pages they happen to affect. What a row is not is a reading - the device address was the first row of this menu and it is a figure, unchangeable, that `nearby` already prints in its identity column.
 
 The nearby menu is the other kind: every row opens a page. The three diagnostic pages and the self test are off the pad's walk entirely, opened by name from the list that explains them, and a tap of the pad on one of them comes back to `nearby` rather than walking on to a fifth picture. They are ordered the way they are reached for: `STATUS` is what a pilot on the apron opens, `SATELLITES` the answer when it says no fix, `RADIO LOG` the bench's tape, and `SELF TEST` the page a bug report is photographed from. What a page off the walk returns to is the menu that opened it (`menu_owner`), which is the rule that keeps a pilot's thumb where they left it.
