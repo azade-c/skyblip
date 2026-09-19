@@ -47,17 +47,17 @@ TEST_CASE("gmeter: the three axes each read their own now, most and least") {
     Glass fb;
     draw_gmeter(fb, s);
 
-    CHECK(reads_in(fb, "NRM", 0, 142, 30, 152));
+    CHECK(reads_in(fb, "G", 0, 142, 30, 152));
     CHECK(reads_in(fb, "+2.3", 40, 138, 120, 156, 2));
     CHECK(reads_in(fb, "+4.2", 118, 142, 158, 152));
     CHECK(reads_in(fb, "-1.3", 156, 142, 196, 152));
 
-    CHECK(reads_in(fb, "LAT", 0, 162, 30, 172));
+    CHECK(reads_in(fb, "SIDE", 0, 162, 34, 172));
     CHECK(reads_in(fb, "L0.4", 40, 158, 120, 176, 2));
     CHECK(reads_in(fb, "R0.7", 118, 162, 158, 172));
     CHECK(reads_in(fb, "L0.6", 156, 162, 196, 172));
 
-    CHECK(reads_in(fb, "LON", 0, 182, 30, 192));
+    CHECK(reads_in(fb, "ACCEL", 0, 182, 40, 192));
     CHECK(reads_in(fb, "ACC0.3", 30, 178, 120, 196, 2));
     CHECK(reads_in(fb, "ACC0.3", 118, 182, 158, 192));
     CHECK(reads_in(fb, "DEC0.4", 156, 182, 196, 192));

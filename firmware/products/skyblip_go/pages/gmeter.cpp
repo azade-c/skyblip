@@ -164,9 +164,9 @@ void draw_gmeter(ui::Canvas& fb, const GMeterSnapshot& s) {
         strip_reading(fb, s);
     }
 
-    row_label(fb, kNormalRowY, "NRM", s.valid);
-    row_label(fb, kLateralRowY, "LAT", s.valid);
-    row_label(fb, kLongitudinalRowY, "LON", s.valid);
+    row_label(fb, kNormalRowY, "G", s.valid);
+    row_label(fb, kLateralRowY, "SIDE", s.valid);
+    row_label(fb, kLongitudinalRowY, "ACCEL", s.valid);
     if (!s.valid) return;
 
     value_at(fb, kNowEnd, kNormalRowY, s.now.normal_mg, kNowScale);

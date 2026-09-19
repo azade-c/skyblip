@@ -77,7 +77,7 @@ Two honesties are the caller's, not this file's. The bank is the *device's*, so 
 
 The sign of each axis is the instrument's, not the accelerometer's, and there is no single aviation convention covering all three.
 
-Normal load is the load factor every g-meter in every cockpit shows: positive up, 1 g in level flight, negative in outside figures, and the limits an airframe carries are written in it.
+Normal load is the load factor every g-meter in every cockpit shows: positive up, 1 g in level flight, negative in outside figures, and the limits an airframe carries are written in it. The page calls it `G`, because that is what a pilot calls it; the field names here are the flight-test ones, which is what a file of arithmetic should use and what a page should not.
 
 Lateral follows the ball. It is the side the load throws a loose object, which is minus the measured force, because the turn coordinator two pages away shows exactly this quantity as a ball in a tube and two instruments on one device must not disagree. No cockpit has a lateral number; the ball and the slip string are what a pilot flies.
 
