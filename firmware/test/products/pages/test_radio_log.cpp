@@ -49,6 +49,7 @@ radio::Entry received(uint32_t addr, int8_t rssi) {
     radio::Entry e = entry_of(radio::Event::Received);
     e.source = model::Source::AdslDirect;
     e.addr = addr;
+    e.addr_valid = true;
     e.rssi_dbm = rssi;
     e.rssi_valid = true;
     return e;
@@ -207,6 +208,50 @@ TEST_CASE("radio log page: the three things that are not a decode read apart") {
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "WAIT"));
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "TYPE"));
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + 2 * kLineH, "DEC"));
+}
+
+// A burst that named no system is a neighbour's dialect, not a frame this firmware got wrong.
+TEST_CASE("radio log page: a burst that framed as neither system reads apart from a refusal") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Undecoded));
+    log.record(entry_of(radio::Event::Unframed));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "SYNC"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "DEC"));
+}
+
+// The row that ends the support case: a device and its neighbour disagreeing on the second.
+TEST_CASE("radio log page: a frame keyed on another second prints the offset it wanted") {
+    radio::Log log;
+    radio::Entry ahead = entry_of(radio::Event::Miskeyed);
+    ahead.key_offset_s = 18;
+    log.record(ahead);
+    radio::Entry behind = entry_of(radio::Event::Miskeyed);
+    behind.key_offset_s = -2;
+    log.record(behind);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "KEY-2"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "KEY+18"));
+}
+
+// Two photos of a bench tape and no way to tell whose frames were being refused.
+TEST_CASE("radio log page: a refused frame whose CRC held still names who sent it") {
+    radio::Log log;
+    radio::Entry refused = entry_of(radio::Event::Miskeyed);
+    refused.key_offset_s = 18;
+    refused.source = model::Source::Alptas;
+    refused.addr = 0xED4838;
+    refused.addr_valid = true;
+    log.record(refused);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "KEY+18"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "ED4838"));
 }
 
 // The M band reads a fixed 58 bytes whatever arrived, so the count was never a fact about the air.

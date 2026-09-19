@@ -36,8 +36,6 @@ bool own_burst(radio::Event event) {
            event == radio::Event::Held || event == radio::Event::Unarmed;
 }
 
-bool names_one_emitter(model::Source source) { return source != model::Source::AdslUplink; }
-
 // INFO: fc 17sep26 a transmission that worked prints no verdict, as a reception does not
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
@@ -45,6 +43,8 @@ const char* verdict_of(const radio::Entry& entry) {
         case radio::Event::Unarmed: return "LOST";
         case radio::Event::Held: return "HELD";
         case radio::Event::BadCrc: return "CRC";
+        case radio::Event::Unframed: return "SYNC";
+        case radio::Event::Miskeyed: return "KEY";
         case radio::Event::Undecoded: return "DEC";
         case radio::Event::Unsupported: return "TYPE";
         case radio::Event::Unattempted: return "WAIT";
@@ -52,6 +52,14 @@ const char* verdict_of(const radio::Entry& entry) {
         case radio::Event::Received:
         default: return nullptr;
     }
+}
+
+int fmt_verdict(char* out, const radio::Entry& entry) {
+    const char* word = verdict_of(entry);
+    if (word == nullptr) return 0;
+    int n = fmt_string(out, word);
+    if (entry.event == radio::Event::Miskeyed) n += fmt_int(out + n, entry.key_offset_s);
+    return n;
 }
 
 int fmt_stamp(char* out, const radio::Entry& entry) {
@@ -137,23 +145,25 @@ void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry) {
     buf[n] = 0;
     fb.draw_text(kBandX, y, buf, true, 1);
 
-    const char* verdict = verdict_of(entry);
-    if (verdict != nullptr) fb.draw_text(kVerdictX, y, verdict, true, 1);
+    n = fmt_verdict(buf, entry);
+    if (n == 0 && !ours) {
+        buf[0] = model::source_letter(entry.source);
+        n = 1;
+    }
+    if (n > 0) {
+        buf[n] = 0;
+        fb.draw_text(kVerdictX, y, buf, true, 1);
+    }
 
     if (ours) {
         fb.draw_text(kAddrX, y, entry.airborne ? "AIR" : "GND", true, 1);
         return;
     }
 
-    if (verdict == nullptr) {
-        buf[0] = model::source_letter(entry.source);
-        buf[1] = 0;
-        fb.draw_text(kVerdictX, y, buf, true, 1);
-        if (names_one_emitter(entry.source)) {
-            n = fmt_hex(buf, entry.addr, 6);
-            buf[n] = 0;
-            fb.draw_text(kAddrX, y, buf, true, 1);
-        }
+    if (entry.addr_valid) {
+        n = fmt_hex(buf, entry.addr, 6);
+        buf[n] = 0;
+        fb.draw_text(kAddrX, y, buf, true, 1);
     }
 
     if (!entry.rssi_valid) return;

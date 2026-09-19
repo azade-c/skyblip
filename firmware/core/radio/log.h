@@ -16,6 +16,8 @@ enum class Event : uint8_t {
     Unarmed,
     Received,
     BadCrc,
+    Unframed,
+    Miskeyed,
     Undecoded,
     Unsupported,
     Unattempted
@@ -31,8 +33,10 @@ struct Entry {
     uint16_t tx_keyed_us{0};
     uint16_t tx_span_us{0};
     int8_t rssi_dbm{0};
+    int8_t key_offset_s{0};
     uint8_t channel{0};
     uint8_t len{0};
+    bool addr_valid{false};
     bool rssi_valid{false};
     bool utc{false};
     bool airborne{false};

@@ -52,7 +52,8 @@ TEST_CASE("product: step() runs the service cycle deterministically under a mode
     uint8_t pkt[6] = {1, 2, 3, 4, 5, 6};
     rig.platform.chips().radio.queue_rx(pkt, sizeof(pkt));
     rig.run(3000, 4200);
-    CHECK(rig.state().air.rx_bad >= 1);  // too short to be ADS-L: counted, never shown
+    CHECK(rig.state().air.rx_unframed >= 1);  // too short to frame as either system
+    CHECK(rig.state().air.rx_bad == 0);
     CHECK(rig.state().traffic.count() == 0);
 }
 

@@ -125,6 +125,8 @@ struct State {
         uint32_t rx_bad{0};
         uint32_t rx_wait{0};
         uint32_t rx_type{0};
+        uint32_t rx_unframed{0};
+        uint32_t rx_miskeyed{0};
         uint32_t rx_noise{0};
         uint32_t tx_ok{0};
         uint32_t tx_lost{0};

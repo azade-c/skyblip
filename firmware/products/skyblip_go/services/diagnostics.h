@@ -57,6 +57,8 @@ class DiagnosticsDump {
         d.rx_bad = state.air.rx_bad;
         d.rx_wait = state.air.rx_wait;
         d.rx_type = state.air.rx_type;
+        d.rx_unframed = state.air.rx_unframed;
+        d.rx_miskeyed = state.air.rx_miskeyed;
         d.rx_noise = state.air.rx_noise;
         d.tx_ok = state.air.tx_ok;
         d.tx_lost = state.air.tx_lost;

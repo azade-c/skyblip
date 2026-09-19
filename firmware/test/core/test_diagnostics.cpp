@@ -32,6 +32,8 @@ Diagnostics busy_device() {
     d.rx_bad = 37;
     d.rx_wait = 58;
     d.rx_type = 19;
+    d.rx_unframed = 11;
+    d.rx_miskeyed = 7;
     d.rx_noise = 96;
     d.tx_ok = 880;
     d.tx_lost = 3;
@@ -79,6 +81,8 @@ Diagnostics widest_device() {
     d.rx_bad = 0xFFFFFFFFu;
     d.rx_wait = 0xFFFFFFFFu;
     d.rx_type = 0xFFFFFFFFu;
+    d.rx_unframed = 0xFFFFFFFFu;
+    d.rx_miskeyed = 0xFFFFFFFFu;
     d.rx_noise = 0xFFFFFFFFu;
     d.tx_ok = 0xFFFFFFFFu;
     d.tx_lost = 0xFFFFFFFFu;
@@ -161,7 +165,8 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
     CHECK(has(text, "sys up_s=3725 reset=\"WATCHDOG\" link_drops=2\n"));
     CHECK(has(text,
               "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 rx_wait=58 rx_type=19 "
-              "rx_noise=96 tx_ok=880 tx_lost=3 tx_keyed_us=609 tx_span_us=5919 range_refused=5\n"));
+              "rx_unframed=11 rx_miskeyed=7 rx_noise=96 tx_ok=880 tx_lost=3 tx_keyed_us=609 "
+              "tx_span_us=5919 range_refused=5\n"));
     CHECK(has(text, "traffic tracked=4 alarm=2\n"));
     CHECK(has(text,
               "gnss fixes=5210 valid=true baud=38400 identified=true "

@@ -4,7 +4,7 @@ The station log: every burst this radio sent or heard, in the order it happened,
 
 `rx_ok` and `tx_ok` are totals, and a total cannot tell an empty sky from a receiver that frames nothing. The traffic table only ever holds what already decoded, so a burst that arrived and did not become a frame leaves no trace in it. That burst is the one worth seeing: it is the difference between "nobody is transmitting" and "everybody is transmitting and I am deaf to them", and the two have the same reading on every other page. Two skyBlips that both transmit and neither hears is the fault this exists for, and it happened: `git log core/protocol/air.cpp`.
 
-`Event` names the nine things that can happen to a burst.
+`Event` names the eleven things that can happen to a burst.
 
 | | |
 |---|---|
@@ -13,14 +13,20 @@ The station log: every burst this radio sent or heard, in the order it happened,
 | `Held` | the hour's air-time budget refused it (`timing::Transmitter::Attempt::over_budget`) |
 | `Unarmed` | `ports::Rf` refused the plan that carried it, so nothing was ever armed |
 | `Received` | a burst arrived, framed, and named an aircraft |
-| `BadCrc` | an integrity check refused it: the chip's own CRC, an ADS-L CRC no forward correction could rescue, an ALP-TAS CRC, or a Reed-Solomon codeword the uplink could not correct |
-| `Undecoded` | the frame was attempted and refused: the ALP-TAS time-bit or plausibility gate, an ADS-L frame carrying no position, or no known system behind the sync window |
+| `BadCrc` | an integrity check refused it: the chip's own CRC, an ADS-L or ALP-TAS CRC no forward correction could rescue, or a Reed-Solomon codeword the uplink could not correct |
+| `Unframed` | clean chips behind the sync window and a sync tail naming neither system, so nothing was ever attempted |
+| `Miskeyed` | an ALP-TAS frame whose CRC held and whose sender keyed it on a second inside `kAlptasKeyWindowS` of ours, but not ours |
+| `Undecoded` | the frame was attempted and refused: the ALP-TAS plausibility gate with no second that would have read it, or an ADS-L frame carrying no position |
 | `Unsupported` | the frame framed and carried a message type this firmware does not implement: ALP-TAS reads its 2024 position frame and nothing else, so Air V6 (type 0) and text messages (type 3) land here |
 | `Unattempted` | nothing was tried, because own-ship had no fix or no UTC to decode an ALP-TAS frame against |
 
 `BadCrc` and `Undecoded` were one verdict until the bench had two devices on it, and the pair of them is the reading that separates a marginal link from a protocol disagreement. Bits the air corrupted are a radio problem, and bits nothing here knew what to do with are ours: one is answered by moving the antenna and the other by reading `core/protocol/`.
 
 The last three were one verdict until 2026-09-19, and two of them were never a fault. A skyBlip still acquiring printed `DEC` for every ALP-TAS burst a SoftRF two metres away put on the air, for the whole minute it took to find the sky: an ALP-TAS position is coded relative to the receiver and its key stage is derived from the UTC second, so `TrafficService::decode_alptas` cannot start without a fix and a date, and a burst it never attempted is not a burst that failed. The ADS-L path has no such gate and needs none, because §G.1 carries an absolute position: an ADS-L frame decodes on a device that has never seen a satellite.
+
+`Unframed` and `Miskeyed` came off `Undecoded` on 2026-09-19, for the same reason `WAIT` and `TYPE` did before them: neither is this firmware getting a frame wrong. A burst whose sync tail names no system was never attempted, and the tape used to spell that `DEC` beside a frame we read and refused. `Miskeyed` is the other half, and it is the verdict this file was rewritten for. The ALP-TAS key stage moves once every 16 seconds (`utc >> 4`) and the frame carries the low 4 bits of the second its sender keyed in, so the decode tolerates a one-second disagreement and nothing more. Two seconds out, or across the block boundary, and every frame from that emitter fails for as long as the two clocks disagree: total, then gone, with no other symptom on the glass. `protocol::alptas_keyed_second` walks the blocks the window reaches, reads the time bits out of whichever one decrypts into a structured frame, and the row prints the offset as `KEY+18` or `KEY-2`. That number is the whole diagnosis, and the frame is still refused: traffic keyed on a second we disagree with is not traffic this device will draw.
+
+A refused frame past the CRC names its sender. The ALP-TAS address word is in the plaintext first two words and the frame CRC covers it, so `TYPE`, `KEY` and `DEC` rows carry the address beside the verdict (`Entry::addr_valid`). Before that, a bench had a tape of refusals and no way to tell whose frames they were: one emitter two metres away and a sky full of others read identically.
 
 `Unsupported` is the neighbour's dialect rather than our failure. `protocol::alptas_decode` refuses anything that is not message type 2 before it decrypts, and the type sits in the plaintext first word, so a SoftRF built with `USE_INTERLEAVING` - which interleaves Air V6 with Air V7 - reads as a stream of frames this firmware deliberately does not read. What is left on `Undecoded` is a frame that framed, passed its own check and was still refused, which is the only one of the three that means something may be wrong.
 
@@ -36,7 +42,7 @@ What tells them from a burst is the line code, not the level. §C.2.1 is Manches
 
 The count stops there and not at the end of the report because a dwell reads a fixed 58 chip-bytes and the shortest system behind this window fills fewer: past its last chip the buffer holds chips nobody sent, which decode as damage and are evidence of nothing. The window has to end inside the shortest burst the band carries, and `air.h` asserts that it does.
 
-A window noise walked through is counted in `air.rx_noise` and written nowhere else. Sixteen rows is the whole tape, and a row describing nothing that arrived is a row the sky could have used. The count is on the page because it is the receiver's heartbeat: over an empty sky it climbs, and a site where it stops has a receiver that stopped listening rather than a band that went quiet. What still earns a `DEC` row is the other kind - clean chips behind the window and a sync tail naming no system - which is a third system on these frequencies, heard and not understood.
+A window noise walked through is counted in `air.rx_noise` and written nowhere else. Sixteen rows is the whole tape, and a row describing nothing that arrived is a row the sky could have used. The count is on the page because it is the receiver's heartbeat: over an empty sky it climbs, and a site where it stops has a receiver that stopped listening rather than a band that went quiet. What earns a `SYNC` row is the other kind - clean chips behind the window and a sync tail naming no system - which is a third system on these frequencies, heard and not understood.
 
 There is no verdict for a burst the radio declined to send, because nothing declines: the instant is drawn inside the slot and the PA keys there whatever the receiver is hearing (`core/timing/README.md`). A dwell that carried a burst and reported nothing is `Lost`.
 
@@ -80,6 +86,8 @@ The verdicts split on 2026-09-19 and the counters followed on the same day, beca
 | `rx_bad` | a reception that is a fault: framed, attempted, refused, plus the integrity failures |
 | `rx_wait` | `Unattempted`, the bursts no fix or no UTC let us try |
 | `rx_type` | `Unsupported`, the dialect we do not read |
+| `rx_unframed` | `Unframed`, a burst that named neither system |
+| `rx_miskeyed` | `Miskeyed`, a frame whose sender keyed another second |
 | `rx_noise` | a sync window the band's own noise walked through |
 | `tx_ok` | own-ship's burst left the antenna |
 | `tx_lost` | own-ship's burst was armed and never completed |
@@ -88,7 +96,7 @@ The verdicts split on 2026-09-19 and the counters followed on the same day, beca
 
 `tx_lost` is `messages::RfEventType::Missed`, which is only ever emitted for a dwell or a transmission of ours that did not complete and was never a reception at all. It was counted as a bad reception until the same day, which is [#61](https://github.com/fcatuhe/skyblip/issues/61), now closed.
 
-All seven reach `core/comms/diagnostics.h`'s radio group, so they leave on the USB console line, in the `diag` dump and in the `radio` reply, under the names above. The radio group no longer fits one 182-byte notification even at rest, and answers in two: the dump has been framed per group since it existed, and `fits()` still refuses a link that cannot carry a whole field. The tape's own header keeps `RX`, `TX` and `NOISE`, because the panel's reader of `WAIT` and `TYPE` is the sixteen rows underneath it.
+All nine reach `core/comms/diagnostics.h`'s radio group, so they leave on the USB console line, in the `diag` dump and in the `radio` reply, under the names above. The radio group no longer fits one 182-byte notification even at rest, and answers in two: the dump has been framed per group since it existed, and `fits()` still refuses a link that cannot carry a whole field. The tape's own header keeps `RX`, `TX` and `NOISE`, because the panel's reader of `WAIT` and `TYPE` is the sixteen rows underneath it.
 
 ## Who writes what
 

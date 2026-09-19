@@ -127,9 +127,11 @@ Each row is one burst.
 ```
 34:56.462 RX M0 A     3FA21C -87   an ADS-L frame from 3FA21C
 34:56.918 RX M1 F     4C11A0 -93   an ALP-TAS frame, the other channel
-34:55.107 RX M0 DEC         -101   a frame that passed its check and was refused
-34:55.482 RX M1 TYPE         -62   a message type this firmware does not read
+34:55.107 RX M0 DEC    ED4838 -101  a frame that passed its check and was refused
+34:55.482 RX M1 TYPE   4C11A0 -62   a message type this firmware does not read
 34:55.913 RX M0 WAIT         -58   no fix of our own yet, so nothing was tried
+34:55.221 RX M0 KEY+18 ED4838 -18   its sender keyed 18 s away from our second
+34:55.033 RX M1 SYNC         -97   framed as neither system: not ours to decode
 34:55.694 TX M0       GND          own-ship's burst left the antenna
 34:53.881 TX M1 LOST  GND          armed, and the radio never reported it sent
 ```
@@ -138,7 +140,9 @@ The columns are the stamp, the direction, the dwell's own channel, the verdict, 
 
 `DEC` is the row that matters, and it says one thing: a burst reached the dwell, framed, passed its own protocol's check and was refused anyway. It is the reading that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
 
-`WAIT` and `TYPE` are the two readings that used to be spelled `DEC` and are nobody's fault. `WAIT` is own-ship: an ALP-TAS position is coded relative to the receiver and keyed on the UTC second, so before a fix and a date there is nothing to decode against and nothing is attempted - which is why a unit still acquiring, next to a neighbour transmitting once a slot, used to fill a whole minute of tape with decode failures. `TYPE` is the neighbour: a frame that framed and carried a message type this firmware does not implement, which is what a SoftRF interleaving Air V6 with Air V7 sends. An owner reads the three the same way: `WAIT` goes away with the sky, `TYPE` is a dialect we do not read, and `DEC` is the one to take to `core/protocol/`.
+`WAIT`, `TYPE`, `SYNC` and `KEY` are the four readings that used to be spelled `DEC` and none of them is this firmware getting a frame wrong. `WAIT` is own-ship: an ALP-TAS position is coded relative to the receiver and keyed on the UTC second, so before a fix and a date there is nothing to decode against and nothing is attempted - which is why a unit still acquiring, next to a neighbour transmitting once a slot, used to fill a whole minute of tape with decode failures. `TYPE` is the neighbour: a frame that framed and carried a message type this firmware does not implement, which is what a SoftRF interleaving Air V6 with Air V7 sends. `SYNC` is a burst whose sync tail named neither system, so nothing was attempted either. `KEY` is the two clocks: the frame's CRC held, and the second its sender keyed it on is the one printed after the sign, 18 seconds ahead of ours on the row above. An owner reads them the same way: `WAIT` goes away with the sky, `TYPE` and `SYNC` are dialects we do not read, `KEY` is a receiver somewhere reporting the wrong second, and `DEC` is the one to take to `core/protocol/`.
+
+A row past the CRC carries the address, whatever the verdict. The ALP-TAS address word is in the clear, so `DEC`, `TYPE` and `KEY` all name their emitter and a tape of refusals can be attributed to a unit on the bench rather than to the sky in general. `WAIT` and `SYNC` carry none, because neither ever read a frame.
 
 Three columns left this page rather than shrinking it. The byte count, because the M band reads a fixed 58 bytes whatever arrived and a constant is not a measurement. The keying and the whole span of a transmission, because they are microseconds of this CPU and of the chip, and the reader who wants them wants the diagnostics dump, not a tape. The DOPs and the solution count, because `status` already carries them and a dilution figure is not a radio number.
 

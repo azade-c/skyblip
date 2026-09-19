@@ -34,11 +34,12 @@ class TrafficService : public runtime::Service {
     events::Stamp stamp_for(const events::RfEvent& event, uint32_t now_ms) const;
     static uint32_t keyed_utc(const events::Stamp& stamp, uint32_t now_s);
     void log(const events::RfEvent& event, const events::Stamp& stamp, radio::Event outcome,
-             const model::AircraftObs* obs = nullptr);
+             const model::AircraftObs* obs = nullptr, int8_t key_offset_s = 0);
     static radio::Event decode_adsl(protocol::Frame& frame, uint32_t utc,
                                     const events::Stamp& stamp, model::AircraftObs& obs);
-    radio::Event decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
-                               model::AircraftObs& obs) const;
+    radio::Event decode_alptas(protocol::Frame& frame, uint32_t utc, bool dated,
+                               model::AircraftObs& obs, int8_t& key_offset_s) const;
+    static bool names_its_sender(radio::Event outcome);
     static radio::Event verdict_of(Status decoded);
 
     protocol::AdslUplink uplink_codec_{};

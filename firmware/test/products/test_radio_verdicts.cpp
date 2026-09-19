@@ -33,10 +33,11 @@ model::AircraftObs neighbour(const model::OwnState& own) {
 }
 
 // A neighbour two metres away, as the chip hands one over: past the shared sync window.
-void hear_alptas(Rig& rig, const uint8_t* frame) {
+void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chip_byte = -1) {
     uint8_t chips[protocol::kTxChipBytes];
-    const size_t chip_len = protocol::encode_mband(protocol::kAlptasSyncWord, frame,
-                                                   protocol::kAlptasFrameBytes, chips);
+    const size_t chip_len =
+        protocol::encode_mband(sync_word, frame, protocol::kAlptasFrameBytes, chips);
+    if (dead_chip_byte >= 0) chips[dead_chip_byte] ^= 0x01;
 
     events::RfEvent event{};
     event.type = events::RfEventType::RxDone;
@@ -47,6 +48,21 @@ void hear_alptas(Rig& rig, const uint8_t* frame) {
                                                    protocol::kSharedSync, protocol::kSharedSyncBits,
                                                    event.data.data(), protocol::kRxChipBytes);
     rig.product.bus().rf.push(event);
+}
+
+void hear_alptas(Rig& rig, const uint8_t* frame, int dead_chip_byte = -1) {
+    hear_mband(rig, protocol::kAlptasSyncWord, frame, dead_chip_byte);
+}
+
+const radio::Entry* heard_entry(Rig& rig) {
+    const radio::Log& log = rig.state().radio_log;
+    for (int i = 0; i < log.count(); i++) {
+        const radio::Entry& entry = log.newest(i);
+        if (entry.event != radio::Event::Transmitted && entry.event != radio::Event::Lost &&
+            entry.event != radio::Event::Held && entry.event != radio::Event::Unarmed)
+            return &entry;
+    }
+    return nullptr;
 }
 
 // Own-ship's own bursts are the other half of the tape, and a case about receptions ignores them.
@@ -215,4 +231,96 @@ TEST_CASE("radio counters: a burst of ours that never completed is not a bad rec
     CHECK(rig.state().air.tx_lost == 1);
     CHECK(rig.state().air.rx_bad == bad_before);
     CHECK(rig.state().radio_log.newest(0).event == radio::Event::Lost);
+}
+
+// 2026-09-19 on the bench: an hour of DEC beside a transmitting SoftRF, both holding a fix.
+TEST_CASE("radio verdicts: a frame keyed on another second says whose second it wanted") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    const model::OwnState& own = rig.state().own;
+    uint8_t frame[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(frame, neighbour(own), own.utc + 18, own.lat_1e7,
+                                    own.lon_1e7) == Status::Ok);
+
+    hear_alptas(rig, frame);
+    settle(rig, t);
+
+    const radio::Entry* entry = heard_entry(rig);
+    REQUIRE(entry != nullptr);
+    CHECK(entry->event == radio::Event::Miskeyed);
+    CHECK(int(entry->key_offset_s) == 17);  // keyed at utc+18, heard in the second after utc
+    CHECK(rig.state().air.rx_miskeyed == 1);
+    CHECK(rig.state().air.rx_bad == bad_before);
+    CHECK(rig.state().traffic.count() == 0);
+}
+
+// The address is in clear and the CRC covers it: a refused frame can still be attributed.
+TEST_CASE("radio verdicts: a frame we refuse past its CRC still names the aircraft that sent it") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+
+    const model::OwnState& own = rig.state().own;
+    uint8_t frame[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(frame, neighbour(own), own.utc + 18, own.lat_1e7,
+                                    own.lon_1e7) == Status::Ok);
+
+    hear_alptas(rig, frame);
+    settle(rig, t);
+
+    const radio::Entry* entry = heard_entry(rig);
+    REQUIRE(entry != nullptr);
+    CHECK(entry->addr_valid);
+    CHECK(entry->addr == 0xC5D804u);
+    CHECK(entry->source == model::Source::Alptas);
+}
+
+// A burst nothing framed used to climb the same counter a frame we got wrong does.
+TEST_CASE("radio verdicts: a burst that names neither system is not a decode failure") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    const model::OwnState& own = rig.state().own;
+    uint8_t frame[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(frame, neighbour(own), own.utc, own.lat_1e7, own.lon_1e7) ==
+            Status::Ok);
+    // Shares the chips the detector matched on and nothing after them.
+    hear_mband(rig, 0xF5F3656Cu, frame);
+    settle(rig, t);
+
+    const radio::Entry* entry = heard_entry(rig);
+    REQUIRE(entry != nullptr);
+    CHECK(entry->event == radio::Event::Unframed);
+    CHECK_FALSE(entry->addr_valid);
+    CHECK(rig.state().air.rx_unframed == 1);
+    CHECK(rig.state().air.rx_bad == bad_before);
+}
+
+// A dead chip pair is an erasure with a known position, and the CRC says which flip it was.
+TEST_CASE("radio verdicts: a burst the air damaged is corrected, not counted as broken") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    const model::OwnState& own = rig.state().own;
+    uint8_t frame[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(frame, neighbour(own), own.utc, own.lat_1e7, own.lon_1e7) ==
+            Status::Ok);
+
+    hear_alptas(rig, frame, 18);
+    settle(rig, t);
+
+    CHECK(heard_verdict(rig) == radio::Event::Received);
+    CHECK(rig.state().air.rx_bad == bad_before);
+    CHECK(rig.state().traffic.count() == 1);
 }
