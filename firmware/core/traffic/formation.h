@@ -18,7 +18,7 @@ constexpr int32_t kVertDriftM = 30;
 constexpr uint32_t kTogetherHoldMs = 6000;
 constexpr int kBreakFixes = 2;
 constexpr int kTrackedContacts = 8;
-constexpr uint32_t kContactForgetMs = 30000;
+constexpr uint32_t kContactForgetMs = 12000;
 constexpr int32_t kClosingMps = 3;
 
 struct Report {

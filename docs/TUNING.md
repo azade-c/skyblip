@@ -157,20 +157,20 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kUnknownTargetSpeedMps` | 30 | metres per second | - | a relayed target arrives with no velocity, and zero would make it the safest dot |
 | `kAlertMaxAgeMs` | 5000 (5 s) | milliseconds | MaxAge | SoftRF alerts only on targets seen within ALERT_EXPIRATION_TIME (5 s) and re-checks no more often than every 2 s (oss/SoftRF-lyusupov .../src/TrafficHelper.h:58-59, .../src/TrafficHelper.cpp:236-260). |
 | `kRenotifyFloorMs` | 2000 (2 s) | milliseconds | Floor | [README](../firmware/core/traffic/README.md) argues it |
-| `kTargetForgetMs` | 30000 (30 s) | milliseconds | Forget | - |
+| `kTargetForgetMs` | 12000 (12 s) | milliseconds | Forget | [README](../firmware/core/traffic/README.md) argues it |
 | `kRangeM` | 1000 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kVertM` | 100 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kDriftM` | 60 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kVertDriftM` | 30 | metres | - | - |
 | `kTogetherHoldMs` | 6000 (6 s) | milliseconds | Hold | [README](../firmware/core/traffic/README.md) argues it |
 | `kBreakFixes` | 2 | fixes | Fixes | - |
-| `kContactForgetMs` | 30000 (30 s) | milliseconds | Forget | [README](../firmware/core/traffic/README.md) argues it |
+| `kContactForgetMs` | 12000 (12 s) | milliseconds | Forget | [README](../firmware/core/traffic/README.md) argues it |
 | `kClosingMps` | 3 | metres per second | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kMaxPlausibleRangeM` | 30000 | metres | - | The honest ceiling of our own link, computed rather than borrowed:  +14 dBm e.r.p. transmitted, which is the ERC 70-03 band h1.4 limit and what the driver programs (hardware/parts/sx1262/sx1262.h); about -107 dBm of receive sensitivity at the M band's 100 kchip/s with the boosted gain of J1 - a bench figure, not a datasheet one; dipole-referenced antennas at both ends and nothing at all in the way. |
 | `kMaxRelayedRangeM` | `2 * kMaxPlausibleRangeM` = 60000 | metres | - | A relayed target did not travel that path. |
 | `kTurnMaxGapMs` | 3000 (3 s) | milliseconds | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kDirectPreferredMaxAgeSec` | 5 | seconds | MaxAge | How long a first-hand reception keeps a target to itself before a ground relay of the same aircraft is allowed to refresh it. |
-| `kDefaultMaxAgeSec` | 30 | seconds | MaxAge | - |
+| `kDefaultMaxAgeSec` | 12 | seconds | MaxAge | [README](../firmware/core/traffic/README.md) argues it |
 
 ## [`firmware/products/skyblip_go/input`](../firmware/products/skyblip_go/input/README.md)
 

@@ -51,7 +51,7 @@ constexpr uint32_t kDirectPreferredMaxAgeSec = 5;
 class TrafficTable {
    public:
     static constexpr int kCapacity = 48;
-    static constexpr uint32_t kDefaultMaxAgeSec = 30;
+    static constexpr uint32_t kDefaultMaxAgeSec = 12;
 
     // Our own 24-bit address. A ground station relays every aircraft it heard,
     // and it heard us: without this the uplink puts own-ship on the radar, at

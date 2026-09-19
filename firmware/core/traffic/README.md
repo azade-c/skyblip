@@ -25,6 +25,18 @@ Why not a prediction. A predicted conflict is a better alarm for an aircraft und
 
 A target that reports no velocity is still charged at `kUnknownTargetSpeedMps` in the closing figure the formation layer reads, because zero would make a relayed position the safest thing in the sky.
 
+## How long an aircraft is held
+
+Two figures, and everything else follows one of them.
+
+`kAlertMaxAgeMs` is 5 s: what the alarm is allowed to grade. It acts on a position, and at 100 m/s of closure a five-second-old fix is already 500 m of uncertainty, so a contact older than that is no longer something to say a word about. `kDirectPreferredMaxAgeSec` is the same figure in seconds, for the reason `table.h` gives.
+
+`TrafficTable::kDefaultMaxAgeSec` is 12 s: how long an aircraft nobody has heard from stays on the glass. The slowest emitter the plot draws sets it. G.1.16 puts an aircraft on the ground at 0.1 Hz, so anything under ten seconds deletes a parked or taxiing aircraft between two of its own transmissions, and the symbol blinks once per cycle on a screen that redraws every second. Airborne it is twelve missed 1 Hz bursts, which is an emitter that has left rather than one that faded behind a wing.
+
+What twelve seconds costs is the symbol's own error, because a target is drawn where it was last reported and nothing extrapolates it: at 60 m/s that is 700 m by the time it ages out, which is a third of the closest radar ring. That is the price of one number instead of a rate-aware one, and it is paid on the plot alone - the alarm stopped looking at that contact seven seconds earlier.
+
+`kTargetForgetMs` and `kContactForgetMs` are the same twelve seconds in milliseconds. All three say one thing, that the device has lost this aircraft, and a slot that outlived the table would hold a dismissal or a formation membership for an aeroplane no longer on the screen.
+
 ## Dismissal
 
 A pilot who has the aircraft in sight has everything the device was trying to give them, and from that moment the annunciator is noise. `AlarmTracker::dismiss` is what a long touch of the pad reaches: what has already been said is not said again, and the buzzer is released mid-pattern.

@@ -11,6 +11,7 @@
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/traffic/alarm.h"
+#include "core/traffic/formation.h"
 #include "core/traffic/sanity.h"
 #include "core/traffic/table.h"
 #include "core/units/units.h"
@@ -163,6 +164,31 @@ TEST_CASE("traffic: age-out removes stale entries") {
     tbl.age_out(140, 30);  // 0x1 is 40 s old -> gone; 0x2 is 20 s -> stays
     CHECK(tbl.find(6, 0x1) == -1);
     CHECK(tbl.find(6, 0x2) >= 0);
+}
+
+TEST_CASE("traffic: an aircraft heard once is drawn for twelve seconds and no longer") {
+    TrafficTable tbl;
+    tbl.update(obs(0x1, 6, 100), 100);
+    tbl.age_out(100 + TrafficTable::kDefaultMaxAgeSec);
+    CHECK(tbl.find(6, 0x1) >= 0);
+    tbl.age_out(100 + TrafficTable::kDefaultMaxAgeSec + 1);
+    CHECK(tbl.find(6, 0x1) == -1);
+}
+
+// G.1.16 transmits at 0.1 Hz on the ground, and a life under one interval blinks.
+TEST_CASE("traffic: a target at the ground rate survives its own transmission interval") {
+    TrafficTable tbl;
+    tbl.update(obs(0x1, 6, 100), 100);
+    for (uint32_t t = 101; t <= 110; t++) {
+        tbl.age_out(t);
+        CHECK(tbl.find(6, 0x1) >= 0);
+    }
+}
+
+// A slot outliving the table holds a dismissal for an aeroplane off the screen.
+TEST_CASE("traffic: the plot, the annunciator and the formation lose an aircraft together") {
+    CHECK(TrafficTable::kDefaultMaxAgeSec * 1000 == kTargetForgetMs);
+    CHECK(TrafficTable::kDefaultMaxAgeSec * 1000 == formation::kContactForgetMs);
 }
 
 TEST_CASE("traffic: overflow drops oldest non-threat, keeps active alarms") {
@@ -385,6 +411,18 @@ TEST_CASE("alarm: a target that has gone quiet stops driving the annunciator") {
     CHECK(tracker.announced_level(t) == Level::Advisory);
 
     CHECK(tracker.announced_level(t + kAlertMaxAgeMs + 1) == Level::None);
+}
+
+// A recycled slot came back empty and read as a first sighting, so the buzzer spoke.
+TEST_CASE("alarm: a report older than the alert window is not announced on a recycled slot") {
+    AlarmTracker tracker;
+    const model::OwnState own = flying(30, 0);
+    const model::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, 1000);
+    REQUIRE(tracker.update(own, target, 1000).notify);
+
+    const uint32_t forgotten = 1000 + kTargetForgetMs + 1;
+    tracker.forget_stale(forgotten);
+    CHECK_FALSE(tracker.update(own, target, forgotten).notify);
 }
 
 // What the buzzer follows. notify says "say it now"; this says "and this is
@@ -632,7 +670,7 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     const uint32_t before = 0xFFFFF000u;  // 4096 ms short of the wrap
 
     // A contact announced on one side of the wrap instant, still standing on the other.
-    model::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, 1000);
+    model::AircraftObs target = neighbour(own, 400, 0, 0, 30, 180, before);
     REQUIRE(tracker.update(own, target, before).notify);
     CHECK(tracker.announced_level(before) == Level::Advisory);
 
@@ -640,7 +678,7 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
     // level still stands - an announced_level that read 0 here would be a buzzer
     // that stopped mid-alarm at the wrap.
     const uint32_t after = before + 3000u;
-    target.received.at_s = 2;  // a new observation of the same aircraft
+    target.received.at_s += 3;  // a new observation of the same aircraft
     tracker.update(own, target, after);
     CHECK(tracker.announced_level(after) == Level::Advisory);
 
