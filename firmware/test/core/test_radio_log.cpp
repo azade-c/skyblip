@@ -55,7 +55,8 @@ TEST_CASE("radio log: every outcome a burst can have is one it keeps") {
     radio::Log log;
     for (radio::Event event :
          {radio::Event::Transmitted, radio::Event::Lost, radio::Event::Held, radio::Event::Unarmed,
-          radio::Event::Received, radio::Event::BadCrc, radio::Event::Undecoded}) {
+          radio::Event::Received, radio::Event::BadCrc, radio::Event::Undecoded,
+          radio::Event::Unsupported, radio::Event::Unattempted}) {
         radio::Entry e{};
         e.event = event;
         log.record(e);

@@ -46,6 +46,8 @@ const char* verdict_of(const radio::Entry& entry) {
         case radio::Event::Held: return "HELD";
         case radio::Event::BadCrc: return "CRC";
         case radio::Event::Undecoded: return "DEC";
+        case radio::Event::Unsupported: return "TYPE";
+        case radio::Event::Unattempted: return "WAIT";
         case radio::Event::Transmitted:
         case radio::Event::Received:
         default: return nullptr;

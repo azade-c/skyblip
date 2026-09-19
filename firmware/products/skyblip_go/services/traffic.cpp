@@ -192,16 +192,21 @@ radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
 radio::Event TrafficService::decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
                                            model::AircraftObs& obs) const {
     const model::OwnState& own = context_.state.own;
-    if (!own.fix_valid || !own.utc_valid) return radio::Event::Undecoded;
+    if (!own.fix_valid || !own.utc_valid) return radio::Event::Unattempted;
     if (!protocol::alptas_crc_ok(frame.data)) return radio::Event::BadCrc;
     const int32_t lat = own.lat_1e7;
     const int32_t lon = own.lon_1e7;
-    if (protocol::alptas_decode(frame.data, utc, lat, lon, obs) == Status::Ok)
-        return radio::Event::Received;
-    if (dated) return radio::Event::Undecoded;
-    if (utc > 0 && protocol::alptas_decode(frame.data, utc - 1, lat, lon, obs) == Status::Ok)
-        return radio::Event::Received;
-    return radio::Event::Undecoded;
+    const radio::Event first = verdict_of(protocol::alptas_decode(frame.data, utc, lat, lon, obs));
+    if (first != radio::Event::Undecoded || dated || utc == 0) return first;
+    return verdict_of(protocol::alptas_decode(frame.data, utc - 1, lat, lon, obs));
+}
+
+radio::Event TrafficService::verdict_of(Status decoded) {
+    switch (decoded) {
+        case Status::Ok: return radio::Event::Received;
+        case Status::Unsupported: return radio::Event::Unsupported;
+        default: return radio::Event::Undecoded;
+    }
 }
 
 }  // namespace skyblip::go

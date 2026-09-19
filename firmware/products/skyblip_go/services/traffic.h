@@ -38,6 +38,7 @@ class TrafficService : public runtime::Service {
                                     const events::Stamp& stamp, model::AircraftObs& obs);
     radio::Event decode_alptas(const protocol::Frame& frame, uint32_t utc, bool dated,
                                model::AircraftObs& obs) const;
+    static radio::Event verdict_of(Status decoded);
 
     protocol::AdslUplink uplink_codec_{};
     const Feature declared_;

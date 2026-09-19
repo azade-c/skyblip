@@ -9,7 +9,17 @@
 
 namespace skyblip::radio {
 
-enum class Event : uint8_t { Transmitted, Lost, Held, Unarmed, Received, BadCrc, Undecoded };
+enum class Event : uint8_t {
+    Transmitted,
+    Lost,
+    Held,
+    Unarmed,
+    Received,
+    BadCrc,
+    Undecoded,
+    Unsupported,
+    Unattempted
+};
 
 struct Entry {
     Event event{Event::Undecoded};

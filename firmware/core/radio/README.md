@@ -4,7 +4,7 @@ The station log: every burst this radio sent or heard, in the order it happened,
 
 `rx_ok` and `tx_ok` are totals, and a total cannot tell an empty sky from a receiver that frames nothing. The traffic table only ever holds what already decoded, so a burst that arrived and did not become a frame leaves no trace in it. That burst is the one worth seeing: it is the difference between "nobody is transmitting" and "everybody is transmitting and I am deaf to them", and the two have the same reading on every other page. Two skyBlips that both transmit and neither hears is the fault this exists for, and it happened: `git log core/protocol/air.cpp`.
 
-`Event` names the seven things that can happen to a burst.
+`Event` names the nine things that can happen to a burst.
 
 | | |
 |---|---|
@@ -14,9 +14,15 @@ The station log: every burst this radio sent or heard, in the order it happened,
 | `Unarmed` | `ports::Rf` refused the plan that carried it, so nothing was ever armed |
 | `Received` | a burst arrived, framed, and named an aircraft |
 | `BadCrc` | an integrity check refused it: the chip's own CRC, an ADS-L CRC no forward correction could rescue, an ALP-TAS CRC, or a Reed-Solomon codeword the uplink could not correct |
-| `Undecoded` | the bits survived their check and still named no aircraft: no known system behind the sync window, or an ALP-TAS frame with no fix of our own to decode it against |
+| `Undecoded` | the frame was attempted and refused: the ALP-TAS time-bit or plausibility gate, an ADS-L frame carrying no position, or no known system behind the sync window |
+| `Unsupported` | the frame framed and carried a message type this firmware does not implement: ALP-TAS reads its 2024 position frame and nothing else, so Air V6 (type 0) and text messages (type 3) land here |
+| `Unattempted` | nothing was tried, because own-ship had no fix or no UTC to decode an ALP-TAS frame against |
 
 `BadCrc` and `Undecoded` were one verdict until the bench had two devices on it, and the pair of them is the reading that separates a marginal link from a protocol disagreement. Bits the air corrupted are a radio problem, and bits nothing here knew what to do with are ours: one is answered by moving the antenna and the other by reading `core/protocol/`.
+
+The last three were one verdict until 2026-09-19, and two of them were never a fault. A skyBlip still acquiring printed `DEC` for every ALP-TAS burst a SoftRF two metres away put on the air, for the whole minute it took to find the sky: an ALP-TAS position is coded relative to the receiver and its key stage is derived from the UTC second, so `TrafficService::decode_alptas` cannot start without a fix and a date, and a burst it never attempted is not a burst that failed. The ADS-L path has no such gate and needs none, because §G.1 carries an absolute position: an ADS-L frame decodes on a device that has never seen a satellite.
+
+`Unsupported` is the neighbour's dialect rather than our failure. `protocol::alptas_decode` refuses anything that is not message type 2 before it decrypts, and the type sits in the plaintext first word, so a SoftRF built with `USE_INTERLEAVING` - which interleaves Air V6 with Air V7 - reads as a stream of frames this firmware deliberately does not read. What is left on `Undecoded` is a frame that framed, passed its own check and was still refused, which is the only one of the three that means something may be wrong.
 
 A `CRC` row is a frame that framed and failed its own protocol's check, which is a real emitter the air damaged. It carries the byte count and the level it arrived at: `GetPacketStatus` survives the failure, and -110 dBm against -15 dBm is the difference between a burst at the floor and a neighbour this receiver is failing to decode.
 

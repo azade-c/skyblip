@@ -195,6 +195,20 @@ TEST_CASE("radio log page: an integrity failure and an undecodable frame read ap
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "DEC"));
 }
 
+// Own-ship still acquiring and a dialect we do not read are not the fault DEC stands for.
+TEST_CASE("radio log page: the three things that are not a decode read apart") {
+    radio::Log log;
+    log.record(entry_of(radio::Event::Undecoded));
+    log.record(entry_of(radio::Event::Unsupported));
+    log.record(entry_of(radio::Event::Unattempted));
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "WAIT"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "TYPE"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + 2 * kLineH, "DEC"));
+}
+
 // The M band reads a fixed 58 bytes whatever arrived, so the count was never a fact about the air.
 TEST_CASE("radio log page: a failed burst spends no column on the length every burst has") {
     radio::Log log;
