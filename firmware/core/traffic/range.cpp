@@ -15,8 +15,7 @@ bool range_to(const model::OwnState& own, const model::AircraftObs& obs, RangeRo
     out.addr = obs.addr;
     out.source = obs.source;
     out.up_m = up_m;
-    const int32_t ground_m = static_cast<int32_t>(idistance(north_m, east_m));
-    out.slant_m = static_cast<int32_t>(idistance(ground_m, up_m));
+    out.ground_m = static_cast<int32_t>(idistance(north_m, east_m));
     return true;
 }
 
@@ -29,7 +28,7 @@ int rank_by_range(const TrafficTable& table, const model::OwnState& own, RangeRo
         if (!range_to(own, t->obs, row)) continue;
 
         int at = n;
-        while (at > 0 && out[at - 1].slant_m > row.slant_m) at--;
+        while (at > 0 && out[at - 1].ground_m > row.ground_m) at--;
         if (at >= cap) continue;
         for (int j = (n < cap ? n : cap - 1); j > at; j--) out[j] = out[j - 1];
         out[at] = row;

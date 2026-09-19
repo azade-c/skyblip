@@ -12,6 +12,7 @@ namespace skyblip::go {
 constexpr int kNearbyRows = 8;
 
 struct NearbySnapshot {
+    uint32_t own_addr{0};
     bool fix_valid{false};
     go::Units units{go::Units::Nautical};
     int n_heard{0};
@@ -22,7 +23,8 @@ struct NearbySnapshot {
 constexpr int kNearbyScale = 2;
 constexpr int kNearbyCellW = 6 * kNearbyScale;
 constexpr int kNearbyIdX = 4;
-constexpr int kNearbySlantEnd = 152;
+constexpr int kNearbyAddrX = kNearbyIdX + 2 * kNearbyCellW;
+constexpr int kNearbyDistEnd = 152;
 constexpr int kNearbyRelEnd = 196;
 constexpr int kNearbyTitleY = 2;
 constexpr int kNearbyHeadY = 22;

@@ -53,6 +53,7 @@ bool banner_reads(const Glass& fb, const char* text) {
 
 NearbySnapshot listing(const traffic::RangeRow* rows, int n, go::Units units) {
     NearbySnapshot snap;
+    snap.own_addr = 0x4B1F07;
     snap.fix_valid = true;
     snap.units = units;
     snap.n_heard = n;
@@ -61,11 +62,11 @@ NearbySnapshot listing(const traffic::RangeRow* rows, int n, go::Units units) {
     return snap;
 }
 
-traffic::RangeRow row_at(int32_t slant_m, int32_t up_m) {
+traffic::RangeRow row_at(int32_t ground_m, int32_t up_m) {
     traffic::RangeRow r;
     r.addr = 0x3FA21C;
     r.source = model::Source::AdslDirect;
-    r.slant_m = slant_m;
+    r.ground_m = ground_m;
     r.up_m = up_m;
     return r;
 }
@@ -130,10 +131,16 @@ TEST_CASE("nearby: the header counts what was heard, not what fits") {
     CHECK(ink_in_row(fb, 0) == 0);
 }
 
-TEST_CASE("nearby: the page names itself at the size the rows are read at") {
+// Own address is read back on the radio, and this is the page a pilot is already on to find it.
+TEST_CASE("nearby: the top line is own address, over the column of everyone else's") {
+    traffic::RangeRow rows[1] = {row_at(900, 0)};
+
     Glass fb;
-    draw_nearby(fb, listing(nullptr, 0, go::Units::Nautical));
-    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY, "NEARBY", 2));
+    draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
+
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY + 7, "ID", 1));
+    CHECK(reads_at(fb, kNearbyAddrX, kNearbyTitleY, "4B1F07", 2));
+    CHECK(reads_at(fb, kNearbyAddrX, row_y(0), "3FA21C", kNearbyScale));
 }
 
 // The letter in front of the address is the source the report arrived by, and nothing said so.
@@ -144,20 +151,31 @@ TEST_CASE("nearby: every head stands on the edge of the figures under it") {
     draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
 
     CHECK(reads_at(fb, kNearbyIdX, kNearbyHeadY, "SRC ID", 1));
-    CHECK(reads_right_of(fb, kNearbySlantEnd, kNearbyHeadY, "SLANT", 1));
+    CHECK(reads_right_of(fb, kNearbyDistEnd, kNearbyHeadY, "DIST", 1));
     CHECK(reads_right_of(fb, kNearbyRelEnd, kNearbyHeadY, "ALT", 1));
 }
 
 // B4. A pilot who asked for miles on the instruments is not handed kilometres here.
-TEST_CASE("nearby: the range column reads in the unit a pilot set") {
+TEST_CASE("nearby: the distance column reads in the unit a pilot set") {
     traffic::RangeRow rows[1] = {row_at(4300, 0)};  // 4.3 km, 2.3 NM
 
     Glass nautical, metric;
     draw_nearby(nautical, listing(rows, 1, go::Units::Nautical));
     draw_nearby(metric, listing(rows, 1, go::Units::Metric));
 
-    CHECK(reads_right_of(nautical, kNearbySlantEnd, row_y(0), "2.3", kNearbyScale));
-    CHECK(reads_right_of(metric, kNearbySlantEnd, row_y(0), "4.3", kNearbyScale));
+    CHECK(reads_right_of(nautical, kNearbyDistEnd, row_y(0), "2.3", kNearbyScale));
+    CHECK(reads_right_of(metric, kNearbyDistEnd, row_y(0), "4.3", kNearbyScale));
+}
+
+// The vertical is the column next door, so a distance that carried it would say it twice.
+TEST_CASE("nearby: distance is the ground track, whatever the traffic is above or below by") {
+    traffic::RangeRow rows[1] = {row_at(0, 3000)};
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
+
+    CHECK(reads_right_of(fb, kNearbyDistEnd, row_y(0), "0.0", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "+98", kNearbyScale));
 }
 
 // The column is scanned down, and a figure that changes width moves under the eye doing it.
@@ -195,13 +213,13 @@ TEST_CASE("nearby: traffic below carries its sign, and traffic at this level car
 }
 
 // Three double-height columns fill the glass, so a figure with one more digit hits its neighbour.
-TEST_CASE("nearby: a range or a separation past what the column holds is said in words") {
+TEST_CASE("nearby: a distance or a separation past what the column holds is said in words") {
     traffic::RangeRow rows[2] = {row_at(200000, 9000), row_at(1000, -9000)};
 
     Glass fb;
     draw_nearby(fb, listing(rows, 2, go::Units::Nautical));
 
-    CHECK(reads_right_of(fb, kNearbySlantEnd, row_y(0), "FAR", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyDistEnd, row_y(0), "FAR", kNearbyScale));
     CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "+99", kNearbyScale));
     CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "-99", kNearbyScale));
 }

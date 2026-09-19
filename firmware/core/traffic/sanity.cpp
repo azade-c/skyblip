@@ -16,9 +16,7 @@ Plausibility range_check(const model::OwnState& own, const model::AircraftObs& o
     int32_t north_m = 0, east_m = 0, up_m = 0;
     if (!protocol::relative_ned(own, obs, north_m, east_m, up_m)) return Plausibility::NoReference;
 
-    // The same slant range core/traffic/range.h ranks emitters by: the vertical
-    // component is part of the path, and a miscorrected altitude field puts a
-    // target tens of kilometres straight up as readily as sideways.
+    // INFO: fc 19sep26 slant, not ground: a bad altitude field throws a target straight up
     const int32_t ground_m = static_cast<int32_t>(idistance(north_m, east_m));
     slant_m = static_cast<int32_t>(idistance(ground_m, up_m));
     return slant_m > plausible_range_m(obs.source) ? Plausibility::TooFar

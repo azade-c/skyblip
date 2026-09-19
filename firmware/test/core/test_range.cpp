@@ -42,7 +42,7 @@ TEST_CASE("range: an emitter carries the address and the system it was heard on"
     REQUIRE(range_to(own_at_equator(), emitter(1000, model::Source::Alptas), row));
     CHECK(row.addr == 0xABCD);
     CHECK(row.source == model::Source::Alptas);
-    CHECK(row.slant_m == doctest::Approx(1000).epsilon(0.01));
+    CHECK(row.ground_m == doctest::Approx(1000).epsilon(0.01));
     CHECK(row.up_m == 0);
 }
 
@@ -57,24 +57,22 @@ TEST_CASE("range: an emitter without a position cannot be ranged") {
     CHECK_FALSE(range_to(blind, emitter(1000), row));
 }
 
-TEST_CASE("range: vertical separation counts as range") {
-    // Directly overhead by 2 km is a 2 km path, not a zero one.
+TEST_CASE("range: an aircraft directly overhead is no distance away, only above") {
     model::AircraftObs t = emitter(0);
     t.alt_m = 3000;
     RangeRow row;
     REQUIRE(range_to(own_at_equator(), t, row));
     CHECK(row.up_m == 2000);
-    CHECK(row.slant_m == doctest::Approx(2000).epsilon(0.01));
+    CHECK(row.ground_m == 0);
 }
 
-TEST_CASE("range: the wave takes the hypotenuse, not the ground track") {
-    // 3 km out and 4 km up is a 5 km path, which is the distance the page prints.
+TEST_CASE("range: distance is the ground track, and height above is its own figure") {
     model::AircraftObs t = emitter(3000);
     t.alt_m = 5000;
     RangeRow row;
     REQUIRE(range_to(own_at_equator(), t, row));
     CHECK(row.up_m == 4000);
-    CHECK(row.slant_m == doctest::Approx(5000).epsilon(0.01));
+    CHECK(row.ground_m == doctest::Approx(3000).epsilon(0.01));
 }
 
 TEST_CASE("range: ranking puts the nearest emitters first and drops the rest") {
@@ -93,7 +91,7 @@ TEST_CASE("range: ranking puts the nearest emitters first and drops the rest") {
     CHECK(rows[1].addr == 0x101);  // 1000 m
     CHECK(rows[2].addr == 0x105);  // 2500 m
     CHECK(rows[3].addr == 0x102);  // 5000 m
-    for (int i = 1; i < n; i++) CHECK(rows[i - 1].slant_m <= rows[i].slant_m);
+    for (int i = 1; i < n; i++) CHECK(rows[i - 1].ground_m <= rows[i].ground_m);
 }
 
 TEST_CASE("range: ranking skips what it cannot range") {

@@ -12,11 +12,11 @@ namespace skyblip::traffic {
 struct RangeRow {
     uint32_t addr{0};
     model::Source source{model::Source::AdslDirect};
-    int32_t slant_m{0};
+    int32_t ground_m{0};
     int32_t up_m{0};
 };
 
-// INFO: fc 18sep26 slant range, the path the wave took, not the separation the alarm grades
+// INFO: fc 19sep26 ground distance, what the radar ring and the alarm mean by distance
 bool range_to(const model::OwnState& own, const model::AircraftObs& obs, RangeRow& out);
 
 // Nearest first, at most cap rows. Returns how many were filled.

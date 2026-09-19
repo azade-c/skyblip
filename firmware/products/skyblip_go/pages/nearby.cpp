@@ -15,7 +15,7 @@ constexpr int kCountScale = 2;
 constexpr int kWordGap = 3;
 constexpr int kRuleY = 32;
 constexpr int kRelHundredsCap = 99;
-constexpr int32_t kSlantE1Cap = 999;
+constexpr int32_t kDistE1Cap = 999;
 
 void right_aligned(ui::Canvas& fb, int x_end, int y, const char* text, int len, int scale) {
     fb.draw_text(x_end - len * kSmallCellW * scale, y, text, true, scale);
@@ -37,6 +37,15 @@ void draw_count(ui::Canvas& fb, int n_heard) {
     right_aligned_text(fb, word_end, kNearbyTitleY + kGlyphH * (kCountScale - 1), "TRAFFIC", 1);
 }
 
+void draw_own_id(ui::Canvas& fb, uint32_t addr) {
+    fb.draw_text(kNearbyIdX, kNearbyTitleY + kGlyphH * (kTitleScale - 1), "ID", true, 1);
+
+    char buf[8];
+    const int n = fmt_hex(buf, addr, 6);
+    buf[n] = 0;
+    fb.draw_text(kNearbyAddrX, kNearbyTitleY, buf, true, kTitleScale);
+}
+
 void banner(ui::Canvas& fb, const char* text) {
     int n = 0;
     while (text[n]) n++;
@@ -45,11 +54,11 @@ void banner(ui::Canvas& fb, const char* text) {
 }
 
 void draw_header(ui::Canvas& fb, const NearbySnapshot& snap) {
-    fb.draw_text(kNearbyIdX, kNearbyTitleY, "NEARBY", true, kTitleScale);
+    draw_own_id(fb, snap.own_addr);
     draw_count(fb, snap.n_heard);
 
     fb.draw_text(kNearbyIdX, kNearbyHeadY, "SRC ID", true, 1);
-    right_aligned_text(fb, kNearbySlantEnd, kNearbyHeadY, "SLANT", 1);
+    right_aligned_text(fb, kNearbyDistEnd, kNearbyHeadY, "DIST", 1);
     right_aligned_text(fb, kNearbyRelEnd, kNearbyHeadY, "ALT", 1);
     fb.hline(kNearbyIdX, kRuleY, kNearbyRelEnd - kNearbyIdX, true);
 }
@@ -71,11 +80,12 @@ void draw_row(ui::Canvas& fb, int y, const traffic::RangeRow& row, bool metric) 
     buf[n_id] = 0;
     fb.draw_text(kNearbyIdX, y, buf, true, kNearbyScale);
 
-    const int32_t range_e1 = metric ? div_round(row.slant_m, 100) : to_nm_e1(Metres(row.slant_m)).v;
-    int n = range_e1 > kSlantE1Cap ? fmt_string(buf, "FAR")
-                                   : fmt_uint(buf, static_cast<uint32_t>(range_e1), 2, 1);
+    const int32_t dist_e1 =
+        metric ? div_round(row.ground_m, 100) : to_nm_e1(Metres(row.ground_m)).v;
+    int n = dist_e1 > kDistE1Cap ? fmt_string(buf, "FAR")
+                                 : fmt_uint(buf, static_cast<uint32_t>(dist_e1), 2, 1);
     buf[n] = 0;
-    right_aligned(fb, kNearbySlantEnd, y, buf, n, kNearbyScale);
+    right_aligned(fb, kNearbyDistEnd, y, buf, n, kNearbyScale);
 
     const int32_t rel = rel_hundreds_of_feet(row.up_m);
     n = fmt_int(buf, rel, 2, 0, rel == 0);

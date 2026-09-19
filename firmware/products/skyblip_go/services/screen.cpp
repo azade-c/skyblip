@@ -480,6 +480,7 @@ void ScreenService::render(uint32_t now_ms) {
         }
         case Page::Nearby: {
             NearbySnapshot snap;
+            snap.own_addr = settings.device_addr;
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
