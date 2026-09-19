@@ -58,7 +58,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kIndicatedSamples` | 8 | samples | Samples | [README](../firmware/core/flight/README.md) argues it |
 | `kMaxTimeOffsetS` | `0xFFFF` = 65535 | seconds | - | - |
 | `kLogRecordPeriodMs` | 4000 (4 s) | milliseconds | Period | Four seconds. It is the interval the moshe-braner SoftRF fork ships as its default (oss/SoftRF-moshe-braner .../src/driver/ Settings.cpp:838 loginterval = 4) and it is inside every fix-interval a badge, an OLC claim or a competition file is scored on. |
-| `kLogPreTakeoffRecords` | 8 | records | - | a takeoff is declared at 12 m/s, so the ground roll is behind the log when it opens |
+| `kLogPreTakeoffRecords` | 8 | records | - | a takeoff is declared at 12 m/s, so the roll is behind the log when it opens |
 | `kSlipFullScaleMg` | 200 | thousandths of g | - | [README](../firmware/core/flight/README.md) argues it |
 | `kFlightSpeedMmS` | 12000 (12 m/s) | millimetres per second | - | [README](../firmware/core/flight/README.md) argues it |
 | `kLandingSpeedMmS` | 8000 (8 m/s) | millimetres per second | - | [README](../firmware/core/flight/README.md) argues it |
