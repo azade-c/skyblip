@@ -24,12 +24,7 @@ namespace skyblip::flight {
 // zone; halving it would double the bytes to buy resolution nothing scores.
 constexpr uint32_t kLogRecordPeriodMs = 4000;
 
-// INFO: fl 03aug26 A takeoff is only declared five seconds after the motion
-// criterion is met (kTakeoffHoldMs), so a log that started at the declaration
-// would open in the climb-out with the ground roll missing. Eight samples of
-// slack is 32 seconds held in RAM and handed to the file the moment it opens -
-// the same trick the moshe-braner fork plays with its pre-position ring
-// (oss/SoftRF-moshe-braner .../src/protocol/data/IGC.cpp:1105-1125).
+// INFO: fl 03aug26 a takeoff is declared at 12 m/s, so the ground roll is behind the log when it opens
 constexpr int kLogPreTakeoffRecords = 8;
 
 enum class LogAction : uint8_t { Idle, OpenSession, AppendRecord, CloseSession };

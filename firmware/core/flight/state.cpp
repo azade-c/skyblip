@@ -19,6 +19,8 @@ bool flight_evidence(const FlightSample& sample) {
 
 bool ground_evidence(const FlightSample& sample) { return sample.speed_mm_s < kGroundSpeedMmS; }
 
+bool taxi_evidence(const FlightSample& sample) { return sample.speed_mm_s < kLandingSpeedMmS; }
+
 FlightState state_from(uint8_t adsl_code) {
     switch (static_cast<FlightState>(adsl_code)) {
         case FlightState::OnGround: return FlightState::OnGround;
@@ -39,7 +41,23 @@ void FlightMonitor::update_rolling(int32_t speed_mm_s) {
         rolling_ = false;
 }
 
-FlightState FlightMonitor::update(const FlightSample& sample) {
+void FlightMonitor::update_slowdown(const FlightSample& sample, uint32_t now_ms) {
+    if (!sample.fix_valid || !taxi_evidence(sample)) {
+        slow_ = false;
+        return;
+    }
+    if (!slow_) {
+        slow_ = true;
+        slow_since_ms_ = now_ms;
+    }
+}
+
+bool FlightMonitor::taxi_sustained(uint32_t now_ms) const {
+    return slow_ && now_ms - slow_since_ms_ >= kLandingHoldMs;
+}
+
+FlightState FlightMonitor::update(const FlightSample& sample, uint32_t now_ms) {
+    update_slowdown(sample, now_ms);
     if (!sample.fix_valid) {
         armed_ = false;
         return FlightState::Unknown;
@@ -57,7 +75,7 @@ FlightState FlightMonitor::update(const FlightSample& sample) {
     }
 
     if (state_ == FlightState::Airborne) {
-        if (ground_evidence(sample)) state_ = FlightState::OnGround;
+        if (ground_evidence(sample) || taxi_sustained(now_ms)) state_ = FlightState::OnGround;
         return state_;
     }
 

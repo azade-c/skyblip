@@ -98,21 +98,23 @@ A target's turn rate is not on the wire. ADS-L carries position, speed, track an
 
 Airborne or on the ground, from the fix stream alone. It is not a display value: it gates the DFU lockout and the transmit rate, so the two ways of being wrong are not symmetric. Declaring a takeoff that did not happen locks the update out on the ground and drains the cell at the airborne burst rate; missing one leaves an aircraft transmitting at the rate a parked device uses, unlocked, in the air.
 
-Two bands, and nothing between them moves:
+Two bands and one hold, and nothing between them moves:
 
-| | Condition | Meaning |
-|---|---|---|
-| flight | ground speed >= 12.0 m/s | a speed no aircraft taxis at |
-| ground | ground speed < 1.0 m/s | stopped |
-| between | keep the state you had | |
+| | Condition | Constant | Meaning |
+|---|---|---|---|
+| flight | ground speed >= 12.0 m/s | `kFlightSpeedMmS` | a speed no aircraft taxis at |
+| landing | ground speed < 8.0 m/s for 10 s, airborne | `kLandingSpeedMmS`, `kLandingHoldMs` | slower than a taxi for longer than any circle |
+| ground | ground speed < 1.0 m/s | `kGroundSpeedMmS` | stopped |
+| rolling | ground speed >= 1.5 m/s, on the ground | `kTaxiSpeedMmS` | the word TAXI rather than GROUND |
+| between | keep the state you had | | |
 
-Ground speed is the whole rule. There is no altitude in it, no vertical rate, no barometer and no timer, so what decides the two states a radio and a firmware lock depend on is one number the receiver solves directly, on every fix, whether or not any other sensor on the board is alive.
+Ground speed is the whole rule. There is no altitude in it, no vertical rate and no barometer, so what decides the two states a radio and a firmware lock depend on is one number the receiver solves directly, on every fix, whether or not any other sensor on the board is alive.
 
-There is no timer in any of it. What used to be five seconds of takeoff evidence and ten of landing is now the width of the gap between the two bands: ten times, where the thresholds it replaced were two apart. The gap is the hysteresis, and it is not decoration: a glider thermalling in a 15 m/s wind swings its ground speed from 5 m/s upwind to 40 downwind every circle, and a single threshold in the middle of that would land it and launch it once a turn, a log session and a firmware lock cycle each time.
+The takeoff waits for nothing, and it does not have to: the gap between 12.0 and 1.0 is the hysteresis, twelve times where the thresholds it replaced were two apart. That gap is not decoration. A glider thermalling in a 15 m/s wind swings its ground speed from 5 m/s upwind to 40 downwind every circle, and a single threshold in the middle of that would land it and launch it once a turn, a log session and a firmware lock cycle each time.
 
 1.0 m/s is the ground speed, and what it separates is an aircraft stopped from an aircraft moving at all. A receiver at a standstill reports 0.05 to 0.3 m/s of Doppler speed, spiking to a metre a second on multipath, so the threshold is three times the noise it normally sits above and the spikes cost a solution or two before a landing latches. It is also where the word on the glass goes back to GROUND. Lower and a finished flight keeps running; higher and an aircraft creeping on an apron reads parked, and the ground band widens under a wing hovering over one spot.
 
-1.5 m/s is the third band, and unlike the other two it is not a state: ADS-L G.1.2 has two codes, and a glider being pushed to the grid is on the ground in both of them. `FlightMonitor::rolling()` answers the question the glass asks instead, stopped or moving, which is the difference between the words GROUND and TAXI (`products/skyblip_go/pages/README.md`). It picks up at 1.5 m/s and lets go below the 1.0 a landing needs, so the gap is the hysteresis again, half a metre a second of it: a parked receiver spiking to a metre a second on multipath never reaches the word, and a taxi slowing for a turn keeps the one it has. At 1.0 alone the word changed every few seconds on a device nobody had touched, and every change was a partial refresh of the glass spent on a state the aircraft was not in. The pick-up is a brisk walk, so what a pilot would call a taxi still reads as one. It holds through an outage the way the state does, because an antenna that drops out is not an aircraft that stopped.
+1.5 m/s is the third band, and unlike the other two it is not a state: ADS-L G.1.2 has two codes, and a glider being pushed to the grid is on the ground in both of them. `FlightMonitor::rolling()` answers the question the glass asks instead, stopped or moving, which is the difference between the words GROUND and TAXI (`products/skyblip_go/pages/README.md`). It picks up at 1.5 m/s and lets go below the 1.0 a stop needs, so the gap is the hysteresis again, half a metre a second of it: a parked receiver spiking to a metre a second on multipath never reaches the word, and a taxi slowing for a turn keeps the one it has. At 1.0 alone the word changed every few seconds on a device nobody had touched, and every change was a partial refresh of the glass spent on a state the aircraft was not in. The pick-up is a brisk walk, so what a pilot would call a taxi still reads as one. It holds through an outage the way the state does, because an antenna that drops out is not an aircraft that stopped.
 
 It is decided here rather than on the page for the reason the takeoff is: a band is a fact about the aircraft, and a page that owns one is a second opinion waiting to drift from this file. The monitor is already fed every solution, so all three speeds are read in one place, off one sample, and `products/skyblip_go/services/ownship.cpp` publishes the answer as `state.flight.rolling` for whoever draws it.
 
@@ -124,13 +126,17 @@ What keeps it from going higher is the wind. Rotation is an airspeed and this th
 
 What ground speed alone cannot see is a wing that does not need any. A paraglider trims at 10 m/s of airspeed, so into a 5 m/s breeze its ground speed is 5 for the whole flight; a hang glider working a ridge and a balloon in any wind are the same shape of problem. Those read on the ground from launch to landing: the parked transmit rate, no log session, no clock, and the firmware lock open, in the air. A barometric climb used to catch them, and it is gone deliberately, because the vertical rate on this board is a gust, a canopy, a pressure step and a 3 m/s spike whenever the barometer is out, and paying for it was a takeoff declared in the hangar queue. This is the trade the device makes: nothing is declared airborne that a pilot would not call airborne, and three classes of aircraft that never roll are not declared at all.
 
-A landing is a stop, and only a stop, so an aircraft that lands and rolls straight on is still flying as far as this is concerned. A tug that touches down and taxis back to the grid without ever coming to rest is airborne until it does, which is the right answer for the radio: it is moving on an airfield, and what other aircraft need is a target that is not suppressed.
+A landing is a stop, or a taxi held long enough to be one. The stop is declared on the solution that shows it; the taxi needs 10 s under 8.0 m/s, and it is the only hold left in this file. It is there because a landing that could only be a standstill was a landing the word TAXI could never follow: `rolling()` below picks up at 1.5 m/s and lets go under the same 1.0 a stop needs, so the two flags could not both be true on one solution and every flight ended FLIGHT, GROUND, with the taxi in reaching the word only after coming to rest. A tug that lands and taxis straight back now reads TAXI while it is still rolling, which is what its pilot would call it and what ADS-L G.1.2 already has a code for.
+
+8.0 m/s is the ceiling because a taxi is 5 to 8 and a tug hurrying back to the grid does 10: under it nothing on an airfield is doing anything but taxiing, and it stays 4 m/s clear of the 12.0 a takeoff needs, so the ground roll that crosses one never trips the other. 10 s is what no circle can fake. A glider circling at 22 m/s airspeed in a 20 m/s wind is under 8 m/s over the ground for only 21 degrees of arc either side of upwind, three seconds of a 25-second turn, and the hold restarts on the first solution above the ceiling.
+
+What it cannot tell from a taxi is a wing hovering: a glider on a ridge beat into a 15 m/s wind holds 5 m/s over the ground for the length of the beat, and after 10 s of it this file says it has landed. That costs the parked transmit rate and an ADS-L code that tells other aircraft it is on the ground, in the air, on the one wing whose neighbours are closest - the same class of aircraft that `12.0 m/s` already fails to declare airborne at all. The next takeoff or any 12 m/s over the ground puts it back on the same solution it happens.
 
 Evidence for flight is divided by the fix's own dilution of precision, the way OGN does it, so a solution nobody should trust cannot declare a takeoff. Evidence for the ground is not derated, and that asymmetry is deliberate: a derated figure is a smaller figure, and a smaller figure must never be the thing that puts an aircraft on the ground. The jerk gate is the other defence, and it guards the speed alone: a speed that jumps more than fourfold between two consecutive solutions is a receiver at a standstill, not an aircraft accelerating, so it costs one sample at the start of every roll.
 
 The first solution after power-on decides on its own evidence rather than waiting: a device rebooted in flight that answers `Unknown` hands both the transmit rate and the update lockout their wrong default. In the band between the two, it decides for the ground, because switching on while being towed to the grid is the common case, and an aircraft rebooted in flight is doing more than 12 m/s over the ground within the minute.
 
-What the missing holds cost is one case: an aircraft that stops on the runway and rolls again, a backtrack after a landing, is a second takeoff and a second session in the flight log. The ten-second landing hold used to absorb exactly that, at the price of a landing declared ten seconds after it happened.
+What the missing takeoff hold costs is one case: an aircraft that stops on the runway and rolls again, a backtrack after a landing, is a second takeoff and a second session in the flight log the moment it passes 12 m/s.
 
 There is no longer an altitude that means flight on its own either. The 2000 m rule this replaced was MSL, so any airfield above it - Samedan at 1707 m, Courchevel at 2008 m, Leadville at 3026 m - was a device that read airborne while parked, transmitting at 1 Hz with its update locked out for good.
 
@@ -157,3 +163,9 @@ Nothing but a takeoff starts it and nothing but switching the device off clears 
 A device switched on in the air is timed from the first solution rather than from the wheels, because `FlightMonitor` declares `Airborne` immediately in that case and nothing on board saw the takeoff. The alternative is withholding the number from exactly the pilot who has been flying longest.
 
 The count is a difference of unsigned milliseconds, so the 49.7-day wrap of `ports::Clock::millis()` is one ordinary second of flight.
+
+## log_session
+
+`kLogPreTakeoffRecords` is eight records of slack, 32 seconds at the four-second cadence, held in RAM and handed to the file the moment it opens. A takeoff is declared at 12 m/s over the ground, so the session opens partway down the runway and the roll that produced it is already history; the ring is what puts it back. It is the same trick the moshe-braner SoftRF fork plays with its pre-position ring (`oss/SoftRF-moshe-braner .../src/protocol/data/IGC.cpp:1105-1125`).
+
+A landing closes the session, and since a landing is now a taxi held for ten seconds as well as a stop (`state` above), a tug that rolls in and taxis back gets one file for the flight rather than one that runs until it parks.

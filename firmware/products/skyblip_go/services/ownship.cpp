@@ -10,12 +10,12 @@
 
 namespace skyblip::go {
 
-flight::FlightState OwnshipService::flight_state_from(const model::OwnState& own) {
+flight::FlightState OwnshipService::flight_state_from(const model::OwnState& own, uint32_t now_ms) {
     flight::FlightSample sample{};
     sample.speed_mm_s = own.speed_mm_s;
     sample.hdop_e2 = own.hdop_e2;
     sample.fix_valid = own.fix_valid;
-    return flight_.update(sample);
+    return flight_.update(sample, now_ms);
 }
 
 void OwnshipService::tick(uint32_t now_ms) {
@@ -78,7 +78,7 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
         vs_from_alt_mm(solution.alt_mm, now_ms, kGnssVsWindowMs, vs_ref_alt_mm_, vs_ref_ms_, mm_s);
     if (have && !baro_active()) adopt_climb(mm_s);
 
-    const flight::FlightState declared = flight_state_from(own);
+    const flight::FlightState declared = flight_state_from(own, now_ms);
     own.flight_state = static_cast<uint8_t>(declared);
     ground_.update(declared);
     update_turn_rate(now_ms);

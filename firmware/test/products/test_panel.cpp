@@ -270,6 +270,27 @@ TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, par
     CHECK(radar_says("GROUND", 1250));
 }
 
+// The word after a landing: a pilot rolling in has landed, and used to read FLIGHT until parked.
+TEST_CASE("product: a flight that rolls in without stopping reads TAXI on the taxiway") {
+    auto reads = [](Rig& rig, const char* word) {
+        return reads_in(rig.product.screen().framebuffer(), word, 40, 120, 160, 160, 2);
+    };
+
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 100;
+    rig.seconds(t, 20, 0, 300);
+    rig.seconds(t, 60, 30000, 800);
+    REQUIRE_FALSE(reads(rig, "TAXI"));
+
+    rig.seconds(t, 10, 4000, 300);  // off the runway at 4 m/s, and the hold is not out yet
+    CHECK_FALSE(reads(rig, "TAXI"));
+
+    rig.seconds(t, 5, 4000, 300);
+    CHECK(reads(rig, "TAXI"));
+    CHECK_FALSE(reads(rig, "GROUND"));
+}
+
 // A metre a second of multipath on a parked receiver used to cost a word and a refresh a second.
 TEST_CASE("product: the word holds through the band between a standstill and a taxi") {
     auto reads = [](Rig& rig, const char* word) {
