@@ -92,7 +92,7 @@ $(SIMULATOR_BIN): $(SIMULATOR_OBJ)
 browser:
 	@command -v $(EMCC) >/dev/null 2>&1 || { \
 	  echo "emcc not found. Install Emscripten, then: make browser"; exit 1; }
-	@$(MAKE) --no-print-directory $(WEB_OUT)
+	@$(MAKE) --no-print-directory $(WEB_OUT) $(WEB_DIST)/embed.js
 
 $(WEB_BUILD)/%.o: %.cpp
 	@mkdir -p $(dir $@)
@@ -105,8 +105,12 @@ $(WEB_OUT): $(WEB_OBJ)
 	  -sALLOW_MEMORY_GROWTH=1 -sEXIT_RUNTIME=0 \
 	  -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web \
 	  -o $(WEB_OUT)
-	cp simulator/web/embed.js $(WEB_DIST)/
 	@echo "built $(WEB_DIST)/, serve it with: make -C ../simulator dev"
+
+# Its own target: copied by the link recipe, an edit to it alone shipped nothing.
+$(WEB_DIST)/embed.js: simulator/web/embed.js
+	@mkdir -p $(WEB_DIST)
+	cp $< $@
 
 $(BUILD)/%.o: %.cpp
 	@mkdir -p $(dir $@)
