@@ -117,7 +117,7 @@ export default class extends Controller {
   static targets = ["canvas", "status", "pad", "alarm", "charge",
                     "horizonGauge", "attitudeReadout",
                     ...Object.keys(AXES).flatMap(axis => [axis, `${axis}Readout`, `${axis}Gauge`])]
-  static values = { src: String, on: String, off: String, settings: String }
+  static values = { src: String, on: String, off: String, menu: String }
 
   connect() {
     this.bootTimer = setTimeout(() => this.start(), BOOT_DELAY_MS)
@@ -282,7 +282,7 @@ export default class extends Controller {
   }
 
   #screen() {
-    return this.sim.settingsOpen() === 1 ? this.settingsValue : this.pages[this.sim.page()]
+    return this.sim.menuOpen() === 1 ? this.menuValue : this.pages[this.sim.page()]
   }
 
   #stop() {
