@@ -118,6 +118,7 @@ TEST_CASE("board: the chip's rotation rates reach the bus as body rates") {
     Board board{platform, bus};
     bus::State state;
 
+    board.request_gyroscope(true);
     run(platform, board, state, 0, 2000);
 
     events::RateSample rate{};

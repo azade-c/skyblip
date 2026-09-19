@@ -16,8 +16,8 @@ constexpr MenuRow kRadarMenuRows[] = {MenuRow::Identity, MenuRow::AircraftType, 
                                       MenuRow::Stealth};
 constexpr MenuRow kNearbyMenuRows[] = {MenuRow::RadioLog, MenuRow::Sats, MenuRow::Status,
                                        MenuRow::SelfTest};
-constexpr MenuRow kSixPackMenuRows[] = {MenuRow::GMeter, MenuRow::AlignQnh, MenuRow::QnhDown,
-                                        MenuRow::QnhUp};
+constexpr MenuRow kSixPackMenuRows[] = {MenuRow::GMeter, MenuRow::Gyro, MenuRow::AlignQnh,
+                                        MenuRow::QnhDown, MenuRow::QnhUp};
 
 template <int N>
 constexpr Menu menu_of(const MenuRow (&rows)[N]) {
@@ -100,6 +100,7 @@ const char* menu_row_label(MenuRow row) {
         case MenuRow::Status: return "STATUS";
         case MenuRow::SelfTest: return "SELF TEST";
         case MenuRow::GMeter: return "G METER";
+        case MenuRow::Gyro: return "GYRO";
         case MenuRow::AlignQnh: return "QNH FROM GNSS";
         case MenuRow::QnhDown:
         case MenuRow::QnhUp: return "QNH";
@@ -178,6 +179,7 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
             n = fmt_string(out, v.settings.units == go::Units::Metric ? "METRIC" : "NAUTICAL");
             break;
         case MenuRow::Stealth: n = fmt_string(out, v.settings.stealth ? "ON" : "OFF"); break;
+        case MenuRow::Gyro: n = fmt_string(out, v.settings.gyro_enabled ? "ON" : "OFF"); break;
         case MenuRow::AlignQnh: {
             uint32_t aligned = 0;
             if (!qnh_aligned_with_gnss(v, aligned)) {
@@ -300,6 +302,7 @@ MenuAction MenuEditor::act(const MenuValues& current, MenuValues& next) {
                                                                               : go::Units::Metric;
             break;
         case MenuRow::Stealth: next.settings.stealth = !current.settings.stealth; break;
+        case MenuRow::Gyro: next.settings.gyro_enabled = !current.settings.gyro_enabled; break;
         case MenuRow::AlignQnh: {
             uint32_t aligned = 0;
             if (!qnh_aligned_with_gnss(current, aligned) || aligned == current.qnh_pa)

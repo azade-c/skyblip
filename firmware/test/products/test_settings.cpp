@@ -327,14 +327,84 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
     CHECK(int(rewritten[0]) == int(kBlobVersion));
-    CHECK(int(kBlobVersion) == 5);
+    CHECK(int(kBlobVersion) == 6);
 }
 
-// J, the migration. Version 4 added the radio's frequency trim, version 5
-// dropped the page mask, and between them the padding gave back what it took:
-// this payload is the same length as the current one, and only the version byte
-// says which is which. A reader that went by length would read a trim as a
-// callsign.
+// L, the migration: a unit that stored no choice about the gyroscope comes back on the default.
+TEST_CASE("settings: a blob written by version-5 firmware comes back with the gyroscope off") {
+    struct V5 {
+        uint8_t version{1};
+        uint32_t device_addr{0};
+        int16_t battery_offset_mv{0};
+        int16_t freq_trim_e1_ppm{0};
+        uint8_t addr_table{0};
+        uint8_t aircraft_type{4};
+        bool alarm_enabled{true};
+        uint8_t alarm_volume{3};
+        bool stealth{false};
+        Units units{Units::Metric};
+        char callsign[10]{0};
+    };
+
+    V5 old{};
+    old.device_addr = 0x5B7E57;
+    old.battery_offset_mv = -120;
+    old.freq_trim_e1_ppm = -37;
+    old.addr_table = 6;
+    old.aircraft_type = 9;
+    old.alarm_enabled = false;
+    old.alarm_volume = 5;
+    old.stealth = true;
+    old.units = Units::Nautical;
+    std::memcpy(old.callsign, "D-KXYZ", 7);
+
+    uint8_t blob[128] = {0};
+    blob[0] = 5;
+    std::memcpy(blob + 1, &old, sizeof(V5));
+    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V5));
+    for (int i = 0; i < 4; i++) blob[1 + sizeof(V5) + i] = static_cast<uint8_t>(crc >> (8 * i));
+
+    Settings out;
+    REQUIRE(from_blob(blob, 1 + sizeof(V5) + 4, out) == Status::Ok);
+    CHECK(out.device_addr == 0x5B7E57u);
+    CHECK(int(out.battery_offset_mv) == -120);
+    CHECK(int(out.freq_trim_e1_ppm) == -37);
+    CHECK(int(out.addr_table) == 6);
+    CHECK(int(out.aircraft_type) == 9);
+    CHECK_FALSE(out.alarm_enabled);
+    CHECK(int(out.alarm_volume) == 5);
+    CHECK(out.stealth);
+    CHECK(out.units == Units::Nautical);
+    CHECK(std::string(out.callsign) == "D-KXYZ");
+    CHECK_FALSE(out.gyro_enabled);
+}
+
+// M. The gyroscope is the one sensor with a power bill, so it ships off and says so on the glass.
+TEST_CASE("settings: the gyroscope ships off, survives the framing and is set over the link") {
+    Settings s = defaults(0x5B7E57);
+    CHECK_FALSE(s.gyro_enabled);
+
+    const char* on = "{\"gyro\":true}";
+    REQUIRE(apply_json(s, on, static_cast<int>(strlen(on))) == Status::Ok);
+    CHECK(s.gyro_enabled);
+
+    uint8_t blob[128] = {0};
+    to_blob(s, blob, sizeof(blob));
+    Settings out;
+    REQUIRE(from_blob(blob, blob_size(), out) == Status::Ok);
+    CHECK(out.gyro_enabled);
+
+    const char* off = "{\"gyro\":false}";
+    REQUIRE(apply_json(s, off, static_cast<int>(strlen(off))) == Status::Ok);
+    CHECK_FALSE(s.gyro_enabled);
+
+    // Write-only over the link: the "get" reply has nine bytes spare, "gyro":true is twelve.
+    char buf[256];
+    const int n = to_json(s, buf, sizeof(buf));
+    CHECK(std::string(buf, static_cast<size_t>(n)).find("gyro") == std::string::npos);
+}
+
+// J, the migration: a stored payload is routed by its version byte, never by its length.
 TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, untrimmed") {
     // The version-3 payload, byte for byte as that firmware memcpy'd its struct.
     struct V3 {
@@ -350,7 +420,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
         uint8_t page_mask{0x0F};
         char callsign[10]{0};
     };
-    CHECK(sizeof(V3) == blob_size() - 5);
+    CHECK(sizeof(V3) != blob_size() - 5);
 
     V3 old{};
     old.device_addr = 0x5B7E57;
@@ -395,9 +465,7 @@ TEST_CASE("settings: a blob written by version-3 firmware comes back as itself, 
     CHECK(int(again.freq_trim_e1_ppm) == 0);
 }
 
-// K, the migration. Version 5 dropped the page mask: the pad walks three pages
-// and the two that open everything else always stand, so the byte had no reader
-// left. A unit that stored one comes back without it and loses nothing else.
+// K, the migration: version 6 is version 4's length again, and the version byte parts them.
 TEST_CASE("settings: a blob written by version-4 firmware comes back without its page mask") {
     // The version-4 payload, byte for byte as that firmware memcpy'd its struct.
     struct V4 {
@@ -446,7 +514,7 @@ TEST_CASE("settings: a blob written by version-4 firmware comes back without its
     CHECK(out.stealth);
     CHECK(out.units == Units::Nautical);
     CHECK(std::string(out.callsign) == "D-KXYZ");
-    CHECK(blob_size() < 1 + sizeof(V4) + 4);
+    CHECK(blob_size() == 1 + sizeof(V4) + 4);
 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));

@@ -52,6 +52,7 @@ void Bhi260::load(ConstByteSpan image, uint32_t now_ms) {
     fault_ = Status::Ok;
     meta_event_ = 0;
     gyroscope_ = false;
+    gyroscope_streaming_ = false;
     sensor_error_ = 0;
     errored_sensor_ = 0;
     interrupt_ = 0;
@@ -268,9 +269,12 @@ void Bhi260::send_configuration(uint32_t now_ms) {
         fail(Status::Down);
         return;
     }
-    if (gyroscope_ && !configure_sensor(kSensorGyroscope, kRangeDps)) {
-        fail(Status::Down);
-        return;
+    if (gyroscope_ && gyroscope_wanted_) {
+        if (!configure_sensor(kSensorGyroscope, kRangeDps)) {
+            fail(Status::Down);
+            return;
+        }
+        gyroscope_streaming_ = true;
     }
     if (!request_parameter(kParamSensorConfig + kSensorAccelerometer)) {
         fail(Status::Down);
@@ -327,6 +331,26 @@ int Bhi260::read_status_channel(uint16_t& code, uint8_t* out, uint16_t max) {
     return len;
 }
 
+void Bhi260::request_gyroscope(bool wanted) { gyroscope_wanted_ = wanted; }
+
+// INFO: fc 21sep26 a sample rate of zero is the hub's unsubscribe, and it powers the part down
+bool Bhi260::stop_sensor(uint8_t sensor) {
+    const uint8_t config[8] = {sensor, 0, 0, 0, 0, 0, 0, 0};
+    return command(kCmdConfigureSensor, config, sizeof(config));
+}
+
+void Bhi260::follow_gyroscope_request() {
+    if (!gyroscope_ || gyroscope_wanted_ == gyroscope_streaming_) return;
+    const bool done = gyroscope_wanted_ ? configure_sensor(kSensorGyroscope, kRangeDps)
+                                        : stop_sensor(kSensorGyroscope);
+    if (!done) {
+        fail(Status::Down);
+        return;
+    }
+    gyroscope_streaming_ = gyroscope_wanted_;
+    if (!gyroscope_streaming_) fresh_rate_ = false;
+}
+
 bool Bhi260::configure_sensor(uint8_t sensor, int32_t range_units) {
     const uint8_t range[4] = {sensor, static_cast<uint8_t>(range_units & 0xFF),
                               static_cast<uint8_t>(range_units >> 8), 0};
@@ -346,6 +370,8 @@ bool Bhi260::configure_sensor(uint8_t sensor, int32_t range_units) {
 void Bhi260::step_running(uint32_t now_ms) {
     if (now_ms - polled_ms_ < kSamplePeriodMs) return;
     polled_ms_ = now_ms;
+    follow_gyroscope_request();
+    if (stage_ != Stage::Running) return;
     read_hub_error();
     drain_fifos(now_ms);
 }
