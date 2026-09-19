@@ -79,7 +79,8 @@ TEST_CASE("acquisition: a receiver that stops talking goes silent, whatever it l
     CHECK(a.stage() == Stage::Solving);
 }
 
-// A solved receiver already reads GROUND, TAXI or FLIGHT: a second word for it would be one too many.
+// A solved receiver already reads GROUND, TAXI or FLIGHT: a second word for it would be one too
+// many.
 TEST_CASE("acquisition: every rung has a word the row fits, and the fix has none") {
     CHECK(std::string(stage_name(Stage::Silent)) == "SILENT");
     CHECK(std::string(stage_name(Stage::Blind)) == "BLIND");

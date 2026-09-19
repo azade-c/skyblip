@@ -29,7 +29,7 @@ int ink_in(const Glass& fb, int x0, int y0, int x1, int y1) {
 RadarSnapshot flying(uint16_t track_deg) {
     RadarSnapshot snap;
     snap.fix_valid = true;
-    snap.range_nm = kDefaultRangeNm;
+    snap.range_step = kDefaultRangeStep;
     snap.track_cdeg = track_deg * 100;
     snap.flight_time_valid = true;
     snap.airborne = true;
@@ -113,7 +113,7 @@ TEST_CASE("radar: renders rings, own symbol and plots targets") {
         RadarTarget pair[2] = {{0, 4000, 0, Level::Advisory}, {0, -4000, 0, Level::Advisory}};
         RadarSnapshot s2;
         s2.fix_valid = true;
-        s2.range_nm = 5;
+        s2.range_step = 3;
         s2.n_targets = 2;
         s2.targets = pair;
         Glass f2;
@@ -133,7 +133,7 @@ TEST_CASE("radar: renders rings, own symbol and plots targets") {
     }
     RadarSnapshot snap;
     snap.fix_valid = true;
-    snap.range_nm = 5;
+    snap.range_step = 3;
     snap.n_targets = 2;
     snap.targets = targets;
     draw_radar(fb, snap);
@@ -637,27 +637,27 @@ TEST_CASE("radar: the range labels the ring, centred on it and cleared off it") 
     CHECK(reads_in(fb, "NM", 95, 183, 130, 198));
 
     RadarSnapshot wider = flying(0);
-    wider.range_nm = 12;
-    CHECK(reads_in(radar(wider), "12", 70, 176, 106, 198, 2));
+    wider.range_step = 3;
+    CHECK(reads_in(radar(wider), "8", 70, 176, 100, 198, 2));
 
     // The ring is cleared off the label rather than read through it.
     for (int y = 186; y < 196; y++)
         for (int x = 82; x < 88; x++) CHECK_FALSE(fb.get_pixel(x, y));
 }
 
-// B4. One circle, read in two habits: only the label under it changes.
-TEST_CASE("radar: the ring is labelled in the unit a pilot set, and the plot does not move") {
+// B4. One ring, picked in the unit it is read in: whole miles or whole kilometres.
+TEST_CASE("radar: the ring is labelled and sized in the unit a pilot set") {
     RadarSnapshot metric = flying(0);
     metric.units = skyblip::go::Units::Metric;
     const Glass km = radar(metric);
-    const Glass nm = radar(flying(0));
 
-    CHECK(reads_in(km, "7.4", 60, 176, 112, 198, 2));
+    CHECK(reads_in(km, "8", 70, 176, 100, 198, 2));
     CHECK(reads_in(km, "KM", 95, 183, 140, 198));
     CHECK_FALSE(reads_in(km, "NM", 60, 176, 140, 198));
 
-    for (int y = 0; y < 170; y++)
-        for (int x = 0; x < Glass::kW; x++) REQUIRE(km.get_pixel(x, y) == nm.get_pixel(x, y));
+    // The ring is 8 km rather than the 7.4 the same step converts to, so the plot is its own.
+    CHECK(range_metres(metric.range_step, metric.units) == 8000);
+    CHECK(range_metres(metric.range_step, skyblip::go::Units::Nautical) == 4 * 1852);
 }
 
 TEST_CASE("radar: the footer counts what is on the glass, either side of the clock") {
@@ -677,7 +677,7 @@ TEST_CASE("radar: the footer counts what is on the glass, either side of the clo
     CHECK(reads_in(fb, "ACT", 140, 175, 190, 200));
 
     RadarSnapshot closer = flying(0);
-    closer.range_nm = 2;
+    closer.range_step = 1;
     const Glass near = radar(closer);
     CHECK(reads_in(near, "0", 170, 170, 200, 200, 3));
 }
@@ -745,14 +745,14 @@ TEST_CASE("radar: anything but a flight is said in the ring, and a flight over t
 // NO FIX says the plot is not being fed; the word under it says whether that is going anywhere.
 TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
     RadarSnapshot searching;
-    searching.stage = skyblip::gnss::Stage::Search;
+    searching.stage = skyblip::gnss::Stage::Blind;
     const Glass looking = radar(searching);
     CHECK(reads_in(looking, "NO FIX", 40, 120, 160, 160, 2));
-    CHECK(reads_in(looking, "SEARCH", 40, 145, 160, 170));
+    CHECK(reads_in(looking, "BLIND", 40, 145, 160, 170));
 
     RadarSnapshot reading = searching;
-    reading.stage = skyblip::gnss::Stage::Time;
-    CHECK(reads_in(radar(reading), "TIME", 40, 145, 160, 170));
+    reading.stage = skyblip::gnss::Stage::Solving;
+    CHECK(reads_in(radar(reading), "SOLVING", 40, 145, 160, 170));
 
     RadarSnapshot quiet = searching;
     quiet.stage = skyblip::gnss::Stage::Silent;
@@ -763,7 +763,7 @@ TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
     fixed.stage = skyblip::gnss::Stage::Fixed;
     const Glass plotted = radar(fixed);
     CHECK_FALSE(reads_in(plotted, "FIX", 0, 0, 200, 199));
-    CHECK_FALSE(reads_in(plotted, "SEARCH", 0, 0, 200, 199));
+    CHECK_FALSE(reads_in(plotted, "BLIND", 0, 0, 200, 199));
 }
 
 TEST_CASE("radar: a stone lands off the state word rather than erasing it") {
@@ -792,32 +792,28 @@ TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {
     s.track_cdeg = 9000;
     draw_status(both, s);
 
-    // The barometric rows only exist when a barometer answered: altitude on the
-    // subscale the pilot set, pressure altitude on 1013.25, and both pressures.
+    // The barometric rows only exist when a barometer answered: the pressure it
+    // reads, and pressure altitude on the 1013.25 standard setting.
     Glass with_baro;
     StatusSnapshot b = s;
     b.baro_valid = true;
     b.pressure_mpa = 84556000;
-    b.qnh_pa = 101325;
-    b.alt_qnh_m = 1500;
     b.alt_std_m = 1500;
     draw_status(with_baro, b);
     CHECK(with_baro.count_black() > both.count_black());
 }
 
-TEST_CASE("status: the barometer row reads what the sensor resolves, beside the subscale") {
+TEST_CASE("status: the barometer row reads what the sensor resolves") {
     Glass fb;
     StatusSnapshot s;
     s.baro_valid = true;
     s.pressure_mpa = 101325253;  // the BME280's own tenths of a pascal
-    s.qnh_pa = 101300;
-    s.climb_mm_s = -1234;  // -243 fpm, a rate the 0.125 m/s of ADS-L cannot hold
+    s.climb_mm_s = -1234;        // -243 fpm, a rate the 0.125 m/s of ADS-L cannot hold
     draw_status(fb, s);
 
     CHECK(reads_in(fb, "1013.253", 0, 85, 200, 105));
-    CHECK(reads_in(fb, "Q1013", 0, 85, 200, 105));
-    CHECK(reads_in(fb, "-243", 0, 165, 200, 185));
-    CHECK(reads_in(fb, "-1.23", 0, 165, 200, 185));
+    CHECK(reads_in(fb, "-243", 0, 149, 200, 169));
+    CHECK(reads_in(fb, "-1.23", 0, 149, 200, 169));
 }
 
 TEST_CASE("status: the IMU field reads the hub's own bring-up word and the ball it feeds") {
@@ -991,22 +987,22 @@ TEST_CASE("status: the battery row states the voltage, the charge and which curv
 TEST_CASE("status: a receiver with no fix says how far it has got, and for how long") {
     StatusSnapshot s;
     s.sats = 9;
-    s.stage = skyblip::gnss::Stage::Search;
+    s.stage = skyblip::gnss::Stage::Blind;
     s.stage_s = 48;
     Glass searching;
     draw_status(searching, s);
 
-    CHECK(reads_in(searching, "SEARCH 0:48", 0, 24, 140, 40));
+    CHECK(reads_in(searching, "BLIND 0:48", 0, 24, 140, 40));
     CHECK_FALSE(reads_in(searching, "SAT", 0, 24, 140, 40));
     CHECK_FALSE(reads_in(searching, "3D", 0, 24, 140, 40));
 
     // A date decoded is a satellite read, which is the rung a bare NO FIX hid.
     StatusSnapshot timed = s;
-    timed.stage = skyblip::gnss::Stage::Time;
+    timed.stage = skyblip::gnss::Stage::Solving;
     timed.stage_s = 80;
     Glass reading;
     draw_status(reading, timed);
-    CHECK(reads_in(reading, "TIME 1:20", 0, 24, 140, 40));
+    CHECK(reads_in(reading, "SOLVING 1:20", 0, 24, 140, 40));
 
     StatusSnapshot silent = s;
     silent.stage = skyblip::gnss::Stage::Silent;
@@ -1022,7 +1018,7 @@ TEST_CASE("status: a receiver with no fix says how far it has got, and for how l
     draw_status(solved, fixed);
     CHECK(reads_in(solved, "3D", 0, 24, 140, 40));
     CHECK(reads_in(solved, "9 SAT", 0, 24, 140, 40));
-    CHECK_FALSE(reads_in(solved, "SEARCH", 0, 24, 140, 40));
+    CHECK_FALSE(reads_in(solved, "BLIND", 0, 24, 140, 40));
 }
 
 // The receiver's own GSA answer where it gave one, the satellite count where it did not.
@@ -1383,10 +1379,10 @@ TEST_CASE("sats: with the fix in hand the levels stop, and the page says why") {
 
 TEST_CASE("sats: a receiver that has heard nothing says so rather than drawing an empty chart") {
     SatsSnapshot snap;
-    snap.stage = skyblip::gnss::Stage::Search;
+    snap.stage = skyblip::gnss::Stage::Blind;
     Glass fb;
     draw_sats(fb, snap);
     CHECK(reads_in(fb, "NO SATELLITE HEARD", 0, 170, 200, 190));
-    CHECK(reads_in(fb, "SEARCH", 0, 140, 80, 158));
+    CHECK(reads_in(fb, "BLIND", 0, 140, 80, 158));
     CHECK(reads_in(fb, "HDOP ---", 0, 150, 130, 172));
 }

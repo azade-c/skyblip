@@ -97,25 +97,14 @@ void dual_row(ui::Canvas& fb, int y, const char* label, Quantity aero, Quantity 
     fb.draw_text(kSiUnitX, y, si.unit, true, 1);
 }
 
-// Both pressures on one line, in the two number columns: what the sensor reads,
-// and the subscale the altitudes below are read against. Neither is aero-vs-SI,
-// so they share the one unit.
-void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa) {
+// What the sensor reads, to the tenth of a pascal it measures in.
+void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa) {
     char baro[12];
-    int n = fmt_uint(baro, div_round<uint32_t>(pressure_mpa, 100), 1, 3);
+    const int n = fmt_uint(baro, div_round<uint32_t>(pressure_mpa, 100), 1, 3);
     baro[n] = 0;
 
-    char qnh[8];
-    n = fmt_string(qnh, "Q");
-    if (qnh_pa != 0)
-        n += fmt_uint(qnh + n, (qnh_pa + 50) / 100, 1);
-    else
-        n += fmt_string(qnh + n, "----");
-    qnh[n] = 0;
-
     fb.draw_text(kLeft, y, "BARO", true, 1);
-    right_aligned(fb, kAeroUnitEnd, y, baro, length(baro));
-    right_aligned(fb, kSiNumberEnd, y, qnh, length(qnh));
+    right_aligned(fb, kAeroUnitEnd, y, baro, n);
     fb.draw_text(kSiUnitX, y, " hPa", true, 1);
 }
 
@@ -270,21 +259,14 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
     text_row(fb, y, "TFC", count, "", "TX", s.transmitting ? " ON" : " OFF");
     y += kLineH;
 
-    // The aligned block: the pressures the altitudes depend on, then altitude on
-    // the subscale that was set, the geometric one, and pressure altitude on the
-    // 1013.25 hPa standard setting - the one a flight level counts in hundreds
-    // of feet. Then the motion pair.
-    if (s.baro_valid) {
-        pressure_row(fb, y, s.pressure_mpa, s.qnh_pa);
-        y += kLineH;
-
-        dual_row(fb, y, "ALT", {to_feet(Metres(s.alt_qnh_m)).v, 0, " ft"}, {s.alt_qnh_m, 0, " m"},
-                 true);
-        y += kLineH;
-    } else {
+    // The aligned block: the pressure the altitudes depend on, the geometric
+    // altitude, and pressure altitude on the 1013.25 hPa standard setting - the
+    // one a flight level counts in hundreds of feet. Then the motion pair.
+    if (s.baro_valid)
+        pressure_row(fb, y, s.pressure_mpa);
+    else
         row(fb, y, "BARO", "no sensor");
-        y += kLineH * 2;
-    }
+    y += kLineH;
 
     const int32_t alt_m = to_metres(Millimetres(s.alt_mm)).v;
     dual_row(fb, y, "GNSS", {to_feet(Millimetres(s.alt_mm)).v, 0, " ft"}, {alt_m, 0, " m"}, true);
