@@ -1783,7 +1783,7 @@ The g-meter page: what the airframe is pulling, and the worst of this flight.
 - the longitudinal strip stands up, with the nose at the top
   > Braking throws you at the nose, which is the top of the strip.
 - the marker moves the way the aircraft is loaded
-  > Pull g and the marker rises, pull left and it goes left.
+  > The field shows where the load throws you: pull g and the marker sinks.
 - the strip says which end is which, so no sign has to be remembered
 - the three axes each read their own now, most and least
 

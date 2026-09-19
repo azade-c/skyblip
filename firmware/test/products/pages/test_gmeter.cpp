@@ -36,7 +36,7 @@ TEST_CASE("gmeter: level flight puts the marker in the middle of the field") {
     draw_gmeter(fb, flying());
 
     CHECK(marker_at(fb, kFieldCx, kFieldCy));
-    CHECK(reads_in(fb, "+1.0", 140, 0, 200, 20, 2));
+    CHECK(reads_in(fb, "+1.0", 40, 138, 120, 156, 2));
 }
 
 TEST_CASE("gmeter: the three axes each read their own now, most and least") {
@@ -47,31 +47,38 @@ TEST_CASE("gmeter: the three axes each read their own now, most and least") {
     Glass fb;
     draw_gmeter(fb, s);
 
-    CHECK(reads_in(fb, "NRM", 0, 141, 30, 150));
-    CHECK(reads_in(fb, "+2.3", 32, 141, 72, 150));
-    CHECK(reads_in(fb, "+4.2", 74, 141, 114, 150));
-    CHECK(reads_in(fb, "-1.3", 116, 141, 156, 150));
+    CHECK(reads_in(fb, "NRM", 0, 142, 30, 152));
+    CHECK(reads_in(fb, "+2.3", 40, 138, 120, 156, 2));
+    CHECK(reads_in(fb, "+4.2", 118, 142, 158, 152));
+    CHECK(reads_in(fb, "-1.3", 156, 142, 196, 152));
 
-    CHECK(reads_in(fb, "LAT", 0, 159, 30, 168));
-    CHECK(reads_in(fb, "L0.4", 32, 159, 72, 168));
-    CHECK(reads_in(fb, "R0.7", 74, 159, 114, 168));
-    CHECK(reads_in(fb, "L0.6", 116, 159, 156, 168));
+    CHECK(reads_in(fb, "LAT", 0, 162, 30, 172));
+    CHECK(reads_in(fb, "L0.4", 40, 158, 120, 176, 2));
+    CHECK(reads_in(fb, "R0.7", 118, 162, 158, 172));
+    CHECK(reads_in(fb, "L0.6", 156, 162, 196, 172));
 
-    CHECK(reads_in(fb, "LON", 0, 177, 30, 186));
-    CHECK(reads_in(fb, "ACC0.3", 32, 177, 72, 186));
-    CHECK(reads_in(fb, "ACC0.3", 74, 177, 114, 186));
-    CHECK(reads_in(fb, "DEC0.4", 116, 177, 156, 186));
+    CHECK(reads_in(fb, "LON", 0, 182, 30, 192));
+    CHECK(reads_in(fb, "ACC0.3", 30, 178, 120, 196, 2));
+    CHECK(reads_in(fb, "ACC0.3", 118, 182, 158, 192));
+    CHECK(reads_in(fb, "DEC0.4", 156, 182, 196, 192));
 }
 
-// Pull g and the marker rises, pull left and it goes left.
+// The field shows where the load throws you: pull g and the marker sinks.
 TEST_CASE("gmeter: the marker moves the way the aircraft is loaded") {
     GMeterSnapshot pulling = flying();
     pulling.now = flight::GLoad{3000, 0, 0};
     pulling.most = flight::GLoad{3000, 0, 0};
     Glass up;
     draw_gmeter(up, pulling);
-    CHECK(marker_at(up, kFieldCx, kFieldCy - 32));
+    CHECK(marker_at(up, kFieldCx, kFieldCy + 32));
     CHECK_FALSE(marker_at(up, kFieldCx, kFieldCy));
+
+    GMeterSnapshot pushing = flying();
+    pushing.now = flight::GLoad{-1000, 0, 0};
+    pushing.least = flight::GLoad{-1000, 0, 0};
+    Glass over;
+    draw_gmeter(over, pushing);
+    CHECK(marker_at(over, kFieldCx, kFieldCy - 32));
 
     GMeterSnapshot skidding = flying();
     skidding.now = flight::GLoad{1000, -500, 0};
@@ -128,5 +135,5 @@ TEST_CASE("gmeter: a sensor that has not reported yet leaves the field empty") {
 
     CHECK(scale_drawn(fb));
     CHECK_FALSE(marker_at(fb, kFieldCx, kFieldCy));
-    CHECK(reads_in(fb, "----", 32, 141, 72, 150));
+    CHECK(reads_in(fb, "----", 88, 142, 120, 152));
 }
