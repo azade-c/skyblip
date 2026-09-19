@@ -34,8 +34,8 @@ constexpr int kPeakDrop = 4;
 constexpr int kNowScale = 2;
 
 constexpr int kNowEnd = 116;
-constexpr int kMostEnd = 156;
-constexpr int kLeastEnd = 194;
+constexpr int kLeastEnd = 156;
+constexpr int kMostEnd = 194;
 
 constexpr int32_t kMilliPerG = 1000;
 constexpr int32_t kMilliPerTenth = 100;
@@ -49,14 +49,16 @@ int32_t tenths(int32_t mg) {
 }
 
 int fmt_g(char* out, int32_t mg) {
-    const int n = fmt_int(out, tenths(mg), 1, 1, false);
+    const int32_t value = tenths(mg);
+    const int n = fmt_int(out, value, 1, 1, value == 0);
     out[n] = 0;
     return n;
 }
 
-int fmt_named_g(char* out, int32_t mg, const char* positive, const char* negative) {
+int fmt_named_g(char* out, int32_t mg, char positive, char negative) {
     const int32_t value = tenths(mg);
-    int n = fmt_string(out, value < 0 ? negative : positive);
+    int n = 0;
+    if (value != 0) out[n++] = value < 0 ? negative : positive;
     n += fmt_uint(out + n, static_cast<uint32_t>(value < 0 ? -value : value), 1, 1);
     out[n] = 0;
     return n;
@@ -76,8 +78,8 @@ void value_at(ui::Canvas& fb, int x_end, int y, int32_t mg, int scale = 1) {
     right_aligned(fb, x_end, y, buf, n, scale);
 }
 
-void named_at(ui::Canvas& fb, int x_end, int y, int32_t mg, const char* positive,
-              const char* negative, int scale = 1) {
+void named_at(ui::Canvas& fb, int x_end, int y, int32_t mg, char positive, char negative,
+              int scale = 1) {
     char buf[12];
     const int n = fmt_named_g(buf, mg, positive, negative);
     right_aligned(fb, x_end, y, buf, n, scale);
@@ -170,16 +172,16 @@ void draw_gmeter(ui::Canvas& fb, const GMeterSnapshot& s) {
     if (!s.valid) return;
 
     value_at(fb, kNowEnd, kNormalRowY, s.now.normal_mg, kNowScale);
-    value_at(fb, kMostEnd, kNormalRowY + kPeakDrop, s.most.normal_mg);
     value_at(fb, kLeastEnd, kNormalRowY + kPeakDrop, s.least.normal_mg);
+    value_at(fb, kMostEnd, kNormalRowY + kPeakDrop, s.most.normal_mg);
 
-    named_at(fb, kNowEnd, kLateralRowY, s.now.lateral_mg, "R", "L", kNowScale);
-    named_at(fb, kMostEnd, kLateralRowY + kPeakDrop, s.most.lateral_mg, "R", "L");
-    named_at(fb, kLeastEnd, kLateralRowY + kPeakDrop, s.least.lateral_mg, "R", "L");
+    named_at(fb, kNowEnd, kLateralRowY, s.now.lateral_mg, 'R', 'L', kNowScale);
+    named_at(fb, kLeastEnd, kLateralRowY + kPeakDrop, s.least.lateral_mg, 'R', 'L');
+    named_at(fb, kMostEnd, kLateralRowY + kPeakDrop, s.most.lateral_mg, 'R', 'L');
 
-    named_at(fb, kNowEnd, kLongitudinalRowY, s.now.longitudinal_mg, "ACC", "DEC", kNowScale);
-    named_at(fb, kMostEnd, kLongitudinalRowY + kPeakDrop, s.most.longitudinal_mg, "ACC", "DEC");
-    named_at(fb, kLeastEnd, kLongitudinalRowY + kPeakDrop, s.least.longitudinal_mg, "ACC", "DEC");
+    named_at(fb, kNowEnd, kLongitudinalRowY, s.now.longitudinal_mg, 'A', 'D', kNowScale);
+    named_at(fb, kLeastEnd, kLongitudinalRowY + kPeakDrop, s.least.longitudinal_mg, 'A', 'D');
+    named_at(fb, kMostEnd, kLongitudinalRowY + kPeakDrop, s.most.longitudinal_mg, 'A', 'D');
 }
 
 }  // namespace skyblip::go

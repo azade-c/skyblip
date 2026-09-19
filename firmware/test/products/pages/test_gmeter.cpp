@@ -49,18 +49,18 @@ TEST_CASE("gmeter: the three axes each read their own now, most and least") {
 
     CHECK(reads_in(fb, "G", 0, 142, 30, 152));
     CHECK(reads_in(fb, "+2.3", 40, 138, 120, 156, 2));
-    CHECK(reads_in(fb, "+4.2", 118, 142, 158, 152));
-    CHECK(reads_in(fb, "-1.3", 156, 142, 196, 152));
+    CHECK(reads_in(fb, "-1.3", 130, 142, 158, 152));
+    CHECK(reads_in(fb, "+4.2", 168, 142, 196, 152));
 
     CHECK(reads_in(fb, "SIDE", 0, 162, 34, 172));
     CHECK(reads_in(fb, "L0.4", 40, 158, 120, 176, 2));
-    CHECK(reads_in(fb, "R0.7", 118, 162, 158, 172));
-    CHECK(reads_in(fb, "L0.6", 156, 162, 196, 172));
+    CHECK(reads_in(fb, "L0.6", 130, 162, 158, 172));
+    CHECK(reads_in(fb, "R0.7", 168, 162, 196, 172));
 
     CHECK(reads_in(fb, "ACCEL", 0, 182, 40, 192));
-    CHECK(reads_in(fb, "ACC0.3", 30, 178, 120, 196, 2));
-    CHECK(reads_in(fb, "ACC0.3", 118, 182, 158, 192));
-    CHECK(reads_in(fb, "DEC0.4", 156, 182, 196, 192));
+    CHECK(reads_in(fb, "A0.3", 40, 178, 120, 196, 2));
+    CHECK(reads_in(fb, "D0.4", 130, 182, 158, 192));
+    CHECK(reads_in(fb, "A0.3", 168, 182, 196, 192));
 }
 
 // The field shows where the load throws you: pull g and the marker sinks.
@@ -107,6 +107,18 @@ TEST_CASE("gmeter: the longitudinal strip stands up, with the nose at the top") 
 
     CHECK(takeoff.get_pixel(kStripCx, kFieldCy + 18));
     CHECK_FALSE(takeoff.get_pixel(kStripCx, kFieldCy - 18));
+}
+
+// A hand on a nothing is noise: zero is zero whichever way it is not leaning.
+TEST_CASE("gmeter: a reading of zero carries no sign and no hand") {
+    Glass fb;
+    draw_gmeter(fb, flying());
+
+    CHECK(reads_in(fb, "+1.0", 40, 138, 120, 156, 2));
+    CHECK(reads_in(fb, "0.0", 40, 158, 120, 176, 2));
+    CHECK(reads_in(fb, "0.0", 40, 178, 120, 196, 2));
+    CHECK_FALSE(reads_in(fb, "R0.0", 40, 158, 120, 176, 2));
+    CHECK_FALSE(reads_in(fb, "+0.0", 40, 178, 120, 196, 2));
 }
 
 TEST_CASE("gmeter: the strip says which end is which, so no sign has to be remembered") {
