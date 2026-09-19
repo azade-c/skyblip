@@ -197,9 +197,24 @@ TEST_CASE("screen policy: the long touch that silences an alarm costs no wipe an
     CHECK(rig.screen.page() == go::Page::Radar);
 }
 
-// Nothing may hide a page: the radar is home and the nearby menu opens the rest.
-TEST_CASE("screen policy: the walk is four pages, always, and every tap is a page change") {
+// Nothing may hide a page a board can draw: the radar is home and the nearby menu opens the rest.
+TEST_CASE("screen policy: the walk is every picture the board can draw, and every tap changes it") {
     Rig rig;
+    uint32_t t = 0;
+    rig.run_seconds(t, 3);
+
+    const go::Page walk[3] = {go::Page::Nearby, go::Page::SixPack, go::Page::Radar};
+    for (go::Page expected : walk) {
+        rig.screen.next_page();
+        rig.run_seconds(t, 2);
+        CHECK(rig.screen.page() == expected);
+    }
+}
+
+// A plain T-Echo has no inertial sensor, so the g-meter is not one of its pictures.
+TEST_CASE("screen policy: the g-meter is on the walk only where the sensor is fitted") {
+    Rig rig;
+    rig.roles.capabilities = rig.roles.capabilities | ports::Capability::Inclinometer;
     uint32_t t = 0;
     rig.run_seconds(t, 3);
 

@@ -125,7 +125,20 @@ void ScreenService::page_forward(uint32_t now_ms) {
     editor_.next_row(now_ms);
 }
 
-void ScreenService::next_page() { show_page(page_after(page_)); }
+void ScreenService::next_page() { show_page(next_fitted_page(page_)); }
+
+// A page whose sensor is not on the board is not a stop on the walk: a plain
+// T-Echo has no inertial sensor, so the g-meter is not one of its pictures.
+Page ScreenService::next_fitted_page(Page from) const {
+    Page page = page_after(from);
+    for (int i = 0; i < kWalkedPages && !sensor_fitted(page); i++) page = page_after(page);
+    return page;
+}
+
+bool ScreenService::sensor_fitted(Page page) const {
+    if (page != Page::GMeter) return true;
+    return ports::has(context_.roles.capabilities, ports::Capability::Inclinometer);
+}
 
 void ScreenService::go_home() {
     if (alarm_stands()) {

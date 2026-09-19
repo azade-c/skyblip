@@ -47,6 +47,8 @@ class ScreenService : public runtime::Service {
     void tick(uint32_t now_ms) override;
 
     void next_page();
+    Page next_fitted_page(Page from) const;
+    bool sensor_fitted(Page page) const;
     void set_backlight(bool on);
     void set_power(bool on);
     void settle_park(uint32_t now_ms);
