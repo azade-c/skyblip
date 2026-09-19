@@ -443,7 +443,7 @@ void own_vector(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
     for (int step = 1; step <= kMinutesMarked * kStepsPerMinute; step++) {
         const HeadingUp at = on_glass_at(arc.advance(), snap, track);
         if (!inside_ring(at.right, at.ahead)) return;
-        const int64_t out = at.right * at.right + at.ahead * at.ahead;
+        const int32_t out = at.right * at.right + at.ahead * at.ahead;
         if (out < kMinuteClearPx * kMinuteClearPx) {
             pen.lift();
             continue;
