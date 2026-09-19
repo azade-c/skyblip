@@ -61,14 +61,24 @@ Page page_behind(MenuRow row);
 constexpr int kMenuValueCap = 16;
 int menu_row_value(char* out, MenuRow row, const MenuValues& values);
 
+constexpr int kMenuScale = 2;
 constexpr int kMenuLeftX = 6;
-constexpr int kMenuCellW = 6;
+constexpr int kSmallCellW = 6;
+constexpr int kMenuCellW = kSmallCellW * kMenuScale;
 constexpr int kMenuRightX = 194;
-constexpr int kMenuRowsTop = 24;
-constexpr int kMenuRowHeight = 18;
-constexpr int kMenuTextInset = 5;
+constexpr int kMenuRowsTop = 26;
+constexpr int kMenuRowHeight = 28;
+constexpr int kMenuTextInset = 7;
 constexpr int kMenuHintY = 190;
-constexpr const char* kMenuHintText = "PAD MOVES - BUTTON CHANGES";
+constexpr const char* kMenuHintText = "PAD MOVES    BUTTON CHANGES";
+
+constexpr int text_cells(const char* s) {
+    int n = 0;
+    while (s[n]) n++;
+    return n;
+}
+
+constexpr int kMenuHintX = (kGlassW - text_cells(kMenuHintText) * kSmallCellW) / 2;
 
 constexpr int menu_line_top(int line) { return kMenuRowsTop + line * kMenuRowHeight; }
 constexpr int menu_line_text_y(int line) { return menu_line_top(line) + kMenuTextInset; }

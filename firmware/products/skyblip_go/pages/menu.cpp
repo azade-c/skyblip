@@ -19,12 +19,6 @@ constexpr Menu menu_of(const MenuRow (&rows)[N]) {
     return Menu{rows, N};
 }
 
-int length(const char* s) {
-    int n = 0;
-    while (s[n]) n++;
-    return n;
-}
-
 // INFO: cf 02aug26 ADS-L 4 SRD-860 issue 2 G.1.3 wire values: the code stored is transmitted
 const char* const kAircraftNames[kNamedAircraftTypes] = {
     "UNKNOWN",    "LIGHT",      "HEAVY",    "HELICOPTER", "GLIDER",    "BALLOON",
@@ -35,8 +29,8 @@ void row_text(ui::Canvas& fb, int line, const char* label, const char* value, bo
     const int y = menu_line_text_y(line);
     if (focused) fb.rect(2, top, kGlassW - 4, kMenuRowHeight - 1, true, /*fill=*/true);
     const bool ink = !focused;
-    fb.draw_text(kMenuLeftX, y, label, ink, 1);
-    fb.draw_text(kMenuRightX - length(value) * kMenuCellW, y, value, ink, 1);
+    fb.draw_text(kMenuLeftX, y, label, ink, kMenuScale);
+    fb.draw_text(kMenuRightX - text_cells(value) * kMenuCellW, y, value, ink, kMenuScale);
 }
 
 }  // namespace
@@ -57,7 +51,7 @@ int menu_row_index(const Menu& menu, MenuRow row) {
 
 const char* menu_row_label(MenuRow row) {
     switch (row) {
-        case MenuRow::AircraftType: return "AIRCRAFT";
+        case MenuRow::AircraftType: return "TYPE";
         case MenuRow::Units: return "UNITS";
         case MenuRow::Range: return "RANGE";
         case MenuRow::Alarm: return "ALARM";
@@ -97,7 +91,7 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
             if (name[0] != 0) {
                 n = fmt_string(out, name);
             } else {
-                n = fmt_string(out, "TYPE ");
+                n = fmt_string(out, "CODE ");
                 n += fmt_uint(out + n, v.settings.aircraft_type);
             }
             break;
@@ -123,7 +117,7 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
 
 void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
     fb.clear(true);
-    fb.draw_text(kMenuLeftX - 2, kHeaderY, menu_title(s.page), true, 2);
+    fb.draw_text(kMenuLeftX - 2, kHeaderY, menu_title(s.page), true, kMenuScale);
     fb.hline(kMenuLeftX - 2, kHeaderRuleY, kGlassW - 2 * (kMenuLeftX - 2), true);
 
     const Menu menu = menu_for(s.page);
@@ -134,7 +128,7 @@ void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
         row_text(fb, i, menu_row_label(row), value, row == s.focus);
     }
 
-    fb.draw_text(kMenuLeftX - 2, kMenuHintY, kMenuHintText, true, 1);
+    fb.draw_text(kMenuHintX, kMenuHintY, kMenuHintText, true, 1);
 }
 
 void MenuEditor::enter(Page page, uint32_t now_ms) {

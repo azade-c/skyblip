@@ -123,16 +123,20 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-34:56.462 RX M0 A     3FA21C   -87   an ADS-L frame from 3FA21C
-34:56.918 RX M1 F     4C11A0   -93   an ALP-TAS frame, the other channel
-34:55.107 RX M0 DEC           -101   a burst that framed and named no system
-34:55.694 TX M0       GND            own-ship's burst left the antenna
-34:53.881 TX M1 LOST  GND            armed, and the radio never reported it sent
+34:56.462 RX M0 A     3FA21C -87   an ADS-L frame from 3FA21C
+34:56.918 RX M1 F     4C11A0 -93   an ALP-TAS frame, the other channel
+34:55.107 RX M0 DEC         -101   a frame that passed its check and was refused
+34:55.482 RX M1 TYPE         -62   a message type this firmware does not read
+34:55.913 RX M0 WAIT         -58   no fix of our own yet, so nothing was tried
+34:55.694 TX M0       GND          own-ship's burst left the antenna
+34:53.881 TX M1 LOST  GND          armed, and the radio never reported it sent
 ```
 
 The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device.
 
-`DEC` is the row that matters: a burst reached the dwell and did not become a frame. It is the only reading on the device that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
+`DEC` is the row that matters, and it says one thing: a burst reached the dwell, framed, passed its own protocol's check and was refused anyway. It is the reading that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
+
+`WAIT` and `TYPE` are the two readings that used to be spelled `DEC` and are nobody's fault. `WAIT` is own-ship: an ALP-TAS position is coded relative to the receiver and keyed on the UTC second, so before a fix and a date there is nothing to decode against and nothing is attempted - which is why a unit still acquiring, next to a neighbour transmitting once a slot, used to fill a whole minute of tape with decode failures. `TYPE` is the neighbour: a frame that framed and carried a message type this firmware does not implement, which is what a SoftRF interleaving Air V6 with Air V7 sends. An owner reads the three the same way: `WAIT` goes away with the sky, `TYPE` is a dialect we do not read, and `DEC` is the one to take to `core/protocol/`.
 
 Three columns left this page rather than shrinking it. The byte count, because the M band reads a fixed 58 bytes whatever arrived and a constant is not a measurement. The keying and the whole span of a transmission, because they are microseconds of this CPU and of the chip, and the reader who wants them wants the diagnostics dump, not a tape. The DOPs and the solution count, because `status` already carries them and a dilution figure is not a radio number.
 
@@ -281,10 +285,14 @@ The panel half of "a pilot with no phone can change the things that matter". The
 
 | Menu | Rows |
 |---|---|
-| `radar` | `AIRCRAFT`, `UNITS`, `RANGE`, `ALARM`, `VOLUME` |
-| `nearby` | `STATUS`, `SATELLITES`, `RADIO LOG`, `SELF TEST` |
+| `radar` | `SETTINGS`: `TYPE`, `UNITS`, `RANGE`, `ALARM`, `VOLUME` |
+| `nearby` | `DIAGNOSTICS`: `STATUS`, `SATELLITES`, `RADIO LOG`, `SELF TEST` |
 
-It is the one menu not titled after the page behind it: five settings under a heading reading `RADAR` named where a thumb came from rather than what it is looking at, so the heading is `SETTINGS`. The nearby menu keeps its page's name, because its rows are that page's doors and not its own contents. Eight characters at double height leave half the glass over, so nothing had to shrink to say it.
+Neither is titled after the page behind it. A heading reading `RADAR` over five settings, or `NEARBY` over four diagnostic pages, names where a thumb came from rather than what it is looking at, and a pilot who pressed the button knows which page they pressed it on. So the headings are `SETTINGS` and `DIAGNOSTICS`, which is what the rows under them are. Eleven characters at double height leave a third of the glass over, so nothing had to shrink to say it.
+
+Every row is at that height too, label and value both, which is the size the rest of the device prints a reading at: a menu is read in the same cockpit as the pages it sets up, and the small font was the one thing here a pilot had to stop and look for. Five rows of it on a 200 px panel is 28 px to a row, so the rows are spread down the glass rather than stacked under the rule with a void beneath them, and the focused row's bar grows with them. The hint at the foot stays small. It is twenty-seven characters, double height fits fifteen, and it is a legend read once on the ground rather than a reading: shrinking the sentence to fit the font would cost the words that say which contact does what. It is centred rather than hung off the left margin, because it is the one thing on the page that belongs to no column, and the two halves are held apart by four spaces rather than by a dash: `PAD MOVES` and `BUTTON CHANGES` are two legends and not a sentence with punctuation in the middle of it.
+
+What double height cost is one label. `AIRCRAFT` and `HELICOPTER` together are eighteen characters where a row holds fifteen, so the label is `TYPE`, which is what the row is under a heading that already says `SETTINGS`, and the ADS-L names stay whole. Abbreviating those instead would have put `HELI` and `PARA` on the one row whose value another aircraft reads. A category the panel has no name for prints as `CODE 12`, since `TYPE 12` beside a label reading `TYPE` says the same word twice.
 
 The radar's menu is every setting a pilot can change on the glass, and nothing else: the first screen is where a device is set up, so the five rows live under it rather than being spread over the pages they happen to affect. What a row is not is a reading - the device address was the first row of this menu and it is a figure, unchangeable, that `nearby` already prints in its identity column.
 
@@ -294,7 +302,7 @@ The six-pack and the g-meter have no menu at all: `menu_for` gives them no rows 
 
 It is also the one page the walk can be short of. A plain T-Echo has no inertial sensor, so it has no g-meter to draw, and `next_page` steps over a page whose sensor the board does not have rather than offering a pilot a picture of `NO SENSOR` on every fourth tap. The page keeps that state for the case it is still true in - a Plus whose hub has not reported yet - and a board with the sensor fitted walks all four.
 
-`AIRCRAFT` is first because it is the one row a new device needs before its first flight: it is transmitted, and nothing else on the menu changes what another aircraft sees. `UNITS` is next to `RANGE` because it is the unit that row is read in, and the pair is what the radar is made of. The two alarm rows are last, in the order they are decided: whether it speaks at all, then how loudly.
+`TYPE` is first because it is the one row a new device needs before its first flight: it is transmitted, and nothing else on the menu changes what another aircraft sees. `UNITS` is next to `RANGE` because it is the unit that row is read in, and the pair is what the radar is made of. The two alarm rows are last, in the order they are decided: whether it speaks at all, then how loudly.
 
 `RANGE` steps four rings and comes round again - a thumb reaches any of them in three presses, from a circuit to the whole of what this radio hears - and it is the one menu value that is not stored, so a device comes up on the ring the page is designed around. The steps are 1, 2, 4 and 8 NM, or 2, 4, 8 and 16 KM for a pilot who asked for metric: the ring is picked in the unit it is read in, so each table doubles in whole units rather than printing the 1.9, 3.7, 7.4 and 14.8 that converting the miles would give. The step a pilot chose survives the unit being switched, and the circle changes size by the difference between the two tables.
 
