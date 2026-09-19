@@ -260,23 +260,51 @@ RadarSnapshot one_target(RadarTarget* t) {
     return snap;
 }
 
-// One shape, two states: the ring is an aircraft, the disc is the advisory.
-TEST_CASE("radar: traffic is a ring, and the advisory fills it") {
-    RadarTarget other[1] = {{2 * kMetresPerNm, 0, 0, Level::None}};
-    const Glass hollow = radar(one_target(other));
-    CHECK_FALSE(hollow.get_pixel(kPlotX, kPlotY));
-    CHECK(hollow.get_pixel(kPlotX - 5, kPlotY));
-    CHECK(hollow.get_pixel(kPlotX + 5, kPlotY));
+// One stone cut three ways: diamond at your level, crown above you, pavilion below.
+TEST_CASE("radar: traffic is a cut stone, and the advisory fills it") {
+    RadarTarget level[1] = {{2 * kMetresPerNm, 0, 0, Level::None}};
+    const Glass diamond = radar(one_target(level));
+    CHECK_FALSE(diamond.get_pixel(kPlotX, kPlotY));
+    CHECK(diamond.get_pixel(kPlotX - 7, kPlotY));
+    CHECK(diamond.get_pixel(kPlotX + 7, kPlotY));
+    CHECK(diamond.get_pixel(kPlotX, kPlotY - 7));
+    CHECK(diamond.get_pixel(kPlotX, kPlotY + 7));
+
+    RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, Level::None}};
+    const Glass crown = radar(one_target(above));
+    CHECK(crown.get_pixel(kPlotX, kPlotY - 7));
+    CHECK(crown.get_pixel(kPlotX - 8, kPlotY + 1));
+    CHECK_FALSE(crown.get_pixel(kPlotX, kPlotY + 3));
+
+    // Below you is that same crown, flipped about the point it is plotted on.
+    RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, Level::None}};
+    const Glass pavilion = radar(one_target(below));
+    for (int dy = -11; dy <= 11; dy++)
+        for (int dx = -9; dx <= 9; dx++)
+            CHECK(crown.get_pixel(kPlotX + dx, kPlotY + dy) ==
+                  pavilion.get_pixel(kPlotX + dx, kPlotY - dy));
 
     RadarTarget advisory[1] = {{2 * kMetresPerNm, 0, 0, Level::Advisory}};
     const Glass filled = radar(one_target(advisory));
     CHECK(filled.get_pixel(kPlotX, kPlotY));
-    CHECK(filled.get_pixel(kPlotX - 5, kPlotY));
-    CHECK(filled.get_pixel(kPlotX + 3, kPlotY + 3));
+    CHECK(filled.get_pixel(kPlotX - 7, kPlotY));
+    CHECK(ink_in(filled, kPlotX - 8, kPlotY - 8, kPlotX + 9, kPlotY + 9) >
+          ink_in(diamond, kPlotX - 8, kPlotY - 8, kPlotX + 9, kPlotY + 9));
+}
 
-    // Same reach, and the filled one is the heavier mark by the area inside it.
-    CHECK(ink_in(filled, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7) >
-          2 * ink_in(hollow, kPlotX - 6, kPlotY - 6, kPlotX + 7, kPlotY + 7));
+// Near-size covers exactly the separation that can alarm, so size is a fact and not a flourish.
+TEST_CASE("radar: past the advisory's own altitude window the stone is the small cut") {
+    RadarTarget inside[1] = {{2 * kMetresPerNm, 0, skyblip::traffic::kAdvisoryAltM, Level::None}};
+    const Glass near = radar(one_target(inside));
+    CHECK(near.get_pixel(kPlotX, kPlotY - 7));
+    CHECK(near.get_pixel(kPlotX - 8, kPlotY + 1));
+
+    RadarTarget outside[1] = {{2 * kMetresPerNm, 0, skyblip::traffic::kAdvisoryAltM + 1, Level::None}};
+    const Glass far = radar(one_target(outside));
+    CHECK(far.get_pixel(kPlotX, kPlotY - 5));
+    CHECK_FALSE(far.get_pixel(kPlotX, kPlotY - 7));
+    CHECK(far.get_pixel(kPlotX - 6, kPlotY + 1));
+    CHECK_FALSE(far.get_pixel(kPlotX - 8, kPlotY + 1));
 }
 
 TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the glass") {
@@ -488,9 +516,9 @@ TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
     CHECK_FALSE(radar(beyond).get_pixel(99, 77));
 }
 
-// Symbol edge 4, gap 2, pad 2 and 14 rows of glyph: the digits stand 22 px off the plot.
-constexpr int kTagTop = kPlotY - 23;
-constexpr int kTagBottom = kPlotY + 9;
+// Stone 7, gap 2, pad 2 and 14 rows of glyph: the digits stand 25 px off the plot.
+constexpr int kTagTop = kPlotY - 25;
+constexpr int kTagBottom = kPlotY + 12;
 
 TEST_CASE("radar: the relative altitude sits on the side the traffic is on") {
     // 300 m = 984 ft, which is ten hundreds of feet to the nearest hundred.
@@ -550,33 +578,37 @@ TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
     CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
 }
 
-TEST_CASE("radar: a chevron on the tag says climbing or descending, past 500 fpm") {
+// The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your level is not droppable.
+TEST_CASE("radar: a caret on the stone says climbing or sinking, past 500 fpm") {
     RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, true}};
     const Glass flat = radar(one_target(steady));
+    CHECK_FALSE(flat.get_pixel(kPlotX, kPlotY - 11));
+    CHECK_FALSE(flat.get_pixel(kPlotX, kPlotY + 11));
 
-    // 2.5 m/s is 492 fpm: the arrow is for a rate a pilot has to act on.
+    // 2.5 m/s is 492 fpm: the caret is for a rate a pilot has to act on.
     RadarTarget slow[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 19, true}};
-    CHECK(ink_in(radar(one_target(slow)), 60, kTagTop, 140, kTagTop + 14) ==
-          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
+    CHECK_FALSE(radar(one_target(slow)).get_pixel(kPlotX, kPlotY - 11));
 
     RadarTarget climbing[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 20, true}};
     const Glass up = radar(one_target(climbing));
-    CHECK(ink_in(up, 60, kTagTop, 140, kTagTop + 14) >
-          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
+    CHECK(up.get_pixel(kPlotX, kPlotY - 11));
+    CHECK(up.get_pixel(kPlotX - 7, kPlotY - 4));
+    CHECK(up.get_pixel(kPlotX + 7, kPlotY - 4));
 
-    RadarTarget descending[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, -20, true}};
-    const Glass down = radar(one_target(descending));
-    // The arrow is 6 rows, centred in the 14 the glyphs are, and its apex is a pixel pair.
-    const int arrow_top = kTagTop + 4, arrow_mid = 118;
-    CHECK(up.get_pixel(arrow_mid, arrow_top));
-    CHECK_FALSE(up.get_pixel(arrow_mid, arrow_top + 5));
-    CHECK(down.get_pixel(arrow_mid, arrow_top + 5));
-    CHECK_FALSE(down.get_pixel(arrow_mid, arrow_top));
+    RadarTarget sinking[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, -20, true}};
+    const Glass down = radar(one_target(sinking));
+    CHECK(down.get_pixel(kPlotX, kPlotY + 11));
+    CHECK_FALSE(down.get_pixel(kPlotX, kPlotY - 11));
+
+    // The small cut carries the same caret, drawn at its own size.
+    RadarTarget distant[1] = {{2 * kMetresPerNm, 0, 2000, Level::None, 20, true}};
+    const Glass far = radar(one_target(distant));
+    CHECK(far.get_pixel(kPlotX, kPlotY - 9));
+    CHECK_FALSE(far.get_pixel(kPlotX, kPlotY - 11));
 
     // A target that never reported a rate is not credited with one.
     RadarTarget silent[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 40, false}};
-    CHECK(ink_in(radar(one_target(silent)), 60, kTagTop, 140, kTagTop + 14) ==
-          ink_in(flat, 60, kTagTop, 140, kTagTop + 14));
+    CHECK_FALSE(radar(one_target(silent)).get_pixel(kPlotX, kPlotY - 11));
 }
 
 // A tag is now wide enough to bury the aeroplane it is plotted against.

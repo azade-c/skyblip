@@ -5,6 +5,7 @@
 #include "core/util/format.h"
 #include "core/util/intmath.h"
 #include "ui/widgets/skyship.h"
+#include "ui/widgets/stone.h"
 
 namespace skyblip::go {
 
@@ -49,19 +50,15 @@ constexpr int kRangeY = kFooterBottom - kGlyphH * kRangeScale;
 constexpr int kUnitGap = 3;
 constexpr int32_t kQ14One = 16384;
 constexpr int32_t kTurn16 = 65536;
-constexpr int kSymbolR = 5;
 constexpr int kTagScale = 2;
 constexpr int kTagGlyphH = kGlyphH * kTagScale;
 constexpr int kTagGap = 2;
 constexpr int kTagSideClear = kCellW * kTagScale;
 constexpr int kTagPad = 2;
-constexpr int kChevronW = 10;
-constexpr int kChevronH = 6;
-constexpr int kChevronStroke = 2;
-constexpr int kChevronGap = 4;
 constexpr int32_t kFeetPerTagUnit = 100;
 constexpr int32_t kMaxTagHundreds = 99;
-constexpr int16_t kChevronClimbE8 = 20;
+constexpr int16_t kCaretClimbE8 = 20;
+constexpr int32_t kLevelM = 60;
 constexpr int32_t kLeaderSeconds = 60;
 constexpr uint32_t kLeaderStepMs = 5000;
 constexpr int kLeaderSteps = static_cast<int>((kLeaderSeconds * 1000) / kLeaderStepMs);
@@ -273,7 +270,28 @@ struct Plotted {
     int x;
     int y;
     bool in_ring;
+    ui::Cut cut;
+    ui::Band band;
+    ui::Trend trend;
 };
+
+ui::Cut cut_of(int32_t up_m) {
+    if (up_m > kLevelM) return ui::Cut::Crown;
+    if (up_m < -kLevelM) return ui::Cut::Pavilion;
+    return ui::Cut::Diamond;
+}
+
+ui::Band band_of(int32_t up_m) {
+    const int32_t apart = up_m < 0 ? -up_m : up_m;
+    return apart <= traffic::kAdvisoryAltM ? ui::Band::Near : ui::Band::Far;
+}
+
+ui::Trend trend_of(const RadarTarget& t) {
+    if (!t.climb_valid) return ui::Trend::Level;
+    if (t.climb_e8 >= kCaretClimbE8) return ui::Trend::Climbing;
+    if (t.climb_e8 <= -kCaretClimbE8) return ui::Trend::Sinking;
+    return ui::Trend::Level;
+}
 
 int64_t range_metres(const RadarSnapshot& snap) {
     return static_cast<int64_t>(snap.range_nm > 0 ? snap.range_nm : 1) * kMetresPerNm;
@@ -295,8 +313,11 @@ bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, 
     const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
     const int x = px_of(dx), y = py_of(dy);
     if (!on_glass(x, y)) return false;
-    if (!inside_ring(dx, dy) && y + kSymbolR >= kFooterTop) return false;
-    out = {dx, dy, x, y, inside_ring(dx, dy)};
+    const ui::Cut cut = cut_of(t.up_m);
+    const ui::Band band = band_of(t.up_m);
+    const ui::Trend trend = trend_of(t);
+    if (!inside_ring(dx, dy) && y + ui::stone_below(cut, band, trend) >= kFooterTop) return false;
+    out = {dx, dy, x, y, inside_ring(dx, dy), cut, band, trend};
     return true;
 }
 
@@ -412,18 +433,8 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
 }
 
 void traffic_symbol(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
-    fb.circle(p.x, p.y, kSymbolR, true, alarm_level >= traffic::Level::Advisory);
-}
-
-void chevron(ui::Canvas& fb, int x, int y, bool up) {
-    const int half = kChevronW / 2;
-    const int travel = kChevronH - kChevronStroke;
-    for (int s = 0; s < kChevronStroke; s++) {
-        const int apex = up ? y + s : y + kChevronH - 1 - s;
-        const int base = up ? apex + travel : apex - travel;
-        fb.line(x, base, x + half - 1, apex, true);
-        fb.line(x + half, apex, x + kChevronW - 1, base, true);
-    }
+    ui::draw_stone(fb, p.x, p.y, p.cut, p.band, p.trend,
+                   alarm_level >= traffic::Level::Advisory);
 }
 
 int32_t hundreds_of_feet(int32_t up_m) {
@@ -433,13 +444,6 @@ int32_t hundreds_of_feet(int32_t up_m) {
     if (hundreds > kMaxTagHundreds) return kMaxTagHundreds;
     if (hundreds < -kMaxTagHundreds) return -kMaxTagHundreds;
     return hundreds;
-}
-
-int chevron_direction(const RadarTarget& t) {
-    if (!t.climb_valid) return 0;
-    if (t.climb_e8 >= kChevronClimbE8) return 1;
-    if (t.climb_e8 <= -kChevronClimbE8) return -1;
-    return 0;
 }
 
 bool overlap(const Box& a, const Box& b) {
@@ -459,23 +463,24 @@ bool fits_on_glass(const Box& b) {
 
 struct Tag {
     char text[8];
-    int climbing;
     Box box;
 };
 
 Box symbol_box(const Plotted& p) {
-    return {p.x - kSymbolR, p.y - kSymbolR, 2 * kSymbolR + 1, 2 * kSymbolR + 1};
+    const int above = ui::stone_above(p.cut, p.band, p.trend);
+    const int below = ui::stone_below(p.cut, p.band, p.trend);
+    const int beside = ui::stone_beside(p.band);
+    return {p.x - beside, p.y - above, 2 * beside + 1, above + below + 1};
 }
 
 Tag tag_for(const Plotted& p, const RadarTarget& t) {
     Tag tag{};
     const int32_t hundreds = hundreds_of_feet(t.up_m);
     tag.text[fmt_int(tag.text, hundreds, 2, 0, hundreds == 0)] = 0;
-    tag.climbing = chevron_direction(t);
-    const int w =
-        text_width(tag.text, kTagScale) + (tag.climbing != 0 ? kChevronGap + kChevronW : 0);
+    const int w = text_width(tag.text, kTagScale);
     const int h = kTagGlyphH + 2 * kTagPad;
-    const int y = t.up_m >= 0 ? p.y - kSymbolR - kTagGap - h : p.y + kSymbolR + 1 + kTagGap;
+    const int y = t.up_m >= 0 ? p.y - ui::stone_above(p.cut, p.band, p.trend) - kTagGap - h
+                              : p.y + ui::stone_below(p.cut, p.band, p.trend) + 1 + kTagGap;
     tag.box = {p.x - w / 2 - kTagPad, y, w + 2 * kTagPad, h};
     return tag;
 }
@@ -511,11 +516,7 @@ bool place_tag(Tag& tag, const Plotted& p, const Leader& v, const Box* taken, in
 
 void draw_tag(ui::Canvas& fb, const Tag& tag) {
     fb.rect(tag.box.x, tag.box.y, tag.box.w, tag.box.h, false, true);
-    const int x = tag.box.x + kTagPad, y = tag.box.y + kTagPad;
-    fb.draw_text(x, y, tag.text, true, kTagScale);
-    if (tag.climbing != 0)
-        chevron(fb, tag.box.x + tag.box.w - kTagPad - kChevronW, y + (kTagGlyphH - kChevronH) / 2,
-                tag.climbing > 0);
+    fb.draw_text(tag.box.x + kTagPad, tag.box.y + kTagPad, tag.text, true, kTagScale);
 }
 
 void loudest_first(const RadarTarget* const* in_view, int n, int* order) {
