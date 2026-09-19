@@ -238,7 +238,7 @@ Status Link::begin(uint32_t device_addr) {
 void Link::name_after(uint32_t device_addr) {
     const uint32_t shown = settings::safe_device_address(device_addr);
     int n = fmt_string(g_name, CONFIG_BT_DEVICE_NAME);
-    n += fmt_string(g_name + n, " - ");
+    n += fmt_string(g_name + n, " ");
     n += fmt_hex(g_name + n, shown, 6);
     g_name[n] = 0;
     sd[0].data_len = static_cast<uint8_t>(n);

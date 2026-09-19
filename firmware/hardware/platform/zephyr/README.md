@@ -20,7 +20,7 @@ Before September 2026 the config and log characteristics sat on `6E400002` and `
 
 The advertisement is full: flags, the 128-bit Nordic UART UUID, the 16-bit `FFE0`. That is 25 of 31 bytes, and it is not optional padding. XCSoar builds its LE scan filters from service UUIDs (`android/src/BluetoothHelper.java`), so a device advertising only a name never appears in its list.
 
-The name therefore rides the scan response, where 29 characters fit: `CONFIG_BT_DEVICE_NAME`, then `" - "`, then the device's own 24-bit address in uppercase hex. `skyBlip Go - 5B5AFE`. The hex is the address `core/settings/address.h` derives from the SoC id, which is the one the panel shows, so the entry in a phone's list matches the glass. A product word of up to twenty characters still fits.
+The name therefore rides the scan response, where 29 characters fit: `CONFIG_BT_DEVICE_NAME`, then a space, then the device's own 24-bit address in uppercase hex. `skyBlip Go 5B5AFE`. The hex is the address `core/settings/address.h` derives from the SoC id, which is the one the panel shows, so the entry in a phone's list matches the glass. A product word of up to twenty-two characters still fits.
 
 ## Several centrals
 
