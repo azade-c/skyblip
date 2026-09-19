@@ -216,6 +216,8 @@ class TEchoPlus {
         state.rf.timing_stats.record_edge(state.clock.pps_edge_us, state.clock.pps_locked);
     }
 
+    void request_gyroscope(bool wanted) { imu_.request_gyroscope(wanted); }
+
     typename P::Rf& rf() { return rf_; }
     parts::L76k& gnss() { return gnss_; }
     parts::Bhi260& imu() { return imu_; }

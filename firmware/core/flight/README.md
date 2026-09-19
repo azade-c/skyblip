@@ -59,6 +59,8 @@ What a MEMS gyroscope cannot do is hold a zero. Its offset walks with temperatur
 
 That trim is also the fallback. A gyroscope reporting nothing while the aircraft turns is dragged onto the track rate within those thirteen seconds, so the instrument degrades to the one this device had before rather than to a lie. A part that is not fitted at all never produces a sample, `valid()` stays false, and `products/skyblip_go/services/ownship` publishes the GNSS rate unchanged.
 
+A pilot who turns the `GYRO` row off is the same case as a part that is not fitted, and deliberately so: the hub is unsubscribed, samples stop, `valid()` expires two seconds later and the track rate is the instrument again. Nothing here branches on the setting, because a module that asked why the samples stopped would be a second place to get the fallback wrong.
+
 `own.turn_cdps` is what the gyroscope is worth: hundredths, where `own.turn_dps` rounds to whole degrees a second for the ADS-L extrapolation and the alarm's arcs, which is all those need.
 
 ## bank

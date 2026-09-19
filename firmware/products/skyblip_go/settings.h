@@ -73,6 +73,7 @@ struct Settings {
     bool alarm_enabled{true};
     uint8_t alarm_volume{3};
     bool stealth{false};
+    bool gyro_enabled{false};
     Units units{Units::Nautical};
     char callsign[kCallsignCap]{0};
 
@@ -81,7 +82,7 @@ struct Settings {
     static constexpr uint8_t kCurrentVersion = 1;
 };
 
-constexpr uint8_t kBlobVersion = 5;
+constexpr uint8_t kBlobVersion = 6;
 
 Settings defaults(uint32_t addr = 0);
 

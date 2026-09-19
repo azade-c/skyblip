@@ -24,6 +24,7 @@ enum class MenuRow : uint8_t {
     Status,
     SelfTest,
     GMeter,
+    Gyro,
     AlignQnh,
     QnhDown,
     QnhUp,

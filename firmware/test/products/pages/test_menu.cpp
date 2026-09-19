@@ -337,6 +337,26 @@ TEST_CASE("menu editor: a value that would not validate is never handed back") {
     CHECK(bench.values.settings.aircraft_type == 200);
 }
 
+// The row exists so the milliamp the gyroscope costs is a pilot's choice, and it ships unspent.
+TEST_CASE("six-pack menu: the gyroscope reads off until a press turns it on") {
+    Bench bench(Page::SixPack);
+    REQUIRE_FALSE(bench.values.settings.gyro_enabled);
+
+    const Glass off = page_of(Page::SixPack, bench.values, MenuRow::Gyro);
+    CHECK(row_label_reads(off, Page::SixPack, MenuRow::Gyro, true));
+    CHECK(row_value_reads(off, Page::SixPack, MenuRow::Gyro, "OFF", true));
+
+    bench.focus_on(MenuRow::Gyro);
+    CHECK(bench.change() == MenuAction::Changed);
+    CHECK(bench.values.settings.gyro_enabled);
+
+    const Glass on = page_of(Page::SixPack, bench.values, MenuRow::Gyro);
+    CHECK(row_value_reads(on, Page::SixPack, MenuRow::Gyro, "ON", true));
+
+    CHECK(bench.change() == MenuAction::Changed);
+    CHECK_FALSE(bench.values.settings.gyro_enabled);
+}
+
 TEST_CASE("six-pack menu: the subscale steps in whole hectopascals and stops at the ends") {
     Bench bench(Page::SixPack);
     bench.focus_on(MenuRow::QnhUp);

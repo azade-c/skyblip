@@ -60,6 +60,7 @@ class Bhi260 {
 
     Status probe();
     void load(ConstByteSpan image, uint32_t now_ms);
+    void request_gyroscope(bool wanted);
     void service(uint32_t now_ms);
     bool poll();
     bool poll_rate();
@@ -67,6 +68,7 @@ class Bhi260 {
     const Acceleration& acceleration() const { return sample_; }
     const AngularRate& angular_rate() const { return rate_; }
     bool gyroscope_fitted() const { return gyroscope_; }
+    bool gyroscope_running() const { return gyroscope_streaming_; }
     Stage stage() const { return stage_; }
     Status fault() const { return fault_; }
     const char* stage_text() const;
@@ -159,6 +161,8 @@ class Bhi260 {
     void step_running(uint32_t now_ms);
 
     bool configure_sensor(uint8_t sensor, int32_t range);
+    bool stop_sensor(uint8_t sensor);
+    void follow_gyroscope_request();
     void read_hub_error();
     void drain_fifos(uint32_t now_ms);
     void drain_fifo(Fifo& fifo, uint32_t now_ms);
@@ -189,6 +193,8 @@ class Bhi260 {
     Acceleration sample_{};
     AngularRate rate_{};
     bool gyroscope_{false};
+    bool gyroscope_wanted_{false};
+    bool gyroscope_streaming_{false};
     bool fresh_{false};
     bool fresh_rate_{false};
     uint8_t frame_[1 + kCommandHeaderBytes + kUploadChunkBytes]{};
