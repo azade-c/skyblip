@@ -433,8 +433,7 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
 }
 
 void traffic_symbol(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
-    ui::draw_stone(fb, p.x, p.y, p.cut, p.band, p.trend,
-                   alarm_level >= traffic::Level::Advisory);
+    ui::draw_stone(fb, p.x, p.y, p.cut, p.band, p.trend, alarm_level >= traffic::Level::Advisory);
 }
 
 int32_t hundreds_of_feet(int32_t up_m) {

@@ -1,6 +1,8 @@
 // The ownship symbol's placement is a bearing-accuracy property, not decoration:
 // bbox-centring it once dragged the wing 4 px forward, which put a target 20 px
 // abeam 11 degrees off its true bearing. These pin the hot spot and the symmetry.
+#include <initializer_list>
+
 #include "doctest/doctest.h"
 #include "ui/canvas.h"
 #include "ui/widgets/skyship.h"

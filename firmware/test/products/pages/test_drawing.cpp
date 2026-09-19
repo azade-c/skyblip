@@ -299,7 +299,8 @@ TEST_CASE("radar: past the advisory's own altitude window the stone is the small
     CHECK(near.get_pixel(kPlotX, kPlotY - 7));
     CHECK(near.get_pixel(kPlotX - 8, kPlotY + 1));
 
-    RadarTarget outside[1] = {{2 * kMetresPerNm, 0, skyblip::traffic::kAdvisoryAltM + 1, Level::None}};
+    RadarTarget outside[1] = {
+        {2 * kMetresPerNm, 0, skyblip::traffic::kAdvisoryAltM + 1, Level::None}};
     const Glass far = radar(one_target(outside));
     CHECK(far.get_pixel(kPlotX, kPlotY - 5));
     CHECK_FALSE(far.get_pixel(kPlotX, kPlotY - 7));
@@ -578,7 +579,8 @@ TEST_CASE("radar: the advisory keeps its tag and the quiet aircraft loses it") {
     CHECK_FALSE(reads_in(fb, "+10", 0, 0, 200, 170, 2));
 }
 
-// The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your level is not droppable.
+// The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your
+// level is not droppable.
 TEST_CASE("radar: a caret on the stone says climbing or sinking, past 500 fpm") {
     RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, true}};
     const Glass flat = radar(one_target(steady));
