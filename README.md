@@ -6,6 +6,8 @@ Open-source electronic conspicuity for general aviation: [ADS-L 4 SRD-860](https
 
 [`docs/BEHAVIOR.md`](docs/BEHAVIOR.md) lists every claim the firmware makes about itself, straight from the host test suite that checks them. It is generated, so it cannot describe a behavior that stopped being true.
 
+[`docs/TUNING.md`](docs/TUNING.md) is the other half: every number that behavior is tuned by, with the line of source that justifies it. Also generated, from the constants themselves.
+
 ## The tree
 
 | Directory | What lives there |
@@ -13,7 +15,7 @@ Open-source electronic conspicuity for general aviation: [ADS-L 4 SRD-860](https
 | [`firmware/`](firmware) | the C++ tree: `core/`, `ui/`, `ports/`, the Zephyr platform, the host test suite, and the simulator's world |
 | [`simulator/`](simulator) | the development harness page that drives the WASM build of the firmware, and `device.css`, the case both it and the site draw the panel in |
 | [`website/`](website) | [skyblip.eu](https://skyblip.eu), a Rails app that Parklife renders to static files |
-| `docs/`, `schemas/`, `scripts/`, `skyship/` | the generated behavior index, the wire schemas, the build and release tooling, the artwork |
+| `docs/`, `schemas/`, `scripts/`, `skyship/` | the generated behavior and tuning indexes, the wire schemas, the build and release tooling, the artwork |
 
 The firmware and the site share a tree so that a change in behavior and the page documenting it can land in one commit. They do not share a build: each has its own workflow, gated on the paths it owns.
 

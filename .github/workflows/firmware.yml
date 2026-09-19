@@ -78,6 +78,12 @@ jobs:
         run: |
           python3 scripts/behavior_index.py
           git diff --exit-code docs/BEHAVIOR.md
+      # docs/TUNING.md is generated from the constants themselves: a threshold
+      # that moves without its note moving is the whole point of the gate.
+      - name: tuning index matches the sources
+        run: |
+          python3 scripts/tuning_index.py
+          git diff --exit-code docs/TUNING.md
 
   lint:
     name: clang-format + clang-tidy
