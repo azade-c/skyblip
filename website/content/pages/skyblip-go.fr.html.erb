@@ -1,7 +1,7 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: Le traceur de poche, écran par écran · le tracé du trafic, l’alarme qui dit où regarder, les trois pages, les menus, et ce dont l’e-paper et la batterie sont protégés.
+description: Le traceur de poche, écran par écran · le tracé du trafic, l’alarme qui dit où regarder, les quatre pages, les menus, et ce dont l’e-paper et la batterie sont protégés.
 ---
 
 <section id="simulator">
@@ -14,7 +14,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         keys: "Une fois allumé, le clavier le pilote, et T met un autre aéronef dans le ciel.",
         on: "en marche",
         off: "éteint",
-        settings: "menu",
+        menu: "menu",
         glass: "L’écran e-paper simulé d’un skyBlip Go",
         key: "Le bouton de l’appareil : une pression ouvre le menu de la page affichée, un appui de deux secondes éteint, un nouvel appui rallume",
         pad: "Le pavé tactile : une tape change de page, un contact d’une seconde ramène le radar",
@@ -138,6 +138,28 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <figcaption>Six-pack</figcaption>
     </figure>
   </div>
+
+  <div class="feature">
+    <div>
+      <h3>Ce que la cellule <span class="highlight">a encaissé</span>.</h3>
+      <p>
+        La quatrième page, c&rsquo;est l&rsquo;accéléromètre lu comme un
+        accéléromètre, sans rien en déduire. Le marqueur dit où en est
+        l&rsquo;aile, le cadre autour dit où elle est passée&nbsp;: le plus et le
+        moins encaissés, et jusqu&rsquo;où elle a été jetée de chaque côté.
+      </p>
+      <p>
+        Les extrêmes appartiennent à ce vol, et repartent de zéro quand le
+        chronomètre démarre. L&rsquo;axe avant-arrière a sa propre bande, parce
+        qu&rsquo;un freinage ou un atterrissage dur n&rsquo;est pas une charge
+        d&rsquo;aile.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "gmeter.png", alt: "La page G-mètre : la charge verticale et latérale en marqueur dans un champ, avec le cadre des extrêmes de ce vol autour, la bande avant-arrière à côté et trois lignes de chiffres en dixièmes de g" %>
+      <figcaption>G-mètre</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section>
@@ -148,7 +170,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <h3>Le pavé déplace, <span class="highlight">le bouton agit</span>.</h3>
       <p>
         Deux contacts, et ce partage est tout le vocabulaire. Le pavé capacitif du
-        bord haut parcourt les trois pages et ne peut rien changer. Le bouton du
+        bord haut parcourt les quatre pages et ne peut rien changer. Le bouton du
         côté ouvre le menu de la page affichée, et chaque pression suivante fait
         avancer la ligne sélectionnée.
       </p>
@@ -176,15 +198,18 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Trois pages sur le parcours, <span class="highlight">le reste par son nom</span>.</h3>
+      <h3>Quatre pages sur le parcours, <span class="highlight">le reste par son nom</span>.</h3>
       <p>
-        Une tape passe du radar à la liste puis aux instruments, et c&rsquo;est
-        tout&nbsp;: un pilote qui fait défiler l&rsquo;écran en vol ne doit jamais
-        tomber sur les barres de satellites.
+        Une tape passe du radar à la liste, aux instruments puis au G-mètre, et
+        c&rsquo;est tout&nbsp;: un pilote qui fait défiler l&rsquo;écran en vol ne
+        doit jamais tomber sur les barres de satellites. Une carte sans capteur
+        inertiel n&rsquo;a pas de G-mètre à dessiner, la tape l&rsquo;enjambe plutôt
+        que d&rsquo;offrir une image <span class="mono">NO SENSOR</span> une fois
+        sur quatre.
       </p>
       <p>
         Le reste s&rsquo;ouvre depuis le menu de la page qui l&rsquo;explique, et
-        vous y ramène. Le menu des instruments porte le G-mètre et le calage,
+        vous y ramène. Le menu des instruments porte le gyroscope et le calage,
         celui de la liste porte les quatre pages ci-dessous.
       </p>
     </div>
@@ -438,7 +463,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-sixpack.png", alt: "Le menu des instruments : le G-mètre, le gyroscope éteint, le calage suggéré par le point GNSS et le calage en cours de réglage" %>
+      <%= pages_image_tag "menu-sixpack.png", alt: "Le menu des instruments : le gyroscope éteint, le calage suggéré par le point GNSS et le calage en cours de réglage" %>
       <figcaption>Le menu des instruments</figcaption>
     </figure>
   </div>

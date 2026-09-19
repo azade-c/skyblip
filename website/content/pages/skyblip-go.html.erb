@@ -1,7 +1,7 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: The pocket tracker, screen by screen · the traffic plot, the alarm that says where to look, the three pages, the menus, and what the e-paper and the battery are protected from.
+description: The pocket tracker, screen by screen · the traffic plot, the alarm that says where to look, the four pages, the menus, and what the e-paper and the battery are protected from.
 ---
 
 <section id="simulator">
@@ -14,7 +14,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         keys: "Once it is on, the keyboard flies it, and T puts another aircraft in the sky.",
         on: "running",
         off: "off",
-        settings: "menu",
+        menu: "menu",
         glass: "The simulated e-paper panel of a skyBlip Go",
         key: "The device button: press to open the menu of the page you are on, hold two seconds to switch off, hold it again to switch on",
         pad: "The capacitive pad: tap to change page, hold one second to come back to the radar",
@@ -137,6 +137,27 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       <figcaption>Six-pack</figcaption>
     </figure>
   </div>
+
+  <div class="feature">
+    <div>
+      <h3>What the airframe <span class="highlight">has pulled</span>.</h3>
+      <p>
+        The fourth page is the accelerometer read as an accelerometer, with
+        nothing inferred from it. The marker is where the wing is now, the box
+        around it is where it has been: the most and least it has pulled, and how
+        far it has been thrown to each hand.
+      </p>
+      <p>
+        The peaks belong to this flight, and they reset when the clock starts.
+        Fore and aft has a strip of its own, because braking and a rough landing
+        are not a wing load.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "gmeter.png", alt: "The g-meter page: the normal and lateral load as a marker in a field with the box of this flight's peaks around it, a fore-and-aft strip beside it, and three rows of figures in tenths of a g" %>
+      <figcaption>G-meter</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section>
@@ -147,7 +168,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       <h3>The pad moves, <span class="highlight">the button acts</span>.</h3>
       <p>
         Two contacts, and that split is the whole vocabulary. The capacitive pad
-        on the top edge walks the three pages and can change nothing. The button
+        on the top edge walks the four pages and can change nothing. The button
         on the side opens the menu of the page you are standing on, and every
         further press steps the row you are on.
       </p>
@@ -174,16 +195,18 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Three pages on the walk, <span class="highlight">the rest by name</span>.</h3>
+      <h3>Four pages on the walk, <span class="highlight">the rest by name</span>.</h3>
       <p>
-        A tap moves between the radar, the list and the instruments, and that is
-        all it moves between: a pilot cycling the glass in flight should never
-        land on the satellite bars.
+        A tap moves between the radar, the list, the instruments and the g-meter,
+        and that is all it moves between: a pilot cycling the glass in flight
+        should never land on the satellite bars. A board with no inertial sensor
+        has no g-meter to draw, so the tap steps over it rather than offering a
+        picture of <span class="mono">NO SENSOR</span> every fourth time.
       </p>
       <p>
         Everything else is opened from the menu of the page it explains, and
         hands you back where you were. The instruments&rsquo; menu holds the
-        g-meter and the subscale, the list&rsquo;s menu holds the four pages
+        gyroscope and the subscale, the list&rsquo;s menu holds the four pages
         below.
       </p>
     </div>
@@ -428,7 +451,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-sixpack.png", alt: "The instruments menu: the g-meter, the gyroscope switched off, the subscale suggested by the fix and the subscale being set" %>
+      <%= pages_image_tag "menu-sixpack.png", alt: "The instruments menu: the gyroscope switched off, the subscale suggested by the fix and the subscale being set" %>
       <figcaption>The instruments&rsquo; menu</figcaption>
     </figure>
   </div>
