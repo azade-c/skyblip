@@ -52,7 +52,7 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
 
     if (station_kept) {
         slot->drift_fixes = 0;
-        if (slot->state != State::Together && now_ms - slot->steady_since_ms >= kSteadyMs)
+        if (slot->state != State::Together && now_ms - slot->steady_since_ms >= kTogetherHoldMs)
             slot->state = State::Together;
         out.state = slot->state;
         return out;
@@ -93,7 +93,7 @@ int Tracker::members() const {
 
 void Tracker::forget_stale(uint32_t now_ms) {
     for (Slot& s : slots_)
-        if (s.used && now_ms - s.seen_ms > kForgetMs) s = Slot{};
+        if (s.used && now_ms - s.seen_ms > kContactForgetMs) s = Slot{};
 }
 
 Tracker::Slot* Tracker::slot_for(const model::AircraftObs& target, uint32_t now_ms) {

@@ -21,7 +21,7 @@ void FirstFix::update(const Convergence& solution, uint32_t now_ms) {
     if (!solution.fix_valid) return;
     if (!converged(solution))
         converged_ = 0;
-    else if (converged_ < kSettleFixes)
+    else if (converged_ < kConvergedFixes)
         converged_++;
 }
 
@@ -33,7 +33,7 @@ bool FirstFix::take_acquired() {
 
 bool FirstFix::settled(uint32_t now_ms) const {
     if (!has_fix_) return false;
-    if (converged_ >= kSettleFixes) return true;
+    if (converged_ >= kConvergedFixes) return true;
     return now_ms - fix_since_ms_ >= settle_ms_;
 }
 

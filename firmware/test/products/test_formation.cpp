@@ -59,7 +59,7 @@ struct Flight {
 
     uint32_t hold_station(int north_m, int east_m, uint32_t from_ms) {
         uint32_t t = from_ms;
-        for (; t <= from_ms + formation::kSteadyMs + 2000; t += 1000)
+        for (; t <= from_ms + formation::kTogetherHoldMs + 2000; t += 1000)
             hear(north_m, east_m, 10, 40, 90, t);
         return t;
     }
@@ -143,7 +143,7 @@ TEST_CASE("formation: a contact nobody has heard from is forgotten, membership a
     const uint32_t after = flight.hold_station(1000);
     REQUIRE(flight.rig.alarm_service.formation_members() == 1);
 
-    const uint32_t gone = after + formation::kForgetMs + 1;
+    const uint32_t gone = after + formation::kContactForgetMs + 1;
     flight.rig.state.traffic.age_out(gone / 1000);
     flight.rig.alarm_service.tick(gone);
     CHECK(flight.rig.alarm_service.formation_members() == 0);

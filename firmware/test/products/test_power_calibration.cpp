@@ -75,7 +75,7 @@ TEST_CASE("battery: the trimmed sample is the same sample, charger state and all
     CutoffMonitor monitor;
     Gauge untrimmed_gauge;
     CutoffMonitor untrimmed_monitor;
-    for (int i = 0; i < kConsecutiveSamples + 1; i++) {
+    for (int i = 0; i < kCutoffSamples + 1; i++) {
         gauge.apply(trimmed);
         monitor.apply(trimmed);
         untrimmed_gauge.apply(raw);

@@ -82,14 +82,14 @@ uint8_t percent_from_mv(uint16_t millivolts, bool charging) {
 }
 
 void Gauge::apply(const events::BatterySample& sample) {
-    for (int i = kWindow - 1; i > 0; i--) recent_[i] = recent_[i - 1];
+    for (int i = kWindowSamples - 1; i > 0; i--) recent_[i] = recent_[i - 1];
     recent_[0] = sample.millivolts;
-    if (seen_ < kWindow) seen_++;
+    if (seen_ < kWindowSamples) seen_++;
 
     // Rejecting a transient takes three readings. Before that the newest is
     // everything the gauge knows.
     const uint16_t millivolts =
-        seen_ < kWindow ? recent_[0] : median_of(recent_[0], recent_[1], recent_[2]);
+        seen_ < kWindowSamples ? recent_[0] : median_of(recent_[0], recent_[1], recent_[2]);
     const bool was_charging = state_.charging;
     const bool charging = sample.external_power && millivolts < kChargeCompleteMv;
     const uint8_t percent = percent_from_mv(millivolts, charging);

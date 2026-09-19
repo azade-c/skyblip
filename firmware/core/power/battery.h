@@ -97,9 +97,9 @@ class Gauge {
     const BatteryState& state() const { return state_; }
 
    private:
-    static constexpr int kWindow = 3;
+    static constexpr int kWindowSamples = 3;
 
-    uint16_t recent_[kWindow]{};
+    uint16_t recent_[kWindowSamples]{};
     int seen_{0};
     BatteryState state_{};
 };

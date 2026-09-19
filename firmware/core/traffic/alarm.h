@@ -32,10 +32,10 @@ constexpr int32_t kUnknownTargetSpeedMps = 30;
 // (5 s) and re-checks no more often than every 2 s
 // (oss/SoftRF-lyusupov .../src/TrafficHelper.h:58-59, .../src/TrafficHelper.cpp:236-260).
 constexpr uint32_t kAlertMaxAgeMs = 5000;
-constexpr uint32_t kRenotifyMs = 2000;
+constexpr uint32_t kRenotifyFloorMs = 2000;
 
 constexpr int kTrackedTargets = 48;
-constexpr uint32_t kForgetMs = 30000;
+constexpr uint32_t kTargetForgetMs = 30000;
 
 // INFO: fc 13sep26 now_ms is the instant both sides are carried to, on ports::Clock
 AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs& reported,

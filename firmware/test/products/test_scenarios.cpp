@@ -206,7 +206,7 @@ struct Encounter {
     // What the ear gets falls one re-notification window later, because what
     // the device has already said out loud is only taken back after the contact
     // has been outside the window for that whole time (traffic::notify_for).
-    static constexpr uint32_t kQuietFromMs = kSettledMs + traffic::kRenotifyMs;
+    static constexpr uint32_t kQuietFromMs = kSettledMs + traffic::kRenotifyFloorMs;
 
     bool announced{false};
     uint32_t first_ms{0};

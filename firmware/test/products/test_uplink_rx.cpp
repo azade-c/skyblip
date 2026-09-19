@@ -296,7 +296,7 @@ TEST_CASE("uplink: the relay takes over once the direct report has gone stale") 
     hear_directly(rig, t, 0x4C0002, 1200, 300, 40);
     REQUIRE(rig.state().traffic.count() == 1);
 
-    fly(rig, t, traffic::kDirectHoldSec + 1);
+    fly(rig, t, traffic::kDirectPreferredMaxAgeSec + 1);
 
     model::AircraftObs later = relayed_aircraft(rig, 0x4C0002, 500, 300, 40);
     REQUIRE(relay(rig, t, &later, 1));

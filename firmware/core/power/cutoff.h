@@ -26,7 +26,7 @@ constexpr uint16_t kImplausibleFloorMv = 1800;
 // More than two consecutive samples, so the third one acts. A transmit burst
 // sags the rail for as long as it lasts, and the sampler is slower than a burst,
 // but a charger unplugged mid-sample is not.
-constexpr uint8_t kConsecutiveSamples = 3;
+constexpr uint8_t kCutoffSamples = 3;
 
 enum class PowerLevel : uint8_t { Unknown, Normal, Low, Cutoff };
 

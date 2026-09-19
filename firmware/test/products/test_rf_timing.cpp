@@ -471,9 +471,9 @@ TEST_CASE("rf: a receiver the model predicts goes on air in seconds, not in twen
     MESSAGE("first fix at " << first_fix_ms << " ms, settled at " << settled_at << " ms");
 
     // Three residuals is the floor, and the twenty second ceiling is never reached.
-    CHECK(settled_at - first_fix_ms >= gnss::kSettleFixes * 1000);
+    CHECK(settled_at - first_fix_ms >= gnss::kConvergedFixes * 1000);
     CHECK(settled_at - first_fix_ms < gnss::kFirstFixSettleMs / 2);
-    CHECK(h.product().ownship().first_fix().converged_fixes() == gnss::kSettleFixes);
+    CHECK(h.product().ownship().first_fix().converged_fixes() == gnss::kConvergedFixes);
     CHECK(h.product().state().own.pred_resid_m < gnss::kSettleResidualM);
 }
 

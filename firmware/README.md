@@ -40,6 +40,30 @@ A number carries its unit in its suffix, for the same reason a boolean carries i
 
 `core/units/units.h` carries the same units as types, and the conversions between them. It is what `ui/` reads in, because a page that prints knots and feet should be converting from a type rather than from a name. On the wire and in `bus::State` the suffix is the convention, because a struct that crosses a queue is a layout as well as a vocabulary.
 
+## Naming a tuning constant
+
+A constant that tunes a behavior reads `k<Subject><Mechanism><Unit>`, unit last and always spelled: `kLandingHoldMs`, `kPresentFloorMs`, `kTargetForgetMs`. `scripts/check_tuning_names.py` holds the tree to it and CI runs it; [`docs/TUNING.md`](../docs/TUNING.md) is generated from the same parse, so every number below is listed with its value and the line that justifies it.
+
+The mechanism is the half people get wrong, because four different things all read as "a delay" in conversation and behave nothing alike:
+
+| Mechanism | What it means | Reset by | Example |
+|---|---|---|---|
+| `Hold` | evidence must persist this long before the state flips | contrary or missing evidence | `kLandingHoldMs`, `kTogetherHoldMs` |
+| `Settle` | wait this long after an event before trusting what follows | the next event | `kFirstFixSettleMs`, `kRailSettleMs` |
+| `Floor`, `Ceiling` | a lower or upper bound, in the unit named | nothing | `kPresentFloorMs`, `kImplausibleFloorMv` |
+| `Period` | fixed cadence | nothing | `kLogRecordPeriodMs` |
+| `Window` | the span a measurement or a budget is taken over | nothing | `kTurnWindowMs` |
+| `MaxAge` | past this an input stops counting as evidence | a fresh report | `kAlertMaxAgeMs` |
+| `Stale` | past this a reading leaves the glass | a fresh reading | `kIndicatedStaleMs` |
+| `Forget` | past this the record itself is dropped | a fresh report | `kTargetForgetMs` |
+| `Samples`, `Fixes` | consecutive readings that must agree | one reading the other way | `kCutoffSamples`, `kConvergedFixes` |
+
+Hysteresis is not on the list and never becomes a constant: it is the gap between two named thresholds, like the 12.0 m/s a takeoff needs and the 1.0 m/s a landing does, and naming the gap would be a third number nobody reads.
+
+The subject comes first because a mechanism on its own is ambiguous where it is used: `kForgetMs` forgets what? Two of those existed, in two namespaces, 30 s each by coincidence. A constant inside a class takes the class as its subject, so `ScreenService::kPresentFloorMs` needs no more. `Delay`, `Grace`, `Debounce` and `Steady` are spelled as one of the words above, so that a grep for every hold in the tree finds every hold.
+
+Out of scope, deliberately: `hardware/`, `boards/` and `ports/`. A datasheet's 2.6 s busy time is the part's figure under the part's name, and renaming it would hide where it came from.
+
 ## License
 
 GPL-3.0-only, see [`LICENSE`](LICENSE). This directory is the copyleft one: the rest of the repository is MIT, and code cannot travel from here to there. The WASM the simulator page loads is built from these sources and carries this license with it.

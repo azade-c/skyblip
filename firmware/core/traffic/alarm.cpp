@@ -102,7 +102,7 @@ bool AlarmTracker::notify_for(Slot& slot, Level level, uint32_t now_ms) {
         if (!slot.falling) {
             slot.falling = true;
             slot.falling_since_ms = now_ms;
-        } else if (now_ms - slot.falling_since_ms >= kRenotifyMs) {
+        } else if (now_ms - slot.falling_since_ms >= kRenotifyFloorMs) {
             slot.notified_level = level;
             slot.falling = false;
         }
@@ -161,7 +161,7 @@ bool AlarmTracker::dismissed() const {
 
 void AlarmTracker::forget_stale(uint32_t now_ms) {
     for (Slot& s : slots_) {
-        if (s.used && now_ms - s.seen_ms > kForgetMs) s = Slot{};
+        if (s.used && now_ms - s.seen_ms > kTargetForgetMs) s = Slot{};
     }
 }
 

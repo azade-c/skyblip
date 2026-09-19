@@ -15,10 +15,10 @@ constexpr int32_t kRangeM = 1000;
 constexpr int32_t kVertM = 100;
 constexpr int32_t kDriftM = 60;
 constexpr int32_t kVertDriftM = 30;
-constexpr uint32_t kSteadyMs = 6000;
+constexpr uint32_t kTogetherHoldMs = 6000;
 constexpr int kBreakFixes = 2;
 constexpr int kTrackedContacts = 8;
-constexpr uint32_t kForgetMs = 30000;
+constexpr uint32_t kContactForgetMs = 30000;
 constexpr int32_t kClosingMps = 3;
 
 struct Report {

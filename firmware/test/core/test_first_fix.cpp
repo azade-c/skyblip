@@ -80,7 +80,7 @@ TEST_CASE("first fix: three solutions the model predicted settle it before the c
     f.update(predicted(kSettleResidualM - 1), 3000);
     CHECK_FALSE(f.settled(3000));
     f.update(predicted(kSettleResidualM - 1), 4000);
-    CHECK(f.converged_fixes() == kSettleFixes);
+    CHECK(f.converged_fixes() == kConvergedFixes);
     CHECK(f.settled(4000));
     // Three seconds, where the clock alone would have taken twenty.
     CHECK(4000 - 1000 < kFirstFixSettleMs);

@@ -114,7 +114,7 @@ TEST_CASE("traffic: a relay does not displace a direct reception that is still f
     const int idx = tbl.find(6, 0x111);
     REQUIRE(idx >= 0);
 
-    for (uint32_t later = 101; later <= 100 + kDirectHoldSec; later++) {
+    for (uint32_t later = 101; later <= 100 + kDirectPreferredMaxAgeSec; later++) {
         tbl.update(obs(0x111, 6, later, model::Source::AdslUplink), later);
         CHECK(tbl.count() == 1);
         CHECK(tbl.at(idx)->obs.source == model::Source::AdslDirect);
@@ -124,7 +124,7 @@ TEST_CASE("traffic: a relay does not displace a direct reception that is still f
     // And the hold is a hold, not a block: past it the direct track is as stale
     // as the alarm layer's own patience with a contact, and the relay is the
     // only thing still reporting this aircraft.
-    const uint32_t past = 100 + kDirectHoldSec + 1;
+    const uint32_t past = 100 + kDirectPreferredMaxAgeSec + 1;
     tbl.update(obs(0x111, 6, past, model::Source::AdslUplink), past);
     CHECK(tbl.count() == 1);
     CHECK(tbl.at(idx)->obs.source == model::Source::AdslUplink);
@@ -141,7 +141,7 @@ TEST_CASE("traffic: a relay does not displace a direct reception that is still f
 // The hold is core/traffic/alarm.h's own freshness rule wearing a different
 // unit. If one moves, the other has to, and this is what says so.
 TEST_CASE("traffic: the direct hold is the alarm layer's patience with a contact") {
-    CHECK(kDirectHoldSec * 1000 == kAlertMaxAgeMs);
+    CHECK(kDirectPreferredMaxAgeSec * 1000 == kAlertMaxAgeMs);
 }
 
 // A ground station relays every aircraft it heard, and it heard us. Own-ship on
@@ -646,7 +646,7 @@ TEST_CASE("alarm: a contact is announced and forgotten across the 49.7-day wrap"
 
     // Past the alert age with nothing new heard: no longer driving the annunciator.
     CHECK(tracker.announced_level(after + kAlertMaxAgeMs + 1u) == Level::None);
-    // And past kForgetMs the slot is released, so the next aircraft can have it.
-    tracker.forget_stale(after + kForgetMs + 1u);
-    CHECK(tracker.announced_level(after + kForgetMs + 1u) == Level::None);
+    // And past kTargetForgetMs the slot is released, so the next aircraft can have it.
+    tracker.forget_stale(after + kTargetForgetMs + 1u);
+    CHECK(tracker.announced_level(after + kTargetForgetMs + 1u) == Level::None);
 }

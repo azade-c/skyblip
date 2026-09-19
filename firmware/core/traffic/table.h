@@ -28,7 +28,7 @@ struct Target {
     bool used{false};
 };
 
-constexpr uint32_t kTurnGapMs = 3000;
+constexpr uint32_t kTurnMaxGapMs = 3000;
 
 // How long a first-hand reception keeps a target to itself before a ground
 // relay of the same aircraft is allowed to refresh it.
@@ -46,7 +46,7 @@ constexpr uint32_t kTurnGapMs = 3000;
 // (kAlertMaxAgeMs): a direct report the alarm layer would no longer act on is
 // exactly a direct report a relay should be allowed past. test/core/test_traffic.cpp
 // pins the two together.
-constexpr uint32_t kDirectHoldSec = 5;
+constexpr uint32_t kDirectPreferredMaxAgeSec = 5;
 
 class TrafficTable {
    public:

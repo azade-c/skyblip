@@ -58,9 +58,9 @@ PowerLevel CutoffMonitor::apply(const events::BatterySample& sample) {
     below_cutoff_ = sample.millivolts < kCutoffMv ? static_cast<uint8_t>(below_cutoff_ + 1) : 0;
     below_warn_ = sample.millivolts < kLowWarnMv ? static_cast<uint8_t>(below_warn_ + 1) : 0;
 
-    if (below_cutoff_ >= kConsecutiveSamples)
+    if (below_cutoff_ >= kCutoffSamples)
         level_ = PowerLevel::Cutoff;
-    else if (below_warn_ >= kConsecutiveSamples)
+    else if (below_warn_ >= kCutoffSamples)
         level_ = PowerLevel::Low;
     else if (below_warn_ == 0)
         level_ = PowerLevel::Normal;

@@ -738,7 +738,7 @@ TEST_CASE("write gate: the monitor answers it from the samples it already has") 
     CutoffMonitor monitor;
     CHECK(monitor.may_write(DurableWrite::Settings));
 
-    for (int i = 0; i < kConsecutiveSamples; i++) monitor.apply(sample(3400));
+    for (int i = 0; i < kCutoffSamples; i++) monitor.apply(sample(3400));
     REQUIRE(monitor.level() == PowerLevel::Low);
     CHECK_FALSE(monitor.may_write(DurableWrite::Settings));
     CHECK(monitor.may_write(DurableWrite::FlightRecord));
