@@ -104,6 +104,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kTimeStampCycleS` | 15 | seconds | - | The TimeStamp field is quarter seconds inside a 15 s cycle, so the instant a burst claims is expressible to 250 ms - and the position it carries has to belong to that instant rather than to whenever the receiver last spoke. |
 | `kTimeStampQuarterMs` | 250 | milliseconds | - | - |
 | `kUplinkBurstUs` | `kUplinkBurstBits * 1000000u / kUplinkChipRateBps` | microseconds | - | - |
+| `kAlptasKeyWindowS` | 18 | seconds | Window | GPS-UTC is 18 s, the widest a receiver holding a fix can be wrong by |
 | `kLk8NoAltitudeM` | 99999 | metres | - | - |
 | `kLk8NoVarioCmS` | 9999 | seconds | - | - |
 | `kLk8MinAltitudeM` | -1000 | metres | - | - |
@@ -220,4 +221,4 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kBaroPpsWindowMs` | `2 * kServiceStepMs` = 20 | milliseconds | Window | - |
 | `kBatteryPeriodMs` | 1000 (1 s) | milliseconds | Period | A cell moves over minutes. The gauge needs three readings before it can throw out a transient, so a second between them is the slowest cadence that still shows the state of charge on the first screen a pilot sees. |
 
-130 constants over 15 folders.
+131 constants over 15 folders.

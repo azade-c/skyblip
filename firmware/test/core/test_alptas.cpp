@@ -374,3 +374,44 @@ TEST_CASE("alptas: damage nothing flagged, or too much of it, leaves the frame a
 
     CHECK(alptas_correct(sent, none) == 0);  // a frame that arrived whole is not touched
 }
+
+// The whole of skyblip#2026-09-19: an hour of DEC that was two clocks disagreeing.
+TEST_CASE("alptas: a frame our second refuses names the second its sender keyed") {
+    model::AircraftObs obs = make_obs(481234567, 87654321);
+    for (int32_t offset : {-18, -2, -1, 0, 1, 5, 16, 18}) {
+        uint8_t frame[kAlptasFrameBytes];
+        REQUIRE(alptas_encode(frame, obs,
+                              static_cast<uint32_t>(static_cast<int32_t>(kUtc) + offset), 480000000,
+                              87000000) == Status::Ok);
+        uint32_t keyed = 0;
+        CAPTURE(offset);
+        REQUIRE(alptas_keyed_second(frame, kUtc, keyed) == Status::Ok);
+        CHECK(static_cast<int32_t>(keyed - kUtc) == offset);
+    }
+}
+
+TEST_CASE("alptas: a second further out than a clock can plausibly be is not searched for") {
+    model::AircraftObs obs = make_obs(481234567, 87654321);
+    uint8_t frame[kAlptasFrameBytes];
+    REQUIRE(alptas_encode(frame, obs, kUtc + 40, 480000000, 87000000) == Status::Ok);
+    uint32_t keyed = 0;
+    CHECK(alptas_keyed_second(frame, kUtc, keyed) == Status::Invalid);
+
+    // A frame nothing keyed: noise that framed and held its CRC by accident is not a clock fault.
+    uint8_t noise[kAlptasFrameBytes];
+    for (int i = 0; i < kAlptasDataBytes; i++) noise[i] = static_cast<uint8_t>(i * 37 + 11);
+    noise[3] = static_cast<uint8_t>((noise[3] & 0xF0) | kAlptasMsgTypePosition);
+    alptas_set_crc(noise);
+    CHECK(alptas_keyed_second(noise, kUtc, keyed) == Status::Invalid);
+
+    uint8_t broken[kAlptasFrameBytes];
+    std::memcpy(broken, frame, sizeof(broken));
+    broken[5] ^= 0x01;
+    CHECK(alptas_keyed_second(broken, kUtc, keyed) == Status::Crc);
+
+    uint8_t other[kAlptasFrameBytes];
+    REQUIRE(alptas_encode(other, obs, kUtc, 480000000, 87000000) == Status::Ok);
+    other[3] = static_cast<uint8_t>(other[3] & 0xF0);
+    alptas_set_crc(other);
+    CHECK(alptas_keyed_second(other, kUtc, keyed) == Status::Unsupported);
+}

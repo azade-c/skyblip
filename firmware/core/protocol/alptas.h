@@ -29,6 +29,11 @@ bool alptas_crc_ok(const uint8_t* frame);
 
 int alptas_correct(uint8_t* frame, const uint8_t* err, int max_bad_bits = 6);
 
+// INFO: fc 19sep26 GPS-UTC is 18 s, the widest a receiver holding a fix can be wrong by
+constexpr int32_t kAlptasKeyWindowS = 18;
+
+Status alptas_keyed_second(const uint8_t* frame, uint32_t rx_utc, uint32_t& keyed_utc);
+
 // INFO: fc 09mar26 the address word is sent in clear: a receiver can read the
 // sender's identity before, and without, decrypting anything.
 uint32_t alptas_address(const uint8_t* frame);

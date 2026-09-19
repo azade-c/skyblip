@@ -250,6 +250,10 @@ uint16_t crc_syndrome(uint16_t bit) {
 
 int count_ones(uint8_t byte) { return __builtin_popcount(byte); }
 
+bool structured(const uint8_t* decrypted) {
+    return get_field(decrypted, kFLastByte) == 0 && get_field(decrypted, kFNeeds3) == 3;
+}
+
 }  // namespace
 
 uint16_t alptas_crc(const uint8_t* data) {
@@ -304,6 +308,26 @@ int alptas_correct(uint8_t* frame, const uint8_t* err, int max_bad_bits) {
     for (int bit = 0; bit < bad; bit++)
         if (previous & (1u << bit)) frame[at[bit]] ^= mask[bit];
     return -1;
+}
+
+Status alptas_keyed_second(const uint8_t* frame, uint32_t rx_utc, uint32_t& keyed_utc) {
+    if (!alptas_crc_ok(frame)) return Status::Crc;
+    if (get_field(frame, kFMsgType) != kAlptasMsgTypePosition) return Status::Unsupported;
+
+    const uint32_t first = (rx_utc - kAlptasKeyWindowS) >> 4;
+    const uint32_t last = (rx_utc + kAlptasKeyWindowS) >> 4;
+    for (uint32_t block = first; block <= last; block++) {
+        uint8_t data[kAlptasDataBytes];
+        __builtin_memcpy(data, frame, kAlptasDataBytes);
+        crypt_frame(data, block << 4, false);
+        if (!structured(data)) continue;
+        const uint32_t second = (block << 4) | get_field(data, kFTimeBits);
+        const int32_t offset = static_cast<int32_t>(second - rx_utc);
+        if (offset < -kAlptasKeyWindowS || offset > kAlptasKeyWindowS) continue;
+        keyed_utc = second;
+        return Status::Ok;
+    }
+    return Status::Invalid;
 }
 
 uint32_t alptas_address(const uint8_t* frame) { return get_field(frame, kFAddr); }
