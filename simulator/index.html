@@ -328,15 +328,30 @@ SIM.toggleExternalPower = () => { ext = !ext; f.setExternalPower(ext ? 1 : 0);
 // Which system the next aircraft transmits with. Nothing else about the two
 // differs from the page's side: same channels, same buttons, same radar.
 const alptas = () => ($('tfc_system').value === 'alptas' ? 1 : 0);
-const TRAFFIC_TURN_LIMIT_DPS_E1 = 150;
-const TRAFFIC_CLIMB_LIMIT_MM_S = 4000;
+const KT_TO_MPS = 0.514444;
+const TRAFFIC_CRUISE_KT = [90, 180];
+const TRAFFIC_SLOW_KT = [35, 90];
+const TRAFFIC_CRUISE_TURN_DPS_E1 = 20;
+const TRAFFIC_THERMAL_TURN_DPS_E1 = [80, 150];
+const TRAFFIC_CRUISE_CLIMB_MM_S = 4000;
+const TRAFFIC_STRONG_CLIMB_MM_S = [4000, 8000];
+const TRAFFIC_EXCEPTIONAL_SHARE = 0.2;
 const spread = limit => Math.round((Math.random() * 2 - 1) * limit);
+const within = ([low, high]) => low + Math.random() * (high - low);
+const exceptional = () => Math.random() < TRAFFIC_EXCEPTIONAL_SHARE;
+const eitherHand = range => Math.round(within(range)) * (Math.random() < 0.5 ? -1 : 1);
+const trafficSpeedMps = () =>
+  Math.round(within(exceptional() ? TRAFFIC_SLOW_KT : TRAFFIC_CRUISE_KT) * KT_TO_MPS);
+const trafficTurnDpsE1 = () =>
+  exceptional() ? eitherHand(TRAFFIC_THERMAL_TURN_DPS_E1) : spread(TRAFFIC_CRUISE_TURN_DPS_E1);
+const trafficClimbMmS = () =>
+  exceptional() ? eitherHand(TRAFFIC_STRONG_CLIMB_MM_S) : spread(TRAFFIC_CRUISE_CLIMB_MM_S);
 SIM.addRandom = () => {
   const brg = Math.random() * 2 * Math.PI, d = 800 + Math.random() * 4000;
   f.addAircraft(Math.round(Math.cos(brg)*d), Math.round(Math.sin(brg)*d),
                 Math.round((Math.random()-0.5)*300),
-                20 + Math.round(Math.random()*40), Math.round(Math.random()*359),
-                spread(TRAFFIC_TURN_LIMIT_DPS_E1), spread(TRAFFIC_CLIMB_LIMIT_MM_S), alptas());
+                trafficSpeedMps(), Math.round(Math.random()*359),
+                trafficTurnDpsE1(), trafficClimbMmS(), alptas());
 };
 SIM.addThreat = () => f.addThreat(alptas());
 // A neighbour pinned to one instant of the second: the only way to prove the
@@ -396,7 +411,6 @@ SIM.applyMode();
 SIM.clearTraffic = () => f.clearTraffic();
 // A neighbour holding station off the right wing, flying what we fly: after a
 // few seconds of that the radar offers it, and the buttons answer for a thumb.
-const KT_TO_MPS = 0.514444;
 SIM.addWingman = () => {
   const kt = +$('spd').value, track = +$('trk').value;
   const rad = track * Math.PI / 180, ahead = -130, right = 60;

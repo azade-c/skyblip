@@ -6,10 +6,17 @@ const ACTIVATION_KEYS = [" ", "Enter"]
 const TRAFFIC_MIN_RANGE_M = 800
 const TRAFFIC_MAX_RANGE_M = 4800
 const TRAFFIC_VERT_SPREAD_M = 300
-const TRAFFIC_MIN_SPEED_MPS = 20
-const TRAFFIC_MAX_SPEED_MPS = 60
-const TRAFFIC_TURN_LIMIT_DPS_E1 = 150
-const TRAFFIC_CLIMB_LIMIT_MM_S = 4000
+const KT_TO_MPS = 0.514444
+const TRAFFIC_MIN_CRUISE_KT = 90
+const TRAFFIC_MAX_CRUISE_KT = 180
+const TRAFFIC_MIN_SLOW_KT = 35
+const TRAFFIC_CRUISE_TURN_DPS_E1 = 20
+const TRAFFIC_THERMAL_MIN_TURN_DPS_E1 = 80
+const TRAFFIC_THERMAL_MAX_TURN_DPS_E1 = 150
+const TRAFFIC_CRUISE_CLIMB_MM_S = 4000
+const TRAFFIC_STRONG_MIN_CLIMB_MM_S = 4000
+const TRAFFIC_STRONG_MAX_CLIMB_MM_S = 8000
+const TRAFFIC_EXCEPTIONAL_SHARE = 0.2
 const ADSL = 0
 
 const FEET_PER_METRE = 3.28084
@@ -206,12 +213,40 @@ export default class extends Controller {
       Math.round(Math.cos(bearing) * range),
       Math.round(Math.sin(bearing) * range),
       Math.round(this.#between(-TRAFFIC_VERT_SPREAD_M, TRAFFIC_VERT_SPREAD_M)),
-      Math.round(this.#between(TRAFFIC_MIN_SPEED_MPS, TRAFFIC_MAX_SPEED_MPS)),
+      this.#speedMps(),
       Math.round(Math.random() * 359),
-      Math.round(this.#between(-TRAFFIC_TURN_LIMIT_DPS_E1, TRAFFIC_TURN_LIMIT_DPS_E1)),
-      Math.round(this.#between(-TRAFFIC_CLIMB_LIMIT_MM_S, TRAFFIC_CLIMB_LIMIT_MM_S)),
+      this.#turnDpsE1(),
+      this.#climbMmS(),
       ADSL
     )
+  }
+
+  #speedMps() {
+    const kt = this.#exceptional()
+      ? this.#between(TRAFFIC_MIN_SLOW_KT, TRAFFIC_MIN_CRUISE_KT)
+      : this.#between(TRAFFIC_MIN_CRUISE_KT, TRAFFIC_MAX_CRUISE_KT)
+    return Math.round(kt * KT_TO_MPS)
+  }
+
+  #turnDpsE1() {
+    if (!this.#exceptional())
+      return Math.round(this.#between(-TRAFFIC_CRUISE_TURN_DPS_E1, TRAFFIC_CRUISE_TURN_DPS_E1))
+    return this.#eitherHand(TRAFFIC_THERMAL_MIN_TURN_DPS_E1, TRAFFIC_THERMAL_MAX_TURN_DPS_E1)
+  }
+
+  #climbMmS() {
+    if (!this.#exceptional())
+      return Math.round(this.#between(-TRAFFIC_CRUISE_CLIMB_MM_S, TRAFFIC_CRUISE_CLIMB_MM_S))
+    return this.#eitherHand(TRAFFIC_STRONG_MIN_CLIMB_MM_S, TRAFFIC_STRONG_MAX_CLIMB_MM_S)
+  }
+
+  #exceptional() {
+    return Math.random() < TRAFFIC_EXCEPTIONAL_SHARE
+  }
+
+  #eitherHand(low, high) {
+    const size = this.#between(low, high)
+    return Math.round(Math.random() < 0.5 ? -size : size)
   }
 
   #between(low, high) {
