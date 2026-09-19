@@ -24,7 +24,7 @@ namespace skyblip::flight {
 // zone; halving it would double the bytes to buy resolution nothing scores.
 constexpr uint32_t kLogRecordPeriodMs = 4000;
 
-// INFO: fl 03aug26 a takeoff is declared at 12 m/s, so the ground roll is behind the log when it opens
+// INFO: fl 03aug26 a takeoff is declared at 12 m/s, so the roll is behind the log when it opens
 constexpr int kLogPreTakeoffRecords = 8;
 
 enum class LogAction : uint8_t { Idle, OpenSession, AppendRecord, CloseSession };
