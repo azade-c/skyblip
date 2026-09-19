@@ -8,6 +8,8 @@ const TRAFFIC_MAX_RANGE_M = 4800
 const TRAFFIC_VERT_SPREAD_M = 300
 const TRAFFIC_MIN_SPEED_MPS = 20
 const TRAFFIC_MAX_SPEED_MPS = 60
+const TRAFFIC_TURN_LIMIT_DPS_E1 = 150
+const TRAFFIC_CLIMB_LIMIT_MM_S = 4000
 const ADSL = 0
 
 const FEET_PER_METRE = 3.28084
@@ -206,6 +208,8 @@ export default class extends Controller {
       Math.round(this.#between(-TRAFFIC_VERT_SPREAD_M, TRAFFIC_VERT_SPREAD_M)),
       Math.round(this.#between(TRAFFIC_MIN_SPEED_MPS, TRAFFIC_MAX_SPEED_MPS)),
       Math.round(Math.random() * 359),
+      Math.round(this.#between(-TRAFFIC_TURN_LIMIT_DPS_E1, TRAFFIC_TURN_LIMIT_DPS_E1)),
+      Math.round(this.#between(-TRAFFIC_CLIMB_LIMIT_MM_S, TRAFFIC_CLIMB_LIMIT_MM_S)),
       ADSL
     )
   }

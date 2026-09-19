@@ -45,7 +45,7 @@ export async function load() {
     setBatteryMv: call('simulator_set_battery_mv', null, num),
     setExternalPower: call('simulator_set_external_power', null, num),
 
-    addAircraft: call('simulator_add_aircraft', null, Array(6).fill('number')),
+    addAircraft: call('simulator_add_aircraft', null, Array(8).fill('number')),
     addAircraftAt: call('simulator_add_aircraft_at', null, Array(8).fill('number')),
     addThreat: call('simulator_add_threat', null, num),
     clearTraffic: call('simulator_clear_traffic', null, n),

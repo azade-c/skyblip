@@ -328,11 +328,15 @@ SIM.toggleExternalPower = () => { ext = !ext; f.setExternalPower(ext ? 1 : 0);
 // Which system the next aircraft transmits with. Nothing else about the two
 // differs from the page's side: same channels, same buttons, same radar.
 const alptas = () => ($('tfc_system').value === 'alptas' ? 1 : 0);
+const TRAFFIC_TURN_LIMIT_DPS_E1 = 150;
+const TRAFFIC_CLIMB_LIMIT_MM_S = 4000;
+const spread = limit => Math.round((Math.random() * 2 - 1) * limit);
 SIM.addRandom = () => {
   const brg = Math.random() * 2 * Math.PI, d = 800 + Math.random() * 4000;
   f.addAircraft(Math.round(Math.cos(brg)*d), Math.round(Math.sin(brg)*d),
                 Math.round((Math.random()-0.5)*300),
-                20 + Math.round(Math.random()*40), Math.round(Math.random()*359), alptas());
+                20 + Math.round(Math.random()*40), Math.round(Math.random()*359),
+                spread(TRAFFIC_TURN_LIMIT_DPS_E1), spread(TRAFFIC_CLIMB_LIMIT_MM_S), alptas());
 };
 SIM.addThreat = () => f.addThreat(alptas());
 // A neighbour pinned to one instant of the second: the only way to prove the
@@ -398,7 +402,7 @@ SIM.addWingman = () => {
   const rad = track * Math.PI / 180, ahead = -130, right = 60;
   f.addAircraft(Math.round(ahead * Math.cos(rad) - right * Math.sin(rad)),
                 Math.round(ahead * Math.sin(rad) + right * Math.cos(rad)), 0,
-                Math.round(kt * KT_TO_MPS), track, 0);
+                Math.round(kt * KT_TO_MPS), track, 0, 0, 0);
 };
 
 // Flying it by hand: the arrows are the stick and f/s the throttle, one slider
