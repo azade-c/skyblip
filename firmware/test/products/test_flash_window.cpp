@@ -35,9 +35,9 @@ void step_until(Rig& rig, uint32_t& t, uint32_t until_ms) {
 // Stationary timed solutions: core/flight answers OnGround to those, and the UTC
 // they carry is what anchors the second the write has to be placed inside. Both
 // helpers leave t on a whole second, so a case can name the phase it wants.
-void stand_on_the_ground(Rig& rig, uint32_t& t) { rig.seconds(t, 3, /*speed_q=*/0, 0); }
+void stand_on_the_ground(Rig& rig, uint32_t& t) { rig.seconds(t, 3, /*speed_mm_s=*/0, 0); }
 
-void fly(Rig& rig, uint32_t& t) { rig.seconds(t, 16, /*speed_q=*/200, 1200); }
+void fly(Rig& rig, uint32_t& t) { rig.seconds(t, 16, /*speed_mm_s=*/50000, 1200); }
 
 // The change a pilot makes on the panel, and the one a phone makes over the link,
 // arrive at the same flag: comms::ConfigService is the single writer of the blob
@@ -319,7 +319,7 @@ TEST_CASE("flash window: a change is held, not written, while the cell is below 
     rig.platform.battery().millivolts = 3400;
     // The board samples the cell once a second and the monitor acts on the third
     // consecutive reading, so a low cell takes four seconds to become a decision.
-    rig.seconds(t, 5, /*speed_q=*/0, 0);
+    rig.seconds(t, 5, /*speed_mm_s=*/0, 0);
     REQUIRE(rig.state().power.level == power::PowerLevel::Low);
 
     const uint32_t before = writes(rig);
@@ -337,7 +337,7 @@ TEST_CASE("flash window: a change is held, not written, while the cell is below 
     // The cable arrives. The terminal is held above the cell, core/power reports
     // Normal, and the change a pilot made is still there to write.
     rig.platform.battery().external_power = true;
-    rig.seconds(t, 3, /*speed_q=*/0, 0);
+    rig.seconds(t, 3, /*speed_mm_s=*/0, 0);
     REQUIRE(rig.state().power.level == power::PowerLevel::Normal);
     CHECK_FALSE(rig.product.config().holding_for_power());
     CHECK(writes(rig) - before == 1);
@@ -360,18 +360,18 @@ TEST_CASE("flash window: a cell at its cutoff powers off without touching the se
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
     rig.platform.battery().millivolts = 3400;
-    rig.seconds(t, 5, /*speed_q=*/0, 0);
+    rig.seconds(t, 5, /*speed_mm_s=*/0, 0);
     REQUIRE(rig.state().power.level == power::PowerLevel::Low);
     const uint32_t before = writes(rig);
 
     // A change made on a cell that is already warning: held, never written.
     change_volume(rig, 5);
-    rig.seconds(t, 2, /*speed_q=*/0, 0);
+    rig.seconds(t, 2, /*speed_mm_s=*/0, 0);
     REQUIRE(writes(rig) == before);
 
     // And now the cell reaches its cutoff, which is the flush this refuses.
     rig.platform.battery().millivolts = 3100;
-    rig.seconds(t, 5, /*speed_q=*/0, 0);
+    rig.seconds(t, 5, /*speed_mm_s=*/0, 0);
     REQUIRE(rig.product.shutdown().reason() == power::ShutdownReason::LowBattery);
     REQUIRE(rig.product.shutdown().phase() != power::ShutdownPhase::Running);
     CHECK(writes(rig) == before);

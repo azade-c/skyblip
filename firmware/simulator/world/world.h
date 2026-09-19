@@ -80,7 +80,7 @@ class World {
     void set_fix(bool on) { gnss().fix = on; }
     void set_sats(int n) { gnss().sats = static_cast<uint8_t>(n < 0 ? 0 : (n > 32 ? 32 : n)); }
     void set_altitude_m(int32_t m) { gnss().alt_m = m; }
-    void set_speed_kt(int32_t kt) { gnss().speed_kt = kt; }
+    void set_speed_kt(int32_t kt) { gnss().speed_mm_s = div_round(kt * 514444, 1000); }
     void set_track_deg(int32_t deg) { gnss().track_deg = ((deg % 360) + 360) % 360; }
     void set_turn_dps(double dps) { gnss().turn_dps = dps; }
     void set_climb_mm_s(int32_t mm_s) { gnss().climb_mm_s = mm_s; }

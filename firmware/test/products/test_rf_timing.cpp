@@ -13,6 +13,7 @@
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
 #include "core/timing/transmit.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/parts/sx1262/sx1262.h"
@@ -339,7 +340,7 @@ TEST_CASE("rf: what own-ship put on air decodes back to own-ship state") {
         REQUIRE(p.check_crc() == 0);
         p.descramble();
         CHECK(p.address() == h.platform().device_addr());
-        CHECK(p.alt_m() == h.product().state().own.alt_m);
+        CHECK(p.alt_m() == to_metres(Millimetres(h.product().state().own.alt_mm)).v);
         CHECK(p.FlightState == 2);
         checked++;
     }

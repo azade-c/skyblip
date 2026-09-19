@@ -9,14 +9,14 @@ namespace skyblip::flight {
 enum class FlightState : uint8_t { Unknown = 0, OnGround = 1, Airborne = 2 };
 
 struct FlightSample {
-    uint16_t speed_q{0};  // quarter metres per second
+    int32_t speed_mm_s{0};
     uint16_t hdop_e2{0};  // hundredths; zero means the receiver did not report
     bool fix_valid{false};
 };
 
-constexpr uint16_t kFlightSpeedQ = 48;  // 12.0 m/s
-constexpr uint16_t kTaxiSpeedQ = 6;     // 1.5 m/s
-constexpr uint16_t kGroundSpeedQ = 4;   // 1.0 m/s
+constexpr int32_t kFlightSpeedMmS = 12000;
+constexpr int32_t kTaxiSpeedMmS = 1500;
+constexpr int32_t kGroundSpeedMmS = 1000;
 constexpr uint16_t kDopUnityE2 = 100;
 
 // INFO: fc 18sep26 moshe-braner's jerk gate: a speed jumping 4x between solutions is noise
@@ -37,11 +37,11 @@ class FlightMonitor {
     bool rolling() const { return rolling_; }
 
    private:
-    static bool jerky(uint16_t previous_q, uint16_t now_q);
-    void update_rolling(uint16_t speed_q);
+    static bool jerky(int32_t previous_mm_s, int32_t now_mm_s);
+    void update_rolling(int32_t speed_mm_s);
 
     FlightState state_{FlightState::Unknown};
-    uint16_t last_speed_q_{0};
+    int32_t last_speed_mm_s_{0};
     bool armed_{false};
     bool rolling_{false};
 };

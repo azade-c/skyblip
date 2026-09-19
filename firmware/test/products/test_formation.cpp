@@ -1,5 +1,6 @@
 // What a formation the device found by itself does to the annunciator, and what takes it back.
 #include "core/traffic/formation.h"
+#include "core/units/units.h"
 #include "core/util/intmath.h"
 #include "doctest/doctest.h"
 #include "test/support/screen_rig.h"
@@ -19,7 +20,7 @@ model::AircraftObs contact(const model::OwnState& own, int north_m, int east_m, 
     t.speed_valid = true;
     t.speed_q = static_cast<uint16_t>(mps * 4);
     t.track_c9 = c9(track_deg);
-    t.alt_m = own.alt_m + up_m;
+    t.alt_m = to_metres(Millimetres(own.alt_mm)).v + up_m;
     t.lat_1e7 = own.lat_1e7 + static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     const int16_t ang =
         static_cast<int16_t>((static_cast<int64_t>(own.lat_1e7) * 65536) / 3600000000LL);
@@ -38,9 +39,9 @@ struct Flight {
         rig.state.own.fix_valid = true;
         rig.state.own.lat_1e7 = 481000000;
         rig.state.own.lon_1e7 = 81000000;
-        rig.state.own.alt_m = 1000;
-        rig.state.own.speed_q = 40 * 4;
-        rig.state.own.track_c9 = c9(90);
+        rig.state.own.alt_mm = 1000000;
+        rig.state.own.speed_mm_s = 40000;
+        rig.state.own.track_cdeg = 9000;
     }
 
     void hear(int north_m, int east_m, int up_m, int mps, int track_deg, uint32_t now_ms) {

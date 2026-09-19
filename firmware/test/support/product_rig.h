@@ -40,7 +40,7 @@ struct Rig {
     void push_fix(int32_t alt_m, uint32_t updates) {
         gnss::GnssSolution f{};
         f.is_fix = true;
-        f.alt_m = alt_m;
+        f.alt_mm = alt_m * 1000;
         f.updates = updates;
         product.bus().gnss.push(f);
     }
@@ -51,18 +51,18 @@ struct Rig {
 
     // A solution as a receiver reports one in flight: moving, timed, and
     // referenced to both datums. core/flight decides what it means.
-    void push_timed_fix(uint16_t speed_q, int32_t alt_msl_m) {
+    void push_timed_fix(int32_t speed_mm_s, int32_t alt_msl_m) {
         gnss::GnssSolution f{};
         f.is_fix = true;
         f.utc_valid = true;
         f.utc = kUtcBase + utc_offset_s;
         f.lat_1e7 = 485000000 + static_cast<int32_t>(utc_offset_s) * 3000;
         f.lon_1e7 = 85000000;
-        f.alt_msl_m = alt_msl_m;
-        f.alt_m = alt_msl_m + gnss::kDefaultGeoidSeparationM;
+        f.alt_msl_mm = alt_msl_m * 1000;
+        f.alt_mm = f.alt_msl_mm + gnss::kDefaultGeoidSeparationMm;
         f.geoid_separation_measured = true;
-        f.speed_q = speed_q;
-        f.track_c9 = 128;
+        f.speed_mm_s = speed_mm_s;
+        f.track_cdeg = 9000;
         f.sats = 10;
         f.hdop_e2 = 100;
         f.updates = ++fix_updates;
@@ -70,8 +70,8 @@ struct Rig {
     }
 
     // One second of the world: a solution, then the passes that follow it.
-    void second(uint32_t& t, uint16_t speed_q, int32_t alt_msl_m) {
-        push_timed_fix(speed_q, alt_msl_m);
+    void second(uint32_t& t, int32_t speed_mm_s, int32_t alt_msl_m) {
+        push_timed_fix(speed_mm_s, alt_msl_m);
         run(t, t + 950);
         t += 1000;
         utc_offset_s++;
@@ -92,8 +92,8 @@ struct Rig {
         for (uint32_t i = 0; i < n; i++) blind_second(t);
     }
 
-    void seconds(uint32_t& t, uint32_t n, uint16_t speed_q, int32_t alt_msl_m) {
-        for (uint32_t i = 0; i < n; i++) second(t, speed_q, alt_msl_m);
+    void seconds(uint32_t& t, uint32_t n, int32_t speed_mm_s, int32_t alt_msl_m) {
+        for (uint32_t i = 0; i < n; i++) second(t, speed_mm_s, alt_msl_m);
     }
 
     // The same passes, counted instead of bounded: `t <= to` above cannot cross
@@ -123,8 +123,8 @@ struct Rig {
 
     // One second of the world, wherever the counter happens to be: run_span(950)
     // in 50 ms steps is the whole second.
-    void second_across(uint32_t& t, uint16_t speed_q, int32_t alt_msl_m) {
-        push_timed_fix(speed_q, alt_msl_m);
+    void second_across(uint32_t& t, int32_t speed_mm_s, int32_t alt_msl_m) {
+        push_timed_fix(speed_mm_s, alt_msl_m);
         run_span(t, 950);
         utc_offset_s++;
     }

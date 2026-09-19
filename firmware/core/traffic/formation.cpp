@@ -2,27 +2,23 @@
 
 #include "core/flight/extrapolate.h"
 #include "core/protocol/nmea_out.h"
+#include "core/units/units.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::formation {
 
 namespace {
 
-constexpr int kTrackC9ToAngle = 7;
 constexpr int32_t kQ14One = 16384;
 
 int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
-int16_t angle16_of(uint16_t track_c9) {
-    return static_cast<int16_t>(static_cast<uint16_t>((track_c9 & 0x1FF) << kTrackC9ToAngle));
-}
-
-void heading_up(int32_t north_m, int32_t east_m, uint16_t track_c9, int32_t& ahead_m,
+void heading_up(int32_t north_m, int32_t east_m, int32_t track_cdeg, int32_t& ahead_m,
                 int32_t& right_m) {
-    const int16_t track = angle16_of(track_c9);
+    const int16_t track = to_angle16(CentiDegrees(track_cdeg));
     const int64_t c = icos(track), s = isin(track);
-    ahead_m = static_cast<int32_t>((north_m * c + east_m * s) / kQ14One);
-    right_m = static_cast<int32_t>((east_m * c - north_m * s) / kQ14One);
+    ahead_m = static_cast<int32_t>(div_round<int64_t>(north_m * c + east_m * s, kQ14One));
+    right_m = static_cast<int32_t>(div_round<int64_t>(east_m * c - north_m * s, kQ14One));
 }
 
 }  // namespace
@@ -35,7 +31,7 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
     int32_t north_m, east_m, up_m;
     if (!protocol::relative_ned(own, target, north_m, east_m, up_m)) return out;
 
-    heading_up(north_m, east_m, own.track_c9, out.ahead_m, out.right_m);
+    heading_up(north_m, east_m, own.track_cdeg, out.ahead_m, out.right_m);
     out.up_m = up_m;
     out.valid = true;
 

@@ -8,7 +8,9 @@
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/settings/address.h"
+#include "core/units/units.h"
 #include "core/util/bitcount.h"
+#include "core/util/intmath.h"
 #include "core/util/varint.h"
 
 namespace skyblip::protocol {
@@ -316,8 +318,8 @@ void AdslPacket::set_integrity_from_dop_e2(uint16_t hdop_e2, uint16_t vdop_e2) {
         set_integrity_unknown();
         return;
     }
-    const uint32_t hfom_cm = hdop_e2 * kHorizontalErrorPerDopCm / 100;
-    const uint32_t vfom_cm = vdop_e2 * kVerticalErrorPerDopCm / 100;
+    const uint32_t hfom_cm = div_round<uint32_t>(hdop_e2 * kHorizontalErrorPerDopCm, 100);
+    const uint32_t vfom_cm = div_round<uint32_t>(vdop_e2 * kVerticalErrorPerDopCm, 100);
 
     // No RAIM and no protection level from this receiver, so the containment
     // radius we claim is the accuracy itself, and SourceIntegrity says how much
@@ -381,8 +383,8 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
     // altitude as if it were valid is worse than transmitting nothing: a receiver
     // would compute relative vertical separation against it.
     if (own.fix_valid) {
-        p.set_alt_m(where.alt_m);
-        p.set_speed_q(own.speed_q);
+        p.set_alt_m(to_metres(Millimetres(where.alt_mm)).v);
+        p.set_speed_q(to_speed_q(MillimetresPerSec(own.speed_mm_s)).v);
         p.set_integrity_from_dop_e2(own.hdop_e2, own.vdop_e2);
     } else {
         p.set_position_invalid();
@@ -395,11 +397,11 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
     // fix and has its own validity. Encoding 0 before then would claim level
     // flight (G.1.9).
     if (own.climb_valid && !stealth)
-        p.set_climb_e8(own.climb_e8);
+        p.set_climb_e8(to_climb_e8(MillimetresPerSec(own.climb_mm_s)).v);
     else
         p.set_climb_invalid();
 
-    p.set_track_c9(where.track_c9);
+    p.set_track_c9(to_cordic9(CentiDegrees(where.track_cdeg)).v);
 }
 
 }

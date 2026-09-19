@@ -95,8 +95,8 @@ TEST_CASE("product: barometric pressure drives vertical speed") {
     rig.push_baro(101000, 3000);
     rig.run(3000, 3000);
 
-    // +10 m in 2 s = +5 m/s = 40 eighth-m/s.
-    CHECK(rig.state().own.climb_e8 == doctest::Approx(40).epsilon(0.05));
+    // +10 m in 2 s
+    CHECK(rig.state().own.climb_mm_s == doctest::Approx(5000).epsilon(0.05));
 }
 
 TEST_CASE("product: the barometer read against GNSS is the altimeter setting") {
@@ -111,7 +111,7 @@ TEST_CASE("product: the barometer read against GNSS is the altimeter setting") {
     uint32_t t = 0;
     CHECK(rig.state().baro.derived_qnh_pa == 0);
     for (int i = 0; i < 10; i++) {
-        rig.second(t, 100, alt_msl_m);
+        rig.second(t, 25000, alt_msl_m);
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
@@ -127,7 +127,7 @@ TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors
 
     uint32_t t = 0;
     for (int i = 0; i < 10; i++) {
-        rig.second(t, 100, alt_msl_m);
+        rig.second(t, 25000, alt_msl_m);
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
@@ -135,7 +135,7 @@ TEST_CASE("product: a manoeuvre holds the setting instead of chasing the sensors
 
     // The barometer diving 5 m/s with the fix standing still is time skew, not weather.
     for (int i = 1; i <= 10; i++) {
-        rig.second(t, 100, alt_msl_m);
+        rig.second(t, 25000, alt_msl_m);
         rig.push_baro(on_std_cm - i * 500, t);
         rig.run(t, t);
     }
@@ -151,7 +151,7 @@ TEST_CASE("product: with the fix gone there is no setting to read, not a stale o
 
     uint32_t t = 0;
     for (int i = 0; i < 10; i++) {
-        rig.second(t, 100, alt_msl_m);
+        rig.second(t, 25000, alt_msl_m);
         rig.push_baro(on_std_cm, t);
         rig.run(t, t);
     }
@@ -173,7 +173,7 @@ TEST_CASE("product: a baro sample inside the window is ignored, not extrapolated
     rig.run(1000, 1000);
     rig.push_baro(199000, 1100);
     rig.run(1100, 1100);
-    CHECK(rig.state().own.climb_e8 == 0);
+    CHECK(rig.state().own.climb_mm_s == 0);
 }
 
 TEST_CASE("product: with no barometer, vertical speed comes from GNSS") {
@@ -186,7 +186,7 @@ TEST_CASE("product: with no barometer, vertical speed comes from GNSS") {
     rig.run(3000, 3000);
 
     CHECK_FALSE(rig.product.ownship().baro_active());
-    CHECK(rig.state().own.climb_e8 == doctest::Approx(40).epsilon(0.05));
+    CHECK(rig.state().own.climb_mm_s == doctest::Approx(5000).epsilon(0.05));
 }
 
 TEST_CASE("product: once the barometer speaks, GNSS stops setting vertical speed") {
@@ -195,17 +195,17 @@ TEST_CASE("product: once the barometer speaks, GNSS stops setting vertical speed
 
     rig.push_baro(100000, 500);
     rig.run(500, 500);
-    rig.push_baro(100200, 1500);  // +2 m in 1 s = +16 e8
+    rig.push_baro(100200, 1500);  // +2 m in 1 s
     rig.run(1500, 1500);
-    const int16_t from_baro = rig.state().own.climb_e8;
-    CHECK(from_baro == doctest::Approx(16).epsilon(0.1));
+    const int32_t from_baro = rig.state().own.climb_mm_s;
+    CHECK(from_baro == doctest::Approx(2000).epsilon(0.1));
 
     rig.push_fix(1000, 1);
     rig.run(2000, 2000);
     rig.push_fix(1200, 2);
     rig.run(4000, 4000);
 
-    CHECK(rig.state().own.climb_e8 == from_baro);
+    CHECK(rig.state().own.climb_mm_s == from_baro);
 }
 
 TEST_CASE("product: the board reads the cell and the gauge publishes it") {
@@ -629,7 +629,7 @@ TEST_CASE("product: the range gate's refusals leave the device over the link") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
-    rig.seconds(t, 3, /*speed_q=*/0, 0);
+    rig.seconds(t, 3, /*speed_mm_s=*/0, 0);
     REQUIRE(rig.state().own.fix_valid);
 
     rig.platform.link().clear();
@@ -672,18 +672,18 @@ TEST_CASE("product: vertical speed is measured across the 49.7-day wrap") {
     rig.run_span(t, 0);
     CHECK(rig.product.ownship().baro_active());
 
-    // +10 m over the second that straddles zero: 10 m/s, in eighths.
+    // +10 m over the second that straddles zero.
     const uint32_t after = t + 950u;
     rig.push_baro(101000, after);
     t = after;
     rig.run_span(t, 0);
-    CHECK(rig.state().own.climb_e8 == doctest::Approx(80).epsilon(0.1));
+    CHECK(rig.state().own.climb_mm_s == doctest::Approx(10000).epsilon(0.1));
 
     // And a sample inside the window is still refused after the wrap, rather than
     // being taken as a 49-day interval that reads as no climb at all.
     rig.push_baro(199000, t);
     rig.run_span(t, 0);
-    CHECK(rig.state().own.climb_e8 == doctest::Approx(80).epsilon(0.1));
+    CHECK(rig.state().own.climb_mm_s == doctest::Approx(10000).epsilon(0.1));
 }
 
 // M. Where the radio believes it is inside the second, across the 49.7-day wrap of

@@ -49,12 +49,12 @@ bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32
     if (!own.fix_valid || !t.position_valid) return false;
     int64_t dlat = static_cast<int64_t>(t.lat_1e7) - own.lat_1e7;
     int64_t dlon = static_cast<int64_t>(t.lon_1e7) - own.lon_1e7;
-    north_m = static_cast<int32_t>((dlat * 11132) / 1000000);
+    north_m = static_cast<int32_t>(div_round<int64_t>(dlat * 11132, 1000000));
     int16_t ang = static_cast<int16_t>((static_cast<int64_t>(own.lat_1e7) * 65536) / 3600000000LL);
-    int32_t coslat = icos(ang);
-    int64_t east = (dlon * 11132) / 1000000;
-    east_m = static_cast<int32_t>((east * coslat) >> 14);
-    up_m = t.alt_m - own.alt_m;
+    int64_t coslat = icos(ang);
+    int64_t east_um = div_round<int64_t>(dlon * 11132 * coslat, 16384);
+    east_m = static_cast<int32_t>(div_round<int64_t>(east_um, 1000000));
+    up_m = t.alt_m - to_metres(Millimetres(own.alt_mm)).v;
     return true;
 }
 
@@ -236,12 +236,12 @@ int format_gprmc(char* out, size_t cap, const model::OwnState& own) {
     out[n++] = ',';
     n += fmt_nmea_lon(out + n, own.lon_1e7);
     out[n++] = ',';
-    // Ground speed is knots on this sentence, and own.speed_q is quarter
-    // metres/second: knots = (speed_q/4) * 3600/1852, kept to one decimal.
-    const uint32_t knots_e1 = (static_cast<uint32_t>(own.speed_q) * 2250u + 231u) / 463u;
+    // Ground speed is knots on this sentence, kept to one decimal.
+    const uint32_t knots_e1 = static_cast<uint32_t>(
+        div_round<int64_t>(static_cast<int64_t>(own.speed_mm_s) * 194384, 10000000));
     n += fmt_uint(out + n, knots_e1, 1, 1);
     out[n++] = ',';
-    n += fmt_uint(out + n, to_degrees(Cordic9(own.track_c9)).v, 1);
+    n += fmt_uint(out + n, to_degrees(CentiDegrees(own.track_cdeg)).v, 1);
     out[n++] = ',';
     n += fmt_uint(out + n, static_cast<uint32_t>(day), 2);
     n += fmt_uint(out + n, static_cast<uint32_t>(month), 2);
@@ -265,9 +265,9 @@ int format_gpgga(char* out, size_t cap, const model::OwnState& own) {
     out[n++] = ',';
     n += fmt_uint(out + n, own.hdop_e2, 3, 2);
     out[n++] = ',';
-    n += fmt_int(out + n, own.alt_msl_m, 1, 0, true);
+    n += fmt_int(out + n, to_metres(Millimetres(own.alt_msl_mm)).v, 1, 0, true);
     n += fmt_string(out + n, ",M,");
-    n += fmt_int(out + n, own.alt_m - own.alt_msl_m, 1, 0, true);
+    n += fmt_int(out + n, to_metres(Millimetres(own.alt_mm - own.alt_msl_mm)).v, 1, 0, true);
     n += fmt_string(out + n, ",M,,");
     return nmea_finish(out, n);
 }

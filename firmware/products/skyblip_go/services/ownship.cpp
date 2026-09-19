@@ -5,28 +5,14 @@
 #include "core/flight/atmosphere.h"
 #include "core/flight/turn.h"
 #include "core/model/ownship.h"
+#include "core/units/units.h"
+#include "core/util/intmath.h"
 
 namespace skyblip::go {
 
-namespace {
-constexpr int32_t kCentiPerDeg = 100;
-constexpr int32_t kTurnLimitCdps = flight::kMaxTurnDps * kCentiPerDeg;
-
-int16_t clamped_turn_cdps(int32_t cdps) {
-    if (cdps > kTurnLimitCdps) return kTurnLimitCdps;
-    if (cdps < -kTurnLimitCdps) return -kTurnLimitCdps;
-    return static_cast<int16_t>(cdps);
-}
-
-int16_t dps_of(int32_t cdps) {
-    const int32_t half = cdps < 0 ? -kCentiPerDeg / 2 : kCentiPerDeg / 2;
-    return static_cast<int16_t>((cdps + half) / kCentiPerDeg);
-}
-}  // namespace
-
 flight::FlightState OwnshipService::flight_state_from(const model::OwnState& own) {
     flight::FlightSample sample{};
-    sample.speed_q = own.speed_q;
+    sample.speed_mm_s = own.speed_mm_s;
     sample.hdop_e2 = own.hdop_e2;
     sample.fix_valid = own.fix_valid;
     return flight_.update(sample);
@@ -72,11 +58,11 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     own.utc_valid = solution.utc_valid;
     own.lat_1e7 = solution.lat_1e7;
     own.lon_1e7 = solution.lon_1e7;
-    own.alt_m = solution.alt_m;
-    own.alt_msl_m = solution.alt_msl_m;
+    own.alt_mm = solution.alt_mm;
+    own.alt_msl_mm = solution.alt_msl_mm;
     own.geoid_separation_measured = solution.geoid_separation_measured;
-    own.speed_q = solution.speed_q;
-    own.track_c9 = solution.track_c9;
+    own.speed_mm_s = solution.speed_mm_s;
+    own.track_cdeg = solution.track_cdeg;
     own.hdop_e2 = solution.hdop_e2;
     own.vdop_e2 = solution.vdop_e2;
     own.utc = solution.utc;
@@ -90,8 +76,8 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     // A barometer, once it has spoken, owns vertical speed. The GNSS reference
     // keeps moving anyway so losing the sensor falls back seamlessly.
     int32_t mm_s = 0;
-    const bool have = vs_from_alt_mm(solution.alt_m * 1000, now_ms, kVsWindowMs, vs_ref_alt_mm_,
-                                     vs_ref_ms_, mm_s);
+    const bool have =
+        vs_from_alt_mm(solution.alt_mm, now_ms, kVsWindowMs, vs_ref_alt_mm_, vs_ref_ms_, mm_s);
     if (have && !baro_active()) adopt_climb(mm_s);
 
     const flight::FlightState declared = flight_state_from(own);
@@ -127,7 +113,7 @@ void OwnshipService::update_residual(const model::OwnState& previous) {
         own.pred_resid_valid = false;
         return;
     }
-    const uint32_t resid = flight::prediction_residual_m(p, own.lat_1e7, own.lon_1e7, own.alt_m);
+    const uint32_t resid = flight::prediction_residual_m(p, own.lat_1e7, own.lon_1e7, own.alt_mm);
     own.pred_resid_m = resid > 0xFFFF ? 0xFFFF : static_cast<uint16_t>(resid);
     own.pred_resid_valid = true;
 }
@@ -171,10 +157,11 @@ void OwnshipService::apply_rate(const events::RateSample& sample, uint32_t now_m
     const model::OwnState& own = context_.state.own;
 
     gyro_turn_.observe(rate, force_, sample.at_ms);
-    if (flight_.state() == flight::FlightState::OnGround && own.speed_q <= flight::kGroundSpeedQ)
+    if (flight_.state() == flight::FlightState::OnGround &&
+        own.speed_mm_s <= flight::kGroundSpeedMmS)
         gyro_turn_.trim_to(0);
 
-    const int32_t speed_mps = own.fix_valid ? own.speed_q / 4 : 0;
+    const int32_t speed_mps = own.fix_valid ? to_mps(MillimetresPerSec(own.speed_mm_s)).v : 0;
     const int32_t turn_cdps = gyro_turn_.valid(now_ms) ? gyro_turn_.cdps() : 0;
     bank_.observe(rate, force_, speed_mps, turn_cdps, sample.at_ms);
 }
@@ -197,13 +184,11 @@ void OwnshipService::publish_inertial(uint32_t now_ms) {
 
     if (!gyro_turn_.valid(now_ms)) return;
     context_.state.own.turn_cdps = gyro_turn_.cdps();
-    context_.state.own.turn_dps = dps_of(gyro_turn_.cdps());
 }
 
 void OwnshipService::adopt_climb(int32_t mm_s) {
     model::OwnState& own = context_.state.own;
     own.climb_mm_s = mm_s;
-    own.climb_e8 = flight::climb_e8_from_mm_s(mm_s);
     own.climb_valid = true;
 }
 
@@ -219,7 +204,9 @@ void OwnshipService::update_derived_qnh(const events::BaroSample& sample) {
     if (manoeuvring) return;
 
     uint32_t qnh_pa = 0;
-    if (!flight::qnh_from_alt(sample.pressure_mpa / 1000, own.alt_msl_m * 100, qnh_pa)) return;
+    if (!flight::qnh_from_alt(div_round<uint32_t>(sample.pressure_mpa, 1000),
+                              div_round(own.alt_msl_mm, 10), qnh_pa))
+        return;
 
     const int32_t sampled = static_cast<int32_t>(qnh_pa) * kQnhHalfMinuteSamples;
     qnh_filter_acc_ = qnh_filter_acc_ == 0
@@ -230,26 +217,25 @@ void OwnshipService::update_derived_qnh(const events::BaroSample& sample) {
 }
 
 void OwnshipService::update_turn_rate(uint32_t now_ms) {
-    const uint16_t track_c9 = context_.state.own.track_c9;
+    const CentiDegrees track{context_.state.own.track_cdeg};
     if (turn_ref_ms_ == 0) {
         turn_ref_ms_ = now_ms == 0 ? 1 : now_ms;
-        turn_ref_track_c9_ = track_c9;
+        turn_ref_track_cdeg_ = track.v;
         return;
     }
     const uint32_t dt = now_ms - turn_ref_ms_;
     if (dt < kTurnWindowMs) return;
 
-    const int16_t gnss_cdps = clamped_turn_cdps(
-        flight::turn_rate_cdps(track_c9, turn_ref_track_c9_, static_cast<uint32_t>(dt)));
+    const int16_t gnss_cdps = flight::clamped_turn_cdps(
+        flight::turn_rate_cdps(track, CentiDegrees(turn_ref_track_cdeg_), dt));
     turn_ref_ms_ = now_ms;
-    turn_ref_track_c9_ = track_c9;
+    turn_ref_track_cdeg_ = track.v;
 
     if (gyro_turn_.valid(now_ms)) {
         if (flight_.airborne() && context_.state.own.fix_valid) gyro_turn_.trim_to(gnss_cdps);
         return;
     }
     context_.state.own.turn_cdps = gnss_cdps;
-    context_.state.own.turn_dps = dps_of(gnss_cdps);
 }
 
 bool OwnshipService::vs_from_alt_mm(int32_t alt_mm, uint32_t now_ms, uint32_t window_ms,

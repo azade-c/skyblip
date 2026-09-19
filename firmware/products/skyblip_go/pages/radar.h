@@ -22,9 +22,9 @@ struct RadarTarget {
     traffic::Level alarm_level{traffic::Level::None};
     int16_t climb_e8{0};
     bool climb_valid{false};
-    int32_t speed_mps{0};
-    uint16_t track_deg{0};
-    int16_t turn_dps{0};
+    int32_t speed_mm_s{0};
+    int32_t track_cdeg{0};
+    int16_t turn_cdps{0};
     bool turn_valid{false};
     bool in_formation{false};
     bool alarm_dismissed{false};
@@ -35,9 +35,9 @@ struct RadarSnapshot {
     gnss::Stage stage{gnss::Stage::Silent};
     go::Units units{go::Units::Nautical};
     int32_t range_nm{kDefaultRangeNm};
-    uint16_t track_deg{0};
-    int16_t turn_dps{0};
-    int32_t speed_mps{0};
+    int32_t track_cdeg{0};
+    int16_t turn_cdps{0};
+    int32_t speed_mm_s{0};
     uint32_t flight_seconds{0};
     bool flight_time_valid{false};
     bool airborne{false};

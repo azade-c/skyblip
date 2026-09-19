@@ -20,7 +20,7 @@ model::OwnState own_at_equator() {
     o.fix_valid = true;
     o.lat_1e7 = 0;
     o.lon_1e7 = 0;
-    o.alt_m = 1000;
+    o.alt_mm = 1000000;
     return o;
 }
 

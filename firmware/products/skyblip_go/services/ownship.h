@@ -72,7 +72,7 @@ class OwnshipService : public runtime::Service {
     int32_t baro_ref_alt_mm_{0};
     uint32_t baro_ref_ms_{0};
     uint32_t turn_ref_ms_{0};
-    uint16_t turn_ref_track_c9_{0};
+    int32_t turn_ref_track_cdeg_{0};
     int32_t qnh_filter_acc_{0};
 
     static constexpr uint32_t kVsWindowMs = 2000;

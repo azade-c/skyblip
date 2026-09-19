@@ -2,6 +2,9 @@
 
 #include <cstring>
 
+#include "core/units/units.h"
+#include "core/util/intmath.h"
+
 namespace skyblip::gnss {
 
 namespace {
@@ -20,6 +23,8 @@ long parse_long(const char* s, int len) {
     return v;
 }
 int d2(const char* s) { return (s[0] - '0') * 10 + (s[1] - '0'); }
+
+constexpr int64_t kMillimetresPerSecPerKnotE3 = 514444;
 
 // Rounded, not truncated: "46.9" is 47 m of geoid separation, not 46.
 bool parse_scaled(const char* s, long scale, long& out) {
@@ -91,7 +96,7 @@ int32_t nmea_parse_coord(const char* dm, char hemi) {
     }
     long min_e4 = min_whole * 10000 + (scale ? frac * (10000 / scale) : 0);
     int64_t v = static_cast<int64_t>(deg) * 10000000LL +
-                static_cast<int64_t>(min_e4) * 10000000LL / 600000LL;
+                div_round<int64_t>(static_cast<int64_t>(min_e4) * 10000000LL, 600000LL);
     if (hemi == 'S' || hemi == 'W') v = -v;
     return static_cast<int32_t>(v);
 }
@@ -238,26 +243,15 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
     if (valid) {
         if (f[3][0]) solution_.lat_1e7 = nmea_parse_coord(f[3], f[4][0]);
         if (f[5][0]) solution_.lon_1e7 = nmea_parse_coord(f[5], f[6][0]);
-        if (f[7][0]) {
-            long kn_e1 = 0, sc = 1;
-            const char* s = f[7];
-            long ip = 0;
-            while (*s >= '0' && *s <= '9') ip = ip * 10 + (*s++ - '0');
-            long fp = 0;
-            if (*s == '.') {
-                s++;
-                if (*s >= '0' && *s <= '9') fp = (*s - '0');
-            }
-            kn_e1 = ip * 10 + fp;
-            (void)sc;
-            solution_.speed_q = static_cast<uint16_t>((kn_e1 * 2058 + 5000) / 10000);
-        }
-        if (f[8][0]) {
-            long ip = 0;
-            const char* s = f[8];
-            while (*s >= '0' && *s <= '9') ip = ip * 10 + (*s++ - '0');
-            solution_.track_c9 = static_cast<uint16_t>((ip * 512 + 180) / 360 % 512);
-        }
+        long knots_e2 = 0;
+        if (parse_scaled(f[7], 100, knots_e2))
+            solution_.speed_mm_s = static_cast<int32_t>(
+                div_round<int64_t>(knots_e2 * kMillimetresPerSecPerKnotE3, 100000));
+        long track_cdeg = 0;
+        if (parse_scaled(f[8], 100, track_cdeg))
+            solution_.track_cdeg =
+                static_cast<int32_t>(((track_cdeg % kCentiDegreesPerTurn) + kCentiDegreesPerTurn) %
+                                     kCentiDegreesPerTurn);
     }
     solution_.updates++;
     return true;
@@ -277,20 +271,20 @@ bool NmeaParser::apply_gga(const char* f[], int nf, int len) {
                             ? static_cast<uint16_t>(hdop_e2)
                             : 0;
 
-    long separation_m = 0;
-    solution_.geoid_separation_measured = nf > 11 && parse_scaled(f[11], 1, separation_m) &&
-                                          separation_m != 0 && separation_m > -200 &&
-                                          separation_m < 200;
-    solution_.geoid_separation_m = solution_.geoid_separation_measured
-                                       ? static_cast<int32_t>(separation_m)
-                                       : kDefaultGeoidSeparationM;
+    long separation_mm = 0;
+    solution_.geoid_separation_measured = nf > 11 && parse_scaled(f[11], 1000, separation_mm) &&
+                                          separation_mm != 0 && separation_mm > -200000 &&
+                                          separation_mm < 200000;
+    solution_.geoid_separation_mm = solution_.geoid_separation_measured
+                                        ? static_cast<int32_t>(separation_mm)
+                                        : kDefaultGeoidSeparationMm;
 
-    long msl_m = 0;
-    solution_.alt_msl_valid = parse_scaled(f[9], 1, msl_m);
+    long msl_mm = 0;
+    solution_.alt_msl_valid = parse_scaled(f[9], 1000, msl_mm);
     solution_.alt_hae_valid = solution_.alt_msl_valid;
     if (solution_.alt_msl_valid) {
-        solution_.alt_msl_m = static_cast<int32_t>(msl_m);
-        solution_.alt_m = solution_.alt_msl_m + solution_.geoid_separation_m;
+        solution_.alt_msl_mm = static_cast<int32_t>(msl_mm);
+        solution_.alt_mm = solution_.alt_msl_mm + solution_.geoid_separation_mm;
     }
 
     solution_.updates++;

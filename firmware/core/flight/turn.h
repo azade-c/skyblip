@@ -10,6 +10,8 @@
 
 #include <cstdint>
 
+#include "core/units/units.h"
+
 namespace skyblip::flight {
 
 constexpr int32_t kTrackC9Turn = 512;
@@ -19,8 +21,11 @@ constexpr uint16_t kTrackC9Mask = 0x1FF;
 // through +255, positive to the right.
 int16_t track_delta_c9(uint16_t track_c9, uint16_t ref_track_c9);
 
-// INFO: fc 18sep26 what a gyro is trimmed against: whole degrees drag a 3 deg/s turn down to 2
-int32_t turn_rate_cdps(uint16_t track_c9, uint16_t ref_track_c9, uint32_t dt_ms);
+// The short way from ref to track in hundredths of a degree, which is what
+// own-ship's own track resolves and what a gyroscope is trimmed against: taken
+// in whole degrees instead, a standard rate turn reads 2 deg/s.
+int32_t track_delta_cdeg(CentiDegrees track, CentiDegrees ref_track);
+int32_t turn_rate_cdps(CentiDegrees track, CentiDegrees ref_track, uint32_t dt_ms);
 
 // Degrees per second, positive to the right. Zero for a zero interval: nothing
 // happened in no time.

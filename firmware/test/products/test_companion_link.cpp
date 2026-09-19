@@ -175,7 +175,7 @@ TEST_CASE("companion link: a link dropped mid-offload leaves the log ready for t
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
     taxi(rig, t, 20);
-    rig.seconds(t, 60, 200, 800);
+    rig.seconds(t, 60, 50000, 800);
     taxi(rig, t, 40);
     REQUIRE(rig.product.flight_log().records_written() > 0);
 

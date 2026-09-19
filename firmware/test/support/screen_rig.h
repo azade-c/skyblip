@@ -106,7 +106,7 @@ struct Rig {
         obs.position_valid = true;
         obs.lat_1e7 = state.own.lat_1e7 + static_cast<int32_t>(int64_t(north_m) * 1000000 / 11132);
         obs.lon_1e7 = state.own.lon_1e7 + static_cast<int32_t>(int64_t(east_m) * 1000000 / 11132);
-        obs.alt_m = state.own.alt_m;
+        obs.alt_m = to_metres(Millimetres(state.own.alt_mm)).v;
         obs.received.at_s = now_ms / 1000;
         obs.at_ms = now_ms;
         obs.source = model::Source::AdslDirect;

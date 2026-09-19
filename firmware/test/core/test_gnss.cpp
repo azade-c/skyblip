@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "core/gnss/nmea.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 
 using namespace skyblip::gnss;
@@ -35,10 +36,10 @@ TEST_CASE("gnss: RMC updates fix position, time, speed, track") {
     CHECK(f.utc_valid);
     CHECK(f.lat_1e7 > 480000000);
     CHECK(f.lon_1e7 > 0);
-    // 22.4 knots ~= 11.52 m/s -> speed_q ~46
-    CHECK(std::abs(int(f.speed_q) - 46) <= 3);
-    // track 84.4 deg -> cordic ~120
-    CHECK(std::abs(int(f.track_c9) - 120) <= 3);
+    // 22.4 knots is 11.524 m/s, and the tenth of a knot the sentence carries survives
+    CHECK(f.speed_mm_s == 11524);
+    // 84.4 degrees, kept as the receiver reported it rather than as the wire will carry it
+    CHECK(f.track_cdeg == 8440);
     // 2025-08-23 12:35:19 UTC epoch
     CHECK(f.utc == 1755952519u);
 }
@@ -96,7 +97,7 @@ TEST_CASE("gnss: GGA updates altitude and sats") {
     const char* gga = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     CHECK(p.parse_line(gga, static_cast<int>(strlen(gga))));
     const GnssSolution& f = p.solution();
-    CHECK(f.alt_msl_m == 545);
+    CHECK(f.alt_msl_mm == 545400);
     CHECK(int(f.sats) == 8);
     CHECK(int(f.fix_quality) == 1);
 }
@@ -113,11 +114,11 @@ TEST_CASE("gnss: GGA carries MSL and ellipsoidal height as separate values") {
     REQUIRE(p.parse_line(gga, static_cast<int>(strlen(gga))));
     const GnssSolution& f = p.solution();
     CHECK(f.alt_msl_valid);
-    CHECK(f.alt_msl_m == 545);
-    CHECK(f.geoid_separation_m == 47);
+    CHECK(f.alt_msl_mm == 545400);
+    CHECK(f.geoid_separation_mm == 46900);
     CHECK(f.geoid_separation_measured);
     CHECK(f.alt_hae_valid);
-    CHECK(f.alt_m == 592);  // 545.4 + 46.9, the value ADS-L wants
+    CHECK(f.alt_mm == 592300);  // 545.4 + 46.9, the value ADS-L wants
 }
 
 // Some receivers omit field 11 entirely and some always answer "0.0,M": OGN
@@ -131,9 +132,9 @@ TEST_CASE("gnss: a receiver that omits the geoid separation falls back and says 
     const char* omitted = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,,M,,*52";
     REQUIRE(p.parse_line(omitted, static_cast<int>(strlen(omitted))));
     CHECK_FALSE(p.solution().geoid_separation_measured);
-    CHECK(p.solution().geoid_separation_m == kDefaultGeoidSeparationM);
-    CHECK(p.solution().alt_msl_m == 545);
-    CHECK(p.solution().alt_m == 545 + kDefaultGeoidSeparationM);
+    CHECK(p.solution().geoid_separation_mm == kDefaultGeoidSeparationMm);
+    CHECK(p.solution().alt_msl_mm == 545400);
+    CHECK(p.solution().alt_mm == 545400 + kDefaultGeoidSeparationMm);
 }
 
 TEST_CASE("gnss: a receiver stuck at 0.0 separation falls back too") {
@@ -141,8 +142,8 @@ TEST_CASE("gnss: a receiver stuck at 0.0 separation falls back too") {
     const char* zero = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,0.0,M,,*7C";
     REQUIRE(p.parse_line(zero, static_cast<int>(strlen(zero))));
     CHECK_FALSE(p.solution().geoid_separation_measured);
-    CHECK(p.solution().geoid_separation_m == kDefaultGeoidSeparationM);
-    CHECK(p.solution().alt_m == 545 + kDefaultGeoidSeparationM);
+    CHECK(p.solution().geoid_separation_mm == kDefaultGeoidSeparationMm);
+    CHECK(p.solution().alt_mm == 545400 + kDefaultGeoidSeparationMm);
 }
 
 // GGA field 8. Without it every integrity and accuracy field we transmit is a
@@ -234,8 +235,8 @@ TEST_CASE("gnss: byte-wise feed reconstructs a sentence") {
     bool got = false;
     for (const char* c = gga; *c; c++) got |= p.feed(*c);
     CHECK(got);
-    CHECK(p.solution().alt_msl_m == 545);
-    CHECK(p.solution().alt_m == 592);
+    CHECK(p.solution().alt_msl_mm == 545400);
+    CHECK(p.solution().alt_mm == 592300);
 }
 
 // A burst is always late relative to the PPS edge whose second it describes, so
@@ -279,7 +280,7 @@ TEST_CASE("gnss: a truncated GGA is refused, checksum or no checksum") {
     NmeaParser p;
     const char* whole = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     REQUIRE(p.parse_line(whole, static_cast<int>(strlen(whole))));
-    REQUIRE(p.solution().alt_msl_m == 545);
+    REQUIRE(p.solution().alt_msl_mm == 545400);
 
     // Cut after HDOP, re-checksummed: eight fields where ten are needed.
     const char* cut = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9*7C";
@@ -294,7 +295,7 @@ TEST_CASE("gnss: a truncated GGA is refused, checksum or no checksum") {
     CHECK_FALSE(p.parse_line(empty, static_cast<int>(strlen(empty))));
 
     // Neither of them touched the solution we already had.
-    CHECK(p.solution().alt_msl_m == 545);
+    CHECK(p.solution().alt_msl_mm == 545400);
     CHECK(p.solution().updates == 1);
 }
 
@@ -404,4 +405,21 @@ TEST_CASE("gnss: each burst's GGA starts the solution set again") {
 
     REQUIRE(p.parse_line(gga, static_cast<int>(strlen(gga))));
     CHECK(p.sky().in_use() == 0);
+}
+
+// The pinned bug: a solution quantised to the wire's units at the door, so a turn rate
+// differentiated from it could only ever be a whole degree a second.
+TEST_CASE("gnss: a solution is kept at the precision the receiver reported, not the wire's") {
+    NmeaParser p;
+    const char* rmc = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.47,084.43,230825,,,A*79";
+    REQUIRE(p.parse_line(rmc, static_cast<int>(strlen(rmc))));
+    const GnssSolution& f = p.solution();
+
+    // 22.47 kt is 11.559 m/s, which cordic9 and quarter-m/s would both round away.
+    CHECK(f.speed_mm_s == 11560);
+    CHECK(f.track_cdeg == 8443);
+
+    // And the wire's own units are still one conversion away, rounded.
+    CHECK(skyblip::to_speed_q(skyblip::MillimetresPerSec(f.speed_mm_s)).v == 46);
+    CHECK(skyblip::to_cordic9(skyblip::CentiDegrees(f.track_cdeg)).v == 120);
 }

@@ -26,13 +26,13 @@ static bool checksum_ok(const std::string& s) {
     return static_cast<uint8_t>(std::stoi(hh, nullptr, 16)) == cs;
 }
 
-static model::OwnState own_at(int32_t lat, int32_t lon, int32_t alt) {
+static model::OwnState own_at(int32_t lat, int32_t lon, int32_t alt_m) {
     model::OwnState o{};
     o.fix_valid = true;
     o.utc_valid = true;
     o.lat_1e7 = lat;
     o.lon_1e7 = lon;
-    o.alt_m = alt;
+    o.alt_mm = alt_m * 1000;
     return o;
 }
 
@@ -153,11 +153,11 @@ TEST_CASE("nmea: addr_table_to_idtype never answers 0 - SkyDemon draws nothing f
 TEST_CASE("nmea: GPRMC/GPGGA carry ownship's own absolute position") {
     auto own = own_at(481234500, -81234500, 1000);
     own.utc = 1785628800u + 3661u;
-    own.alt_msl_m = 950;
+    own.alt_msl_mm = 950000;
     own.sats = 8;
     own.hdop_e2 = 120;
-    own.speed_q = 160;  // 40 m/s
-    own.track_c9 = 128;
+    own.speed_mm_s = 40000;
+    own.track_cdeg = 9000;
 
     char buf[128];
     const int rn = format_gprmc(buf, sizeof(buf), own);
@@ -228,11 +228,11 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     // cannot assume a frame is a sentence.
     CHECK(traffic > ports::kMinimumLinkPayload);
 
-    own.speed_q = 65535;
-    own.track_c9 = 511;
+    own.speed_mm_s = 16383750;
+    own.track_cdeg = 35999;
     own.sats = 255;
     own.hdop_e2 = 65535;
-    own.alt_msl_m = -9999;
+    own.alt_msl_mm = -9999000;
     own.utc = 4294967295u;
     const int rmc = format_gprmc(buf, sizeof(buf), own);
     CHECK(rmc > 0);

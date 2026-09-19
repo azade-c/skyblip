@@ -13,6 +13,7 @@
 #include "core/gnss/nmea.h"
 #include "core/protocol/nmea_out.h"
 #include "core/util/format.h"
+#include "core/util/intmath.h"
 #include "hardware/io/io.h"
 #include "hardware/parts/l76k/l76k.h"
 
@@ -41,7 +42,8 @@ class L76k : public io::Uart, public io::UartRate {
     uint16_t hdop_e2{90};
     uint16_t vdop_e2{150};
     uint16_t pdop_e2{180};
-    int32_t speed_kt{45};
+    // INFO: fc 19sep26 RMC field 7 is knots to a hundredth, so the part holds mm/s and rounds there
+    int32_t speed_mm_s{23150};
     int32_t track_deg{90};
     // INFO: fc 03aug26 Degrees per second, positive to the right. The track this
     // model emits is the only thing own-ship can differentiate a turn rate out
@@ -303,7 +305,7 @@ class L76k : public io::Uart, public io::UartRate {
 
     // INFO: fc 18sep26 a receiver solves continuously and reports on its cadence, ADS-L 4 §C.2.5
     void fly(int32_t dt_ms) {
-        const double v_mps = speed_kt * 0.514444;
+        const double v_mps = speed_mm_s / 1000.0;
         const double secs = dt_ms / 1000.0;
         const double rad = mid_step_track_deg(secs) * 3.14159265358979 / 180.0;
         advance_lat(v_mps * std::cos(rad) * secs);
@@ -427,6 +429,28 @@ class L76k : public io::Uart, public io::UartRate {
         pending_.append(s, static_cast<size_t>(n));
     }
 
+    // INFO: fc 19sep26 a real receiver reports hundredths of a knot and of a degree, and decimetres
+    uint32_t knots_e2() const {
+        return static_cast<uint32_t>(div_round<int64_t>(
+            static_cast<int64_t>(speed_mm_s < 0 ? 0 : speed_mm_s) * 194384, 1000000));
+    }
+
+    uint32_t kmh_e2() const {
+        return static_cast<uint32_t>(
+            div_round<int64_t>(static_cast<int64_t>(speed_mm_s < 0 ? 0 : speed_mm_s) * 36, 100));
+    }
+
+    uint32_t heading_e2() const {
+        const double wrapped = heading_deg() - 360.0 * static_cast<int>(heading_deg() / 360.0);
+        const double positive = wrapped < 0 ? wrapped + 360.0 : wrapped;
+        return static_cast<uint32_t>(std::lround(positive * 100.0)) % 36000u;
+    }
+
+    int32_t msl_dm() const {
+        const int32_t mm = alt_mm() - geoid_separation_m * 1000;
+        return (mm >= 0 ? mm + 50 : mm - 50) / 100;
+    }
+
     int put_time(char* s) const {
         int n = 0;
         n += fmt_uint(s + n, utc_sod / 3600u, 2);
@@ -445,9 +469,9 @@ class L76k : public io::Uart, public io::UartRate {
         s[n++] = ',';
         n += fmt_nmea_lon(s + n, lon_1e7);
         s[n++] = ',';
-        n += fmt_uint(s + n, static_cast<uint32_t>(speed_kt < 0 ? 0 : speed_kt), 1);
-        n += fmt_string(s + n, ".0,");
-        n += fmt_uint(s + n, static_cast<uint32_t>((track_deg % 360 + 360) % 360), 1);
+        n += fmt_uint(s + n, knots_e2(), 1, 2);
+        s[n++] = ',';
+        n += fmt_uint(s + n, heading_e2(), 1, 2);
         s[n++] = ',';
         n += fmt_string(s + n, date);
         n += fmt_string(s + n, ",,,A");
@@ -557,13 +581,12 @@ class L76k : public io::Uart, public io::UartRate {
     void emit_vtg() {
         char s[128];
         int n = fmt_string(s, "$GPVTG,");
-        n += fmt_uint(s + n, static_cast<uint32_t>((track_deg % 360 + 360) % 360), 1);
-        n += fmt_string(s + n, ".0,T,,M,");
-        const uint32_t kt = static_cast<uint32_t>(speed_kt < 0 ? 0 : speed_kt);
-        n += fmt_uint(s + n, kt, 1);
-        n += fmt_string(s + n, ".0,N,");
-        n += fmt_uint(s + n, kt * 1852 / 1000, 1);
-        n += fmt_string(s + n, ".0,K,A");
+        n += fmt_uint(s + n, heading_e2(), 1, 2);
+        n += fmt_string(s + n, ",T,,M,");
+        n += fmt_uint(s + n, knots_e2(), 1, 2);
+        n += fmt_string(s + n, ",N,");
+        n += fmt_uint(s + n, kmh_e2(), 1, 2);
+        n += fmt_string(s + n, ",K,A");
         n = protocol::nmea_finish(s, n);
         pending_.append(s, static_cast<size_t>(n));
     }
@@ -584,9 +607,9 @@ class L76k : public io::Uart, public io::UartRate {
         s[n++] = ',';
         n += fmt_uint(s + n, hdop_e2, 3, 2);
         s[n++] = ',';
-        n += fmt_int(s + n, alt_m - geoid_separation_m, 1, 0, true);
+        n += fmt_int(s + n, msl_dm(), 1, 1, true);
         n += fmt_string(s + n, ",M,");
-        if (emit_geoid_separation) n += fmt_int(s + n, geoid_separation_m, 1, 0, true);
+        if (emit_geoid_separation) n += fmt_int(s + n, geoid_separation_m * 10, 1, 1, true);
         n += fmt_string(s + n, ",M,,");
         n = protocol::nmea_finish(s, n);
         pending_.append(s, static_cast<size_t>(n));

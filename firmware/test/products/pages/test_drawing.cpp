@@ -30,7 +30,7 @@ RadarSnapshot flying(uint16_t track_deg) {
     RadarSnapshot snap;
     snap.fix_valid = true;
     snap.range_nm = kDefaultRangeNm;
-    snap.track_deg = track_deg;
+    snap.track_cdeg = track_deg * 100;
     snap.flight_time_valid = true;
     snap.airborne = true;
     snap.flight_seconds = 42 * 60;
@@ -235,7 +235,7 @@ RadarTarget abeam[1] = {{0, 3000, 0, Level::None}};
 // The dots are only struck when the plot has company, so every case has some.
 RadarSnapshot cruising(int32_t speed_mps) {
     RadarSnapshot snap = flying(0);
-    snap.speed_mps = speed_mps;
+    snap.speed_mm_s = speed_mps * 1000;
     snap.n_targets = 1;
     snap.targets = abeam;
     return snap;
@@ -244,7 +244,7 @@ RadarSnapshot cruising(int32_t speed_mps) {
 // The dots and nothing else: the same plot without own-ship's own run under it.
 int marks_in(const RadarSnapshot& snap, int x0, int y0, int x1, int y1) {
     RadarSnapshot still = snap;
-    still.speed_mps = 0;
+    still.speed_mm_s = 0;
     const Glass with = radar(snap), without = radar(still);
     int n = 0;
     for (int y = y0; y < y1; y++)
@@ -281,13 +281,13 @@ TEST_CASE("radar: traffic is a ring, and the advisory fills it") {
 
 TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the glass") {
     // 30 m/s for 60 s is 1800 m, which is 22 px on the 4 NM ring.
-    RadarTarget north[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0}};
+    RadarTarget north[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30000, 0}};
     const Glass ahead = radar(one_target(north));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
     CHECK_FALSE(ahead.get_pixel(kPlotX, kPlotY - 30));
 
-    RadarTarget crossing[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 90}};
+    RadarTarget crossing[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30000, 9000}};
     const Glass east = radar(one_target(crossing));
     CHECK(east.get_pixel(kPlotX + 20, kPlotY));
     CHECK_FALSE(east.get_pixel(kPlotX, kPlotY - 16));
@@ -296,7 +296,7 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the 
     CHECK_FALSE(radar(one_target(parked)).get_pixel(kPlotX, kPlotY - 16));
 
     // 100 m/s from 3.8 NM out runs off the top: the ring is a scale, not a wall.
-    RadarTarget fast[1] = {{(38 * kMetresPerNm) / 10, 0, 0, Level::None, 0, false, 100, 0}};
+    RadarTarget fast[1] = {{(38 * kMetresPerNm) / 10, 0, 0, Level::None, 0, false, 100000, 0}};
     const Glass running_out = radar(one_target(fast));
     CHECK(running_out.get_pixel(kPlotX, 8));
     CHECK(running_out.get_pixel(kPlotX, 0));
@@ -306,13 +306,13 @@ TEST_CASE("radar: a leader line runs the minute ahead of the target, out to the 
 // untouched.
 TEST_CASE("radar: a formation is own ship, counted by quadrant") {
     RadarTarget flight[4] = {
-        {900, 400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
-        {700, 600, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
-        {-600, 500, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
-        {-700, -400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
+        {900, 400, 0, Level::Advisory, 0, false, 40000, 9000, 0, false, true},
+        {700, 600, 0, Level::Advisory, 0, false, 40000, 9000, 0, false, true},
+        {-600, 500, 0, Level::Advisory, 0, false, 40000, 9000, 0, false, true},
+        {-700, -400, 0, Level::Advisory, 0, false, 40000, 9000, 0, false, true},
     };
     RadarSnapshot snap = flying(0);
-    snap.speed_mps = 40;
+    snap.speed_mm_s = 40000;
     snap.n_targets = 4;
     snap.targets = flight;
     snap.formation_members = 4;
@@ -349,8 +349,8 @@ TEST_CASE("radar: a formation is own ship, counted by quadrant") {
 
 // The leader is the arc the alarm grades, so a target in a turn does not draw a tangent.
 TEST_CASE("radar: a turning target's leader is its arc") {
-    RadarTarget straight[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0}};
-    RadarTarget arcing[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0, 2, true}};
+    RadarTarget straight[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30000, 0}};
+    RadarTarget arcing[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30000, 0, 200, true}};
     RadarSnapshot snap = flying(0);
     snap.n_targets = 1;
 
@@ -365,7 +365,8 @@ TEST_CASE("radar: a turning target's leader is its arc") {
     CHECK(ink_in(curved, kPlotX + 6, kPlotY - 12, kPlotX + 18, kPlotY) > 0);
 
     // A target whose turn rate nobody has measured yet is flown straight.
-    RadarTarget unknown[1] = {{2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30, 0, 2, false}};
+    RadarTarget unknown[1] = {
+        {2 * kMetresPerNm, 0, 0, Level::None, 0, false, 30000, 0, 200, false}};
     snap.targets = unknown;
     CHECK(radar(snap).get_pixel(kPlotX, kPlotY - 22));
 }
@@ -375,7 +376,7 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
     // 4.2 NM abeam is off the 4 NM ring and still on the glass, at 96 px.
     RadarTarget beside[1] = {{0, (42 * kMetresPerNm) / 10, 0, Level::Advisory}};
     RadarSnapshot snap = flying(0);
-    snap.speed_mps = 30;
+    snap.speed_mm_s = 30000;
     snap.n_targets = 1;
     snap.targets = beside;
     const Glass fb = radar(snap);
@@ -388,7 +389,7 @@ TEST_CASE("radar: traffic past the ring still draws, and the count stays on the 
     CHECK_FALSE(fb.get_pixel(99, 77));
 
     // The footer owns the bottom band, so traffic outside the ring keeps off it.
-    RadarTarget behind[1] = {{-6500, -4000, -200, Level::None, 0, false, 30, 20}};
+    RadarTarget behind[1] = {{-6500, -4000, -200, Level::None, 0, false, 30000, 2000}};
     RadarSnapshot low = snap;
     low.targets = behind;
     RadarSnapshot none = snap;
@@ -437,7 +438,7 @@ TEST_CASE("radar: two dots off the nose mark the next minute and the one after")
     CHECK_FALSE(radar(cruising(0)).get_pixel(99, 77));
 
     RadarSnapshot searching;
-    searching.speed_mps = 30;
+    searching.speed_mm_s = 30000;
     CHECK_FALSE(radar(searching).get_pixel(99, 77));
 }
 
@@ -446,33 +447,33 @@ TEST_CASE("radar: the minute dots ride own ship's turn, not its nose") {
     // 30 m/s at 1 deg/s is a 1719 m radius: 60 deg of it is 10 px right, 18 px up.
     RadarTarget behind[1] = {{-3000, 0, 0, Level::Advisory}};
     RadarSnapshot right = flying(0);
-    right.speed_mps = 30;
+    right.speed_mm_s = 30000;
     right.n_targets = 1;
     right.targets = behind;
-    right.turn_dps = 1;
+    right.turn_cdps = 100;
     CHECK(marks_in(right, 101, 70, 140, 90) == 8);
     CHECK(marks_in(right, 90, 30, 101, 90) == 0);
     CHECK_FALSE(radar(right).get_pixel(99, 77));
 
     RadarSnapshot left = right;
-    left.turn_dps = -1;
+    left.turn_cdps = -100;
     CHECK(marks_in(left, 60, 70, 99, 90) == 8);
     CHECK(marks_in(left, 99, 30, 140, 90) == 0);
 
     RadarSnapshot straight_on = right;
-    straight_on.turn_dps = 0;
+    straight_on.turn_cdps = 0;
     CHECK(marks_in(straight_on, 95, 50, 105, 82) == 8);
 
     // A thermalling turn closes its circle inside the aeroplane: nothing to mark.
     RadarSnapshot circling = right;
-    circling.turn_dps = 6;
+    circling.turn_cdps = 600;
     CHECK(marks_in(circling, 0, 0, 200, 200) == 0);
 }
 
 // An empty ring needs no scale: the dots are read against traffic or not at all.
 TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
     RadarSnapshot alone = flying(0);
-    alone.speed_mps = 30;
+    alone.speed_mm_s = 30000;
     CHECK_FALSE(radar(alone).get_pixel(99, 77));
     CHECK_FALSE(radar(alone).get_pixel(99, 55));
 
@@ -481,7 +482,7 @@ TEST_CASE("radar: the minute dots keep off a plot with nothing on it") {
     // Heard but outside the ring is not on the plot, and does not bring them back.
     RadarTarget far_out[1] = {{40000, 0, 0, Level::None}};
     RadarSnapshot beyond = flying(0);
-    beyond.speed_mps = 30;
+    beyond.speed_mm_s = 30000;
     beyond.n_targets = 1;
     beyond.targets = far_out;
     CHECK_FALSE(radar(beyond).get_pixel(99, 77));
@@ -595,7 +596,7 @@ TEST_CASE("radar: a tag keeps off own ship and off the line its target is flying
     CHECK(reads_in(radar(one_target(quarter)), "+10", 110, 90, 180, 115, 2));
 
     // Flying straight up the glass, the tag would sit on the whole minute of line.
-    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, false, 30, 0}};
+    RadarTarget running[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, false, 30000, 0}};
     const Glass ahead = radar(one_target(running));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 16));
     CHECK(ahead.get_pixel(kPlotX, kPlotY - 22));
@@ -615,7 +616,7 @@ TEST_CASE("radar: the plot turns with the track, so what is ahead is up the glas
     CHECK_FALSE(ahead.get_pixel(100 + 46 + 2, 100));
 
     RadarSnapshot flying_north = flying_east;
-    flying_north.track_deg = 0;
+    flying_north.track_cdeg = 0;
     const Glass beam = radar(flying_north);
     CHECK(beam.get_pixel(100 + 46 + 2, 100));
     CHECK_FALSE(beam.get_pixel(99, 99 - 46 + 1 - 2));
@@ -812,7 +813,7 @@ TEST_CASE("radar: a tag lands off the state word rather than erasing it") {
 }
 
 TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {
-    // 1500 m = 4921 ft, 40 kt = 20 m/s (speed_q is quarter-m/s), +2.0 m/s =
+    // 1500 m = 4921 ft, 20 m/s = 39 kt, +2.0 m/s =
     // +394 fpm. Rendering is 5x7 glyphs, so the check is on the row's ink: the
     // dual-unit row is wider than a single-unit one would be.
     Glass both;
@@ -820,10 +821,10 @@ TEST_CASE("status: every value reads in the aeronautical unit first, then SI") {
     s.fix_valid = true;
     s.utc_valid = true;
     s.sats = 9;
-    s.alt_m = 1500;
-    s.speed_q = 80;
+    s.alt_mm = 1500000;
+    s.speed_mm_s = 20000;
     s.climb_mm_s = 2000;
-    s.track_c9 = 128;
+    s.track_cdeg = 9000;
     draw_status(both, s);
 
     // The barometric rows only exist when a barometer answered: altitude on the
@@ -848,7 +849,7 @@ TEST_CASE("status: the barometer row reads what the sensor resolves, beside the 
     s.climb_mm_s = -1234;  // -243 fpm, a rate the 0.125 m/s of ADS-L cannot hold
     draw_status(fb, s);
 
-    CHECK(reads_in(fb, "1013.252", 0, 85, 200, 105));
+    CHECK(reads_in(fb, "1013.253", 0, 85, 200, 105));
     CHECK(reads_in(fb, "Q1013", 0, 85, 200, 105));
     CHECK(reads_in(fb, "-243", 0, 165, 200, 185));
     CHECK(reads_in(fb, "-1.23", 0, 165, 200, 185));
@@ -1104,7 +1105,7 @@ TEST_CASE("panel model: the driver's own output is what the model shows") {
     Glass fb;
     StatusSnapshot s;
     s.fix_valid = true;
-    s.alt_m = 900;
+    s.alt_mm = 900000;
     s.baro_valid = true;
     s.pressure_mpa = 90810000;
     draw_status(fb, s);
@@ -1210,7 +1211,7 @@ TEST_CASE("radar: the sector stops under the ring, which stays black through the
 TEST_CASE("radar: a flashing sector keeps off the formation square, not the glass around it") {
     RadarTarget flight[2] = {
         {0, 3000, 0, Level::Advisory},
-        {900, 400, 0, Level::Advisory, 0, false, 40, 90, 0, false, true},
+        {900, 400, 0, Level::Advisory, 0, false, 40000, 9000, 0, false, true},
     };
     RadarSnapshot snap = flying(0);
     snap.n_targets = 2;

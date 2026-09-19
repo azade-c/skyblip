@@ -85,7 +85,7 @@ std::string list_count(Rig& rig, uint32_t& t) {
 // A takeoff, some minutes of flight, and a landing, in the units core/flight
 // judges. 50 m/s is 200 quarter-metres per second; standing still is zero.
 void taxi(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 0, 300); }
-void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 200, 800); }
+void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 50000, 800); }
 
 // What one walk of a whole session observed. Kept as a value so a case can say
 // what the negotiated payload changed about the transfer without repeating it.

@@ -6,6 +6,12 @@
 
 namespace skyblip {
 
+// INFO: fc 19sep26 integer division truncates toward zero, which reads a measurement a unit low
+template <class T>
+constexpr T div_round(T num, T den) {
+    return num >= 0 ? (num + den / 2) / den : -((-num + den / 2) / den);
+}
+
 int16_t isin(int16_t angle);
 inline int16_t icos(int16_t angle) { return isin(static_cast<int16_t>(angle + 0x4000)); }
 

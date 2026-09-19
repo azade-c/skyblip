@@ -12,6 +12,7 @@
 #include "core/protocol/nmea_out.h"
 #include "core/timing/transmit.h"
 #include "core/units/units.h"
+#include "core/util/intmath.h"
 #include "products/skyblip_go/pages/installing.h"
 #include "ui/widgets/wordmark.h"
 
@@ -170,8 +171,8 @@ MenuValues ScreenService::menu_values() const {
     values.settings = settings_;
     values.qnh_pa = context_.state.baro.qnh_pa;
     values.range_nm = range_nm_;
-    values.pressure_pa = context_.state.baro.pressure_mpa / 1000;
-    values.gnss_alt_cm = context_.state.own.alt_m * 100;
+    values.pressure_pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
+    values.gnss_alt_cm = div_round(context_.state.own.alt_mm, 10);
     values.alignable = context_.state.baro.active && context_.state.own.fix_valid;
     return values;
 }
@@ -401,9 +402,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.stage = context_.state.gnss.stage;
             snap.units = settings.units;
             snap.range_nm = range_nm_;
-            snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
-            snap.speed_mps = to_mps(QuarterMetresPerSec(own.speed_q)).v;
-            snap.turn_dps = own.turn_dps;
+            snap.track_cdeg = own.track_cdeg;
+            snap.speed_mm_s = own.speed_mm_s;
+            snap.turn_cdps = own.turn_cdps;
             snap.flight_seconds = context_.state.flight.seconds;
             snap.flight_time_valid = context_.state.flight.time_valid;
             snap.airborne = context_.state.flight.running;
@@ -427,10 +428,10 @@ void ScreenService::render(uint32_t now_ms) {
                     targets_[n].alarm_dismissed = t->alarm_dismissed;
                     targets_[n].climb_e8 = obs.climb_e8;
                     targets_[n].climb_valid = obs.climb_valid;
-                    targets_[n].speed_mps =
-                        obs.speed_valid ? to_mps(QuarterMetresPerSec(obs.speed_q)).v : 0;
-                    targets_[n].track_deg = to_degrees(Cordic9(obs.track_c9)).v;
-                    targets_[n].turn_dps = t->turn.dps;
+                    targets_[n].speed_mm_s =
+                        obs.speed_valid ? to_mm_s(QuarterMetresPerSec(obs.speed_q)).v : 0;
+                    targets_[n].track_cdeg = to_centi_degrees(Cordic9(obs.track_c9)).v;
+                    targets_[n].turn_cdps = static_cast<int16_t>(t->turn.dps * 100);
                     targets_[n].turn_valid = t->turn.valid;
                     targets_[n].in_formation = t->in_formation;
                     n++;
@@ -445,11 +446,11 @@ void ScreenService::render(uint32_t now_ms) {
             SixPackSnapshot snap;
             snap.data_valid = own.fix_valid;
             snap.units = settings.units;
-            snap.speed_kt = to_knots(QuarterMetresPerSec(own.speed_q)).v;
-            snap.alt_ft = to_feet(Metres(own.alt_m)).v;
+            snap.speed_kt = to_knots(MillimetresPerSec(own.speed_mm_s)).v;
+            snap.alt_ft = to_feet(Millimetres(own.alt_mm)).v;
             snap.vs_fpm = climb_fpm();
             snap.vs_valid = climb_measured();
-            snap.track_deg = to_degrees(Cordic9(own.track_c9)).v;
+            snap.track_deg = to_degrees(CentiDegrees(own.track_cdeg)).v;
             snap.turn_cdps = own.turn_cdps;
             snap.bank_deg = context_.state.bank.deg;
             snap.bank_valid = context_.state.bank.valid;
@@ -528,9 +529,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.fix_mode = context_.state.gnss.fix_mode;
             snap.lat_1e7 = own.lat_1e7;
             snap.lon_1e7 = own.lon_1e7;
-            snap.alt_m = own.alt_m;
-            snap.speed_q = own.speed_q;
-            snap.track_c9 = own.track_c9;
+            snap.alt_mm = own.alt_mm;
+            snap.speed_mm_s = own.speed_mm_s;
+            snap.track_cdeg = own.track_cdeg;
             snap.climb_mm_s = own.climb_mm_s;
             snap.utc = own.utc;
             snap.n_targets = context_.state.traffic.count();
@@ -560,9 +561,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.pressure_mpa = context_.state.baro.pressure_mpa;
             snap.qnh_pa = context_.state.baro.qnh_pa;
             if (context_.state.baro.active) {
-                const uint32_t pa = context_.state.baro.pressure_mpa / 1000;
-                snap.alt_qnh_m = flight::alt_cm_on_setting(pa, context_.state.baro.qnh_pa) / 100;
-                snap.alt_std_m = flight::pressure_to_alt_cm(pa) / 100;
+                const uint32_t pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
+                snap.alt_qnh_m =
+                    div_round(flight::alt_cm_on_setting(pa, context_.state.baro.qnh_pa), 100);
+                snap.alt_std_m = div_round(flight::pressure_to_alt_cm(pa), 100);
             }
             draw_status(fb_, snap);
             break;

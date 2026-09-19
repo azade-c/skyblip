@@ -249,9 +249,9 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
     skyblip::model::OwnState own{};
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1500;  // HAE: what G.1.7 transmits
-    own.speed_q = 200;
-    own.climb_e8 = 16;
+    own.alt_mm = 1500000;  // HAE: what G.1.7 transmits
+    own.speed_mm_s = 50000;
+    own.climb_mm_s = 2000;
 
     // No fix yet: altitude and ground speed are unavailable, not zero.
     AdslPacket p{};
@@ -286,9 +286,9 @@ TEST_CASE("adsl: stealth withholds the climb rate and claims no registered ident
     own.climb_valid = true;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1500;
-    own.speed_q = 200;
-    own.climb_e8 = 24;
+    own.alt_mm = 1500000;
+    own.speed_mm_s = 50000;
+    own.climb_mm_s = 3000;
     own.hdop_e2 = 90;
 
     AdslPacket open{};
@@ -340,8 +340,8 @@ TEST_CASE("adsl: from_own claims integrity from the receiver's DOP") {
     skyblip::model::OwnState own{};
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1500;
-    own.speed_q = 200;
+    own.alt_mm = 1500000;
+    own.speed_mm_s = 50000;
     own.hdop_e2 = 90;
     own.vdop_e2 = 150;
 

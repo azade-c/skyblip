@@ -252,22 +252,22 @@ TEST_CASE("product: the unit setting reaches the pages that print one") {
 
 // The pilot the word is for is looking out of the window, not at the footer.
 TEST_CASE("product: an aircraft rolling on the ground says TAXI in the ring, parked says GROUND") {
-    auto radar_says = [](const char* word, uint16_t speed_q) {
+    auto radar_says = [](const char* word, int32_t speed_mm_s) {
         Rig rig;
         REQUIRE(rig.setup() == Status::Ok);
         uint32_t t = 100;
-        rig.seconds(t, 20, speed_q, 300);
+        rig.seconds(t, 20, speed_mm_s, 300);
         REQUIRE(rig.product.screen().page() == go::Page::Radar);
         return reads_in(rig.product.screen().framebuffer(), word, 40, 120, 160, 160, 2);
     };
 
     CHECK(radar_says("GROUND", 0));
-    CHECK(radar_says("TAXI", 12));  // 3 m/s, a tug on the perimeter track
-    CHECK_FALSE(radar_says("GROUND", 12));
+    CHECK(radar_says("TAXI", 3000));  // a tug on the perimeter track
+    CHECK_FALSE(radar_says("GROUND", 3000));
 
     // 1.5 m/s is where the word picks up: a parked receiver's own noise is not a taxi.
-    CHECK(radar_says("TAXI", 6));
-    CHECK(radar_says("GROUND", 5));
+    CHECK(radar_says("TAXI", 1500));
+    CHECK(radar_says("GROUND", 1250));
 }
 
 // A metre a second of multipath on a parked receiver used to cost a word and a refresh a second.
@@ -282,16 +282,16 @@ TEST_CASE("product: the word holds through the band between a standstill and a t
     rig.seconds(t, 20, 0, 300);
     REQUIRE(reads(rig, "GROUND"));
 
-    rig.seconds(t, 5, 5, 300);  // 1.25 m/s of noise on a device that has not moved
+    rig.seconds(t, 5, 1250, 300);  // 1.25 m/s of noise on a device that has not moved
     CHECK(reads(rig, "GROUND"));
 
-    rig.seconds(t, 5, 8, 300);  // 2 m/s, a glider pushed to the grid
+    rig.seconds(t, 5, 2000, 300);  // 2 m/s, a glider pushed to the grid
     REQUIRE(reads(rig, "TAXI"));
 
-    rig.seconds(t, 5, 5, 300);  // the same 1.25 m/s, now a taxi slowing for the turn
+    rig.seconds(t, 5, 1250, 300);  // the same 1.25 m/s, now a taxi slowing for the turn
     CHECK(reads(rig, "TAXI"));
 
-    rig.seconds(t, 5, 3, 300);  // 0.75 m/s: stopped, and the word goes back
+    rig.seconds(t, 5, 750, 300);  // 0.75 m/s: stopped, and the word goes back
     CHECK(reads(rig, "GROUND"));
 }
 
@@ -300,7 +300,7 @@ TEST_CASE("product: a fix lost in the air says NO FIX over a clock that keeps ru
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0;
-    rig.seconds(t, 130, 100, 300);  // 25 m/s: airborne, and two minutes of it
+    rig.seconds(t, 130, 25000, 300);  // 25 m/s: airborne, and two minutes of it
     REQUIRE(rig.state().flight.running);
     const uint32_t flown = rig.state().flight.seconds;
     REQUIRE(flown >= 2 * 60);

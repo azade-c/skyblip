@@ -165,8 +165,8 @@
           Turn is what a bank holds: 3 &deg;/s is a standard rate turn, 13 to 18 a glider
           thermalling, and past 30 the alarm stops believing the projection, which is why
           the slider goes to 60. With GYRO off in the six-pack menu the needle is the GNSS
-          track differentiated once a second, and that track resolves 0.7 &deg;, so a steady
-          3 &deg;/s steps between 3 and 4; switch the gyro on and it reads 3.
+          track differentiated once a second, which the receiver reports to a hundredth of a
+          degree; switch the gyro on and the needle answers in milliseconds instead.
           Slip is the rudder: it feeds a simulated BHI260AP whose
           firmware the device uploads at boot, so the ball takes a few seconds to appear
           and then lags the slider the way a damped ball in a tube does.</div>
@@ -489,13 +489,13 @@ function draw() {
   $('t_fix').textContent  = f.fixValid() ? '3D' : 'no fix';
   $('t_sats').textContent = f.sats();
   $('t_pos').textContent  = (f.lat()/1e7).toFixed(5) + ', ' + (f.lon()/1e7).toFixed(5);
-  $('t_alt').textContent  = f.alt() + ' m';
-  $('t_spd').textContent  = (f.speedQ()/4).toFixed(1) + ' m/s';
-  $('t_trk').textContent  = Math.round(f.trackC9()*360/512).toString().padStart(3,'0') + '°';
+  $('t_alt').textContent  = (f.altMm()/1000).toFixed(1) + ' m';
+  $('t_spd').textContent  = (f.speedMmS()/1000).toFixed(2) + ' m/s';
+  $('t_trk').textContent  = (f.trackCdeg()/100).toFixed(2).padStart(6,'0') + '°';
   // What the firmware differentiated out of the track it decoded, which is the
   // number the alarm projects an arc with.
-  const turn = f.turnDps();
-  $('t_turn').textContent = (turn > 0 ? '+' : '') + turn + ' °/s';
+  const turn = f.turnCdps()/100;
+  $('t_turn').textContent = (turn > 0 ? '+' : '') + turn.toFixed(2) + ' °/s';
   $('t_vs').textContent   = (f.climbMmS()/1000).toFixed(2) + ' m/s';
   $('t_baro').textContent = (f.pressureMpa()/100000).toFixed(3) + ' hPa';
   $('t_bat').textContent  = (f.batteryMv()/1000).toFixed(2) + ' V · ' + f.batteryPercent() + ' %'

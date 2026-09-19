@@ -63,10 +63,10 @@ model::OwnState flying() {
     own.climb_valid = true;
     own.lat_1e7 = 481234500;
     own.lon_1e7 = 81234500;
-    own.alt_m = 1000;
-    own.speed_q = 120 * 4;
-    own.climb_e8 = 80;
-    own.track_c9 = 128;
+    own.alt_mm = 1000000;
+    own.speed_mm_s = 120 * 1000;
+    own.climb_mm_s = 10000;
+    own.track_cdeg = 9000;
     own.hdop_e2 = 90;
     own.vdop_e2 = 150;
     own.flight_state = 2;

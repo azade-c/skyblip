@@ -16,20 +16,20 @@ struct OwnState {
     int32_t lon_1e7;
     // Height above the WGS-84 ellipsoid: ADS-L G.1.7 transmits HAE, and every
     // neighbour altitude we receive is measured against the same datum, so a
-    // relative height only means something if ours uses it too. alt_msl_m is the
+    // relative height only means something if ours uses it too. alt_msl_mm is the
     // geoid-referenced figure a panel or an IGC file wants.
-    int32_t alt_m;
-    int32_t alt_msl_m;
+    int32_t alt_mm;
+    int32_t alt_msl_mm;
     int32_t climb_mm_s;
-    int16_t climb_e8;
-    uint16_t speed_q;
-    uint16_t track_c9;
-    // Rate of turn, degrees per second, positive to the right. The extrapolation
-    // to the transmit instant needs it, so it is own-ship state and not a
-    // display value.
-    int16_t turn_dps;
-    // The same rate in hundredths, which is what the inertial sensor can resolve
-    // and the six-pack's needle is drawn from. Zero when nothing measured it.
+    // INFO: fc 19sep26 what the instruments resolve: the wire's coarser units are the encoder's
+    int32_t speed_mm_s;
+    // Track over the ground in hundredths of a degree, 0 to 35999. The rate of
+    // turn is differentiated from this, so a whole degree here is a tenth of a
+    // standard rate turn of error there.
+    int32_t track_cdeg;
+    // Rate of turn in hundredths of a degree a second, positive to the right.
+    // The extrapolation to the transmit instant needs it, so it is own-ship
+    // state and not a display value. Zero when nothing measured it.
     int16_t turn_cdps;
     uint32_t utc;
     // When the fix that made this state arrived. ADS-L G.1.16 refuses to

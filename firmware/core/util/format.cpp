@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "core/util/intmath.h"
+
 namespace skyblip {
 
 int fmt_string(char* out, const char* s) {
@@ -57,7 +59,7 @@ int fmt_dm(char* out, int32_t coord_1e7, int deg_digits) {
     uint32_t a = coord_1e7 < 0 ? -coord_1e7 : coord_1e7;
     uint32_t deg = a / 10000000u;
     uint64_t rem = static_cast<uint64_t>(a) - static_cast<uint64_t>(deg) * 10000000u;
-    uint64_t min_e4 = rem * 60u * 10000u / 10000000u;
+    uint64_t min_e4 = div_round<uint64_t>(rem * 60u * 10000u, 10000000u);
     uint32_t mm = static_cast<uint32_t>(min_e4 / 10000u);
     uint32_t frac = static_cast<uint32_t>(min_e4 % 10000u);
     int n = 0;

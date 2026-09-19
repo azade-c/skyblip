@@ -64,7 +64,7 @@ void pass(Rig& rig, Dump& dump, uint32_t& t, uint32_t ms) {
 // Seconds of flight: a solution a second, and the passes between them.
 void fly(Rig& rig, Dump& dump, uint32_t& t, uint32_t seconds) {
     for (uint32_t i = 0; i < seconds; i++) {
-        rig.push_timed_fix(200, 500);
+        rig.push_timed_fix(50000, 500);
         pass(rig, dump, t, 950);
         rig.utc_offset_s++;
     }
@@ -200,7 +200,7 @@ TEST_CASE("diagnostics: the console and the link cannot disagree") {
     uint32_t t = 0;
     rig.platform.battery().millivolts = 3812;
     for (int i = 0; i < 4; i++) {
-        rig.push_timed_fix(200, 500);
+        rig.push_timed_fix(50000, 500);
         pass(rig, dump, t, 950);
         rig.utc_offset_s++;
     }

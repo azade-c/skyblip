@@ -2,6 +2,7 @@
 
 #include "core/units/units.h"
 #include "core/util/format.h"
+#include "core/util/intmath.h"
 
 namespace skyblip::go {
 
@@ -42,9 +43,9 @@ int fmt_elapsed(char* out, uint32_t seconds) {
 constexpr uint32_t kImuCountCeiling = 99;
 constexpr uint8_t kImuMetaInitialised = 16;
 
-int32_t knots(uint16_t speed_q) { return to_knots(QuarterMetresPerSec(speed_q)).v; }
+int32_t knots(int32_t speed_mm_s) { return to_knots(MillimetresPerSec(speed_mm_s)).v; }
 
-int32_t kilometres_per_hour(uint16_t speed_q) { return to_kmh(QuarterMetresPerSec(speed_q)).v; }
+int32_t kilometres_per_hour(int32_t speed_mm_s) { return to_kmh(MillimetresPerSec(speed_mm_s)).v; }
 
 // Draw "LABEL  value" on one row.
 void row(ui::Canvas& fb, int y, const char* label, const char* value) {
@@ -101,7 +102,7 @@ void dual_row(ui::Canvas& fb, int y, const char* label, Quantity aero, Quantity 
 // so they share the one unit.
 void pressure_row(ui::Canvas& fb, int y, uint32_t pressure_mpa, uint32_t qnh_pa) {
     char baro[12];
-    int n = fmt_uint(baro, pressure_mpa / 100, 1, 3);
+    int n = fmt_uint(baro, div_round<uint32_t>(pressure_mpa, 100), 1, 3);
     baro[n] = 0;
 
     char qnh[8];
@@ -257,7 +258,7 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
     }
     y += kLineH;
 
-    n = fmt_uint(buf, to_degrees(Cordic9(s.track_c9)).v, 3);
+    n = fmt_uint(buf, to_degrees(CentiDegrees(s.track_cdeg)).v, 3);
     buf[n] = 0;
     text_row(fb, y, "TRK", buf, " TRUE");
     imu_field(fb, y, s);
@@ -285,7 +286,8 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
         y += kLineH * 2;
     }
 
-    dual_row(fb, y, "GNSS", {to_feet(Metres(s.alt_m)).v, 0, " ft"}, {s.alt_m, 0, " m"}, true);
+    const int32_t alt_m = to_metres(Millimetres(s.alt_mm)).v;
+    dual_row(fb, y, "GNSS", {to_feet(Millimetres(s.alt_mm)).v, 0, " ft"}, {alt_m, 0, " m"}, true);
     y += kLineH;
 
     if (s.baro_valid)
@@ -293,12 +295,12 @@ void draw_status(ui::Canvas& fb, const StatusSnapshot& s) {
                  true);
     y += kLineH;
 
-    dual_row(fb, y, "SPD", {knots(s.speed_q), 0, " kt"},
-             {kilometres_per_hour(s.speed_q), 0, " km/h"}, true);
+    dual_row(fb, y, "SPD", {knots(s.speed_mm_s), 0, " kt"},
+             {kilometres_per_hour(s.speed_mm_s), 0, " km/h"}, true);
     y += kLineH;
 
     dual_row(fb, y, "VS", {to_feet_per_minute(MillimetresPerSec(s.climb_mm_s)).v, 0, " fpm"},
-             {s.climb_mm_s / 10, 2, " m/s"}, false);
+             {div_round(s.climb_mm_s, 10), 2, " m/s"}, false);
     y += kLineH;
 
     battery_row(fb, y, s);

@@ -15,7 +15,7 @@ namespace skyblip::gnss {
 // .../src/driver/GNSS.cpp:1681-1684). Our operating region is central Europe,
 // where EGM96 separation runs 45-48 m, so 46 m is the assumption we make and
 // declare through geoid_separation_measured.
-constexpr int32_t kDefaultGeoidSeparationM = 46;
+constexpr int32_t kDefaultGeoidSeparationMm = 46000;
 
 // INFO: fc 03aug26 A GGA that stops mid-sentence still carries a checksum over
 // what did arrive, so the checksum cannot catch it. moshe-braner refuses any GGA
@@ -56,15 +56,16 @@ struct GnssSolution {
     bool utc_valid{false};
     int32_t lat_1e7{0};
     int32_t lon_1e7{0};
-    // INFO: gn 09Jun25 alt_m is height above the WGS-84 ELLIPSOID (HAE), which is
+    // INFO: gn 09Jun25 alt_mm is height above the WGS-84 ELLIPSOID (HAE), which is
     // what ADS-L 4 SRD860 issue 2 G.1.7 transmits and what every received
-    // neighbour altitude is measured in. alt_msl_m is GGA field 9, the value a
+    // neighbour altitude is measured in. alt_msl_mm is GGA field 9, the value a
     // panel or an IGC file wants.
-    int32_t alt_m{0};
-    int32_t alt_msl_m{0};
-    int32_t geoid_separation_m{kDefaultGeoidSeparationM};
-    uint16_t speed_q{0};
-    uint16_t track_c9{0};
+    int32_t alt_mm{0};
+    int32_t alt_msl_mm{0};
+    int32_t geoid_separation_mm{kDefaultGeoidSeparationMm};
+    // INFO: fc 19sep26 what the receiver resolves, not what the wire carries: RMC fields 7 and 8
+    int32_t speed_mm_s{0};
+    int32_t track_cdeg{0};
     uint32_t utc{0};
     // Horizontal dilution of precision in hundredths, GGA field 8.
     uint16_t hdop_e2{0};

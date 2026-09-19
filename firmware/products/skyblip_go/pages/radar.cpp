@@ -67,8 +67,6 @@ constexpr uint32_t kLeaderStepMs = 5000;
 constexpr int kLeaderSteps = static_cast<int>((kLeaderSeconds * 1000) / kLeaderStepMs);
 constexpr uint32_t kMinuteStepMs = 10000;
 constexpr int kStepsPerMinute = static_cast<int>((kLeaderSeconds * 1000) / kMinuteStepMs);
-constexpr int32_t kSpeedQPerMps = 4;
-constexpr int32_t kTrackC9Turn = 512;
 constexpr int kMinLeaderPx = 3;
 constexpr int kOwnNoseAhead = ui::kSkyshipRowsToNose + 1;
 constexpr int kMinuteClearPx = kOwnNoseAhead + kMinLeaderPx;
@@ -191,7 +189,7 @@ struct RangeText {
 RangeText range_text(const RadarSnapshot& snap) {
     RangeText t;
     const bool metric = snap.units == go::Units::Metric;
-    const int32_t km_e1 = (snap.range_nm * kMetresPerNm) / 100;
+    const int32_t km_e1 = div_round(snap.range_nm * kMetresPerNm, 100);
     const int n = metric ? fmt_uint(t.number, static_cast<uint32_t>(km_e1), 2, 1)
                          : fmt_uint(t.number, static_cast<uint32_t>(snap.range_nm));
     t.number[n] = 0;
@@ -302,12 +300,11 @@ bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, 
     return true;
 }
 
-flight::Motion motion_of(int32_t speed_mps, uint16_t track_deg, int16_t turn_dps, bool turning) {
+flight::Motion motion_of(int32_t speed_mm_s, int32_t track_cdeg, int16_t turn_cdps, bool turning) {
     flight::Motion m{};
-    m.speed_q = static_cast<uint16_t>(speed_mps * kSpeedQPerMps);
-    m.track_c9 =
-        static_cast<uint16_t>((static_cast<int32_t>(track_deg % 360) * kTrackC9Turn) / 360);
-    m.turn_dps = turn_dps;
+    m.speed_mm_s = speed_mm_s;
+    m.track_cdeg = track_cdeg;
+    m.turn_cdps = turn_cdps;
     m.turning = turning;
     return m;
 }
@@ -365,8 +362,9 @@ void formation_counts(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) 
 }
 
 int own_minute_marks(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track, Box* marked) {
-    if (snap.speed_mps <= 0) return 0;
-    flight::Arc arc(motion_of(snap.speed_mps, snap.track_deg, snap.turn_dps, true), kMinuteStepMs);
+    if (snap.speed_mm_s <= 0) return 0;
+    flight::Arc arc(motion_of(snap.speed_mm_s, snap.track_cdeg, snap.turn_cdps, true),
+                    kMinuteStepMs);
     int n = 0;
     for (int step = 1; step <= kMinutesMarked * kStepsPerMinute; step++) {
         const flight::Position ahead = arc.advance();
@@ -388,8 +386,9 @@ struct Leader {
 };
 
 Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track) {
-    if (t.speed_mps <= 0) return {0, 0, false};
-    flight::Arc arc(motion_of(t.speed_mps, t.track_deg, t.turn_dps, t.turn_valid), kLeaderStepMs);
+    if (t.speed_mm_s <= 0) return {0, 0, false};
+    flight::Arc arc(motion_of(t.speed_mm_s, t.track_cdeg, t.turn_cdps, t.turn_valid),
+                    kLeaderStepMs);
     HeadingUp end{0, 0};
     for (int step = 0; step < kLeaderSteps; step++) end = on_glass_at(arc.advance(), snap, track);
     if (end.right * end.right + end.ahead * end.ahead < kMinLeaderPx * kMinLeaderPx)
@@ -400,7 +399,8 @@ Leader leader_of(const RadarSnapshot& snap, const RadarTarget& t, int16_t track)
 void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t, int16_t track,
                  const Plotted& p, const Leader& v) {
     if (!v.valid) return;
-    flight::Arc arc(motion_of(t.speed_mps, t.track_deg, t.turn_dps, t.turn_valid), kLeaderStepMs);
+    flight::Arc arc(motion_of(t.speed_mm_s, t.track_cdeg, t.turn_cdps, t.turn_valid),
+                    kLeaderStepMs);
     int from_x = p.x, from_y = p.y;
     for (int step = 0; step < kLeaderSteps; step++) {
         const HeadingUp at = on_glass_at(arc.advance(), snap, track);
@@ -657,7 +657,7 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
 
     ring(fb, kOuterR);
 
-    const int16_t track = c16(snap.track_deg);
+    const int16_t track = c16(to_degrees(CentiDegrees(snap.track_cdeg)).v);
 
     ui::draw_skyship(fb, kFar, kNear);
 

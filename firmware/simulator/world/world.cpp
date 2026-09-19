@@ -8,6 +8,7 @@
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
+#include "core/units/units.h"
 
 namespace skyblip::simulator {
 
@@ -215,7 +216,7 @@ model::AircraftObs World::as_relayed(const VirtualAircraft& a, const model::OwnS
     obs.lon_1e7 = origin_lon_1e7_;
     if (coslat > 0.01)
         obs.lon_1e7 += static_cast<int32_t>(a.east_m * 1e7 / (kMetresPerDegLat * coslat));
-    obs.alt_m = own.alt_m + static_cast<int32_t>(a.up_m);
+    obs.alt_m = to_metres(Millimetres(own.alt_mm)).v + static_cast<int32_t>(a.up_m);
     obs.position_valid = true;
     return obs;
 }
@@ -326,7 +327,7 @@ void World::transmit(VirtualAircraft& a, uint64_t epoch_us, const model::OwnStat
     // ALP-TAS keys its frames on the UTC second, so a transmitter has to use the
     // second the receiver is in, not the simulation's own count of seconds.
     const uint32_t utc = own.utc_valid ? own.utc : static_cast<uint32_t>(epoch_us / 1000000);
-    const int32_t alt_m = own.alt_m + static_cast<int32_t>(a.up_m);
+    const int32_t alt_m = to_metres(Millimetres(own.alt_mm)).v + static_cast<int32_t>(a.up_m);
     uint8_t chips[protocol::kTxChipBytes] = {0};
     const size_t chip_len = a.system == protocol::System::Alptas
                                 ? alptas_burst(a, utc, alt_m, lat, lon, chips)
@@ -369,7 +370,7 @@ void World::load(const Scenario& scenario) {
     gnss().lat_1e7 = scenario.lat_1e7;
     gnss().lon_1e7 = scenario.lon_1e7;
     gnss().alt_m = scenario.alt_m;
-    gnss().speed_kt = scenario.speed_kt;
+    set_speed_kt(scenario.speed_kt);
     gnss().track_deg = scenario.track_deg;
     gnss().turn_dps = scenario.turn_dps;
 

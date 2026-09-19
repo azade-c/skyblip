@@ -27,7 +27,8 @@ void BankAngle::observe(const BodyRate& rate, const SpecificForce& force, int32_
                         int32_t turn_cdps, uint32_t at_ms) {
     const uint32_t dt_ms = seen_ && at_ms > last_ms_ ? at_ms - last_ms_ : 0;
     if (dt_ms > 0 && dt_ms <= kBankStepCapMs)
-        bank_cdeg_ += (static_cast<int32_t>(rate.roll_cdps) * static_cast<int32_t>(dt_ms)) / 1000;
+        bank_cdeg_ +=
+            div_round(static_cast<int32_t>(rate.roll_cdps) * static_cast<int32_t>(dt_ms), 1000);
 
     const int16_t held = to_c16(bank_cdeg_);
     const int32_t lateral_mg = centripetal_mg(speed_mps, turn_cdps);

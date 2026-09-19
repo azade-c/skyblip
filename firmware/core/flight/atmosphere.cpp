@@ -2,6 +2,9 @@
 
 #include <algorithm>
 
+#include "core/units/units.h"
+#include "core/util/intmath.h"
+
 namespace skyblip::flight {
 
 namespace {
@@ -54,12 +57,12 @@ int32_t pressure_to_alt_mm(uint32_t mpa) {
 
     // Table descends with pressure, so the step is negative. Interpolate on it.
     const int64_t span = alt_mm_at(i + 1) - alt_mm_at(i);
-    return alt_mm_at(i) + static_cast<int32_t>((span * frac) / kStepMpa);
+    return alt_mm_at(i) + static_cast<int32_t>(div_round<int64_t>(span * frac, kStepMpa));
 }
 
 int32_t pressure_to_alt_cm(uint32_t pa) {
     if (pa >= kHiPa) return kAltCm[kN - 1];
-    return pressure_to_alt_mm(pa * kMilli) / 10;
+    return div_round(pressure_to_alt_mm(pa * kMilli), 10);
 }
 
 uint32_t alt_mm_to_pressure_mpa(int32_t alt_mm) {
@@ -97,15 +100,10 @@ bool climb_mm_s_from_alt(int32_t alt_mm_now, int32_t alt_mm_then, uint32_t dt_ms
     if (dt_ms < kMinWindowMs || dt_ms > kMaxWindowMs) return false;
 
     const int64_t d_mm = static_cast<int64_t>(alt_mm_now) - alt_mm_then;
-    out_mm_s = static_cast<int32_t>((d_mm * 1000) / static_cast<int64_t>(dt_ms));
+    out_mm_s = static_cast<int32_t>(div_round<int64_t>(d_mm * 1000, static_cast<int64_t>(dt_ms)));
     return true;
 }
 
-int16_t climb_e8_from_mm_s(int32_t mm_s) {
-    const int64_t eighths = static_cast<int64_t>(mm_s) * 8;
-    int64_t e8 = (eighths >= 0 ? eighths + 500 : eighths - 500) / 1000;
-    e8 = std::clamp<int64_t>(e8, -32768, 32767);
-    return static_cast<int16_t>(e8);
-}
+int16_t climb_e8_from_mm_s(int32_t mm_s) { return to_climb_e8(MillimetresPerSec(mm_s)).v; }
 
 }  // namespace skyblip::flight

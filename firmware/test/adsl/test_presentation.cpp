@@ -18,8 +18,8 @@ protocol::AdslPacket traffic_packet(uint32_t addr = 0x123456, uint8_t table = 6,
     own.utc_valid = true;
     own.lat_1e7 = 481234500;
     own.lon_1e7 = 81234500;
-    own.alt_m = 1234;
-    own.speed_q = 180;
+    own.alt_mm = 1234000;
+    own.speed_mm_s = 45000;  // 180 quarter-m/s on the wire
     own.hdop_e2 = 90;
     own.flight_state = 2;
     protocol::AdslPacket p{};

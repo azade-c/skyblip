@@ -22,7 +22,7 @@ constexpr uint32_t kRefixSettleMs = 5000;
 
 // INFO: fc 18sep26 the takeoff speed over the second a residual spans, so no smaller error invents
 // a flight
-constexpr uint16_t kSettleResidualM = flight::kFlightSpeedQ / 4;
+constexpr uint16_t kSettleResidualM = flight::kFlightSpeedMmS / 1000;
 constexpr uint8_t kSettleFixes = 3;
 
 struct Convergence {

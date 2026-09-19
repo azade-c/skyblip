@@ -3,6 +3,7 @@
 #include "core/model/aircraft.h"
 #include "core/units/units.h"
 #include "core/util/format.h"
+#include "core/util/intmath.h"
 
 namespace skyblip::go {
 
@@ -70,7 +71,7 @@ void draw_row(ui::Canvas& fb, int y, const traffic::RangeRow& row, bool metric) 
     buf[n_id] = 0;
     fb.draw_text(kNearbyIdX, y, buf, true, kNearbyScale);
 
-    const int32_t range_e1 = metric ? row.slant_m / 100 : to_nm_e1(Metres(row.slant_m)).v;
+    const int32_t range_e1 = metric ? div_round(row.slant_m, 100) : to_nm_e1(Metres(row.slant_m)).v;
     int n = range_e1 > kSlantE1Cap ? fmt_string(buf, "FAR")
                                    : fmt_uint(buf, static_cast<uint32_t>(range_e1), 2, 1);
     buf[n] = 0;

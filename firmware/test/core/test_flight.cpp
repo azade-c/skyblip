@@ -11,7 +11,7 @@ namespace {
 
 FlightSample solution(double mps, uint16_t hdop_e2 = 90) {
     FlightSample s{};
-    s.speed_q = static_cast<uint16_t>(mps * 4);
+    s.speed_mm_s = static_cast<int32_t>(mps * 1000);
     s.hdop_e2 = hdop_e2;
     s.fix_valid = true;
     return s;

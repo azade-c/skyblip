@@ -6,6 +6,7 @@
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
+#include "core/units/units.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::traffic {
@@ -13,30 +14,27 @@ namespace skyblip::traffic {
 namespace {
 
 constexpr int32_t kTrigOne = 16384;
-constexpr int32_t kSpeedQPerMps = 4;
-constexpr int kTrackC9ToAngle = 7;
-constexpr int kTrackC9Mask = 0x1FF;
 
-void velocity_ned(uint16_t speed_q, uint16_t track_c9, int32_t& north, int32_t& east) {
-    const int16_t angle =
-        static_cast<int16_t>(static_cast<uint16_t>((track_c9 & kTrackC9Mask) << kTrackC9ToAngle));
-    north = static_cast<int32_t>(speed_q) * icos(angle);
-    east = static_cast<int32_t>(speed_q) * isin(angle);
+// Millimetres a second, north and east, scaled by the cordic one.
+void velocity_ned(int32_t speed_mm_s, int16_t angle, int64_t& north, int64_t& east) {
+    north = static_cast<int64_t>(speed_mm_s) * icos(angle);
+    east = static_cast<int64_t>(speed_mm_s) * isin(angle);
 }
 
 int32_t closing_from_vectors(const model::OwnState& own, const model::AircraftObs& target,
                              int32_t n_m, int32_t e_m, int32_t dist_m) {
     if (dist_m <= 0) return kUnknownTargetSpeedMps;
 
-    int32_t own_n = 0, own_e = 0;
-    velocity_ned(own.speed_q, own.track_c9, own_n, own_e);
-    int32_t target_n = 0, target_e = 0;
-    if (target.speed_valid) velocity_ned(target.speed_q, target.track_c9, target_n, target_e);
+    int64_t own_n = 0, own_e = 0;
+    velocity_ned(own.speed_mm_s, to_angle16(CentiDegrees(own.track_cdeg)), own_n, own_e);
+    int64_t target_n = 0, target_e = 0;
+    if (target.speed_valid)
+        velocity_ned(to_mm_s(QuarterMetresPerSec(target.speed_q)).v,
+                     to_angle16(Cordic9(target.track_c9)), target_n, target_e);
 
-    const int64_t along =
-        static_cast<int64_t>(target_n - own_n) * n_m + static_cast<int64_t>(target_e - own_e) * e_m;
-    const int64_t scale = static_cast<int64_t>(dist_m) * kSpeedQPerMps * kTrigOne;
-    int32_t closing = static_cast<int32_t>(-along / scale);
+    const int64_t along = (target_n - own_n) * n_m + (target_e - own_e) * e_m;
+    const int64_t scale = static_cast<int64_t>(dist_m) * kTrigOne * kMillimetresPerMetre;
+    int32_t closing = static_cast<int32_t>(div_round<int64_t>(-along, scale));
     if (!target.speed_valid) closing += kUnknownTargetSpeedMps;
     return closing;
 }
@@ -65,8 +63,9 @@ AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs&
     a.closing_mps = closing_from_vectors(own, target, n_m, e_m, a.rel_dist_m);
 
     const int16_t brg = iatan2(e_m, n_m);
-    const int own_deg = (static_cast<int>(own.track_c9) * 45) >> 6;
-    const int brg_deg = (static_cast<int>(static_cast<uint16_t>(brg)) * 360) / 65536;
+    const int own_deg = to_degrees(CentiDegrees(own.track_cdeg)).v;
+    const int brg_deg = static_cast<int>(
+        div_round<int32_t>(static_cast<int32_t>(static_cast<uint16_t>(brg)) * 360, 65536) % 360);
     a.rel_bearing_deg = static_cast<uint16_t>(((brg_deg - own_deg) % 360 + 360) % 360);
 
     a.level = level_for(a);

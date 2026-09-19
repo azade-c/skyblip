@@ -2,6 +2,7 @@
 
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
+#include "core/units/units.h"
 #include "core/util/intmath.h"
 
 namespace skyblip::flight {
@@ -9,26 +10,19 @@ namespace skyblip::flight {
 namespace {
 
 constexpr int64_t kTrigOne = 16384;
-constexpr int kTrackC9ToAngle = 7;
-constexpr int32_t kTrackC9Mask = 0x1FF;
 constexpr int64_t kTurn16 = 65536;
-constexpr int64_t kMilliDegreesPerTurn = 360000;
+constexpr int64_t kCentiDegreeMsPerTurn = 36000000;
 // The tree's one figure for the size of the earth, as core/protocol/nmea_out
 // carries it: 1e-7 degree of latitude is 11132 micrometres.
 constexpr int64_t kMicrometresPerE7 = 11132;
-constexpr int64_t kSpeedQPerMps = 4;
-constexpr int64_t kClimbE8PerMps = 8;
 constexpr int64_t kMicrometresPerMetre = 1000000;
+constexpr int64_t kMicrometresPerMillimetre = 1000;
 constexpr int64_t kMsPerS = 1000;
 constexpr int64_t kE7PerTurn = 3600000000LL;
 // Below this cosine a metre of easting is more than a degree of longitude and
 // the scaling stops meaning anything. 88 degrees of latitude is 500 km further
 // north than anything this device will fly over.
 constexpr int64_t kMinLatCosine = 512;
-
-int64_t div_round(int64_t num, int64_t den) {
-    return num >= 0 ? (num + den / 2) / den : -((-num + den / 2) / den);
-}
 
 int64_t iabs64(int64_t v) { return v < 0 ? -v : v; }
 
@@ -41,28 +35,22 @@ int64_t lat_cosine(int32_t lat_1e7) {
     return c < kMinLatCosine ? kMinLatCosine : c;
 }
 
-int16_t angle16_of(uint16_t track_c9) {
-    return static_cast<int16_t>(
-        static_cast<uint16_t>((track_c9 & kTrackC9Mask) << kTrackC9ToAngle));
-}
-
-// Three angle units meet in this file: degrees per second off the turn rate,
-// cordic9 on the wire, and the 16-bit cordic the sine table is indexed by.
-// This is the only conversion between the first and the last.
-int32_t turn_angle16(int16_t turn_dps, int32_t dt_ms) {
+// Two angle units meet in this file: hundredths of a degree, which is what the
+// instruments resolve, and the 16-bit cordic the sine table is indexed by.
+int32_t turn_angle16(int16_t turn_cdps, int32_t dt_ms) {
     return static_cast<int32_t>(
-        div_round(static_cast<int64_t>(turn_dps) * dt_ms * kTurn16, kMilliDegreesPerTurn));
+        div_round(static_cast<int64_t>(turn_cdps) * dt_ms * kTurn16, kCentiDegreeMsPerTurn));
 }
 
 struct Motion {
     int32_t lat_1e7;
     int32_t lon_1e7;
-    int32_t alt_m;
-    int32_t alt_msl_m;
-    uint16_t speed_q;
-    uint16_t track_c9;
-    int16_t climb_e8;
-    int16_t turn_dps;
+    int32_t alt_mm;
+    int32_t alt_msl_mm;
+    int32_t speed_mm_s;
+    int32_t track_cdeg;
+    int32_t climb_mm_s;
+    int16_t turn_cdps;
     bool known;
     bool climbs;
 };
@@ -71,9 +59,9 @@ Prediction carry(const Motion& m, int32_t dt_ms) {
     Prediction out{};
     out.lat_1e7 = m.lat_1e7;
     out.lon_1e7 = m.lon_1e7;
-    out.alt_m = m.alt_m;
-    out.alt_msl_m = m.alt_msl_m;
-    out.track_c9 = static_cast<uint16_t>(m.track_c9 & kTrackC9Mask);
+    out.alt_mm = m.alt_mm;
+    out.alt_msl_mm = m.alt_msl_mm;
+    out.track_cdeg = wrapped(CentiDegrees(m.track_cdeg)).v;
     out.valid = false;
 
     if (!m.known) return out;
@@ -81,28 +69,28 @@ Prediction carry(const Motion& m, int32_t dt_ms) {
     out.valid = true;
     if (dt_ms == 0) return out;
 
-    const int32_t turn16 = turn_angle16(m.turn_dps, dt_ms);
-    const int16_t heading =
-        static_cast<int16_t>(static_cast<uint16_t>(angle16_of(m.track_c9) + turn16 / 2));
+    const int32_t turn16 = turn_angle16(m.turn_cdps, dt_ms);
+    const int16_t heading = static_cast<int16_t>(
+        static_cast<uint16_t>(to_angle16(CentiDegrees(m.track_cdeg)) + turn16 / 2));
 
     const int64_t scale = kTrigOne * kMicrometresPerE7;
-    const int64_t travel =
-        static_cast<int64_t>(m.speed_q) * dt_ms * kMicrometresPerMetre / (kSpeedQPerMps * kMsPerS);
+    const int64_t travel = div_round<int64_t>(
+        static_cast<int64_t>(m.speed_mm_s) * dt_ms * kMicrometresPerMillimetre, kMsPerS);
     out.lat_1e7 = m.lat_1e7 + static_cast<int32_t>(div_round(travel * icos(heading), scale));
     const int64_t east = div_round(travel * isin(heading), scale);
     out.lon_1e7 =
         m.lon_1e7 + static_cast<int32_t>(div_round(east * kTrigOne, lat_cosine(m.lat_1e7)));
 
     if (m.climbs) {
-        const int32_t rise = static_cast<int32_t>(
-            div_round(static_cast<int64_t>(m.climb_e8) * dt_ms, kClimbE8PerMps * kMsPerS));
-        out.alt_m = m.alt_m + rise;
-        out.alt_msl_m = m.alt_msl_m + rise;
+        const int32_t rise =
+            static_cast<int32_t>(div_round(static_cast<int64_t>(m.climb_mm_s) * dt_ms, kMsPerS));
+        out.alt_mm = m.alt_mm + rise;
+        out.alt_msl_mm = m.alt_msl_mm + rise;
     }
 
-    const uint16_t track16 =
-        static_cast<uint16_t>(angle16_of(m.track_c9) + turn16 + (1 << (kTrackC9ToAngle - 1)));
-    out.track_c9 = static_cast<uint16_t>((track16 >> kTrackC9ToAngle) & kTrackC9Mask);
+    out.track_cdeg = centi_degrees_of_angle16(
+                         static_cast<uint16_t>(to_angle16(CentiDegrees(m.track_cdeg)) + turn16))
+                         .v;
     return out;
 }
 
@@ -112,12 +100,12 @@ Prediction extrapolate(const model::OwnState& own, int32_t dt_ms) {
     Motion m{};
     m.lat_1e7 = own.lat_1e7;
     m.lon_1e7 = own.lon_1e7;
-    m.alt_m = own.alt_m;
-    m.alt_msl_m = own.alt_msl_m;
-    m.speed_q = own.speed_q;
-    m.track_c9 = own.track_c9;
-    m.climb_e8 = own.climb_e8;
-    m.turn_dps = own.turn_dps;
+    m.alt_mm = own.alt_mm;
+    m.alt_msl_mm = own.alt_msl_mm;
+    m.speed_mm_s = own.speed_mm_s;
+    m.track_cdeg = own.track_cdeg;
+    m.climb_mm_s = own.climb_mm_s;
+    m.turn_cdps = own.turn_cdps;
     m.known = own.fix_valid;
     m.climbs = own.climb_valid;
     return carry(m, dt_ms);
@@ -128,11 +116,11 @@ Prediction extrapolate(const model::AircraftObs& obs, int32_t dt_ms) {
     Motion m{};
     m.lat_1e7 = obs.lat_1e7;
     m.lon_1e7 = obs.lon_1e7;
-    m.alt_m = obs.alt_m;
-    m.alt_msl_m = obs.alt_m;
-    m.speed_q = obs.speed_q;
-    m.track_c9 = obs.track_c9;
-    m.climb_e8 = obs.climb_e8;
+    m.alt_mm = to_millimetres(Metres(obs.alt_m)).v;
+    m.alt_msl_mm = m.alt_mm;
+    m.speed_mm_s = to_mm_s(QuarterMetresPerSec(obs.speed_q)).v;
+    m.track_cdeg = to_centi_degrees(Cordic9(obs.track_c9)).v;
+    m.climb_mm_s = to_mm_s(EighthMetresPerSec(obs.climb_e8)).v;
     m.known = obs.position_valid && obs.speed_valid;
     m.climbs = obs.climb_valid;
     return carry(m, dt_ms);
@@ -143,9 +131,9 @@ model::OwnState carried_to(const model::OwnState& own, uint32_t now_ms) {
     model::OwnState out = own;
     out.lat_1e7 = p.lat_1e7;
     out.lon_1e7 = p.lon_1e7;
-    out.alt_m = p.alt_m;
-    out.alt_msl_m = p.alt_msl_m;
-    out.track_c9 = p.track_c9;
+    out.alt_mm = p.alt_mm;
+    out.alt_msl_mm = p.alt_msl_mm;
+    out.track_cdeg = p.track_cdeg;
     return out;
 }
 
@@ -154,18 +142,19 @@ model::AircraftObs carried_to(const model::AircraftObs& obs, uint32_t now_ms) {
     model::AircraftObs out = obs;
     out.lat_1e7 = p.lat_1e7;
     out.lon_1e7 = p.lon_1e7;
-    out.alt_m = p.alt_m;
+    out.alt_m = to_metres(Millimetres(p.alt_mm)).v;
     return out;
 }
 
 uint32_t prediction_residual_m(const Prediction& predicted, int32_t lat_1e7, int32_t lon_1e7,
-                               int32_t alt_m) {
+                               int32_t alt_mm) {
     const int64_t dlat = static_cast<int64_t>(lat_1e7) - predicted.lat_1e7;
     const int64_t dlon = static_cast<int64_t>(lon_1e7) - predicted.lon_1e7;
     const int64_t north = div_round(dlat * kMicrometresPerE7, kMicrometresPerMetre);
     const int64_t east = div_round(dlon * kMicrometresPerE7 * lat_cosine(predicted.lat_1e7),
                                    kMicrometresPerMetre * kTrigOne);
-    const int64_t up = static_cast<int64_t>(alt_m) - predicted.alt_m;
+    const int64_t up =
+        div_round<int64_t>(static_cast<int64_t>(alt_mm) - predicted.alt_mm, kMillimetresPerMetre);
     return static_cast<uint32_t>(iabs64(north) + iabs64(east) + iabs64(up));
 }
 

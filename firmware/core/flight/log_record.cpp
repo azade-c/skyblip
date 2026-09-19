@@ -2,6 +2,7 @@
 
 #include "core/fec/crc.h"
 #include "core/model/ownship.h"
+#include "core/units/units.h"
 
 namespace skyblip::flight {
 
@@ -50,11 +51,11 @@ LogRecord log_record_from(const model::OwnState& own) {
     r.utc = own.utc;
     r.lat_1e7 = own.lat_1e7;
     r.lon_1e7 = own.lon_1e7;
-    r.alt_msl_m = own.alt_msl_m;
-    r.alt_hae_m = own.alt_m;
-    r.speed_q = own.speed_q;
-    r.track_c9 = own.track_c9;
-    r.climb_e8 = own.climb_e8;
+    r.alt_msl_m = to_metres(Millimetres(own.alt_msl_mm)).v;
+    r.alt_hae_m = to_metres(Millimetres(own.alt_mm)).v;
+    r.speed_q = to_speed_q(MillimetresPerSec(own.speed_mm_s)).v;
+    r.track_c9 = to_cordic9(CentiDegrees(own.track_cdeg)).v;
+    r.climb_e8 = to_climb_e8(MillimetresPerSec(own.climb_mm_s)).v;
     r.hdop_e2 = own.hdop_e2;
     r.sats = own.sats;
     r.flight_state = own.flight_state;

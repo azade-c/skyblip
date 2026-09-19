@@ -51,7 +51,7 @@ struct Rig {
         state.own.utc = kUtc;
         state.own.lat_1e7 = 485000000;
         state.own.lon_1e7 = 85000000;
-        state.own.alt_m = 500;
+        state.own.alt_mm = 500000;
         state.clock.pps_locked = true;
         state.clock.pps_edge_us = kPpsEdgeUs;
         state.clock.utc_s = kUtc;

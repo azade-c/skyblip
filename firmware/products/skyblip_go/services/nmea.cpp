@@ -7,6 +7,7 @@
 #include "core/flight/extrapolate.h"
 #include "core/model/ownship.h"
 #include "core/protocol/nmea_out.h"
+#include "core/util/intmath.h"
 
 namespace skyblip::go {
 
@@ -157,7 +158,8 @@ void NmeaService::emit_ownship() {
 // present for the same reason.
 void NmeaService::emit_altitude() {
     if (!context_.state.baro.active) return;
-    const int32_t alt_cm = flight::pressure_to_alt_cm(context_.state.baro.pressure_mpa / 1000);
+    const int32_t alt_cm =
+        flight::pressure_to_alt_cm(div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000));
     write(sentence_,
           protocol::format_pgrmz(sentence_, sizeof(sentence_), centimetres_to_feet(alt_cm),
                                  context_.state.own.fix_valid));
@@ -181,12 +183,14 @@ void NmeaService::emit_vario_and_battery() {
     protocol::Lk8Ex1 v{};
 
     if (context_.state.baro.active) {
-        v.pressure_pa = context_.state.baro.pressure_mpa / 1000;
+        v.pressure_pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
         v.has_pressure = true;
         // Field 2 is the 1013.25 datum, the same datum-free figure $PGRMZ
         // carries and for the same reason: the consumer applies its own
         // subscale. A consumer that read field 1 recomputes this and ignores it.
-        v.alt_m = flight::pressure_to_alt_cm(context_.state.baro.pressure_mpa / 1000) / 100;
+        v.alt_m = div_round(
+            flight::pressure_to_alt_cm(div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000)),
+            100);
         v.has_alt = true;
     }
 

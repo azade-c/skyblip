@@ -74,17 +74,17 @@ struct Rig {
 
     // One solution from the receiver. core/flight decides what it means and
     // publishes the ADS-L code; nothing here tells the companion link anything.
-    void push_solution(uint16_t speed_q, int32_t alt_msl_m) {
+    void push_solution(int32_t speed_mm_s, int32_t alt_msl_m) {
         gnss::GnssSolution solution{};
         solution.is_fix = true;
-        solution.speed_q = speed_q;
-        solution.alt_msl_m = alt_msl_m;
+        solution.speed_mm_s = speed_mm_s;
+        solution.alt_msl_mm = alt_msl_m * 1000;
         solution.updates = 1;
         product.bus().gnss.push(solution);
     }
 
     void on_ground(uint32_t& t) {
-        push_solution(/*speed_q=*/0, /*alt_msl_m=*/0);
+        push_solution(/*speed_mm_s=*/0, /*alt_msl_m=*/0);
         run(t, t + 200);
         t += 200;
     }
@@ -94,7 +94,7 @@ struct Rig {
     // this is a climb-out rather than one hopeful fix.
     void airborne(uint32_t& t) {
         for (int i = 0; i < 14; i++) {
-            push_solution(/*speed_q=*/200, /*alt_msl_m=*/1200);
+            push_solution(/*speed_mm_s=*/50000, /*alt_msl_m=*/1200);
             run(t, t + 500);
             t += 500;
         }

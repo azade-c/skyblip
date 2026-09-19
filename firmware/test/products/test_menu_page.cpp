@@ -28,11 +28,11 @@ void settle(Rig& rig, uint32_t& t) {
     t += kWindow + 200;
 }
 
-void push_solution(Rig& rig, uint16_t speed_q, int32_t alt_msl_m) {
+void push_solution(Rig& rig, int32_t speed_mm_s, int32_t alt_msl_m) {
     gnss::GnssSolution solution{};
     solution.is_fix = true;
-    solution.speed_q = speed_q;
-    solution.alt_msl_m = alt_msl_m;
+    solution.speed_mm_s = speed_mm_s;
+    solution.alt_msl_mm = alt_msl_m * 1000;
     solution.updates = 1;
     rig.product.bus().gnss.push(solution);
 }
@@ -48,7 +48,7 @@ void on_ground(Rig& rig, uint32_t& t) {
 
 void airborne(Rig& rig, uint32_t& t) {
     for (int i = 0; i < 14; i++) {
-        push_solution(rig, 200, 1200);
+        push_solution(rig, 50000, 1200);
         rig.run(t, t + 500);
         t += 500;
     }
@@ -263,7 +263,7 @@ TEST_CASE("product: the aircraft type set on the panel is the one that goes on t
     // The category the transmitter puts in the frame is own.aircraft_cat, and
     // the own-ship service copies it off the settings on the next fix: the page
     // does not need a second wire, and it must not grow one.
-    push_solution(rig, 100, 500);
+    push_solution(rig, 25000, 500);
     rig.run(t, t + 1000);
     CHECK(rig.state().own.aircraft_cat == 3);
 }

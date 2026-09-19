@@ -21,13 +21,13 @@ model::OwnState flying(double lat_deg, double lon_deg, double mps, double track_
     own.fix_valid = true;
     own.lat_1e7 = static_cast<int32_t>(lat_deg * 1e7);
     own.lon_1e7 = static_cast<int32_t>(lon_deg * 1e7);
-    own.alt_m = 1200;
-    own.alt_msl_m = 1155;
-    own.speed_q = static_cast<uint16_t>(mps * 4);
-    own.track_c9 = static_cast<uint16_t>(track_deg * 512.0 / 360.0 + 0.5);
-    own.climb_e8 = static_cast<int16_t>(climb_mps * 8);
+    own.alt_mm = 1200000;
+    own.alt_msl_mm = 1155000;
+    own.speed_mm_s = static_cast<int32_t>(mps * 1000);
+    own.track_cdeg = static_cast<int32_t>(track_deg * 100);
+    own.climb_mm_s = static_cast<int32_t>(climb_mps * 1000);
     own.climb_valid = climb_mps != 0.0;
-    own.turn_dps = static_cast<int16_t>(turn_dps);
+    own.turn_cdps = static_cast<int16_t>(turn_dps * 100);
     return own;
 }
 
@@ -49,8 +49,8 @@ TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
     // Due east at 40 m/s for one second: 40 m of easting and nothing else.
     CHECK(east_m(own, at.lon_1e7) == doctest::Approx(40.0).epsilon(0.01));
     CHECK(north_m(own.lat_1e7, at.lat_1e7) == doctest::Approx(0.0).epsilon(0.01));
-    CHECK(at.track_c9 == own.track_c9);
-    CHECK(at.alt_m == own.alt_m);
+    CHECK(at.track_cdeg == own.track_cdeg);
+    CHECK(at.alt_mm == own.alt_mm);
 
     // Half the time is half the distance, and the model runs backwards as well:
     // measuring the residual means predicting into the past.
@@ -75,11 +75,11 @@ TEST_CASE("extrapolate: a reported target moves along its reported track") {
     REQUIRE(at.valid);
     CHECK(east_m(own, at.lon_1e7) == doctest::Approx(40.0).epsilon(0.01));
     CHECK(north_m(own.lat_1e7, at.lat_1e7) == doctest::Approx(0.0).epsilon(0.01));
-    CHECK(at.alt_m == obs.alt_m);  // no climb reported, no climb invented
+    CHECK(at.alt_mm == obs.alt_m * 1000);  // no climb reported, no climb invented
 
     obs.climb_valid = true;
     obs.climb_e8 = 8 * 2;  // 2 m/s
-    CHECK(extrapolate(obs, 1000).alt_m == 1202);
+    CHECK(extrapolate(obs, 1000).alt_mm == 1202000);
 
     // Relayed traffic often arrives as a position and nothing else: there is no
     // model to run, and the last known position is the only honest answer.
@@ -108,29 +108,29 @@ TEST_CASE("extrapolate: a circling glider is predicted on its arc, not on the ta
 
     // The tangent it is not: straight ahead puts it 6.9 m off the circle.
     model::OwnState straight = own;
-    straight.turn_dps = 0;
+    straight.turn_cdps = 0;
     CHECK(east_m(straight, extrapolate(straight, 1000).lon_1e7) == doctest::Approx(0.0));
 
-    // And the track goes with it: 20 degrees is 28 units of cordic9.
-    CHECK(at.track_c9 == 28);
+    // And the track goes with it, to the hundredth of a degree the gyro resolves.
+    CHECK(at.track_cdeg == doctest::Approx(2000).epsilon(0.01));
     // Turning left through north wraps rather than going negative.
     model::OwnState left = flying(48.5, 8.5, 40.0, 0.0, 0.0, -20.0);
-    CHECK(extrapolate(left, 1000).track_c9 == 512 - 28);
+    CHECK(extrapolate(left, 1000).track_cdeg == doctest::Approx(34000).epsilon(0.01));
 }
 
 TEST_CASE("extrapolate: the climb carries both altitudes, and only when it is known") {
     const model::OwnState climbing = flying(48.5, 8.5, 30.0, 45.0, 2.0);
     const Prediction at = extrapolate(climbing, 1000);
     REQUIRE(at.valid);
-    CHECK(at.alt_m == climbing.alt_m + 2);
-    CHECK(at.alt_msl_m == climbing.alt_msl_m + 2);
-    CHECK(extrapolate(climbing, -500).alt_m == climbing.alt_m - 1);
+    CHECK(at.alt_mm == climbing.alt_mm + 2000);
+    CHECK(at.alt_msl_mm == climbing.alt_msl_mm + 2000);
+    CHECK(extrapolate(climbing, -500).alt_mm == climbing.alt_mm - 1000);
 
     // G.1.9's "unavailable" is not zero, and neither is it a level prediction we
     // are entitled to make: without a vertical rate the altitude stands still.
     model::OwnState unknown = climbing;
     unknown.climb_valid = false;
-    CHECK(extrapolate(unknown, 1000).alt_m == unknown.alt_m);
+    CHECK(extrapolate(unknown, 1000).alt_mm == unknown.alt_mm);
 }
 
 // The bound, and which side of it we chose: past it the fix passes through
@@ -147,8 +147,8 @@ TEST_CASE("extrapolate: a gap longer than the bound is not predicted at all") {
     CHECK_FALSE(outside.valid);
     CHECK(outside.lat_1e7 == own.lat_1e7);
     CHECK(outside.lon_1e7 == own.lon_1e7);
-    CHECK(outside.alt_m == own.alt_m);
-    CHECK(outside.track_c9 == own.track_c9);
+    CHECK(outside.alt_mm == own.alt_mm);
+    CHECK(outside.track_cdeg == own.track_cdeg);
 
     CHECK_FALSE(extrapolate(own, -(kMaxExtrapolationMs + 1)).valid);
 
@@ -167,12 +167,12 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
     REQUIRE(at.valid);
 
     // The fix that arrives exactly where the model put it costs nothing.
-    CHECK(prediction_residual_m(at, at.lat_1e7, at.lon_1e7, at.alt_m) == 0);
+    CHECK(prediction_residual_m(at, at.lat_1e7, at.lon_1e7, at.alt_mm) == 0);
 
     // Five metres north and three up of the prediction is eight metres of miss:
     // north, east and vertical, summed absolute, as OGN sums them.
     const int32_t five_north = at.lat_1e7 + static_cast<int32_t>(5.0 / kMetresPerE7);
-    CHECK(prediction_residual_m(at, five_north, at.lon_1e7, at.alt_m + 3) ==
+    CHECK(prediction_residual_m(at, five_north, at.lon_1e7, at.alt_mm + 3000) ==
           doctest::Approx(8).epsilon(0.2));
 
     // An aircraft flying the model it is given is predicted to within a metre a
@@ -182,7 +182,7 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
     const Prediction ignored_turn = extrapolate(own, 1000);
     const Prediction with_turn = extrapolate(turning, 1000);
     const uint32_t missed =
-        prediction_residual_m(ignored_turn, with_turn.lat_1e7, with_turn.lon_1e7, with_turn.alt_m);
+        prediction_residual_m(ignored_turn, with_turn.lat_1e7, with_turn.lon_1e7, with_turn.alt_mm);
     CHECK(missed > 5);
 }
 
@@ -192,10 +192,10 @@ TEST_CASE("adsl: the transmitted position is the position at the instant transmi
     own.fix_valid = true;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1200;
-    own.speed_q = 200;   // 50 m/s
-    own.track_c9 = 128;  // due east
-    own.climb_e8 = 16;   // 2 m/s
+    own.alt_mm = 1200000;
+    own.speed_mm_s = 50000;
+    own.track_cdeg = 9000;  // due east
+    own.climb_mm_s = 2000;
     own.climb_valid = true;
     own.utc = 1000;  // 1000 % 15 == 10 s into the timestamp cycle
 
@@ -228,9 +228,9 @@ TEST_CASE("adsl: past the extrapolation bound the fix goes out dated as the fix"
     own.fix_valid = true;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1200;
-    own.speed_q = 200;
-    own.track_c9 = 128;
+    own.alt_mm = 1200000;
+    own.speed_mm_s = 50000;
+    own.track_cdeg = 9000;
     own.utc = 1000;
 
     AdslPacket at_fix{};

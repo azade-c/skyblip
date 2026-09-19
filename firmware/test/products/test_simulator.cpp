@@ -8,6 +8,7 @@
 #include "core/events/link.h"
 #include "core/flight/atmosphere.h"
 #include "core/model/aircraft.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 #include "simulator/simulator.h"
 
@@ -57,9 +58,9 @@ TEST_CASE("simulator: simulated GNSS drives own-ship state via the real NMEA par
     CHECK(h.product().state().own.fix_valid);
     CHECK(h.product().state().own.utc_valid);
     CHECK(int(h.product().state().own.sats) == 11);
-    CHECK(h.product().state().own.alt_m == 1500);
-    CHECK(int(h.product().state().own.track_c9) == 128);  // 90 deg in cordic9
-    CHECK(h.product().state().own.speed_q > 90);          // 50 kt ~ 25.7 m/s -> ~103 quarter-m/s
+    CHECK(h.product().state().own.alt_mm == 1500000);
+    CHECK(h.product().state().own.track_cdeg == 9000);
+    CHECK(h.product().state().own.speed_mm_s > 25000);  // 50 kt is 25.7 m/s
     CHECK(h.product().state().own.lat_1e7 > 484000000);
     CHECK(h.product().state().own.lon_1e7 > 85000000);  // moved east on track 090
 }
@@ -127,13 +128,13 @@ TEST_CASE("simulator: traffic reporting no climb holds its level while own ship 
     const traffic::Target* target = h.product().state().traffic.at(0);
     REQUIRE(target != nullptr);
     const int32_t level_at = target->obs.alt_m;
-    const int32_t own_at = h.product().state().own.alt_m;
+    const int32_t own_at = to_metres(Millimetres(h.product().state().own.alt_mm)).v;
 
     h.world().set_climb_mm_s(5000);
     run(h, 6000, 16000);
 
     // Own ship gains 50 m; the target holds its level within the second of own-ship lag.
-    CHECK(h.product().state().own.alt_m > own_at + 40);
+    CHECK(to_metres(Millimetres(h.product().state().own.alt_mm)).v > own_at + 40);
     CHECK(target->obs.alt_m < level_at + 10);
     CHECK(target->obs.alt_m > level_at - 10);
 }
@@ -239,22 +240,41 @@ TEST_CASE("simulator: a modelled climb reaches own-ship state through the barome
 TEST_CASE("simulator: a turn and a climb held steady are published steady") {
     simulator::Simulator h;
     REQUIRE(h.setup() == Status::Ok);
-    h.product().settings().gyro_enabled = true;
     h.world().set_turn_dps(3.0);
     h.world().set_climb_mm_s(1524);  // 300 fpm, what the page's slider asks for
+    h.world().set_speed_kt(60);
     run(h, 0, 10000);
 
     int32_t worst_turn = 0;
     int32_t worst_vs = 0;
+    int32_t worst_kt = 0;
     for (uint32_t t = 10000; t <= 30000; t += simulator::Simulator::kStepMs) {
         h.step(t);
         const model::OwnState& own = h.product().state().own;
         worst_turn = std::max(worst_turn, std::abs(own.turn_cdps - 300));
         worst_vs = std::max(
             worst_vs, std::abs(to_feet_per_minute(MillimetresPerSec(own.climb_mm_s)).v - 300));
+        worst_kt = std::max(worst_kt, std::abs(to_knots(MillimetresPerSec(own.speed_mm_s)).v - 60));
     }
-    CHECK(worst_turn <= 20);
-    CHECK(worst_vs <= 10);
+    CHECK(worst_turn <= 10);
+    CHECK(worst_vs <= 5);
+    CHECK(worst_kt == 0);
+}
+
+// With a gyroscope fitted and switched on the needle is the instrument's, not the receiver's.
+TEST_CASE("simulator: the gyroscope publishes the turn it is flying") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.product().settings().gyro_enabled = true;
+    h.world().set_turn_dps(3.0);
+    run(h, 0, 10000);
+
+    int32_t worst_turn = 0;
+    for (uint32_t t = 10000; t <= 30000; t += simulator::Simulator::kStepMs) {
+        h.step(t);
+        worst_turn = std::max(worst_turn, std::abs(h.product().state().own.turn_cdps - 300));
+    }
+    CHECK(worst_turn <= 15);
 }
 
 TEST_CASE("simulator: an aircraft entering the window buzzes and vibrates") {

@@ -18,6 +18,7 @@
 #include "core/protocol/nmea_out.h"
 #include "core/traffic/alarm.h"
 #include "core/traffic/table.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 #include "hardware/platform/host/link.h"
 #include "test/support/rf_channel.h"
@@ -36,9 +37,9 @@ model::OwnState own_from_gnss(const char* rmc, const char* gga) {
     o.pps_locked = true;
     o.lat_1e7 = f.lat_1e7;
     o.lon_1e7 = f.lon_1e7;
-    o.alt_m = f.alt_m;
-    o.speed_q = f.speed_q;
-    o.track_c9 = f.track_c9;
+    o.alt_mm = f.alt_mm;
+    o.speed_mm_s = f.speed_mm_s;
+    o.track_cdeg = f.track_cdeg;
     o.utc = f.utc;
     o.sats = f.sats;
     o.flight_state = 2;
@@ -61,7 +62,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     //    says which of the two this fixture means.
     model::OwnState intruder_state = own;
     intruder_state.lat_1e7 = own.lat_1e7 + static_cast<int32_t>((int64_t)800 * 1000000 / 11132);
-    intruder_state.track_c9 = 256;  // cordic9: 512 to the turn, so due south
+    intruder_state.track_cdeg = 18000;  // due south
     intruder_state.utc = own.utc;
     protocol::AdslPacket tx;
     protocol::from_own(tx, intruder_state, 0xC5D804, /*table=*/6, /*cat=*/4, /*stealth=*/false);
@@ -105,7 +106,7 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     // The same aircraft flying the way we are: the gap is not closing, and it is
     // an advisory all the same, because it is there.
     model::AircraftObs chase = obs;
-    chase.track_c9 = own.track_c9;
+    chase.track_c9 = to_cordic9(CentiDegrees(own.track_cdeg)).v;
     const traffic::AlarmAssessment following = traffic::assess(own, chase, own.fix_ms);
     CHECK(following.closing_mps <= 0);
     CHECK(following.level == traffic::Level::Advisory);

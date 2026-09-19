@@ -78,7 +78,7 @@ TEST_CASE("l76k: a new fix is reported exactly once") {
     CHECK(gnss.poll());
     CHECK(gnss.solution().is_fix);
     CHECK(gnss.solution().sats == 9);
-    CHECK(gnss.solution().alt_m == 1200);
+    CHECK(gnss.solution().alt_mm == 1200000);
     CHECK(gnss.solution().lat_1e7 == doctest::Approx(485000000).epsilon(0.0001));
 
     CHECK_FALSE(gnss.poll());  // no new bytes: the same fix is not re-delivered
@@ -257,7 +257,7 @@ TEST_CASE("l76k: a burst reaches the bus once, on the sentence that closes it") 
         if (gnss.poll(at)) published++;
 
     CHECK(published == 1);
-    CHECK(gnss.solution().alt_m == 1500);
+    CHECK(gnss.solution().alt_mm == 1500000);
 }
 
 // Nothing acknowledges a $PCAS sentence, so the driver treats the receiver's own
@@ -358,7 +358,7 @@ TEST_CASE("l76k: a clock that steps backwards leaves the aircraft where it is") 
 TEST_CASE("l76k: a turn rate flies a circle, and it is the size the arithmetic says") {
     models::L76k chip;
     chip.solution_period_ms = 200;
-    chip.speed_kt = 45;
+    chip.speed_mm_s = 23150;  // 45 kt
     chip.track_deg = 0;
     chip.turn_dps = 13;
     const int32_t start_lat = chip.lat_1e7;

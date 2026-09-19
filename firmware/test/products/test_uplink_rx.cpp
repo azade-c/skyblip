@@ -22,6 +22,7 @@
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
 #include "core/timing/slot.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/platform/host/clock.h"
@@ -49,7 +50,7 @@ model::AircraftObs relayed_aircraft(Rig& rig, uint32_t addr, int32_t north_m, in
     obs.lat_1e7 =
         own.lat_1e7 + static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     obs.lon_1e7 = own.lon_1e7 + static_cast<int32_t>(static_cast<int64_t>(east_m) * 1000000 / 7460);
-    obs.alt_m = own.alt_m + up_m;
+    obs.alt_m = to_metres(Millimetres(own.alt_mm)).v + up_m;
     obs.position_valid = true;
     return obs;
 }
@@ -62,7 +63,7 @@ model::AircraftObs relayed_aircraft(Rig& rig, uint32_t addr, int32_t north_m, in
 // is a result worth asserting on rather than a test that quietly passes.
 bool relay(Rig& rig, uint32_t& t, const model::AircraftObs* aircraft, int n,
            int corrupt_bytes = 0) {
-    rig.push_timed_fix(100, 900);
+    rig.push_timed_fix(25000, 900);
 
     protocol::AdslUplink codec;
     uint8_t frame[protocol::kUplinkFrameBytes] = {0};
@@ -96,15 +97,15 @@ bool relay(Rig& rig, uint32_t& t, const model::AircraftObs* aircraft, int n,
 // address as a relayed one is the interesting case.
 void hear_directly(Rig& rig, uint32_t& t, uint32_t addr, int32_t north_m, int32_t east_m,
                    int32_t up_m) {
-    rig.push_timed_fix(100, 900);
+    rig.push_timed_fix(25000, 900);
     const model::OwnState& own = rig.state().own;
 
     model::OwnState transmitter = own;
     transmitter.lat_1e7 += static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     transmitter.lon_1e7 += static_cast<int32_t>(static_cast<int64_t>(east_m) * 1000000 / 7460);
-    transmitter.alt_m += up_m;
-    transmitter.speed_q = 160;
-    transmitter.track_c9 = 256;
+    transmitter.alt_mm += up_m * 1000;
+    transmitter.speed_mm_s = 40000;
+    transmitter.track_cdeg = 18000;
 
     protocol::AdslPacket packet;
     protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4,
@@ -143,7 +144,7 @@ int sourced(Rig& rig, model::Source source) {
     return n;
 }
 
-void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 100, 900); }
+void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 25000, 900); }
 
 // The service alone, so that the only thing a case changes is what the product
 // claims to do.
@@ -383,7 +384,7 @@ TEST_CASE("uplink: the O-band dwell is armed for the modulation SRD-860 C.4 defi
 
     // Inside the uplink dwell: §C.4's chip rate, its Gaussian filter, a receiver
     // wide enough for its 250 kHz channel, and 255 bytes to read.
-    rig.push_timed_fix(100, 900);
+    rig.push_timed_fix(25000, 900);
     rig.run(t, t + 200);
     rig.platform.clock().set_millis(t + timing::kGroundEmitStart);
     rig.product.step(t + timing::kGroundEmitStart);
@@ -429,7 +430,7 @@ TEST_CASE("uplink: a 200 kbps burst is not heard by a dwell framing 100 kbps") {
     const size_t burst_len = protocol::encode_oband(frame, burst);
 
     // In the direct slot, where the radio is on the M band at 100 kbps.
-    rig.push_timed_fix(100, 900);
+    rig.push_timed_fix(25000, 900);
     rig.run(t, t + 500);
     CHECK_FALSE(rig.platform.chips().radio.receive_air(burst, static_cast<uint16_t>(burst_len),
                                                        false, -92, protocol::kUplinkChipRateBps));

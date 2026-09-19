@@ -39,17 +39,17 @@ flight::LogRecord sample_record() {
     return r;
 }
 
-model::OwnState flying(uint32_t utc, uint16_t speed_q) {
+model::OwnState flying(uint32_t utc, int32_t speed_mm_s) {
     model::OwnState own{};
     own.fix_valid = true;
     own.utc_valid = true;
     own.utc = utc;
     own.lat_1e7 = 485000000;
     own.lon_1e7 = 85000000;
-    own.alt_m = 1000;
-    own.alt_msl_m = 954;
-    own.speed_q = speed_q;
-    own.track_c9 = 128;
+    own.alt_mm = 1000000;
+    own.alt_msl_mm = 954000;
+    own.speed_mm_s = speed_mm_s;
+    own.track_cdeg = 9000;
     own.sats = 10;
     own.hdop_e2 = 100;
     own.flight_state = static_cast<uint8_t>(flight::FlightState::Airborne);
@@ -181,14 +181,14 @@ TEST_CASE("log session: on the ground the ring is a holding pen and not a queue"
 
 TEST_CASE("log session: a record every four seconds and no more") {
     flight::LogSession session;
-    session.update(flying(kBaseUtc, 200), 0);
+    session.update(flying(kBaseUtc, 50000), 0);
     flight::LogRecord drained{};
     while (session.take(drained)) {
     }
 
-    CHECK(session.update(flying(kBaseUtc + 1, 200), 1000) == flight::LogAction::Idle);
-    CHECK(session.update(flying(kBaseUtc + 3, 200), 3999) == flight::LogAction::Idle);
-    CHECK(session.update(flying(kBaseUtc + 4, 200), 4000) == flight::LogAction::AppendRecord);
+    CHECK(session.update(flying(kBaseUtc + 1, 50000), 1000) == flight::LogAction::Idle);
+    CHECK(session.update(flying(kBaseUtc + 3, 50000), 3999) == flight::LogAction::Idle);
+    CHECK(session.update(flying(kBaseUtc + 4, 50000), 4000) == flight::LogAction::AppendRecord);
 }
 
 // M. The four-second record cadence across the 49.7-day wrap of
@@ -199,20 +199,20 @@ TEST_CASE("log session: a record every four seconds and no more") {
 TEST_CASE("log session: the four-second cadence spans the 49.7-day wrap") {
     flight::LogSession session;
     const uint32_t before = 0xFFFFFF00u;  // 256 ms short of the wrap
-    session.update(flying(kBaseUtc, 200), before);
+    session.update(flying(kBaseUtc, 50000), before);
     flight::LogRecord drained{};
     while (session.take(drained)) {
     }
 
-    CHECK(session.update(flying(kBaseUtc + 1, 200), before + 1000u) == flight::LogAction::Idle);
-    CHECK(session.update(flying(kBaseUtc + 3, 200), before + 3999u) == flight::LogAction::Idle);
+    CHECK(session.update(flying(kBaseUtc + 1, 50000), before + 1000u) == flight::LogAction::Idle);
+    CHECK(session.update(flying(kBaseUtc + 3, 50000), before + 3999u) == flight::LogAction::Idle);
     // 4000 ms after the last sample, which is 3744 ms past zero.
     const uint32_t due = before + flight::kLogRecordPeriodMs;
     REQUIRE(due < before);  // the case is worthless unless it wrapped
-    CHECK(session.update(flying(kBaseUtc + 4, 200), due) == flight::LogAction::AppendRecord);
+    CHECK(session.update(flying(kBaseUtc + 4, 50000), due) == flight::LogAction::AppendRecord);
     // And the cadence continues from there rather than from zero.
-    CHECK(session.update(flying(kBaseUtc + 5, 200), due + 3999u) == flight::LogAction::Idle);
-    CHECK(session.update(flying(kBaseUtc + 8, 200), due + 4000u) ==
+    CHECK(session.update(flying(kBaseUtc + 5, 50000), due + 3999u) == flight::LogAction::Idle);
+    CHECK(session.update(flying(kBaseUtc + 8, 50000), due + 4000u) ==
           flight::LogAction::AppendRecord);
 }
 
@@ -224,7 +224,7 @@ TEST_CASE("log session: the file opens before the criterion agreed, so the roll 
         session.update(parked(kBaseUtc + i * 4), now_ms);
     REQUIRE_FALSE(session.open());
 
-    CHECK(session.update(flying(kBaseUtc + 32, 200), now_ms) == flight::LogAction::OpenSession);
+    CHECK(session.update(flying(kBaseUtc + 32, 50000), now_ms) == flight::LogAction::OpenSession);
     CHECK(session.open());
     // The session is named for the oldest sample still held, not for the instant
     // core/flight finally said "airborne" - 28 seconds of ground roll earlier.
@@ -240,7 +240,7 @@ TEST_CASE("log session: the file opens before the criterion agreed, so the roll 
 TEST_CASE("log session: a landing closes the session with a record that says so") {
     flight::LogSession session;
     uint32_t now_ms = 0;
-    REQUIRE(session.update(flying(kBaseUtc, 200), now_ms) == flight::LogAction::OpenSession);
+    REQUIRE(session.update(flying(kBaseUtc, 50000), now_ms) == flight::LogAction::OpenSession);
     flight::LogRecord drained{};
     while (session.take(drained)) {
     }
@@ -255,21 +255,21 @@ TEST_CASE("log session: a landing closes the session with a record that says so"
 
 TEST_CASE("log session: a fix outage does not end the flight, and nothing is written across it") {
     flight::LogSession session;
-    REQUIRE(session.update(flying(kBaseUtc, 200), 0) == flight::LogAction::OpenSession);
+    REQUIRE(session.update(flying(kBaseUtc, 50000), 0) == flight::LogAction::OpenSession);
 
-    model::OwnState blind = flying(kBaseUtc + 4, 200);
+    model::OwnState blind = flying(kBaseUtc + 4, 50000);
     blind.fix_valid = false;
     CHECK(session.update(blind, 4000) == flight::LogAction::Idle);
     CHECK(session.open());
 
     // A row of zeroes is worse than a gap, so the gap is what the file gets.
-    CHECK(session.update(flying(kBaseUtc + 8, 200), 8000) == flight::LogAction::AppendRecord);
+    CHECK(session.update(flying(kBaseUtc + 8, 50000), 8000) == flight::LogAction::AppendRecord);
     CHECK(session.session_id() == kBaseUtc);
 }
 
 TEST_CASE("log session: a writer that never drains loses the oldest, and says how many") {
     flight::LogSession session;
-    for (uint32_t i = 0; i < 20; i++) session.update(flying(kBaseUtc + i * 4, 200), i * 4000);
+    for (uint32_t i = 0; i < 20; i++) session.update(flying(kBaseUtc + i * 4, 50000), i * 4000);
     CHECK(session.queued() == flight::kLogPreTakeoffRecords);
     CHECK(session.dropped() == 20 - flight::kLogPreTakeoffRecords);
 }

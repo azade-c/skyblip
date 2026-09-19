@@ -12,17 +12,17 @@ struct Motion {
     int32_t north_m{0};
     int32_t east_m{0};
     int32_t up_m{0};
-    uint16_t speed_q{0};
-    uint16_t track_c9{0};
-    int16_t turn_dps{0};
-    int16_t climb_e8{0};
+    int32_t speed_mm_s{0};
+    int32_t track_cdeg{0};
+    int16_t turn_cdps{0};
+    int32_t climb_mm_s{0};
     bool turning{false};
     bool climbing{false};
 };
 
 Motion motion_of(const model::OwnState& own);
 // INFO: fc 14sep26 ADS-L carries no turn rate (G.1.8), so a target's is core/traffic's estimate
-Motion motion_of(const model::AircraftObs& obs, int16_t turn_dps, bool turn_valid);
+Motion motion_of(const model::AircraftObs& obs, int16_t turn_cdps, bool turn_valid);
 
 struct Position {
     int32_t north_m{0};
@@ -31,8 +31,9 @@ struct Position {
 };
 
 constexpr int16_t kMaxTurnDps = 30;
+constexpr int16_t kMaxTurnCdps = kMaxTurnDps * 100;
 
-int16_t clamped_turn_dps(int16_t turn_dps);
+int16_t clamped_turn_cdps(int32_t turn_cdps);
 
 class Arc {
    public:

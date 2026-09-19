@@ -33,9 +33,9 @@ constexpr int32_t kMaxExtrapolationMs = 1500;
 struct Prediction {
     int32_t lat_1e7{0};
     int32_t lon_1e7{0};
-    int32_t alt_m{0};
-    int32_t alt_msl_m{0};
-    uint16_t track_c9{0};
+    int32_t alt_mm{0};
+    int32_t alt_msl_mm{0};
+    int32_t track_cdeg{0};
     bool valid{false};
 };
 
@@ -56,7 +56,7 @@ model::AircraftObs carried_to(const model::AircraftObs& obs, uint32_t now_ms);
 // whether the model above is describing this aircraft or fighting it, and it
 // costs one extrapolation per fix.
 uint32_t prediction_residual_m(const Prediction& predicted, int32_t lat_1e7, int32_t lon_1e7,
-                               int32_t alt_m);
+                               int32_t alt_mm);
 
 }  // namespace skyblip::flight
 

@@ -33,6 +33,7 @@
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/air.h"
+#include "core/units/units.h"
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/platform/host/clock.h"
@@ -108,9 +109,9 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     model::OwnState transmitter = rig.state().own;
     transmitter.lat_1e7 += static_cast<int32_t>(static_cast<int64_t>(north_m) * 1000000 / 11132);
     transmitter.lon_1e7 += static_cast<int32_t>(static_cast<int64_t>(east_m) * 1000000 / 7460);
-    transmitter.alt_m += up_m;
-    transmitter.track_c9 = track_c9;
-    transmitter.speed_q = 160;
+    transmitter.alt_mm += up_m * 1000;
+    transmitter.track_cdeg = to_centi_degrees(Cordic9(track_c9)).v;
+    transmitter.speed_mm_s = 40000;
 
     protocol::AdslPacket packet;
     protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4,
@@ -133,7 +134,7 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
 
 // Airborne, timed and moving: everything below needs a fix, because a relative
 // position has no meaning without one.
-void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 100, 900); }
+void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 25000, 900); }
 
 }  // namespace
 
@@ -559,13 +560,13 @@ TEST_CASE("nmea: a paired tablet keeps hearing the device across the 49.7-day wr
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 0xFFFFFF00u - 2000u;  // a couple of seconds short of the wrap
     rig.raise_link();
-    for (int i = 0; i < 2; i++) rig.second_across(t, 100, 900);
+    for (int i = 0; i < 2; i++) rig.second_across(t, 25000, 900);
     REQUIRE(rig.link_up());
     REQUIRE(count_of(rig, "$PFLAU") >= 2);
 
     // Four more seconds, stepped straight through zero.
     rig.platform.link().clear();
-    for (int i = 0; i < 4; i++) rig.second_across(t, 100, 900);
+    for (int i = 0; i < 4; i++) rig.second_across(t, 25000, 900);
     CHECK(count_of(rig, "$PFLAU") >= 4);
     for (const std::string& s : sentences(rig)) CHECK(checksum_ok(s));
 }

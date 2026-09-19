@@ -124,7 +124,8 @@ TEST_CASE("atmosphere: a real climb through the table reads back as its rate") {
 
 TEST_CASE("atmosphere: a pascal is centimetres of altitude, so the curve is walked finer") {
     const int32_t sea = flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000);
-    CHECK(flight::pressure_to_alt_mm((flight::kIsaSeaLevelPa - 1) * 1000) - sea == 83);
+    // 8.31 cm a pascal at sea level, and the interpolation rounds to the millimetre.
+    CHECK(flight::pressure_to_alt_mm((flight::kIsaSeaLevelPa - 1) * 1000) - sea == 84);
     CHECK(sea - flight::pressure_to_alt_mm(flight::kIsaSeaLevelPa * 1000 + 1000) == 83);
 }
 
