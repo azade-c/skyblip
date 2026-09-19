@@ -17,6 +17,7 @@ const TRAFFIC_CRUISE_CLIMB_MM_S = 4000
 const TRAFFIC_STRONG_MIN_CLIMB_MM_S = 4000
 const TRAFFIC_STRONG_MAX_CLIMB_MM_S = 8000
 const TRAFFIC_EXCEPTIONAL_SHARE = 0.2
+const TRAFFIC_ADDRESS_MAX = 0xffffff
 const ADSL = 0
 
 const FEET_PER_METRE = 3.28084
@@ -217,8 +218,13 @@ export default class extends Controller {
       Math.round(Math.random() * 359),
       this.#turnDpsE1(),
       this.#climbMmS(),
-      ADSL
+      ADSL,
+      this.#address()
     )
+  }
+
+  #address() {
+    return 1 + Math.floor(Math.random() * TRAFFIC_ADDRESS_MAX)
   }
 
   #speedMps() {

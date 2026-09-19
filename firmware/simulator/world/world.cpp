@@ -81,14 +81,14 @@ void World::service_pad(uint32_t now_ms) {
 // the target's speed alone while the alarm was told both speeds.
 int World::add_aircraft(double north_m, double east_m, double up_m, double speed_mps,
                         double track_deg, int phase_ms, int slot, protocol::System system,
-                        double turn_dps, double climb_mps) {
+                        double turn_dps, double climb_mps, uint32_t addr) {
     set_origin();
     for (int i = 0; i < kMaxAircraft; i++) {
         if (aircraft_[i].used) continue;
         aircraft_[i] = VirtualAircraft{};
         aircraft_[i].used = true;
         aircraft_[i].system = system;
-        aircraft_[i].addr = 0x300000u + static_cast<uint32_t>(i) + 1u;
+        aircraft_[i].addr = addr != 0 ? addr : 0x300000u + static_cast<uint32_t>(i) + 1u;
         aircraft_[i].north_m = own_north_m() + north_m;
         aircraft_[i].east_m = own_east_m() + east_m;
         aircraft_[i].up_m = up_m;

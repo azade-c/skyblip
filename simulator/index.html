@@ -332,6 +332,7 @@ const KT_TO_MPS = 0.514444;
 const TRAFFIC_CRUISE_KT = [90, 180];
 const TRAFFIC_SLOW_KT = [35, 90];
 const TRAFFIC_VERT_SPREAD_M = 600;
+const TRAFFIC_ADDRESS_MAX = 0xffffff;
 const TRAFFIC_CRUISE_TURN_DPS_E1 = 20;
 const TRAFFIC_THERMAL_TURN_DPS_E1 = [80, 150];
 const TRAFFIC_CRUISE_CLIMB_MM_S = 4000;
@@ -347,12 +348,13 @@ const trafficTurnDpsE1 = () =>
   exceptional() ? eitherHand(TRAFFIC_THERMAL_TURN_DPS_E1) : spread(TRAFFIC_CRUISE_TURN_DPS_E1);
 const trafficClimbMmS = () =>
   exceptional() ? eitherHand(TRAFFIC_STRONG_CLIMB_MM_S) : spread(TRAFFIC_CRUISE_CLIMB_MM_S);
+const trafficAddress = () => 1 + Math.floor(Math.random() * TRAFFIC_ADDRESS_MAX);
 SIM.addRandom = () => {
   const brg = Math.random() * 2 * Math.PI, d = 800 + Math.random() * 4000;
   f.addAircraft(Math.round(Math.cos(brg)*d), Math.round(Math.sin(brg)*d),
                 spread(TRAFFIC_VERT_SPREAD_M),
                 trafficSpeedMps(), Math.round(Math.random()*359),
-                trafficTurnDpsE1(), trafficClimbMmS(), alptas());
+                trafficTurnDpsE1(), trafficClimbMmS(), alptas(), trafficAddress());
 };
 SIM.addThreat = () => f.addThreat(alptas());
 // A neighbour pinned to one instant of the second: the only way to prove the
@@ -417,7 +419,7 @@ SIM.addWingman = () => {
   const rad = track * Math.PI / 180, ahead = -130, right = 60;
   f.addAircraft(Math.round(ahead * Math.cos(rad) - right * Math.sin(rad)),
                 Math.round(ahead * Math.sin(rad) + right * Math.cos(rad)), 0,
-                Math.round(kt * KT_TO_MPS), track, 0, 0, 0);
+                Math.round(kt * KT_TO_MPS), track, 0, 0, 0, trafficAddress());
 };
 
 // Flying it by hand: the arrows are the stick and f/s the throttle, one slider
