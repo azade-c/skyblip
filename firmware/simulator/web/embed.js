@@ -11,8 +11,8 @@ const SLOT_EDGE_STEP_MS = 5;
 const INK = [20, 20, 20];
 const PAPER = [201, 201, 196];
 
-export async function load() {
-  const module = await createModule();
+export async function load(options = {}) {
+  const module = await createModule(options);
   const call = (name, ret, args) => module.cwrap(name, ret, args);
   const n = [];
   const num = ['number'];
