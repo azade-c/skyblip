@@ -425,9 +425,8 @@ TEST_CASE("simulator: satellites in view are asked for by the page that draws th
     REQUIRE(h.product().state().own.fix_valid);
     REQUIRE(h.product().state().own.tx_settled);
 
-    CHECK_FALSE(h.world().gnss().gsv_enabled);
-    CHECK_FALSE(h.product().state().gnss.levels_live);
-    // What GSA says is still true with GSV off: these are the satellites that solved.
+    CHECK(h.world().gnss().gsv_enabled);
+    CHECK(h.product().state().gnss.levels_live);
     CHECK(h.product().state().gnss.sky.in_use() > 0);
     CHECK(h.product().state().gnss.sky.in_use_of(gnss::System::Gps) > 0);
     CHECK(h.product().state().gnss.sky.in_use_of(gnss::System::Beidou) > 0);

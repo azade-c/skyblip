@@ -147,8 +147,8 @@ void draw_sats(ui::Canvas& fb, const SatsSnapshot& s) {
 
     if (!s.levels_live || s.sky == nullptr || s.sky->count() == 0) {
         draw_used_by_system(fb, s);
-        fb.draw_text(kLeft, kNoteY,
-                     s.fix_valid ? "LEVELS OFF WHILE TRANSMITTING" : "NO SATELLITE HEARD", true, 1);
+        fb.draw_text(kLeft, kNoteY, used_count(s) == 0 ? "NO SATELLITE HEARD" : "LEVELS COMING UP",
+                     true, 1);
         return;
     }
 

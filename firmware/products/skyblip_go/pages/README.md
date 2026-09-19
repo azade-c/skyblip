@@ -324,7 +324,7 @@ The page a pilot opens on the apron, and the answer to why a device has been on 
 
 Nothing measures a level until this page is opened. GSV is asked for as the page comes up and given up as it goes (`core/gnss/README.md`), so the bars fill a second after the page does, and a device searching on the apron with any other page on the glass spends nothing on the sky it is not being asked to draw.
 
-The levels stop when the fix arrives, and the page says so rather than leaving the last set of bars standing. GSV and a fix do not fit in the same second at 9600 baud (`core/gnss/README.md`), so the sentences are given up the moment own-ship starts transmitting, and what survives is what GSA and GGA still carry: how many satellites are in the solution, how they are split across the constellations, and the two DOPs. Bars that nobody is measuring any more are a picture of the sky as it was, which on an instrument is a lie with a timestamp nobody reads.
+The levels run for as long as the page is up, fix or no fix. A pilot watching the sky while the device transmits is watching a picture that is still being measured, which is the only kind worth drawing: bars nobody is measuring any more are the sky as it was, and on an instrument that is a lie with a timestamp nobody reads. In the second before the first set lands the page has no bars to draw and says `LEVELS COMING UP`, standing on what GSA and GGA carry anyway - how many satellites solved, how they split across the constellations, and the two DOPs - and a receiver that has heard nothing at all says `NO SATELLITE HEARD` instead.
 
 ## The others
 

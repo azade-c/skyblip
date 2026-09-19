@@ -152,7 +152,6 @@ class L76k : public ports::Gnss {
     void request_restart(ports::Restart kind) override;
 
     void request_satellites_in_view(bool wanted) { gsv_wanted_ = wanted; }
-    bool satellites_in_view_requested() const { return gsv_wanted_; }
     bool satellites_in_view_live() const { return gsv_on_ && gsv_wanted_; }
 
     const gnss::SkyView& sky() const { return parser_.sky(); }

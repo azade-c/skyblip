@@ -1428,7 +1428,7 @@ L76K GNSS driver tests against models/l76k.h. The driver owns the UART and the N
 - one solution per second clears the transmit rate rule
   > The rate rule refuses a MISSED solution, not the wait between the top of the second and the slot.
 - satellites in view are asked for, and given up again, one sentence each way
-  > The satellites a pilot wants to see while nothing is being transmitted are the bytes that would push the fix past the transmit window when something is.
+  > The levels cost a set of sentences a second, so only the page that draws them asks for them.
 - the configured rate fits the baud the devicetree pins
   > Nothing in the build compares the driver's baud with the devicetree's, so the driver states it.
 - the fix carries the part's burst-to-PPS latency
@@ -1437,7 +1437,7 @@ L76K GNSS driver tests against models/l76k.h. The driver owns the UART and the N
   > I, rows "A wake byte before probing" and "Receiver identification", in one assertion: the order the datasheet and SoftRF want. The wake byte comes first because the receiver is deaf until UART activity has woken it (oss/SoftRF-lyusupov .../src/driver/GNSS.cpp:1383-1387), the identification handshake comes next because there is no point configuring a part that is not the part we think it is (.../GNSS.cpp:981-1010), and the four configuration sentences follow in SoftRF's order.
 - the receiver solves continuously and reports on its cadence
   > The gyroscope and the barometer beside this part sample far faster than it reports.
-- the satellites-in-view burst is why it is off while we transmit
+- the satellites-in-view burst does not fit in the second the fix rides
   > Every GSV set the L76K can send does not fit in the second a fix belongs to.
 - without a retunable port, autobaud is a capability we do not have
   > Absent hardware is a capability. A platform whose UART cannot be retuned hands the driver the null rate control, and the receiver at the wrong baud degrades after the ordinary number of attempts instead of the driver pretending it changed something.
@@ -1713,8 +1713,8 @@ The drawing stack end to end, from a pixel to what reaches the glass. The radar 
 - a bar for every satellite in view, filled for the ones in the solution
   > The page a pilot on the apron opens: what is up there, how loud, and which ones solved.
 - a receiver that has heard nothing says so rather than drawing an empty chart
-- with the fix in hand the levels stop, and the page says why
-  > A level nobody is measuring any more is not drawn as a level of zero.
+- before the first GSV set the solution stands in for the bars
+  > A level nobody has measured yet is not drawn as a level of zero.
 
 **status**
 

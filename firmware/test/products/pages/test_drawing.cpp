@@ -1360,8 +1360,8 @@ TEST_CASE("sats: a bar for every satellite in view, filled for the ones in the s
     CHECK(first > fourth);
 }
 
-// A level nobody is measuring any more is not drawn as a level of zero.
-TEST_CASE("sats: with the fix in hand the levels stop, and the page says why") {
+// A level nobody has measured yet is not drawn as a level of zero.
+TEST_CASE("sats: before the first GSV set the solution stands in for the bars") {
     const skyblip::gnss::SkyView sky = sky_of(6, 4, 3);
     SatsSnapshot snap;
     snap.fix_valid = true;
@@ -1371,7 +1371,7 @@ TEST_CASE("sats: with the fix in hand the levels stop, and the page says why") {
     Glass fb;
     draw_sats(fb, snap);
 
-    CHECK(reads_in(fb, "LEVELS OFF WHILE TRANSMITTING", 0, 170, 200, 190));
+    CHECK(reads_in(fb, "LEVELS COMING UP", 0, 170, 200, 190));
     CHECK(reads_in(fb, "USED 3", 60, 0, 200, 12));
     CHECK(reads_in(fb, "GPS 3", 0, 18, 120, 32));
     CHECK(ink_in(fb, 4, 40, 196, 130) == 0);

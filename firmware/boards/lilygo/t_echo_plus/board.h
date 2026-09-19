@@ -186,9 +186,7 @@ class TEchoPlus {
         }
 
         if (ports::has(capabilities_, ports::Capability::Gnss)) {
-            // INFO: fc 18sep26 at 9600 baud the widest GSV set and a fix do not fit in one second
-            gnss_.request_satellites_in_view(state.gnss.levels_wanted &&
-                                             !timing::own_ship_transmits(state.own, state.clock));
+            gnss_.request_satellites_in_view(state.gnss.levels_wanted);
             gnss_.service(now_ms);
             if (gnss_.poll()) {
                 bus_.gnss.push(gnss_.solution());

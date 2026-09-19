@@ -549,8 +549,7 @@ TEST_CASE("l76k: a cold start keeps the configuration and loses only the almanac
     CHECK(gnss.solution().is_fix);
 }
 
-// The satellites a pilot wants to see while nothing is being transmitted are the
-// bytes that would push the fix past the transmit window when something is.
+// The levels cost a set of sentences a second, so only the page that draws them asks for them.
 TEST_CASE("l76k: satellites in view are asked for, and given up again, one sentence each way") {
     models::L76k chip;
     parts::L76k gnss(chip, chip);
@@ -589,7 +588,7 @@ TEST_CASE("l76k: satellites in view are asked for, and given up again, one sente
 }
 
 // Every GSV set the L76K can send does not fit in the second a fix belongs to.
-TEST_CASE("l76k: the satellites-in-view burst is why it is off while we transmit") {
+TEST_CASE("l76k: the satellites-in-view burst does not fit in the second the fix rides") {
     CHECK(parts::L76k::kSearchingBurstMs > parts::L76k::kSolutionPeriodMs);
     CHECK(parts::L76k::kBurstMs < parts::L76k::kSolutionPeriodMs);
     CHECK(parts::L76k::kSolutionPeriodMs == parts::L76k::kFixPeriodMs);
