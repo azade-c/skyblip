@@ -27,6 +27,8 @@ uint16_t alptas_crc(const uint8_t* data);  // over kAlptasDataBytes
 void alptas_set_crc(uint8_t* frame);
 bool alptas_crc_ok(const uint8_t* frame);
 
+int alptas_correct(uint8_t* frame, const uint8_t* err, int max_bad_bits = 6);
+
 // INFO: fc 09mar26 the address word is sent in clear: a receiver can read the
 // sender's identity before, and without, decrypting anything.
 uint32_t alptas_address(const uint8_t* frame);

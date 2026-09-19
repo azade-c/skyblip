@@ -12,6 +12,7 @@
 #include "core/protocol/alptas.h"
 #include "core/protocol/nmea_out.h"
 #include "doctest/doctest.h"
+#include "test/support/rf_channel.h"
 
 using namespace skyblip;
 using namespace skyblip::protocol;
@@ -324,4 +325,52 @@ TEST_CASE("alptas: aircraft type maps back to the ADS-L category it came from") 
         CAPTURE(cat);
         CHECK(int(got.aircraft_cat) == int(cat));
     }
+}
+
+TEST_CASE("alptas: the chip pairs the air destroyed are flipped back to the frame that was sent") {
+    model::AircraftObs obs = make_obs(481234567, 87654321);
+    uint8_t sent[kAlptasFrameBytes];
+    REQUIRE(alptas_encode(sent, obs, kUtc, 480000000, 87000000) == Status::Ok);
+
+    for (int seed = 1; seed <= 20; seed++) {
+        uint8_t frame[kAlptasFrameBytes];
+        std::memcpy(frame, sent, sizeof(frame));
+        uint8_t err[kAlptasFrameBytes] = {0};
+        models::RfChannel channel(static_cast<uint32_t>(seed));
+        const int flipped = channel.apply_ber(frame, sizeof(frame), 0.012, err);
+        CAPTURE(seed);
+        CAPTURE(flipped);
+        if (flipped == 0 || flipped > 6) continue;
+        CHECK(alptas_correct(frame, err) == flipped);
+        CHECK(std::memcmp(frame, sent, sizeof(frame)) == 0);
+        model::AircraftObs got{};
+        CHECK(alptas_decode(frame, kUtc, 480000000, 87000000, got) == Status::Ok);
+    }
+}
+
+// A correction that half-applied would hand the decrypt a frame no transmitter sent.
+TEST_CASE("alptas: damage nothing flagged, or too much of it, leaves the frame as it arrived") {
+    model::AircraftObs obs = make_obs(481234567, 87654321);
+    uint8_t sent[kAlptasFrameBytes];
+    REQUIRE(alptas_encode(sent, obs, kUtc, 480000000, 87000000) == Status::Ok);
+
+    uint8_t unflagged[kAlptasFrameBytes];
+    std::memcpy(unflagged, sent, sizeof(unflagged));
+    uint8_t none[kAlptasFrameBytes] = {0};
+    unflagged[7] ^= 0x10;
+    uint8_t as_arrived[kAlptasFrameBytes];
+    std::memcpy(as_arrived, unflagged, sizeof(as_arrived));
+    CHECK(alptas_correct(unflagged, none) == -1);
+    CHECK(std::memcmp(unflagged, as_arrived, sizeof(as_arrived)) == 0);
+
+    uint8_t beyond[kAlptasFrameBytes];
+    std::memcpy(beyond, sent, sizeof(beyond));
+    uint8_t err[kAlptasFrameBytes] = {0};
+    models::RfChannel channel(7);
+    channel.apply_ber(beyond, sizeof(beyond), 0.25, err);
+    std::memcpy(as_arrived, beyond, sizeof(as_arrived));
+    CHECK(alptas_correct(beyond, err) == -1);
+    CHECK(std::memcmp(beyond, as_arrived, sizeof(as_arrived)) == 0);
+
+    CHECK(alptas_correct(sent, none) == 0);  // a frame that arrived whole is not touched
 }

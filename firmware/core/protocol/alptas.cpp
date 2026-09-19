@@ -1,5 +1,6 @@
 #include "core/protocol/alptas.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "core/fec/crc.h"
@@ -234,6 +235,21 @@ int32_t unwrap20(uint32_t coded, int32_t reference) {
 
 int32_t abs32(int32_t v) { return v < 0 ? -v : v; }
 
+uint16_t carried_crc(const uint8_t* frame) {
+    return static_cast<uint16_t>(static_cast<uint16_t>(frame[kAlptasDataBytes] << 8) |
+                                 static_cast<uint16_t>(frame[kAlptasDataBytes + 1]));
+}
+
+uint16_t crc_syndrome(uint16_t bit) {
+    if (bit >= kAlptasDataBytes * 8u)
+        return static_cast<uint16_t>(0x8000u >> (bit - kAlptasDataBytes * 8u));
+    uint8_t flipped[kAlptasDataBytes] = {0};
+    flipped[bit >> 3] = static_cast<uint8_t>(0x80u >> (bit & 7u));
+    return fec::crc16_ccitt(flipped, kAlptasDataBytes, 0);
+}
+
+int count_ones(uint8_t byte) { return __builtin_popcount(byte); }
+
 }  // namespace
 
 uint16_t alptas_crc(const uint8_t* data) {
@@ -246,10 +262,48 @@ void alptas_set_crc(uint8_t* frame) {
     frame[kAlptasDataBytes + 1] = static_cast<uint8_t>(crc);
 }
 
-bool alptas_crc_ok(const uint8_t* frame) {
-    uint16_t carried = static_cast<uint16_t>(frame[kAlptasDataBytes] << 8) |
-                       static_cast<uint16_t>(frame[kAlptasDataBytes + 1]);
-    return alptas_crc(frame) == carried;
+bool alptas_crc_ok(const uint8_t* frame) { return alptas_crc(frame) == carried_crc(frame); }
+
+int alptas_correct(uint8_t* frame, const uint8_t* err, int max_bad_bits) {
+    uint16_t check = static_cast<uint16_t>(alptas_crc(frame) ^ carried_crc(frame));
+    if (check == 0) return 0;
+
+    static constexpr int kCap = 8;
+    max_bad_bits = std::min(max_bad_bits, kCap);
+    uint8_t at[kCap];
+    uint8_t mask[kCap];
+    uint16_t syndrome[kCap];
+    int bad = 0;
+    for (int byte = 0; byte < kAlptasFrameBytes; byte++) {
+        for (int bit = 0; bit < 8; bit++) {
+            const uint8_t m = static_cast<uint8_t>(0x80u >> bit);
+            if ((err[byte] & m) == 0) continue;
+            if (bad < max_bad_bits) {
+                at[bad] = static_cast<uint8_t>(byte);
+                mask[bad] = m;
+                syndrome[bad] = crc_syndrome(static_cast<uint16_t>(byte * 8 + bit));
+            }
+            bad++;
+        }
+        if (bad > max_bad_bits) return -1;
+    }
+    if (bad == 0) return -1;
+
+    const int loops = 1 << bad;
+    uint8_t previous = 0;
+    for (int i = 1; i < loops; i++) {
+        const uint8_t gray = static_cast<uint8_t>(i ^ (i >> 1));
+        uint8_t moved = static_cast<uint8_t>(gray ^ previous);
+        int bit = 0;
+        while (moved >>= 1) bit++;
+        frame[at[bit]] ^= mask[bit];
+        check ^= syndrome[bit];
+        previous = gray;
+        if (check == 0) return count_ones(gray);
+    }
+    for (int bit = 0; bit < bad; bit++)
+        if (previous & (1u << bit)) frame[at[bit]] ^= mask[bit];
+    return -1;
 }
 
 uint32_t alptas_address(const uint8_t* frame) { return get_field(frame, kFAddr); }
