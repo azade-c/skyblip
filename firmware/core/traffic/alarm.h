@@ -17,12 +17,12 @@ struct AlarmAssessment {
     Level level{Level::None};
     uint16_t rel_bearing_deg{0};
     int32_t rel_dist_m{0};
-    int32_t rel_vert_m{0};
+    int32_t rel_alt_m{0};
     int32_t closing_mps{0};
     bool valid{false};
 };
 
-constexpr int32_t kVertWindowM = 300;
+constexpr int32_t kAdvisoryAltM = 300;
 constexpr int32_t kAdvisoryDistM = 3000;
 
 // INFO: fc 14sep26 a relayed target arrives with no velocity, and zero would make it the safest dot

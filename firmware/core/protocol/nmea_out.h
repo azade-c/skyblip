@@ -23,7 +23,7 @@ int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model:
 // degrees on an app that reads it as written.
 int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_targets,
                  const model::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
-                 int32_t rel_vert_m, int32_t rel_dist_m);
+                 int32_t rel_alt_m, int32_t rel_dist_m);
 
 // fix_valid follows the same binary own.fix_valid this device already keeps
 // (no 2D/3D distinction survives to OwnState), which is what format_pflau's own

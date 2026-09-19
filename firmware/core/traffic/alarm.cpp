@@ -42,7 +42,7 @@ int32_t closing_from_vectors(const model::OwnState& own, const model::AircraftOb
 int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
 
 Level level_for(const AlarmAssessment& a) {
-    const bool in_window = iabs32(a.rel_vert_m) <= kVertWindowM && a.rel_dist_m <= kAdvisoryDistM;
+    const bool in_window = iabs32(a.rel_alt_m) <= kAdvisoryAltM && a.rel_dist_m <= kAdvisoryDistM;
     return in_window ? Level::Advisory : Level::None;
 }
 
@@ -58,7 +58,7 @@ AlarmAssessment assess(const model::OwnState& own_fix, const model::AircraftObs&
     int32_t n_m, e_m, u_m;
     if (!protocol::relative_ned(own, target, n_m, e_m, u_m)) return a;
     a.valid = true;
-    a.rel_vert_m = u_m;
+    a.rel_alt_m = u_m;
     a.rel_dist_m = static_cast<int32_t>(idistance(n_m, e_m));
     a.closing_mps = closing_from_vectors(own, target, n_m, e_m, a.rel_dist_m);
 

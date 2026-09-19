@@ -126,7 +126,7 @@ void NmeaService::emit_status(uint32_t now_ms) {
             ? protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, &threat->obs,
                                      traffic::to_number(worst_level),
                                      static_cast<int16_t>(signed_bearing(worst.rel_bearing_deg)),
-                                     worst.rel_vert_m, worst.rel_dist_m)
+                                     worst.rel_alt_m, worst.rel_dist_m)
             : protocol::format_pflau(sentence_, sizeof(sentence_), own, heard, nullptr, 0, 0, 0, 0);
     write(sentence_, len);
 }

@@ -98,7 +98,7 @@ int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model:
 
 int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_targets,
                  const model::AircraftObs* threat, uint8_t alarm_level, int16_t rel_bearing_deg,
-                 int32_t rel_vert_m, int32_t rel_dist_m) {
+                 int32_t rel_alt_m, int32_t rel_dist_m) {
     (void)cap;
     int n = 0;
     n += fmt_string(out + n, "$PFLAU,");
@@ -117,7 +117,7 @@ int format_pflau(char* out, size_t cap, const model::OwnState& own, int n_target
         out[n++] = ',';
         n += fmt_uint(out + n, alarm_level ? 2u : 0u);
         out[n++] = ',';
-        n += fmt_int(out + n, rel_vert_m, 1, 0, true);
+        n += fmt_int(out + n, rel_alt_m, 1, 0, true);
         out[n++] = ',';
         n += fmt_uint(out + n, static_cast<uint32_t>(rel_dist_m < 0 ? 0 : rel_dist_m));
         out[n++] = ',';
