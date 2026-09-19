@@ -123,8 +123,11 @@ struct State {
     struct AirCounts {
         uint32_t rx_ok{0};
         uint32_t rx_bad{0};
+        uint32_t rx_wait{0};
+        uint32_t rx_type{0};
         uint32_t rx_noise{0};
         uint32_t tx_ok{0};
+        uint32_t tx_lost{0};
         // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
         // from the M band's: every frame that arrived in the uplink dwell, the ones
         // Reed-Solomon refused, and the aircraft the rest of them put in the table.

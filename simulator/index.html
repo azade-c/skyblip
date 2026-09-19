@@ -270,7 +270,8 @@
           <div>Traffic</div><div id="t_tfc">-</div>
           <div>Formation</div><div id="t_form">-</div>
           <div>RX ok / bad</div><div id="t_rx">-</div>
-          <div>TX ok</div><div id="t_tx">-</div>
+          <div>RX wait / type</div><div id="t_rxwait">-</div>
+          <div>TX ok / lost</div><div id="t_tx">-</div>
           <div>Dwell</div><div id="t_dwell">-</div>
           <div>Alarm</div><div><span id="t_alarm" class="alarm a0">none</span></div>
         </div>
@@ -523,7 +524,8 @@ function draw() {
   $('t_tfc').textContent  = f.traffic() + ' target(s)';
   $('t_form').textContent = f.formationMembers() + ' with us';
   $('t_rx').textContent   = f.rxOk() + ' / ' + f.rxBad();
-  $('t_tx').textContent   = f.txOk();
+  $('t_rxwait').textContent = f.rxWait() + ' / ' + f.rxType();
+  $('t_tx').textContent   = f.txOk() + ' / ' + f.txLost();
   $('t_dwell').textContent = DWELL[f.slotState()] || '-';
   drawBand();
   drawTape();

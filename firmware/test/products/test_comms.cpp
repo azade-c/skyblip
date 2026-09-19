@@ -791,18 +791,24 @@ TEST_CASE("comms: the range gate's refusals read out with the radio's own counte
     cs.set_range_refused(0);
     link.sent.clear();
     cs.on_rx(frame("{\"cmd\":\"radio\"}"));
-    REQUIRE(link.sent.size() == 1);
-    CHECK(link.last().bytes.find("\"cmd\":\"radio\"") != std::string::npos);
-    CHECK(link.last().bytes.find("\"group\":\"radio\"") != std::string::npos);
-    CHECK(link.last().bytes.find("\"range_refused\":0") != std::string::npos);
-    CHECK(link.last().bytes.find("\"noise_dbm\":-101") != std::string::npos);
-    CHECK(link.last().bytes.find("\"rx_ok\":7") != std::string::npos);
+    REQUIRE_FALSE(link.sent.empty());
+    std::string idle;
+    for (const platform::host::Link::Frame& f : link.sent) {
+        CHECK(f.bytes.size() <= static_cast<size_t>(kSmallestSupportedPayload));
+        CHECK(f.bytes.find("\"cmd\":\"radio\"") != std::string::npos);
+        CHECK(f.bytes.find("\"group\":\"radio\"") != std::string::npos);
+        idle += f.bytes;
+    }
+    CHECK(idle.find("\"range_refused\":0") != std::string::npos);
+    CHECK(idle.find("\"noise_dbm\":-101") != std::string::npos);
+    CHECK(idle.find("\"rx_ok\":7") != std::string::npos);
 
     // A counter never resets, so the widest it can be is the widest the dump can
     // carry: ten digits (test/core/test_diagnostics.cpp holds the ceiling and why).
     // Nine of those do not fit one notification an iPhone will accept, so the
     // answer is two whole frames rather than one short one.
     dump.rx_ok = dump.rx_bad = dump.tx_ok = 2147483647u;
+    dump.rx_wait = dump.rx_type = dump.tx_lost = 2147483647u;
     cs.set_range_refused(2147483647u);
     link.sent.clear();
     cs.on_rx(frame("{\"cmd\":\"radio\"}"));

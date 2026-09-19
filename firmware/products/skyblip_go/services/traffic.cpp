@@ -30,9 +30,8 @@ void TrafficService::tick(uint32_t now_ms) {
                 context_.state.air.rx_bad++;
                 log(event, stamp_for(event, now_ms), radio::Event::BadCrc);
                 break;
-            // TODO: fc 15sep26 rx_bad is the wrong counter for a transmit failure (skyblip#61)
             case events::RfEventType::Missed:
-                context_.state.air.rx_bad++;
+                context_.state.air.tx_lost++;
                 log(event, stamp_for(event, now_ms), radio::Event::Lost);
                 break;
             // The executor's own timestamp, carried alongside the counter it
@@ -105,7 +104,7 @@ void TrafficService::on_frame(const events::RfEvent& event, uint32_t now_ms) {
             context_.state.air.rx_noise++;
             return;
         }
-        context_.state.air.rx_bad++;
+        count_refusal(radio::Event::Undecoded);
         log(event, stamp, radio::Event::Undecoded);
         return;
     }
@@ -117,7 +116,7 @@ void TrafficService::on_frame(const events::RfEvent& event, uint32_t now_ms) {
     const radio::Event outcome = alptas ? decode_alptas(frame, keyed, stamp.phase_valid, obs)
                                         : decode_adsl(frame, keyed, stamp, obs);
     if (outcome != radio::Event::Received) {
-        context_.state.air.rx_bad++;
+        count_refusal(outcome);
         log(event, stamp, outcome);
         return;
     }
@@ -168,6 +167,14 @@ void TrafficService::on_uplink(const events::RfEvent& event, const events::Stamp
         obs.at_ms = now_ms;
         obs.rssi_dbm = event.rssi_dbm;
         if (context_.state.traffic.update(obs, utc) >= 0) context_.state.air.uplink_targets++;
+    }
+}
+
+void TrafficService::count_refusal(radio::Event outcome) {
+    switch (outcome) {
+        case radio::Event::Unattempted: context_.state.air.rx_wait++; break;
+        case radio::Event::Unsupported: context_.state.air.rx_type++; break;
+        default: context_.state.air.rx_bad++; break;
     }
 }
 

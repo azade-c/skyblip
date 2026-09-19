@@ -150,8 +150,17 @@ KEEPALIVE int simulator_rx_ok() {
 KEEPALIVE int simulator_rx_bad() {
     return static_cast<int>(g_simulator.product().state().air.rx_bad);
 }
+KEEPALIVE int simulator_rx_wait() {
+    return static_cast<int>(g_simulator.product().state().air.rx_wait);
+}
+KEEPALIVE int simulator_rx_type() {
+    return static_cast<int>(g_simulator.product().state().air.rx_type);
+}
 KEEPALIVE int simulator_tx_ok() {
     return static_cast<int>(g_simulator.product().state().air.tx_ok);
+}
+KEEPALIVE int simulator_tx_lost() {
+    return static_cast<int>(g_simulator.product().state().air.tx_lost);
 }
 KEEPALIVE int simulator_slot_state() {
     return static_cast<int>(g_simulator.product().state().rf.plan.state);

@@ -81,9 +81,9 @@ void render(simulator::Simulator& s) {
     std::printf("  batt:%u.%02uV %3u%%%s\n", st.power.battery.millivolts / 1000,
                 (st.power.battery.millivolts % 1000) / 10, st.power.battery.percent,
                 st.power.battery.charging ? " CHG" : "");
-    std::printf("  traffic:%d  rx ok/bad:%u/%u  tx ok:%u  ALARM:%s\n", st.traffic.count(),
-                st.air.rx_ok, st.air.rx_bad, st.air.tx_ok,
-                kAlarm[traffic::to_number(st.alarm_level)]);
+    std::printf("  traffic:%d  rx ok/bad:%u/%u  wait/type:%u/%u  tx ok/lost:%u/%u  ALARM:%s\n",
+                st.traffic.count(), st.air.rx_ok, st.air.rx_bad, st.air.rx_wait, st.air.rx_type,
+                st.air.tx_ok, st.air.tx_lost, kAlarm[traffic::to_number(st.alarm_level)]);
     // One line, because a log that only exists on a partition nobody can see is
     // a feature nobody notices is broken.
     const go::FlightLogService& log = s.product().flight_log();

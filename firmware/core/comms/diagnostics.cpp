@@ -88,8 +88,11 @@ void DiagnosticsReport::build(const Diagnostics& d, const Group* only) {
         add_int(Group::Radio, "duty_permille", counter(d.duty_permille));
         add_int(Group::Radio, "rx_ok", counter(d.rx_ok));
         add_int(Group::Radio, "rx_bad", counter(d.rx_bad));
+        add_int(Group::Radio, "rx_wait", counter(d.rx_wait));
+        add_int(Group::Radio, "rx_type", counter(d.rx_type));
         add_int(Group::Radio, "rx_noise", counter(d.rx_noise));
         add_int(Group::Radio, "tx_ok", counter(d.tx_ok));
+        add_int(Group::Radio, "tx_lost", counter(d.tx_lost));
         add_int(Group::Radio, "tx_keyed_us", d.tx_keyed_us);
         add_int(Group::Radio, "tx_span_us", d.tx_span_us);
         // The range gate's refusals read out with the radio and not with the

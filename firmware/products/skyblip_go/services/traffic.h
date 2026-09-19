@@ -30,6 +30,7 @@ class TrafficService : public runtime::Service {
    private:
     void on_frame(const events::RfEvent& event, uint32_t now_ms);
     void on_uplink(const events::RfEvent& event, const events::Stamp& stamp, uint32_t now_ms);
+    void count_refusal(radio::Event outcome);
     events::Stamp stamp_for(const events::RfEvent& event, uint32_t now_ms) const;
     static uint32_t keyed_utc(const events::Stamp& stamp, uint32_t now_s);
     void log(const events::RfEvent& event, const events::Stamp& stamp, radio::Event outcome,

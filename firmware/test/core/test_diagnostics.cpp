@@ -30,8 +30,11 @@ Diagnostics busy_device() {
     d.duty_permille = 7;
     d.rx_ok = 1204;
     d.rx_bad = 37;
+    d.rx_wait = 58;
+    d.rx_type = 19;
     d.rx_noise = 96;
     d.tx_ok = 880;
+    d.tx_lost = 3;
     d.tx_keyed_us = 609;
     d.tx_span_us = 5919;
     d.range_refused = 5;
@@ -74,7 +77,13 @@ Diagnostics widest_device() {
     d.duty_permille = 1000;
     d.rx_ok = 0xFFFFFFFFu;
     d.rx_bad = 0xFFFFFFFFu;
+    d.rx_wait = 0xFFFFFFFFu;
+    d.rx_type = 0xFFFFFFFFu;
+    d.rx_noise = 0xFFFFFFFFu;
     d.tx_ok = 0xFFFFFFFFu;
+    d.tx_lost = 0xFFFFFFFFu;
+    d.tx_keyed_us = 65535;
+    d.tx_span_us = 65535;
     d.range_refused = 0xFFFFFFFFu;
     d.tracked = 0xFFFFFFFFu;
     d.alarm = 255;
@@ -151,8 +160,8 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
     // up, then the radio, then what it heard, then what it knows about itself.
     CHECK(has(text, "sys up_s=3725 reset=\"WATCHDOG\" link_drops=2\n"));
     CHECK(has(text,
-              "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 rx_noise=96 tx_ok=880 "
-              "tx_keyed_us=609 tx_span_us=5919 range_refused=5\n"));
+              "radio noise_dbm=-101 duty_permille=7 rx_ok=1204 rx_bad=37 rx_wait=58 rx_type=19 "
+              "rx_noise=96 tx_ok=880 tx_lost=3 tx_keyed_us=609 tx_span_us=5919 range_refused=5\n"));
     CHECK(has(text, "traffic tracked=4 alarm=2\n"));
     CHECK(has(text,
               "gnss fixes=5210 valid=true baud=38400 identified=true "
@@ -167,6 +176,22 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
     char line[DiagnosticsReport::kLineCap];
     CHECK(report.line(DiagnosticsReport::kGroupCount, line, sizeof(line)) == 0);
     CHECK(report.line(-1, line, sizeof(line)) == 0);
+}
+
+// A device on the apron with no fix beside a chatty neighbour reads zero bad frames.
+TEST_CASE("diagnostics: the three things that are not a bad reception each have their own key") {
+    Diagnostics d = busy_device();
+    d.rx_bad = 0;
+
+    const std::string text = console(d);
+    CHECK(has(text, "rx_bad=0 rx_wait=58 rx_type=19"));
+    CHECK(has(text, "tx_ok=880 tx_lost=3"));
+
+    const std::string json = frames(d, kSmallestSupportedPayload).joined;
+    CHECK(has(json, "\"rx_bad\":0"));
+    CHECK(has(json, "\"rx_wait\":58"));
+    CHECK(has(json, "\"rx_type\":19"));
+    CHECK(has(json, "\"tx_lost\":3"));
 }
 
 // A support case is pasted into an email, so the console form has to stay

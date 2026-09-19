@@ -143,3 +143,76 @@ TEST_CASE("radio verdicts: the frame we can read is read, and names its aircraft
 
     CHECK(heard_verdict(rig) == radio::Event::Received);
 }
+
+// A skyBlip on the apron beside a chatty neighbour used to report a climbing bad-frame count.
+TEST_CASE("radio counters: a burst nothing was attempted on leaves rx_bad where it was") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    settle(rig, t);
+    REQUIRE_FALSE(rig.state().own.fix_valid);
+
+    model::AircraftObs obs = neighbour(rig.state().own);
+    obs.lat_1e7 = 481234567;
+    obs.lon_1e7 = 87654321;
+    uint8_t frame[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(frame, obs, Rig::kUtcBase, 481000000, 87000000) == Status::Ok);
+
+    hear_alptas(rig, frame);
+    settle(rig, t);
+
+    CHECK(rig.state().air.rx_wait == 1);
+    CHECK(rig.state().air.rx_bad == 0);
+    CHECK(rig.state().air.rx_ok == 0);
+}
+
+TEST_CASE("radio counters: a dialect we do not read is counted apart from a frame we refused") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    const model::OwnState& own = rig.state().own;
+    uint8_t v6[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(v6, neighbour(own), own.utc, own.lat_1e7, own.lon_1e7) ==
+            Status::Ok);
+    v6[3] = static_cast<uint8_t>(v6[3] & 0xF0);
+    protocol::alptas_set_crc(v6);
+
+    hear_alptas(rig, v6);
+    settle(rig, t);
+
+    CHECK(rig.state().air.rx_type == 1);
+    CHECK(rig.state().air.rx_wait == 0);
+    CHECK(rig.state().air.rx_bad == bad_before);
+
+    uint8_t stale[protocol::kAlptasFrameBytes];
+    REQUIRE(protocol::alptas_encode(stale, neighbour(own), own.utc + 100, own.lat_1e7,
+                                    own.lon_1e7) == Status::Ok);
+
+    hear_alptas(rig, stale);
+    settle(rig, t);
+
+    CHECK(rig.state().air.rx_bad == bad_before + 1);
+    CHECK(rig.state().air.rx_type == 1);
+}
+
+// skyblip#61: a dwell of ours that ended with the burst still in the chip is not a reception.
+TEST_CASE("radio counters: a burst of ours that never completed is not a bad reception") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 2);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    events::RfEvent event{};
+    event.type = events::RfEventType::Missed;
+    event.band = model::Band::M;
+    rig.product.bus().rf.push(event);
+    settle(rig, t);
+
+    CHECK(rig.state().air.tx_lost == 1);
+    CHECK(rig.state().air.rx_bad == bad_before);
+    CHECK(rig.state().radio_log.newest(0).event == radio::Event::Lost);
+}

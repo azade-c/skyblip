@@ -146,6 +146,25 @@ TEST_CASE("diagnostics: the faults nobody could see reach the console") {
     CHECK_FALSE(has(power, "implausible=0"));
 }
 
+TEST_CASE("diagnostics: the air's four outcomes leave the collector as four numbers") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    Dump dump;
+    uint32_t t = 0;
+    pass(rig, dump, t, 1000);
+
+    rig.state().air.rx_bad = 4;
+    rig.state().air.rx_wait = 58;
+    rig.state().air.rx_type = 19;
+    rig.state().air.tx_lost = 2;
+    pass(rig, dump, t, 12000);
+
+    const std::string radio = dump.sink().with("radio ");
+    REQUIRE_FALSE(radio.empty());
+    CHECK(has(radio, "rx_bad=4 rx_wait=58 rx_type=19"));
+    CHECK(has(radio, "tx_lost=2"));
+}
+
 TEST_CASE("diagnostics: nothing is written until a host has opened the port") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);

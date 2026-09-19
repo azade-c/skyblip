@@ -55,8 +55,11 @@ class DiagnosticsDump {
         d.duty_permille = product.radio().duty_permille(now_ms);
         d.rx_ok = state.air.rx_ok;
         d.rx_bad = state.air.rx_bad;
+        d.rx_wait = state.air.rx_wait;
+        d.rx_type = state.air.rx_type;
         d.rx_noise = state.air.rx_noise;
         d.tx_ok = state.air.tx_ok;
+        d.tx_lost = state.air.tx_lost;
         d.tx_keyed_us = state.rf.last_tx_keyed_us;
         d.tx_span_us = state.rf.last_tx_span_us;
 

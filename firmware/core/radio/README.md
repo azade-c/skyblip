@@ -42,8 +42,6 @@ There is no verdict for a burst the radio declined to send, because nothing decl
 
 The page spends no row on the difference between `Lost` and `Unarmed`: both read `LOST`, because both mean the burst did not go out and what separates them is ours, not the reader's. The distinction survives where it is acted on, in the entry and in `timing_stats`.
 
-`Lost` and `Unframed` are both `rx_bad` on the counters, which is wrong of the counters: `messages::RfEventType::Missed` is only ever emitted for a dwell or a transmission of ours that did not complete, never for a reception. The log is split because a transmit failure reported as a bad reception sends a reader hunting the wrong fault, which is the exact thing this page exists to stop. The counter keeps its old meaning until it is given one of its own: [#61](https://github.com/fcatuhe/skyblip/issues/61).
-
 `Entry::airborne` is own-ship's flight state when the row was written, and the page prints it as `AIR` or `GND` on every burst of ours. It is per entry for the same reason the date is: §G.1.16 transmits at 1 Hz in the air and 0.1 Hz on the ground, and the tape outlives a takeoff. The page used to draw the live flag on all sixteen rows, so one takeoff rewrote the schedule the whole tape claimed to have gone out on.
 
 `Entry::at_s` is UTC once the receiver has given us a second, and time since boot before that. Which of the two is a flag per entry rather than a flag on the log, because the log outlives a first fix and the entries either side of one are dated differently. The second itself comes from the PPS edge the clock last latched (`timing::ClockState::utc_s`), not from the sentence that names it: see `core/timing/README.md`.
@@ -71,6 +69,26 @@ Neither figure is on the page. Both are microseconds of this CPU and of the chip
 A reception is dated where the radio raised it: the executor stamps the instant it saw DIO1 go up, or the instant it began the status read, never the instant the read-out ended. Reading 58 chip-bytes out of the buffer costs milliseconds on a bench, and it used to sit between the burst and its own timestamp, which is what made one link's two stamps read 2 to 3 ms apart. DIO1 stays a level, not an edge: a dwell is driven by a deadline (`boards/lilygo/t_echo_plus/t_echo_plus.dts`).
 
 The capacity is what one screen holds. Nothing is kept that could not be shown: this is a tape of what is happening now, not a history to scroll back through. `products/skyblip_go/pages/radio_log.cpp` draws exactly `Log::kCapacity` rows for that reason.
+
+## What the counters hold
+
+The verdicts split on 2026-09-19 and the counters followed on the same day, because until then every outcome that was not `Received` was `air.rx_bad`. A device on the apron with no fix beside a chatty neighbour reported a climbing bad-frame count while behaving perfectly, on the panel and in every reply a companion app reads, which is the mislabelling `WAIT` and `TYPE` had just been taken out of the tape for.
+
+| | |
+|---|---|
+| `rx_ok` | a burst that named an aircraft |
+| `rx_bad` | a reception that is a fault: framed, attempted, refused, plus the integrity failures |
+| `rx_wait` | `Unattempted`, the bursts no fix or no UTC let us try |
+| `rx_type` | `Unsupported`, the dialect we do not read |
+| `rx_noise` | a sync window the band's own noise walked through |
+| `tx_ok` | own-ship's burst left the antenna |
+| `tx_lost` | own-ship's burst was armed and never completed |
+
+`BadCrc` is counted in `rx_bad` beside `Undecoded` rather than apart from it, even though the two are answered differently. What a counter is read for is whether anything is wrong, and both say yes: a burst the air damaged and a burst nothing here could read are each a reason to go and look. Which of the two it was is the tape's column, one row per burst, and a number that only ever climbs cannot carry that distinction anyway.
+
+`tx_lost` is `messages::RfEventType::Missed`, which is only ever emitted for a dwell or a transmission of ours that did not complete and was never a reception at all. It was counted as a bad reception until the same day, which is [#61](https://github.com/fcatuhe/skyblip/issues/61), now closed.
+
+All seven reach `core/comms/diagnostics.h`'s radio group, so they leave on the USB console line, in the `diag` dump and in the `radio` reply, under the names above. The radio group no longer fits one 182-byte notification even at rest, and answers in two: the dump has been framed per group since it existed, and `fits()` still refuses a link that cannot carry a whole field. The tape's own header keeps `RX`, `TX` and `NOISE`, because the panel's reader of `WAIT` and `TYPE` is the sixteen rows underneath it.
 
 ## Who writes what
 
