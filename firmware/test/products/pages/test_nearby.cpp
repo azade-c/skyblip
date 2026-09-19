@@ -3,6 +3,7 @@
 #include "doctest/doctest.h"
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/pages/nearby.h"
+#include "test/support/glass_text.h"
 
 using namespace skyblip;
 using namespace skyblip::go;
@@ -41,6 +42,13 @@ bool reads_at(const Glass& fb, int x, int y, const char* text, int scale) {
     int n = 0;
     while (text[n]) n++;
     return reads_right_of(fb, x + n * 6 * scale, y, text, scale);
+}
+
+bool banner_reads(const Glass& fb, const char* text) {
+    int n = 0;
+    while (text[n]) n++;
+    const int w = n * 6 * kNearbyScale;
+    return reads_at(fb, (Glass::kW - w) / 2, kNearbyBannerY, text, kNearbyScale);
 }
 
 NearbySnapshot listing(const traffic::RangeRow* rows, int n, go::Units units) {
@@ -96,7 +104,15 @@ TEST_CASE("nearby: no fix means no range, and the page says so instead of listin
 
     Glass fb;
     draw_nearby(fb, snap);
-    CHECK(reads_at(fb, kNearbyIdX, kNearbyFirstRowY, "NO FIX: NO RANGE", 1));
+    CHECK(banner_reads(fb, "NO FIX"));
+    CHECK(ink_in_row(fb, 0) == 0);
+}
+
+// An empty list and a page that is not listing look alike, so the empty one says which it is.
+TEST_CASE("nearby: an empty sky is a word on the second row, not an empty list") {
+    Glass fb;
+    draw_nearby(fb, listing(nullptr, 0, go::Units::Nautical));
+    CHECK(banner_reads(fb, "NO TRAFFIC"));
 }
 
 TEST_CASE("nearby: the header counts what was heard, not what fits") {
@@ -108,8 +124,28 @@ TEST_CASE("nearby: the header counts what was heard, not what fits") {
 
     Glass fb;
     draw_nearby(fb, snap);
-    CHECK(reads_right_of(fb, kNearbyRelEnd, 2, "26 HEARD", 1));
-    CHECK(ink_in_row(fb, 1) == 0);
+    // The figure is read, the word only says what was counted: the radar's own ACT arrangement.
+    CHECK(reads_right_of(fb, kNearbyRelEnd, kNearbyTitleY, "26", 2));
+    CHECK(reads_in(fb, "TRAFFIC", 0, kNearbyTitleY, kNearbyRelEnd, kNearbyHeadY, 1));
+    CHECK(ink_in_row(fb, 0) == 0);
+}
+
+TEST_CASE("nearby: the page names itself at the size the rows are read at") {
+    Glass fb;
+    draw_nearby(fb, listing(nullptr, 0, go::Units::Nautical));
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY, "NEARBY", 2));
+}
+
+// The letter in front of the address is the source the report arrived by, and nothing said so.
+TEST_CASE("nearby: every head stands on the edge of the figures under it") {
+    traffic::RangeRow rows[1] = {row_at(4300, 366)};
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
+
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyHeadY, "SRC ID", 1));
+    CHECK(reads_right_of(fb, kNearbySlantEnd, kNearbyHeadY, "SLANT", 1));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, kNearbyHeadY, "ALT", 1));
 }
 
 // B4. A pilot who asked for miles on the instruments is not handed kilometres here.
@@ -121,9 +157,18 @@ TEST_CASE("nearby: the range column reads in the unit a pilot set") {
     draw_nearby(metric, listing(rows, 1, go::Units::Metric));
 
     CHECK(reads_right_of(nautical, kNearbySlantEnd, row_y(0), "2.3", kNearbyScale));
-    CHECK(reads_right_of(nautical, kNearbySlantEnd, kNearbyUnitsY, "NM", 1));
     CHECK(reads_right_of(metric, kNearbySlantEnd, row_y(0), "4.3", kNearbyScale));
-    CHECK(reads_right_of(metric, kNearbySlantEnd, kNearbyUnitsY, "km", 1));
+}
+
+// The column is scanned down, and a figure that changes width moves under the eye doing it.
+TEST_CASE("nearby: relative altitude is two digits and a sign, the width the radar tags") {
+    traffic::RangeRow rows[2] = {row_at(400, 120), row_at(900, -30)};  // 394 ft, -98 ft
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 2, go::Units::Nautical));
+
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "+04", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "-01", kNearbyScale));
 }
 
 // A separation is cleared and flown in feet wherever the aeroplane is.
@@ -136,7 +181,6 @@ TEST_CASE("nearby: relative altitude reads in hundreds of feet under either unit
 
     CHECK(reads_right_of(nautical, kNearbyRelEnd, row_y(0), "+12", kNearbyScale));
     CHECK(reads_right_of(metric, kNearbyRelEnd, row_y(0), "+12", kNearbyScale));
-    CHECK(reads_right_of(metric, kNearbyRelEnd, kNearbyUnitsY, "100FT", 1));
 }
 
 TEST_CASE("nearby: traffic below carries its sign, and traffic at this level carries none") {
@@ -147,7 +191,7 @@ TEST_CASE("nearby: traffic below carries its sign, and traffic at this level car
 
     CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(0), "-12", kNearbyScale));
     // +0 and -0 are the same number, and a sign an eye has to discard is one not to draw.
-    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "0", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyRelEnd, row_y(1), "00", kNearbyScale));
 }
 
 // Three double-height columns fill the glass, so a figure with one more digit hits its neighbour.

@@ -8,8 +8,11 @@ namespace skyblip::go {
 
 namespace {
 constexpr int kSmallCellW = 6;
-constexpr int kTitleY = 2;
-constexpr int kRuleY = 31;
+constexpr int kGlyphH = 7;
+constexpr int kTitleScale = 2;
+constexpr int kCountScale = 2;
+constexpr int kWordGap = 3;
+constexpr int kRuleY = 32;
 constexpr int kRelHundredsCap = 99;
 constexpr int32_t kSlantE1Cap = 999;
 
@@ -23,22 +26,30 @@ void right_aligned_text(ui::Canvas& fb, int x_end, int y, const char* text, int 
     right_aligned(fb, x_end, y, text, n, scale);
 }
 
-void draw_header(ui::Canvas& fb, const NearbySnapshot& snap) {
-    fb.draw_text(kNearbyIdX, kTitleY, "NEARBY", true, 1);
-
-    char buf[16];
-    int n = fmt_uint(buf, static_cast<uint32_t>(snap.n_heard), 1);
-    n += fmt_string(buf + n, " HEARD");
+void draw_count(ui::Canvas& fb, int n_heard) {
+    char buf[8];
+    const int n = fmt_uint(buf, static_cast<uint32_t>(n_heard), 1);
     buf[n] = 0;
-    right_aligned(fb, kNearbyRelEnd, kTitleY, buf, n, 1);
+    right_aligned(fb, kNearbyRelEnd, kNearbyTitleY, buf, n, kCountScale);
 
-    fb.draw_text(kNearbyIdX, kNearbyHeaderY, "ID", true, 1);
-    right_aligned_text(fb, kNearbySlantEnd, kNearbyHeaderY, "SLANT", 1);
-    right_aligned_text(fb, kNearbyRelEnd, kNearbyHeaderY, "REL", 1);
+    const int word_end = kNearbyRelEnd - n * kSmallCellW * kCountScale - kWordGap;
+    right_aligned_text(fb, word_end, kNearbyTitleY + kGlyphH * (kCountScale - 1), "TRAFFIC", 1);
+}
 
-    right_aligned_text(fb, kNearbySlantEnd, kNearbyUnitsY,
-                       snap.units == go::Units::Metric ? "km" : "NM", 1);
-    right_aligned_text(fb, kNearbyRelEnd, kNearbyUnitsY, "100FT", 1);
+void banner(ui::Canvas& fb, const char* text) {
+    int n = 0;
+    while (text[n]) n++;
+    fb.draw_text((kGlassW - n * kSmallCellW * kNearbyScale) / 2, kNearbyBannerY, text, true,
+                 kNearbyScale);
+}
+
+void draw_header(ui::Canvas& fb, const NearbySnapshot& snap) {
+    fb.draw_text(kNearbyIdX, kNearbyTitleY, "NEARBY", true, kTitleScale);
+    draw_count(fb, snap.n_heard);
+
+    fb.draw_text(kNearbyIdX, kNearbyHeadY, "SRC ID", true, 1);
+    right_aligned_text(fb, kNearbySlantEnd, kNearbyHeadY, "SLANT", 1);
+    right_aligned_text(fb, kNearbyRelEnd, kNearbyHeadY, "ALT", 1);
     fb.hline(kNearbyIdX, kRuleY, kNearbyRelEnd - kNearbyIdX, true);
 }
 
@@ -66,7 +77,7 @@ void draw_row(ui::Canvas& fb, int y, const traffic::RangeRow& row, bool metric) 
     right_aligned(fb, kNearbySlantEnd, y, buf, n, kNearbyScale);
 
     const int32_t rel = rel_hundreds_of_feet(row.up_m);
-    n = rel == 0 ? fmt_string(buf, "0") : fmt_int(buf, rel, 1, 0, false);
+    n = fmt_int(buf, rel, 2, 0, rel == 0);
     buf[n] = 0;
     right_aligned(fb, kNearbyRelEnd, y, buf, n, kNearbyScale);
 }
@@ -77,11 +88,11 @@ void draw_nearby(ui::Canvas& fb, const NearbySnapshot& snap) {
     draw_header(fb, snap);
 
     if (!snap.fix_valid) {
-        fb.draw_text(kNearbyIdX, kNearbyFirstRowY, "NO FIX: NO RANGE", true, 1);
+        banner(fb, "NO FIX");
         return;
     }
     if (snap.n_rows == 0 || snap.rows == nullptr) {
-        fb.draw_text(kNearbyIdX, kNearbyFirstRowY, "NOTHING POSITIONED", true, 1);
+        banner(fb, "NO TRAFFIC");
         return;
     }
 

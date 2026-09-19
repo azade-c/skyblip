@@ -24,10 +24,11 @@ constexpr int kNearbyCellW = 6 * kNearbyScale;
 constexpr int kNearbyIdX = 4;
 constexpr int kNearbySlantEnd = 152;
 constexpr int kNearbyRelEnd = 196;
-constexpr int kNearbyHeaderY = 13;
-constexpr int kNearbyUnitsY = 23;
-constexpr int kNearbyFirstRowY = 36;
+constexpr int kNearbyTitleY = 2;
+constexpr int kNearbyHeadY = 22;
+constexpr int kNearbyFirstRowY = 37;
 constexpr int kNearbyLineH = 20;
+constexpr int kNearbyBannerY = kNearbyFirstRowY + kNearbyLineH;
 
 void draw_nearby(ui::Canvas& fb, const NearbySnapshot& snap);
 
