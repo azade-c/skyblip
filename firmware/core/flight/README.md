@@ -75,7 +75,13 @@ Two honesties are the caller's, not this file's. The bank is the *device's*, so 
 
 `GMeter` is the sensor with nothing done to it but a sign: the largest and smallest of each axis held, in thousandths of g, with no fusion, no assumption and no fix required. It is the one instrument here that cannot be wrong about anything but its own calibration.
 
-The sign is the instrument's, not the accelerometer's, and it is the ball's. Normal load is the load factor every g-meter shows, positive up, 1 g in level flight. The two horizontal axes are the direction the load throws a loose object, which is minus the measured force: a force to the right throws the ball, the pilot and the marker to the left. Reading them as raw axes instead would put the page and the turn coordinator in opposite languages on the same device, which is exactly how a bench came to read the whole page as inverted.
+The sign of each axis is the instrument's, not the accelerometer's, and there is no single aviation convention covering all three.
+
+Normal load is the load factor every g-meter in every cockpit shows: positive up, 1 g in level flight, negative in outside figures, and the limits an airframe carries are written in it.
+
+Lateral follows the ball. It is the side the load throws a loose object, which is minus the measured force, because the turn coordinator two pages away shows exactly this quantity as a ball in a tube and two instruments on one device must not disagree. No cockpit has a lateral number; the ball and the slip string are what a pilot flies.
+
+Longitudinal is the flight-test quantity, `Ax`, positive accelerating forward and negative braking, because it is the one axis with no companion instrument to agree with and the only reference is the convention telemetry uses. The page draws it with the nose at the top, so the marker still sits where the load throws you - forward under braking, back into the seat under power - and labels the ends `DEC` and `ACC` so the direction needs no sign to read.
 
 The peaks reset when the flight timer starts, so they are this flight's, and a unit left on the bench holds what the bench did to it.
 

@@ -1,4 +1,4 @@
-// The g-meter page: what the airframe is pulling now, and the worst of this flight.
+// The g-meter page: what the airframe is pulling, and the worst of this flight.
 #include "doctest/doctest.h"
 #include "products/skyblip_go/pages/gmeter.h"
 #include "test/support/glass_text.h"
@@ -9,8 +9,9 @@ using go::GMeterSnapshot;
 
 namespace {
 
-constexpr int kFieldCx = 100;
+constexpr int kFieldCx = 82;
 constexpr int kFieldCy = 82;
+constexpr int kStripCx = 164;
 
 GMeterSnapshot flying() {
     GMeterSnapshot s;
@@ -26,7 +27,7 @@ bool marker_at(const Glass& fb, int x, int y) {
     return fb.get_pixel(x - 2, y - 2) && fb.get_pixel(x + 2, y + 2);
 }
 
-bool scale_drawn(const Glass& fb) { return fb.get_pixel(48, 30) && fb.get_pixel(152, 134); }
+bool scale_drawn(const Glass& fb) { return fb.get_pixel(30, 30) && fb.get_pixel(134, 134); }
 
 }  // namespace
 
@@ -46,19 +47,20 @@ TEST_CASE("gmeter: the three axes each read their own now, most and least") {
     Glass fb;
     draw_gmeter(fb, s);
 
-    CHECK(reads_in(fb, "NRM", 0, 135, 30, 144));
-    CHECK(reads_in(fb, "+2.3", 35, 135, 68, 144));
-    CHECK(reads_in(fb, "+4.2", 78, 135, 110, 144));
-    CHECK(reads_in(fb, "-1.3", 114, 135, 146, 144));
+    CHECK(reads_in(fb, "NRM", 0, 141, 30, 150));
+    CHECK(reads_in(fb, "+2.3", 32, 141, 72, 150));
+    CHECK(reads_in(fb, "+4.2", 74, 141, 114, 150));
+    CHECK(reads_in(fb, "-1.3", 116, 141, 156, 150));
 
-    CHECK(reads_in(fb, "LAT", 0, 145, 30, 154));
-    CHECK(reads_in(fb, "L0.4", 35, 145, 68, 154));
-    CHECK(reads_in(fb, "R0.7", 78, 145, 110, 154));
-    CHECK(reads_in(fb, "L0.6", 114, 145, 146, 154));
+    CHECK(reads_in(fb, "LAT", 0, 159, 30, 168));
+    CHECK(reads_in(fb, "L0.4", 32, 159, 72, 168));
+    CHECK(reads_in(fb, "R0.7", 74, 159, 114, 168));
+    CHECK(reads_in(fb, "L0.6", 116, 159, 156, 168));
 
-    CHECK(reads_in(fb, "F/A", 0, 177, 30, 186));
-    CHECK(reads_in(fb, "F0.3", 35, 177, 68, 186));
-    CHECK(reads_in(fb, "A0.4", 114, 177, 146, 186));
+    CHECK(reads_in(fb, "LON", 0, 177, 30, 186));
+    CHECK(reads_in(fb, "ACC0.3", 32, 177, 72, 186));
+    CHECK(reads_in(fb, "ACC0.3", 74, 177, 114, 186));
+    CHECK(reads_in(fb, "DEC0.4", 116, 177, 156, 186));
 }
 
 // Pull g and the marker rises, pull left and it goes left.
@@ -79,16 +81,33 @@ TEST_CASE("gmeter: the marker moves the way the aircraft is loaded") {
     CHECK(marker_at(left, kFieldCx - 26, kFieldCy));
 }
 
-// Braking and acceleration have nothing to do with the wings, so they read apart from them.
-TEST_CASE("gmeter: fore and aft is on its own strip, below the field") {
+// Braking throws you at the nose, which is the top of the strip.
+TEST_CASE("gmeter: the longitudinal strip stands up, with the nose at the top") {
     GMeterSnapshot braking = flying();
     braking.now = flight::GLoad{1000, 0, -500};
     braking.least = flight::GLoad{1000, 0, -500};
     Glass fb;
     draw_gmeter(fb, braking);
 
-    CHECK(fb.get_pixel(kFieldCx - 39, 165));
-    CHECK_FALSE(fb.get_pixel(kFieldCx + 39, 165));
+    CHECK(fb.get_pixel(kStripCx, kFieldCy - 18));
+    CHECK_FALSE(fb.get_pixel(kStripCx, kFieldCy + 18));
+
+    GMeterSnapshot accelerating = flying();
+    accelerating.now = flight::GLoad{1000, 0, 500};
+    accelerating.most = flight::GLoad{1000, 0, 500};
+    Glass takeoff;
+    draw_gmeter(takeoff, accelerating);
+
+    CHECK(takeoff.get_pixel(kStripCx, kFieldCy + 18));
+    CHECK_FALSE(takeoff.get_pixel(kStripCx, kFieldCy - 18));
+}
+
+TEST_CASE("gmeter: the strip says which end is which, so no sign has to be remembered") {
+    Glass fb;
+    draw_gmeter(fb, flying());
+
+    CHECK(reads_in(fb, "DEC", 152, 28, 180, 42));
+    CHECK(reads_in(fb, "ACC", 152, 120, 180, 136));
 }
 
 TEST_CASE("gmeter: a unit with no sensor prints no scale to read nothing off") {
@@ -109,5 +128,5 @@ TEST_CASE("gmeter: a sensor that has not reported yet leaves the field empty") {
 
     CHECK(scale_drawn(fb));
     CHECK_FALSE(marker_at(fb, kFieldCx, kFieldCy));
-    CHECK(reads_in(fb, "----", 35, 135, 68, 144));
+    CHECK(reads_in(fb, "----", 32, 141, 72, 150));
 }

@@ -25,13 +25,21 @@ TEST_CASE("gload: level flight is one g up and nothing across") {
 }
 
 // A force to the right throws a loose object left, which is where the ball goes.
-TEST_CASE("gload: the two horizontal axes read the way the ball reads") {
+TEST_CASE("gload: lateral reads the way the ball reads") {
     flight::GMeter meter;
     meter.observe(SpecificForce{300, 1000, 0}, 1000);
     CHECK(meter.now().lateral_mg == -300);
+    meter.observe(SpecificForce{-300, 1000, 0}, 1200);
+    CHECK(meter.now().lateral_mg == 300);
+}
 
-    meter.observe(SpecificForce{0, 1000, 400}, 1200);
+// Longitudinal is the flight-test quantity: positive is accelerating up the runway.
+TEST_CASE("gload: longitudinal is the acceleration, positive forward") {
+    flight::GMeter meter;
+    meter.observe(SpecificForce{0, 1000, -400}, 1000);
     CHECK(meter.now().longitudinal_mg == 400);
+    meter.observe(SpecificForce{0, 1000, 400}, 1200);
+    CHECK(meter.now().longitudinal_mg == -400);
 }
 
 TEST_CASE("gload: the most and the least of each axis are held, and the first sample is both") {

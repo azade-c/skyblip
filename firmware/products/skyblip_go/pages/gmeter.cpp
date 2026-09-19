@@ -11,7 +11,7 @@ constexpr int kGlyphH = 7;
 constexpr int kTitleY = 3;
 constexpr int kRuleY = 21;
 
-constexpr int kFieldCx = 100;
+constexpr int kFieldCx = 82;
 constexpr int kFieldCy = 82;
 constexpr int kFieldHalfW = 52;
 constexpr int kFieldHalfH = 52;
@@ -20,18 +20,20 @@ constexpr int kNormalPerG = 16;
 constexpr int kMarkerR = 3;
 constexpr int kTickLen = 3;
 
-constexpr int kStripY = 158;
-constexpr int kStripH = 15;
-constexpr int kStripHalfW = 78;
-constexpr int kLongitudinalPerG = 78;
+constexpr int kStripCx = 164;
+constexpr int kStripHalfW = 10;
+constexpr int kStripTop = kFieldCy - kFieldHalfH;
+constexpr int kStripBottom = kFieldCy + kFieldHalfH;
+constexpr int kThrownPerG = 36;
+constexpr int kStripLabelInset = 2;
 
-constexpr int kNormalRowY = 136;
-constexpr int kLateralRowY = 146;
-constexpr int kStripRowY = 178;
+constexpr int kNormalRowY = 142;
+constexpr int kLateralRowY = 160;
+constexpr int kLongitudinalRowY = 178;
 
-constexpr int kNowEnd = kLeft + 10 * kCellW;
-constexpr int kMostEnd = kLeft + 17 * kCellW;
-constexpr int kLeastEnd = kLeft + 23 * kCellW;
+constexpr int kNowEnd = kLeft + 11 * kCellW;
+constexpr int kMostEnd = kLeft + 18 * kCellW;
+constexpr int kLeastEnd = kLeft + 25 * kCellW;
 
 constexpr int32_t kMilliPerG = 1000;
 constexpr int32_t kMilliPerTenth = 100;
@@ -50,12 +52,9 @@ int fmt_g(char* out, int32_t mg) {
     return n;
 }
 
-// The two axes that follow the ball name the hand they throw a loose object to,
-// because a sign on them is a convention a pilot has to remember.
-int fmt_handed_g(char* out, int32_t mg, char positive, char negative) {
+int fmt_named_g(char* out, int32_t mg, const char* positive, const char* negative) {
     const int32_t value = tenths(mg);
-    int n = 0;
-    out[n++] = value < 0 ? negative : positive;
+    int n = fmt_string(out, value < 0 ? negative : positive);
     n += fmt_uint(out + n, static_cast<uint32_t>(value < 0 ? -value : value), 1, 1);
     out[n] = 0;
     return n;
@@ -65,15 +64,20 @@ void right_aligned(ui::Canvas& fb, int x_end, int y, const char* text, int len, 
     fb.draw_text(x_end - len * kCellW * scale, y, text, true, scale);
 }
 
+void centred(ui::Canvas& fb, int cx, int y, const char* text, int len) {
+    fb.draw_text(cx - (len * kCellW - 1) / 2, y, text, true, 1);
+}
+
 void value_at(ui::Canvas& fb, int x_end, int y, int32_t mg) {
     char buf[8];
     const int n = fmt_g(buf, mg);
     right_aligned(fb, x_end, y, buf, n);
 }
 
-void handed_at(ui::Canvas& fb, int x_end, int y, int32_t mg, char positive, char negative) {
-    char buf[8];
-    const int n = fmt_handed_g(buf, mg, positive, negative);
+void named_at(ui::Canvas& fb, int x_end, int y, int32_t mg, const char* positive,
+              const char* negative) {
+    char buf[12];
+    const int n = fmt_named_g(buf, mg, positive, negative);
     right_aligned(fb, x_end, y, buf, n);
 }
 
@@ -88,9 +92,9 @@ int lateral_x(int32_t mg) {
     return kFieldCx + clampi(offset, -kFieldHalfW, kFieldHalfW);
 }
 
-int longitudinal_x(int32_t mg) {
-    const int offset = static_cast<int>((mg * kLongitudinalPerG) / kMilliPerG);
-    return kFieldCx + clampi(offset, -kStripHalfW, kStripHalfW);
+int thrown_forward_y(int32_t accelerating_mg) {
+    const int offset = static_cast<int>((accelerating_mg * kThrownPerG) / kMilliPerG);
+    return kFieldCy + clampi(offset, -kThrownPerG, kThrownPerG);
 }
 
 void field_scale(ui::Canvas& fb) {
@@ -101,13 +105,11 @@ void field_scale(ui::Canvas& fb) {
 
     for (int32_t g = -2; g <= 4; g++) {
         if (g == 1) continue;
-        const int y = normal_y(g * kMilliPerG);
-        fb.hline(kFieldCx - kTickLen, y, 2 * kTickLen + 1, true);
+        fb.hline(kFieldCx - kTickLen, normal_y(g * kMilliPerG), 2 * kTickLen + 1, true);
     }
     for (int32_t half_g = -2; half_g <= 2; half_g++) {
         if (half_g == 0) continue;
-        const int x = lateral_x(half_g * kMilliPerG / 2);
-        fb.vline(x, kFieldCy - kTickLen, 2 * kTickLen + 1, true);
+        fb.vline(lateral_x(half_g * kMilliPerG / 2), kFieldCy - kTickLen, 2 * kTickLen + 1, true);
     }
 }
 
@@ -121,43 +123,24 @@ void field_reading(ui::Canvas& fb, const GMeterSnapshot& s) {
 }
 
 void strip_scale(ui::Canvas& fb) {
-    fb.rect(kFieldCx - kStripHalfW, kStripY, 2 * kStripHalfW + 1, kStripH, true);
-    fb.vline(kFieldCx, kStripY, kStripH, true);
-    for (int32_t half_g = -2; half_g <= 2; half_g++) {
-        if (half_g == 0) continue;
-        const int x = longitudinal_x(half_g * kMilliPerG / 2);
-        fb.vline(x, kStripY + kStripH - 4, 4, true);
-    }
+    fb.rect(kStripCx - kStripHalfW, kStripTop, 2 * kStripHalfW + 1, kStripBottom - kStripTop + 1,
+            true);
+    fb.hline(kStripCx - kStripHalfW, kFieldCy, 2 * kStripHalfW + 1, true);
+    centred(fb, kStripCx, kStripTop + kStripLabelInset, "DEC", 3);
+    centred(fb, kStripCx, kStripBottom - kStripLabelInset - kGlyphH, "ACC", 3);
 }
 
 void strip_reading(ui::Canvas& fb, const GMeterSnapshot& s) {
-    fb.vline(longitudinal_x(s.most.longitudinal_mg), kStripY + 1, kStripH - 2, true);
-    fb.vline(longitudinal_x(s.least.longitudinal_mg), kStripY + 1, kStripH - 2, true);
-    fb.rect(longitudinal_x(s.now.longitudinal_mg) - 1, kStripY + 3, 3, kStripH - 6, true, true);
+    const int inset = kStripHalfW - 3;
+    fb.hline(kStripCx - inset, thrown_forward_y(s.most.longitudinal_mg), 2 * inset + 1, true);
+    fb.hline(kStripCx - inset, thrown_forward_y(s.least.longitudinal_mg), 2 * inset + 1, true);
+    fb.rect(kStripCx - inset, thrown_forward_y(s.now.longitudinal_mg) - 1, 2 * inset + 1, 3, true,
+            true);
 }
 
-void reading_row(ui::Canvas& fb, int y, const char* label, int32_t now_mg, int32_t most_mg,
-                 int32_t least_mg, bool valid) {
+void row_label(ui::Canvas& fb, int y, const char* label, bool valid) {
     fb.draw_text(kLeft, y, label, true, 1);
-    if (!valid) {
-        fb.draw_text(kNowEnd - 4 * kCellW, y, "----", true, 1);
-        return;
-    }
-    value_at(fb, kNowEnd, y, now_mg);
-    value_at(fb, kMostEnd, y, most_mg);
-    value_at(fb, kLeastEnd, y, least_mg);
-}
-
-void handed_row(ui::Canvas& fb, int y, const char* label, int32_t now_mg, int32_t most_mg,
-                int32_t least_mg, bool valid, char positive, char negative) {
-    fb.draw_text(kLeft, y, label, true, 1);
-    if (!valid) {
-        fb.draw_text(kNowEnd - 4 * kCellW, y, "----", true, 1);
-        return;
-    }
-    handed_at(fb, kNowEnd, y, now_mg, positive, negative);
-    handed_at(fb, kMostEnd, y, most_mg, positive, negative);
-    handed_at(fb, kLeastEnd, y, least_mg, positive, negative);
+    if (!valid) fb.draw_text(kNowEnd - 4 * kCellW, y, "----", true, 1);
 }
 
 }  // namespace
@@ -185,12 +168,22 @@ void draw_gmeter(ui::Canvas& fb, const GMeterSnapshot& s) {
         strip_reading(fb, s);
     }
 
-    reading_row(fb, kNormalRowY, "NRM", s.now.normal_mg, s.most.normal_mg, s.least.normal_mg,
-                s.valid);
-    handed_row(fb, kLateralRowY, "LAT", s.now.lateral_mg, s.most.lateral_mg, s.least.lateral_mg,
-               s.valid, 'R', 'L');
-    handed_row(fb, kStripRowY, "F/A", s.now.longitudinal_mg, s.most.longitudinal_mg,
-               s.least.longitudinal_mg, s.valid, 'F', 'A');
+    row_label(fb, kNormalRowY, "NRM", s.valid);
+    row_label(fb, kLateralRowY, "LAT", s.valid);
+    row_label(fb, kLongitudinalRowY, "LON", s.valid);
+    if (!s.valid) return;
+
+    value_at(fb, kNowEnd, kNormalRowY, s.now.normal_mg);
+    value_at(fb, kMostEnd, kNormalRowY, s.most.normal_mg);
+    value_at(fb, kLeastEnd, kNormalRowY, s.least.normal_mg);
+
+    named_at(fb, kNowEnd, kLateralRowY, s.now.lateral_mg, "R", "L");
+    named_at(fb, kMostEnd, kLateralRowY, s.most.lateral_mg, "R", "L");
+    named_at(fb, kLeastEnd, kLateralRowY, s.least.lateral_mg, "R", "L");
+
+    named_at(fb, kNowEnd, kLongitudinalRowY, s.now.longitudinal_mg, "ACC", "DEC");
+    named_at(fb, kMostEnd, kLongitudinalRowY, s.most.longitudinal_mg, "ACC", "DEC");
+    named_at(fb, kLeastEnd, kLongitudinalRowY, s.least.longitudinal_mg, "ACC", "DEC");
 }
 
 }  // namespace skyblip::go
