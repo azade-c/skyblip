@@ -2,8 +2,10 @@
 # compiles the WASM this page drives; nothing here is firmware.
 #
 #   make dev     build + serve on sim.skyblip.localhost:5114, rebuilding on save
+#                /index.html is the simulator, /console.html talks to a real device
 #   make serve   serve what is already built
 #   make build   copy the page and the firmware's WASM into build/
+#   make test    the console's transport, on node's own runner
 #   make clean
 #
 # 5114 = SImuLAtor, the same leet trick as the website's 8119 = BLIP.
@@ -17,12 +19,12 @@ FIRMWARE_ABS := $(abspath $(FIRMWARE))
 WASM_DIR := $(FIRMWARE)/build/browser
 BUILD := build
 
-.PHONY: dev serve build watch clean
+.PHONY: dev serve build watch test clean
 
 build:
 	@$(MAKE) --no-print-directory -C $(FIRMWARE) browser
 	@mkdir -p $(BUILD)/scenarios
-	cp index.html device.css $(BUILD)/
+	cp index.html console.html ble.js device.css $(BUILD)/
 	cp $(WASM_DIR)/skyblip_simulator.js $(WASM_DIR)/skyblip_simulator.wasm \
 	   $(WASM_DIR)/embed.js $(BUILD)/
 	# The scenarios are the firmware's, and the page fetches them at runtime, so
@@ -50,12 +52,12 @@ serve:
 watch:
 	@echo "watching: Ctrl-C to stop"
 	@if command -v watchexec >/dev/null 2>&1; then \
-	  watchexec -w . -w $(FIRMWARE_ABS) -e cpp,h,html --ignore '**/build/**' --debounce 400ms -- \
+	  watchexec -w . -w $(FIRMWARE_ABS) -e cpp,h,html,js --ignore '**/build/**' --debounce 400ms -- \
 	    $(MAKE) --no-print-directory build; \
 	else \
 	  last=""; \
 	  while true; do \
-	    cur=$$(find index.html $(FIRMWARE)/core $(FIRMWARE)/ui $(FIRMWARE)/hardware \
+	    cur=$$(find index.html console.html ble.js $(FIRMWARE)/core $(FIRMWARE)/ui $(FIRMWARE)/hardware \
 	           $(FIRMWARE)/runtime $(FIRMWARE)/products $(FIRMWARE)/simulator \
 	           \( -name '*.cpp' -o -name '*.h' -o -name '*.html' \) \
 	           -exec ls -l {} + 2>/dev/null | cksum); \
@@ -73,6 +75,11 @@ dev: build
 	@$(MAKE) --no-print-directory watch & \
 	  watcher=$$!; trap "kill $$watcher 2>/dev/null" EXIT INT TERM; \
 	  $(MAKE) --no-print-directory serve
+
+# The stream reassembly the console depends on: a sentence is what lies between
+# two line ends, and a notification is a slice of the stream, not a sentence.
+test:
+	node --test test_ble.mjs
 
 clean:
 	rm -rf $(BUILD)
