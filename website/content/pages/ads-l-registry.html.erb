@@ -221,26 +221,11 @@ description: "skyBlip applies for AMT entry 58 under ADS-L.4.SRD860.F.2.2, used 
     page issued out of order is a favour and the exception above is the part
     that matters. Any entry in 9 to 63 works for us.
   </p>
-  <p>
-    If the registry holds manufacturers pages to the prefix scheme, we take the
-    entry with prefix <strong>0x5B</strong> and a counter for the units we ship,
-    and the self-built ones stay in the self-minted group 0 to 4 where they are
-    today.
-  </p>
   <p class="note">
     A 24-bit space does not make collisions impossible either. It makes them
     rare enough to settle one at a time: about 4,800 derived addresses before
     even odds of a single colliding pair. What settles them is a register, which
     is the first of the two answers in the question below.
-  </p>
-  <p>
-    The two other address paths of the specification stay as written. An
-    <strong>ICAO address</strong> (AMT 5, F.2.3) is a user setting and, where an
-    aircraft has a Mode-S code, the preferred one: it is transmitted exactly as
-    issued, and the manufacturer address is not used while it is set.
-    <strong>Privacy mode</strong> (F.2.4) selects AMT entry 0, and in the same
-    mode the vertical rate is transmitted as unavailable rather than as zero,
-    which would claim level flight.
   </p>
 </section>
 
@@ -258,13 +243,11 @@ description: "skyBlip applies for AMT entry 58 under ADS-L.4.SRD860.F.2.2, used 
   <p>
     Issue 2 carries no field for it. The Traffic payload (G.1) has none, the
     Status payload (G.2) has none, and the only identity on the air is the
-    30-bit sender address of F.2.2: 6 bits of AMT and 24 bits of address. Where
-    the aircraft has a Mode-S code the ICAO address closes the gap, since a
-    national registry resolves it to a registration, and F.2.3 is right to
-    prefer it. That path is closed for most of the traffic this equipment
-    addresses: a French microlight has no ICAO 24-bit address, nor has a
-    paraglider or a paramotor, and under an entry of ours its address is ours
-    rather than the aircraft&rsquo;s.
+    30-bit sender address of F.2.2: 6 bits of AMT and 24 bits of address. That
+    address is ours rather than the aircraft&rsquo;s, and nothing in the frame
+    ties it to the registration on the fuselage. The aircraft this equipment
+    addresses are the ones carrying no other identity on the air: a French
+    microlight, a paraglider, a paramotor.
   </p>
   <p>
     So we would like the registry&rsquo;s view on which of the two answers it
@@ -301,7 +284,7 @@ description: "skyBlip applies for AMT entry 58 under ADS-L.4.SRD860.F.2.2, used 
       <strong>EASA</strong> &mdash;
       <a href="https://www.easa.europa.eu/en/document-library/agency-decisions/ed-decision-2022024r">ADS-L 4 SRD-860</a>,
       ED Decision 2022/024/R, Issue 2.
-      <span class="support">F.2.2 sender address and the AMT, F.2.3 ICAO address, F.2.4 privacy mode, G.1 Traffic, G.2 Status.</span>
+      <span class="support">F.2.2 sender address and the AMT, G.1 Traffic, G.2 Status.</span>
     </li>
     <li>
       <strong>skyBlip firmware</strong> &mdash;
