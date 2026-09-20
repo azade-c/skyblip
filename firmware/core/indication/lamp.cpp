@@ -19,6 +19,7 @@ const char* to_string(Condition condition) {
         case Condition::Off: return "off";
         case Condition::Alarm: return "alarm";
         case Condition::Low: return "low";
+        case Condition::Caution: return "caution";
         case Condition::NoFix: return "no-fix";
         case Condition::Alive: return "alive";
         default: return "?";
@@ -43,6 +44,7 @@ Condition condition_for(const Situation& situation) {
     if (situation.power_level == power::PowerLevel::Low ||
         situation.power_level == power::PowerLevel::Cutoff)
         return Condition::Low;
+    if (situation.cell_caution) return Condition::Caution;
     return situation.fix_valid ? Condition::Alive : Condition::NoFix;
 }
 

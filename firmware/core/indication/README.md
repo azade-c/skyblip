@@ -24,6 +24,12 @@ Every row declares whose budget it spends, and a static_assert refuses a row tha
 
 SoftRF is the reference vocabulary and we keep its distinction and not its duty: solid above the low threshold, a 300 ms toggle below it (`src/driver/LED.cpp:204-219`). Healthy is a wink at 1%, and low keeps SoftRF's rate, a 600 ms period, at a tenth of its duty.
 
+## Two red rows, one for each step of the ladder
+
+`Caution` is the cell past the knee, `core/power`'s `kCautionMv` and the predicate the same monitor publishes with the level (`core/power/README.md`). It is red at the alive cadence: one wink every 3 s, the same 1% the green and blue rows spend, because unlike the warning it can stand for an hour and a row held that long has to be free. Red says which kind of news it is, the cadence says how urgent, and `Low` keeps the 600 ms blink for the step where a pilot is meant to act.
+
+Blue was the obvious colour for a first battery step and it is the wrong one. It already means no fix, the lamp shows one thing at a time, and a colour with two meanings is a colour with none. The step is also a voltage and not a percentage: the percentage comes off a textbook curve (`core/power/README.md`), so keying the lamp to it would make the lamp exactly as trustworthy as a table nobody has measured yet.
+
 ## Why charge is not a row
 
 The board already answers it in hardware. The charger IC drives its own LED, documented in LilyGO's T-Echo pin table: lit while charging, blinking with the cell missing or faulty, off when full. It reports while the SoC is asleep, which nothing here can do, and it reads the charger rather than guessing from a terminal voltage.

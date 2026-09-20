@@ -37,6 +37,7 @@ void ConfigLinkService::tick(uint32_t now_ms) {
     while (context_.bus.link_rx.pop(frame)) config_.on_rx(frame);
 
     config_.tick(now_ms);
+    adopt_learned_trim();
     drain_settings(now_ms);
     spend_gnss_cold_start();
     confirm_image_once_healthy();
@@ -45,6 +46,13 @@ void ConfigLinkService::tick(uint32_t now_ms) {
 // A cold start costs the next fix and the driver puts our configuration back
 // behind it, so it is spent where the request is read rather than reached for
 // through the board.
+void ConfigLinkService::adopt_learned_trim() {
+    if (settings_.battery_offset_manual || !power_.trim_learned()) return;
+    if (settings_.battery_offset_mv == power_.learned_offset_mv()) return;
+    settings_.battery_offset_mv = power_.learned_offset_mv();
+    config_.note_settings_changed();
+}
+
 void ConfigLinkService::spend_gnss_cold_start() {
     if (!config_.gnss_cold_start_requested()) return;
     config_.clear_gnss_cold_start_request();

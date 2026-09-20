@@ -99,6 +99,35 @@ TEST_CASE("product: a cell below the warning level blinks the lamp red") {
     CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
 }
 
+// The first step a pilot meets: red at the alive cadence, so it costs the pack nothing.
+TEST_CASE("product: a cell past the knee winks red at the rate a healthy one winks green") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.push_fix(/*alt_m=*/500, /*updates=*/1);
+    uint32_t t = 0;
+    settle(rig, t);
+    REQUIRE(rig.product.alarm().indicator_condition() == indication::Condition::Alive);
+
+    rig.platform.battery().millivolts = power::kCautionMv - 50;
+    settle(rig, t, 5000);
+    REQUIRE(rig.state().power.level == power::PowerLevel::Normal);
+    REQUIRE(rig.state().power.caution);
+    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Caution);
+    REQUIRE(step_until_lit(rig, t, 3500) > 0);
+    CHECK(lamp_of(rig).lamp() == indication::Lamp::Red);
+
+    const indication::Indication& caution =
+        indication::indication_for(indication::Condition::Caution);
+    const indication::Indication& alive = indication::indication_for(indication::Condition::Alive);
+    CHECK(caution.on_ms == alive.on_ms);
+    CHECK(caution.off_ms == alive.off_ms);
+
+    // And the warning still outranks it, at its own rate.
+    rig.platform.battery().millivolts = power::kLowWarnMv - 100;
+    settle(rig, t, 5000);
+    CHECK(rig.product.alarm().indicator_condition() == indication::Condition::Low);
+}
+
 TEST_CASE("product: a divider that reads nothing does not blink like a flat cell") {
     // An unpopulated or unconnected divider drifts near zero, which the sanity
     // floor throws away, leaving the level Unknown for ever. Unknown is not low.
