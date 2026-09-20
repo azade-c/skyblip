@@ -323,6 +323,29 @@ const scenes = [
     }
   },
   {
+    name: "menu-callsign-blank",
+    page: PAGE.radar,
+    menu: true,
+    shot(device) {
+      setCallsign(device, OWN_CALLSIGN);
+      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      // S through the letters and the digits, round to the blank the clear is armed on.
+      for (let roll = 0; roll < 18; roll++) device.tap();
+      return device;
+    }
+  },
+  {
+    name: "menu-callsign-none",
+    page: PAGE.radar,
+    menu: true,
+    shot(device) {
+      setCallsign(device, OWN_CALLSIGN);
+      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      for (let roll = 0; roll < 18; roll++) device.tap();
+      return device.press();
+    }
+  },
+  {
     name: "menu-nearby",
     page: PAGE.nearby,
     menu: true,
