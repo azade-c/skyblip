@@ -31,6 +31,9 @@ constexpr ports::Capabilities kOptional =
     ports::Capability::Dfu | ports::Capability::Contacts | ports::Capability::Battery |
     ports::Capability::Indicator | ports::Capability::Inclinometer;
 
+// INFO: fc 21sep26 a full frame is 2.6 s of BUSY on this panel, and a refusal waits out two
+constexpr uint32_t kRefusalParkCeilingMs = 6000;
+
 struct BootPartSpec {
     const char* name;
     ports::Capability capability;
@@ -84,7 +87,11 @@ class Product {
         // sits after board_.begin() rather than in front of it.
         boot_cell_ = read_boot_cell();
         boot_path_ = power::boot_path(causes, platform_.button_down(), boot_cell_);
-        if (boot_path_ == power::BootPath::SleepAgain) return Status::Ok;
+        flat_remembered_ = platform_.system_power().flat_on_glass();
+        if (boot_path_ == power::BootPath::SleepAgain) {
+            refused_frame_ = power::refused_frame(boot_cell_, flat_remembered_);
+            return Status::Ok;
+        }
 
         flyable_ = board == Status::Ok &&
                    ports::missing(board_.capabilities(), kRequired) == ports::Capability::None;
@@ -122,7 +129,27 @@ class Product {
         shutdown_.tick(now_ms, platform_.button_down(), platform_.pad_down());
         drive_shutdown(now_ms);
         if (shutdown_.going_down()) screen_.settle_park(now_ms);
+        remember_glass();
     }
+
+    bool park_refusal(uint32_t now_ms) {
+        if (refused_frame_ == power::RefusedFrame::Leave) return true;
+        if (!refusal_asked_) {
+            refusal_asked_ = true;
+            refusal_since_ms_ = now_ms;
+            if (refused_frame_ == power::RefusedFrame::FlatCell)
+                screen_.park_for_flat_cell();
+            else
+                screen_.park_for_off();
+        }
+        screen_.settle_park(now_ms);
+        remember_glass();
+        if (!screen_.parking()) return true;
+        // INFO: fc 21sep26 a panel that never reports ready must not hold a flat cell awake
+        return now_ms - refusal_since_ms_ >= kRefusalParkCeilingMs;
+    }
+
+    power::RefusedFrame refused_frame() const { return refused_frame_; }
 
     ports::Capabilities capabilities() const { return board_.capabilities(); }
     ports::Capabilities degraded() const {
@@ -216,6 +243,13 @@ class Product {
         return cell;
     }
 
+    void remember_glass() {
+        const bool flat = screen_.flat_on_glass();
+        if (flat == flat_remembered_) return;
+        flat_remembered_ = flat;
+        platform_.system_power().set_flat_on_glass(flat);
+    }
+
     void guard_cell(uint32_t now_ms) {
         board_.poll_battery(now_ms);
         power_.tick(now_ms);
@@ -279,12 +313,11 @@ class Product {
         // enable pin has to be released before that rail goes
         // (core/power/shutdown.h kPowerDownOrder).
         board_.park();
+        // INFO: fc 21sep26 a flat cell parks like any other off: it is named at the next boot
         if (installing())
             screen_.park_for_install();
         else if (stowing())
             screen_.park_for_stow();
-        else if (shutdown_.reason() == power::ShutdownReason::LowBattery)
-            screen_.park_for_low_cell();
         else
             screen_.set_power(false);
     }
@@ -347,6 +380,10 @@ class Product {
     power::ResetReason reset_reason_{power::ResetReason::Unknown};
     power::BootPath boot_path_{power::BootPath::Run};
     power::BootCell boot_cell_{};
+    power::RefusedFrame refused_frame_{power::RefusedFrame::Leave};
+    uint32_t refusal_since_ms_{0};
+    bool refusal_asked_{false};
+    bool flat_remembered_{false};
     bool flyable_{false};
 };
 

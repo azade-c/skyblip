@@ -22,6 +22,11 @@ enum class BootPath : uint8_t { Run, SleepAgain };
 
 const char* to_string(BootPath path);
 
+// INFO: fc 21sep26 what a refused boot owes the glass, and why the refusal owes it: README.md
+enum class RefusedFrame : uint8_t { Leave, Wordmark, FlatCell };
+
+const char* to_string(RefusedFrame frame);
+
 struct BootCell {
     uint16_t millivolts{0};
     bool valid{false};
@@ -69,6 +74,8 @@ static_assert(kImplausibleFloorMv < kCutoffMv,
 BootPath boot_path(ResetCause causes, bool button_down, const BootCell& cell);
 
 ButtonWake button_wake_after_refusal(const BootCell& cell);
+
+RefusedFrame refused_frame(const BootCell& cell, bool flat_on_glass);
 
 }  // namespace skyblip::power
 

@@ -37,6 +37,14 @@ struct Rig {
         }
     }
 
+    // The shell's other loop: a refused boot settles the frame it owes the glass.
+    void sleep_again(uint32_t step = 50) {
+        for (uint32_t t = 0; t <= 20000; t += step) {
+            platform.clock().set_millis(t);
+            if (product.park_refusal(t)) return;
+        }
+    }
+
     void push_fix(int32_t alt_m, uint32_t updates) {
         gnss::GnssSolution f{};
         f.is_fix = true;

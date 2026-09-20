@@ -35,13 +35,14 @@ int main(void) {
     const Status started = g_product.setup();
     LOG_INF("reset reason: %s", power::to_string(g_product.reset_reason()));
 
-    // A charger plugged into a device that was switched off must not switch it
-    // on. core/power/wake.h decided that; this performs it, and it does not
-    // return. Nothing has been painted and no service has run.
+    // INFO: fc 21sep26 the refusal performed: no service, at most one frame, and it never returns
     if (g_product.boot_path() == power::BootPath::SleepAgain) {
         const power::BootCell& cell = g_product.boot_cell();
-        LOG_INF("back to sleep at %u mV (lockout %u mV, external power %d)", cell.millivolts,
-                power::kBootLockoutMv, static_cast<int>(cell.external_power));
+        LOG_INF("back to sleep at %u mV (lockout %u mV, external power %d), glass: %s",
+                cell.millivolts, power::kBootLockoutMv, static_cast<int>(cell.external_power),
+                power::to_string(g_product.refused_frame()));
+        while (!g_product.park_refusal(static_cast<uint32_t>(k_uptime_get())))
+            k_sleep(K_MSEC(runtime::kServiceStepMs));
         g_platform.system_power().system_off(power::button_wake_after_refusal(cell));
     }
 

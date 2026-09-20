@@ -8,11 +8,13 @@ export const DWELL = ['uplink RX · 869.525', 'retune O->M', 'slot 0 · 868.200'
                       'hop', 'slot 1 · 868.400', 'retune M->O'];
 
 const SLOT_EDGE_STEP_MS = 5;
+const REFUSAL_CEILING_MS = 10000;
 const INK = [20, 20, 20];
 const PAPER = [201, 201, 196];
 
 export async function load(options = {}) {
-  const module = await createModule(options);
+  const { boot, ...moduleOptions } = options;
+  const module = await createModule(moduleOptions);
   const call = (name, ret, args) => module.cwrap(name, ret, args);
   const n = [];
   const num = ['number'];
@@ -20,6 +22,7 @@ export async function load(options = {}) {
   const sim = {
     setup: call('simulator_setup', null, n),
     step: call('simulator_step', null, num),
+    parkRefusal: call('simulator_park_refusal', 'number', num),
     loadScenario: call('simulator_load_scenario', 'number', ['string', 'number']),
     mode: call('simulator_mode', 'number', n),
     failures: call('simulator_failures', 'number', n),
@@ -135,6 +138,17 @@ export async function load(options = {}) {
     context.putImageData(image, 0, 0);
   };
 
+  sim.sleepAgain = () => {
+    while (simMs <= REFUSAL_CEILING_MS) {
+      if (sim.parkRefusal(simMs) === 1) return simMs;
+      simMs += SLOT_EDGE_STEP_MS;
+    }
+    throw new Error('the refused boot never finished the frame it owed');
+  };
+
+  // INFO: fc 21sep26 the cell and the cable a refused boot reads are read in setup(), not after
+  if (boot?.batteryMv !== undefined) sim.setBatteryMv(boot.batteryMv);
+  if (boot?.externalPower !== undefined) sim.setExternalPower(boot.externalPower ? 1 : 0);
   sim.setup();
   return sim;
 }
