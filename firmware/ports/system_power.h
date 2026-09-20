@@ -38,6 +38,10 @@ class SystemPower {
     // once per warning, because what reads it hands it to core/power, which
     // latches it for good.
     virtual bool take_supply_warning() { return false; }
+
+    // INFO: fc 21sep26 the bit that outlives the rails; nowhere to keep it reads false: README.md
+    virtual bool flat_on_glass() const { return false; }
+    virtual void set_flat_on_glass(bool flat) { (void)flat; }
 };
 
 }  // namespace skyblip::ports

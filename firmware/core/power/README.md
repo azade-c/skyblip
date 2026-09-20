@@ -44,6 +44,16 @@ What that buys is bounded and worth saying: the learned trim is only as good as 
 
 The device has to be switched on across a charge for any of this to happen, which is a bench, a desk, or a long sit in a window. A unit that is only ever charged while off keeps whatever trim it was given.
 
+## What the glass says about a flat cell, and when it says it
+
+Going down says nothing. A device that reaches `kCutoffMv` in the air parks the wordmark, exactly like one switched off by a thumb, because the other way a cell arrives empty is a winter on a shelf: that unit never ran a shutdown, never painted anything, and must not read differently from the one that did.
+
+So the flat cell is named where both roads meet, which is the refused boot. `refused_frame` decides it. Pressed with no cable and a cell under the lockout, the glass gets `FLAT BATTERY`. On the cable the device is an ordinary switched-off one again, because the refusal re-arms the button (`button_wake_after_refusal`), so the wordmark is the whole instruction and it replaces the flat frame if that is what the panel is wearing. Anything else is `Leave`: the glass already says the right thing, and a full refresh is seconds of panel rail off a cell with none to spare.
+
+What the panel wears has to outlive the rails for that comparison to exist, so one bit does: `ports::SystemPower::flat_on_glass`. A platform with nowhere to keep it answers false, which costs a repeated frame and nothing else.
+
+The cable leaving cannot be noticed. VBUS rising wakes this SoC and VBUS falling does not, so a device unplugged still flat keeps the wordmark until the next press, which is the moment a pilot asks the question anyway - and that press is a refusal, so it is answered with the flat frame.
+
 ## What is still unmeasured
 
 No current is sensed anywhere on this board, so nothing here can count coulombs, and no figure in minutes may be published (`battery.h`). The sleep current the shutdown sequence leaves has never been measured either (`shutdown.h`). Both are the same bench day, and until it happens every number in this directory is a voltage or a decision about one.

@@ -106,8 +106,8 @@ TEST_CASE("product: a cable takes the cell's word off the radar, and no charge c
     CHECK_FALSE(reads_in(rig.platform.chips().epd.framebuffer(), "%", 0, 0, 200, 199, 2));
 }
 
-// A dark device says nothing about why it is dark, and the two answers are a charger and a button.
-TEST_CASE("product: a device that went down on its cell wears the charge under the mark") {
+// The other way a cell arrives empty is a winter on a shelf, and that unit runs no shutdown.
+TEST_CASE("product: a cell that takes the device down parks the mark, like any other off") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     rig.run(0, 2000);
@@ -117,24 +117,73 @@ TEST_CASE("product: a device that went down on its cell wears the charge under t
     REQUIRE(rig.product.shutdown().reason() == power::ShutdownReason::LowBattery);
     REQUIRE(rig.product.ready_to_power_off());
 
+    go::Glass expected;
+    expected.clear(true);
+    ui::draw_wordmark(expected, go::kGlassW / 2, go::kGlassH / 2);
     const go::Glass& parked = rig.platform.chips().epd.framebuffer();
-    // Halfway between the mark and the bottom: what happened, why, and the way back.
-    CHECK(reads_in(parked, "SWITCHED OFF", 10, 130, 190, 170, 2));
-    CHECK(reads_in(parked, "FLAT BATTERY", 10, 145, 190, 185, 2));
-    CHECK(reads_in(parked, "PLUG IN THEN PRESS", 10, 165, 190, 197));
+    CHECK(parked.count_black() == expected.count_black());
+    CHECK_FALSE(reads_in(parked, "FLAT BATTERY", 0, 0, 200, 199, 2));
+    CHECK_FALSE(rig.platform.system_power().flat_on_glass());
+}
+
+// The device stays off, so the glass is the only thing that can answer the press.
+TEST_CASE("product: a boot refused on a flat cell writes the reason under the mark") {
+    Rig rig;
+    rig.platform.battery().millivolts = power::kBootLockoutMv - 1;
+    REQUIRE(rig.setup() == Status::Ok);
+    REQUIRE(rig.product.boot_path() == power::BootPath::SleepAgain);
+    rig.sleep_again();
+
+    const go::Glass& parked = rig.platform.chips().epd.framebuffer();
+    CHECK(rig.platform.chips().epd.present_count == 1);
+    CHECK(rig.platform.chips().epd.last_full);
+    CHECK_FALSE(rig.platform.chips().epd.powered);
+    CHECK(reads_in(parked, "FLAT BATTERY", 10, 130, 190, 199, 2));
+    CHECK(rig.platform.system_power().flat_on_glass());
 
     // Never a percentage: it would be the reading the device died at, standing unchanged
     // through the whole charge that follows.
     CHECK_FALSE(reads_in(parked, "%", 0, 0, 200, 199, 2));
+}
 
-    // An ordinary power-off says nothing about the cell, because nothing is wrong with it.
-    Rig healthy;
-    REQUIRE(healthy.setup() == Status::Ok);
-    healthy.run(0, 1000);
-    healthy.product.screen().set_power(false);
-    healthy.run(1000, 7000);
-    CHECK_FALSE(
-        reads_in(healthy.platform.chips().epd.framebuffer(), "SWITCHED OFF", 0, 0, 200, 199, 2));
+// A frame is seconds of panel rail, and the cell paying for it is the flat one.
+TEST_CASE("product: a refused boot pushes no frame the glass is already wearing") {
+    Rig rig;
+    rig.platform.battery().millivolts = power::kBootLockoutMv - 1;
+    rig.platform.system_power().flat_glass = true;
+    REQUIRE(rig.setup() == Status::Ok);
+    REQUIRE(rig.product.refused_frame() == power::RefusedFrame::Leave);
+    rig.sleep_again();
+    CHECK(rig.platform.chips().epd.present_count == 0);
+}
+
+// The cable re-arms the button, so the mark is the whole instruction again.
+TEST_CASE("product: the charger that wakes a flat device takes the word back off the glass") {
+    Rig rig;
+    rig.platform.battery().millivolts = power::kBootLockoutMv - 1;
+    rig.platform.battery().external_power = true;
+    rig.platform.system_power().flat_glass = true;
+    rig.platform.system_power().causes =
+        power::ResetCause::LowPowerWake | power::ResetCause::UsbVbus;
+    REQUIRE(rig.setup() == Status::Ok);
+    REQUIRE(rig.product.boot_path() == power::BootPath::SleepAgain);
+    rig.sleep_again();
+
+    go::Glass expected;
+    expected.clear(true);
+    ui::draw_wordmark(expected, go::kGlassW / 2, go::kGlassH / 2);
+    CHECK(rig.platform.chips().epd.framebuffer().count_black() == expected.count_black());
+    CHECK_FALSE(rig.platform.system_power().flat_on_glass());
+
+    // And the cable wiggle after it costs nothing: the glass already says the right thing.
+    Rig again;
+    again.platform.battery().millivolts = power::kBootLockoutMv - 1;
+    again.platform.battery().external_power = true;
+    again.platform.system_power().causes =
+        power::ResetCause::LowPowerWake | power::ResetCause::UsbVbus;
+    REQUIRE(again.setup() == Status::Ok);
+    again.sleep_again();
+    CHECK(again.platform.chips().epd.present_count == 0);
 }
 
 TEST_CASE("product: powering the panel down leaves the wordmark on it") {

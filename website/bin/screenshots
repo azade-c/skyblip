@@ -388,20 +388,12 @@ const scenes = [
       device.run(20_000);
     }
   },
+  // The cutoff parks this same mark: a flat cell is named at the boot it refuses,
+  // and no shot here is taken through a wake.
   {
     name: "off",
     powered: false,
     shot: device => device.fly(CRUISE).run(20_000).holdButton(HOLD_OFF_MS).run(6000)
-  },
-  // The cutoff takes the device down on its own, and the glass wears why.
-  {
-    name: "off-low-battery",
-    powered: false,
-    shot(device) {
-      device.fly(CRUISE).run(20_000);
-      device.sim.setBatteryMv(3100);
-      device.run(25_000);
-    }
   }
 ];
 
