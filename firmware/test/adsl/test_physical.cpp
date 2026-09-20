@@ -153,12 +153,41 @@ TEST_CASE("ADS-L.4.SRD860.C.5: own-ship transmits inside the Direct slot and now
                     timing::Scheduler::plan(timing::Scheduler::slot_start(slot), clock);
                 const timing::Transmitter::Attempt a = tx.attempt(plan, utc, 1000, true, 0);
                 if (!a.go) continue;
+                if (a.payload == timing::Transmitter::Payload::Callsign) continue;
                 CHECK(timing::Scheduler::in_direct_slot(a.at_ms));
                 CHECK(a.at_ms + static_cast<int>(timing::Transmitter::kAirTimeMs) <=
                       timing::kDirectEnd);
             }
         }
     }
+}
+
+// The one burst this device places outside the clause, stated here rather than
+// discovered by a conformance bench: core/timing/README.md carries the argument.
+TEST_CASE(
+    "ADS-L.4.SRD860.C.5: the callsign burst is a deliberate deviation into the reserved 0-200") {
+    timing::ClockState clock{};
+    clock.utc_valid = true;
+    clock.pps_locked = true;
+    const timing::SlotPlan slot1 = timing::Scheduler::plan(timing::kSlot1Start, clock);
+
+    int seen = 0;
+    for (uint32_t addr = 1; addr < 64; addr++) {
+        timing::Transmitter tx;
+        tx.configure(addr * 0x9E37u);
+        for (uint32_t utc = 0; utc < 32; utc++) {
+            const timing::Transmitter::Attempt a = tx.attempt(slot1, utc, 1000, true, 0);
+            if (!a.go || a.payload != timing::Transmitter::Payload::Callsign) continue;
+            seen++;
+            // Past the direct slot, inside slot 1's dwell, and complete before it ends.
+            CHECK_FALSE(timing::Scheduler::in_direct_slot(a.at_ms));
+            CHECK(a.at_ms >= timing::kCallsignStart);
+            CHECK(a.at_ms + static_cast<int>(timing::Transmitter::kAirTimeMs) <=
+                  timing::kCallsignEnd);
+            CHECK(a.freq_hz == timing::kMband1Hz);
+        }
+    }
+    CHECK(seen > 0);
 }
 
 TEST_CASE("ADS-L.4.SRD860.C.5: the Uplink slot is listened to on the O band, inside its edges") {
