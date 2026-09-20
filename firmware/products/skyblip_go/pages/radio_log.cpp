@@ -146,13 +146,11 @@ void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry) {
     fb.draw_text(kBandX, y, buf, true, 1);
 
     n = fmt_verdict(buf, entry);
-    if (n == 0 && !ours) {
-        buf[0] = model::source_letter(entry.source);
-        n = 1;
-    }
     if (n > 0) {
         buf[n] = 0;
         fb.draw_text(kVerdictX, y, buf, true, 1);
+    } else if (!ours) {
+        fb.draw_text(kVerdictX, y, model::source_word(entry.source), true, 1);
     }
 
     if (ours) {

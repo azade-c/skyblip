@@ -8,6 +8,18 @@
 namespace skyblip::model {
 enum class Source : uint8_t { AdslDirect, AdslUplink, Alptas, Own };
 
+// What the station log calls a system where it has a column six characters wide,
+// and what nearby abbreviates to one where it has a glyph.
+constexpr const char* source_word(Source source) {
+    switch (source) {
+        case Source::AdslDirect: return "ADS-L";
+        case Source::AdslUplink: return "UPLINK";
+        case Source::Alptas: return "FLARM";
+        case Source::Own: return "OWN";
+    }
+    return "?";
+}
+
 constexpr char source_letter(Source source) {
     switch (source) {
         case Source::AdslDirect: return 'A';

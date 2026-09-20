@@ -129,18 +129,20 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-34:56.462 RX M0 A     3FA21C -87   an ADS-L frame from 3FA21C
-34:56.918 RX M1 F     4C11A0 -93   an ALP-TAS frame, the other channel
+34:56.462 RX M0 ADS-L  3FA21C -87   an ADS-L frame from 3FA21C
+34:56.918 RX M1 FLARM  4C11A0 -93   an ALP-TAS frame, the other channel
+34:56.085 RX M1 CALL   3FA21C -87   that aircraft's own registration
+34:56.240 RX O  UPLINK        -74   a ground station's relay, which names no one sender
 34:55.107 RX M0 DEC    ED4838 -101  a frame that passed its check and was refused
 34:55.482 RX M1 TYPE   4C11A0 -62   a message type this firmware does not read
-34:55.913 RX M0 WAIT         -58   no fix of our own yet, so nothing was tried
+34:55.913 RX M0 WAIT          -58   no fix of our own yet, so nothing was tried
 34:55.221 RX M0 KEY+18 ED4838 -18   its sender keyed 18 s away from our second
-34:55.033 RX M1 SYNC         -97   framed as neither system: not ours to decode
-34:55.694 TX M0       GND          own-ship's burst left the antenna
-34:53.881 TX M1 LOST  GND          armed, and the radio never reported it sent
+34:55.033 RX M1 SYNC          -97   framed as neither system: not ours to decode
+34:55.694 TX M0        GND          own-ship's burst left the antenna
+34:53.881 TX M1 LOST   GND          armed, and the radio never reported it sent
 ```
 
-The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device.
+The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. The verdict column is six characters wide, which `KEY+18` set and `CALL` fills, so a reception that worked spells the system it framed as - `ADS-L`, `FLARM`, `UPLINK` - rather than the single letter it used to print. The letter belongs on `nearby`, where a row is at double height and there is glass for one glyph; here there is room for the word and nothing to learn. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device.
 
 `DEC` is the row that matters, and it says one thing: a burst reached the dwell, framed, passed its own protocol's check and was refused anyway. It is the reading that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
 
