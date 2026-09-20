@@ -101,6 +101,17 @@ TEST_CASE("fb: text advances and draws glyph pixels") {
     CHECK(fb2.count_black() == 0);
 }
 
+// A character with no glyph prints as a space, and only the glass ever notices.
+TEST_CASE("fb: every character the pages print has a glyph of its own") {
+    for (const char c : std::string("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/+%")) {
+        Glass fb;
+        fb.clear(true);
+        fb.draw_char(0, 0, c, true, 1);
+        CAPTURE(c);
+        CHECK(fb.count_black() > 0);
+    }
+}
+
 TEST_CASE("radar: renders rings, own symbol and plots targets") {
     Glass fb;
     RadarTarget targets[2] = {
