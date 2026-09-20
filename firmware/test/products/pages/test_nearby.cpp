@@ -51,6 +51,11 @@ bool banner_reads(const Glass& fb, const char* text) {
     return reads_at(fb, (Glass::kW - w) / 2, kNearbyBannerY, text, kNearbyScale);
 }
 
+// Where the small address lands: after the name it stands beside, on the same bottom.
+int own_addr_x() {
+    return kNearbyIdX + kNearbyOwnNameChars * 6 * kNearbyTitleScale + kNearbyWordGap;
+}
+
 NearbySnapshot listing(const traffic::RangeRow* rows, int n, go::Units units) {
     NearbySnapshot snap;
     snap.own_addr = 0x4B1F07;
@@ -156,15 +161,38 @@ TEST_CASE("nearby: the header counts what was heard, not what fits") {
 }
 
 // Own address is read back on the radio, and this is the page a pilot is already on to find it.
-TEST_CASE("nearby: the top line is own address, over the column of everyone else's") {
+TEST_CASE("nearby: the top line is own address, and nothing stands in front of it") {
     traffic::RangeRow rows[1] = {row_at(900, 0)};
 
     Glass fb;
     draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
 
-    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY + 7, "ID", 1));
-    CHECK(reads_at(fb, kNearbyAddrX, kNearbyTitleY, "4B1F07", 2));
-    CHECK(reads_at(fb, kNearbyAddrX, row_y(0), "3FA21C", kNearbyScale));
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY, "4B1F07", kNearbyTitleScale));
+    CHECK(reads_at(fb, kNearbyIdX, row_y(0), "A 3FA21C", kNearbyScale));
+}
+
+// The name is what own-ship is called on the radio, the address is what it transmits under.
+TEST_CASE("nearby: a named own-ship reads its callsign, with the address still beside it") {
+    NearbySnapshot snap = listing(nullptr, 0, go::Units::Nautical);
+    snap.own_callsign = "S-BLIP";
+
+    Glass fb;
+    draw_nearby(fb, snap);
+
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY, "S-BLIP", kNearbyTitleScale));
+    CHECK(reads_at(fb, own_addr_x(), kNearbyTitleY + 7, "4B1F07", 1));
+}
+
+// The count owns the right of that line, so a long name is cut where the row column cuts one.
+TEST_CASE("nearby: own callsign is cut to the six characters a registration is known by") {
+    NearbySnapshot snap = listing(nullptr, 0, go::Units::Nautical);
+    snap.own_callsign = "ABCDEFGHI";
+
+    Glass fb;
+    draw_nearby(fb, snap);
+
+    CHECK(reads_at(fb, kNearbyIdX, kNearbyTitleY, "ABCDEF", kNearbyTitleScale));
+    CHECK(reads_at(fb, own_addr_x(), kNearbyTitleY + 7, "4B1F07", 1));
 }
 
 // The letter in front of the address is the source the report arrived by, and nothing said so.
