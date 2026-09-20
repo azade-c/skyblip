@@ -5,6 +5,7 @@
 #include "core/model/aircraft.h"
 #include "core/model/band.h"
 #include "core/model/ownship.h"
+#include "core/protocol/adsl.h"
 #include "core/protocol/air.h"
 #include "core/protocol/alptas.h"
 #include "core/radio/log.h"
@@ -33,10 +34,10 @@ model::AircraftObs neighbour(const model::OwnState& own) {
 }
 
 // A neighbour two metres away, as the chip hands one over: past the shared sync window.
-void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chip_byte = -1) {
+void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, uint8_t frame_bytes,
+                int dead_chip_byte = -1) {
     uint8_t chips[protocol::kTxChipBytes];
-    const size_t chip_len =
-        protocol::encode_mband(sync_word, frame, protocol::kAlptasFrameBytes, chips);
+    const size_t chip_len = protocol::encode_mband(sync_word, frame, frame_bytes, chips);
     if (dead_chip_byte >= 0) chips[dead_chip_byte] ^= 0x01;
 
     events::RfEvent event{};
@@ -51,7 +52,21 @@ void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chi
 }
 
 void hear_alptas(Rig& rig, const uint8_t* frame, int dead_chip_byte = -1) {
-    hear_mband(rig, protocol::kAlptasSyncWord, frame, dead_chip_byte);
+    hear_mband(rig, protocol::kAlptasSyncWord, frame, protocol::kAlptasFrameBytes, dead_chip_byte);
+}
+
+void hear_adsl(Rig& rig, protocol::AdslPacket& p) {
+    p.scramble();
+    p.set_crc();
+    hear_mband(rig, protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes);
+}
+
+protocol::AdslPacket adsl_from_neighbour(const model::OwnState& own) {
+    model::OwnState transmitter = own;
+    transmitter.lat_1e7 += 10000;
+    protocol::AdslPacket p{};
+    protocol::from_own(p, transmitter, 0xC5D804, /*addr_table=*/6, /*aircraft_cat=*/4);
+    return p;
 }
 
 const radio::Entry* heard_entry(Rig& rig) {
@@ -141,6 +156,41 @@ TEST_CASE("radio verdicts: a frame the plausibility gate refuses is still a deco
     settle(rig, t);
 
     CHECK(heard_verdict(rig) == radio::Event::Undecoded);
+}
+
+// OGN Diagnostics is payload type 66 of the same specification (F.2.1), not this device's fault.
+TEST_CASE("radio verdicts: an ADS-L payload type we do not implement is a dialect, not a failure") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    protocol::AdslPacket p = adsl_from_neighbour(rig.state().own);
+    p.Type = 66;
+    hear_adsl(rig, p);
+    settle(rig, t);
+
+    CHECK(heard_verdict(rig) == radio::Event::Unsupported);
+    CHECK(rig.state().air.rx_type == 1);
+    CHECK(rig.state().air.rx_bad == bad_before);
+}
+
+TEST_CASE("radio verdicts: an ADS-L Traffic frame carrying no position is a decode failure") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t bad_before = rig.state().air.rx_bad;
+
+    protocol::AdslPacket p = adsl_from_neighbour(rig.state().own);
+    p.set_position_invalid();
+    hear_adsl(rig, p);
+    settle(rig, t);
+
+    CHECK(heard_verdict(rig) == radio::Event::Undecoded);
+    CHECK(rig.state().air.rx_type == 0);
+    CHECK(rig.state().air.rx_bad == bad_before + 1);
 }
 
 TEST_CASE("radio verdicts: the frame we can read is read, and names its aircraft") {
@@ -293,7 +343,7 @@ TEST_CASE("radio verdicts: a burst that names neither system is not a decode fai
     REQUIRE(protocol::alptas_encode(frame, neighbour(own), own.utc, own.lat_1e7, own.lon_1e7) ==
             Status::Ok);
     // Shares the chips the detector matched on and nothing after them.
-    hear_mband(rig, 0xF5F3656Cu, frame);
+    hear_mband(rig, 0xF5F3656Cu, frame, protocol::kAlptasFrameBytes);
     settle(rig, t);
 
     const radio::Entry* entry = heard_entry(rig);
