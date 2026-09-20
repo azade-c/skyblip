@@ -113,11 +113,19 @@ constexpr int kCallsignTextX = (kGlassW - kCallsignChars * kCallsignCellW) / 2;
 constexpr int kCallsignTextY = 80;
 constexpr int kCallsignCursorY = kCallsignTextY + 7 * kCallsignScale + 4;
 constexpr int kCallsignCursorH = 3;
-constexpr const char* kCallsignHintText = "PAD ROLLS      BUTTON NEXT";
-constexpr const char* kCallsignClearHintText = "PAD ROLLS    BUTTON CLEARS";
-constexpr int kCallsignHintX = (kGlassW - text_cells(kCallsignHintText) * kSmallCellW) / 2;
-constexpr int kCallsignClearHintX =
-    (kGlassW - text_cells(kCallsignClearHintText) * kSmallCellW) / 2;
+constexpr int kCallsignHintScale = 2;
+constexpr const char* kCallsignPadHintText = "PAD ROLLS";
+constexpr const char* kCallsignNextHintText = "BUTTON NEXT";
+constexpr const char* kCallsignClearHintText = "BUTTON CLEARS";
+constexpr const char* kCallsignClearHelpText = "BLANK THE FIRST TO CLEAR";
+
+constexpr int centred_x(const char* text, int scale) {
+    return (kGlassW - text_cells(text) * kSmallCellW * scale) / 2;
+}
+
+constexpr int kCallsignPadHintY = 138;
+constexpr int kCallsignButtonHintY = kCallsignPadHintY + 7 * kCallsignHintScale + 6;
+constexpr int kCallsignHelpY = kMenuHintY;
 
 void draw_callsign(ui::Canvas& fb, const CallsignSnapshot& snapshot);
 

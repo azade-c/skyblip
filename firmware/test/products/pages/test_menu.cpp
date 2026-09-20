@@ -33,6 +33,10 @@ bool reads_at(const Glass& fb, int x, int y, const char* text, bool ink, int sca
     return true;
 }
 
+bool hint_reads(const Glass& fb, int y, const char* text, int scale) {
+    return reads_at(fb, centred_x(text, scale), y, text, true, scale);
+}
+
 int line_of(Page page, MenuRow row) { return menu_row_index(menu_for(page), row); }
 
 bool row_label_reads(const Glass& fb, Page page, MenuRow row, bool focused) {
@@ -268,7 +272,12 @@ TEST_CASE("callsign page: the characters stand at a size a thumb can check, with
     CHECK(fb.get_pixel(at + 5 * kCallsignScale - 1, kCallsignCursorY));
     CHECK_FALSE(fb.get_pixel(at - 2, kCallsignCursorY));
     CHECK_FALSE(fb.get_pixel(at + kCallsignCellW, kCallsignCursorY));
-    CHECK(reads_at(fb, kCallsignHintX, kMenuHintY, kCallsignHintText, true));
+
+    // The two gestures at double height, and under them the one way out nothing else says.
+    CHECK(hint_reads(fb, kCallsignPadHintY, kCallsignPadHintText, kCallsignHintScale));
+    CHECK(hint_reads(fb, kCallsignButtonHintY, kCallsignNextHintText, kCallsignHintScale));
+    CHECK(hint_reads(fb, kCallsignHelpY, kCallsignClearHelpText, 1));
+    CHECK(kCallsignHelpY + kGlyphH < Glass::kH);
 }
 
 // A gesture nothing says is a gesture nobody finds, and this one throws the name away.
@@ -281,13 +290,16 @@ TEST_CASE("callsign page: the foot says the button clears when the bar is on a b
 
     Glass fb;
     draw_callsign(fb, field);
-    CHECK(reads_at(fb, kCallsignClearHintX, kMenuHintY, kCallsignClearHintText, true));
+    CHECK(hint_reads(fb, kCallsignButtonHintY, kCallsignClearHintText, kCallsignHintScale));
+    // The line that taught the gesture goes once the gesture is armed.
+    CHECK_FALSE(hint_reads(fb, kCallsignHelpY, kCallsignClearHelpText, 1));
 
     field.cursor = 1;
     field.clears = callsign_press_clears(field.text, field.cursor);
     CHECK_FALSE(field.clears);
     draw_callsign(fb, field);
-    CHECK(reads_at(fb, kCallsignHintX, kMenuHintY, kCallsignHintText, true));
+    CHECK(hint_reads(fb, kCallsignButtonHintY, kCallsignNextHintText, kCallsignHintScale));
+    CHECK(hint_reads(fb, kCallsignHelpY, kCallsignClearHelpText, 1));
 }
 
 // The ring a pad rolls: blank, dash, letters, digits, and round again.

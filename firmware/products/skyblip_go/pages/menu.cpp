@@ -183,10 +183,14 @@ void draw_callsign(ui::Canvas& fb, const CallsignSnapshot& s) {
     const int at = kCallsignTextX + s.cursor * kCallsignCellW;
     fb.rect(at, kCallsignCursorY, 5 * kCallsignScale, kCallsignCursorH, true, /*fill=*/true);
 
-    if (s.clears)
-        fb.draw_text(kCallsignClearHintX, kMenuHintY, kCallsignClearHintText, true, 1);
-    else
-        fb.draw_text(kCallsignHintX, kMenuHintY, kCallsignHintText, true, 1);
+    const char* button = s.clears ? kCallsignClearHintText : kCallsignNextHintText;
+    fb.draw_text(centred_x(kCallsignPadHintText, kCallsignHintScale), kCallsignPadHintY,
+                 kCallsignPadHintText, true, kCallsignHintScale);
+    fb.draw_text(centred_x(button, kCallsignHintScale), kCallsignButtonHintY, button, true,
+                 kCallsignHintScale);
+    if (!s.clears)
+        fb.draw_text(centred_x(kCallsignClearHelpText, 1), kCallsignHelpY, kCallsignClearHelpText,
+                     true, 1);
 }
 
 void MenuEditor::enter(Page page, uint32_t now_ms) {
