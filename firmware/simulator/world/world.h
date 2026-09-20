@@ -2,6 +2,7 @@
 #define SKYBLIP_SIMULATOR_WORLD_WORLD_H
 
 #include "core/bus/state.h"
+#include "core/events/link.h"
 #include "core/flight/atmosphere.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
@@ -109,6 +110,9 @@ class World {
     // comms::LinkSession, which is the object Zephyr's connection callbacks drive
     // on silicon, so the device learns about the central the same way either side.
     void connect_companion(uint16_t session_id = 1) { platform_.link().raise_link(session_id); }
+    // What a phone says on the config endpoint, arriving where the board polls
+    // it: the only path a callsign reaches this device by.
+    void send_config(const char* json);
     void disconnect_companion() { platform_.link().drop_link(); }
 
     int failures() const { return failures_; }

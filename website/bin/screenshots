@@ -23,6 +23,9 @@ const CONTACT_MS = 120;
 // Two presses inside the gesture's 600 ms window are one double press, not two steps.
 const PRESS_GAP_MS = 800;
 const TAP_GAP_MS = 500;
+const ALLOW_GAP_MS = 200;
+const PROMPT_MS = 2500;
+const GROUND_MS = 20_000;
 const SETTLE_MS = 2500;
 const HOLD_OFF_MS = 2200;
 const KT_TO_MM_S = 514;
@@ -68,6 +71,14 @@ class Device {
     this.run(CONTACT_MS);
     this.sim.holdPad(0);
     return this.run(TAP_GAP_MS);
+  }
+
+  // Two presses inside ConfirmGesture::kDoublePressMs, which is what authorises.
+  allow() {
+    this.sim.button();
+    this.run(ALLOW_GAP_MS);
+    this.sim.button();
+    return this.run(PRESS_GAP_MS);
   }
 
   holdButton(ms) {
@@ -179,6 +190,28 @@ function panel(device) {
 }
 
 const OWN_CALLSIGN = "F-GJPT";
+
+// The only way a callsign reaches the device: an app writes it on the config
+// endpoint, the glass asks, and two presses allow it. A write is refused unless
+// the device knows it is on the ground, so the aircraft is parked first.
+function asks(device, callsign) {
+  device.fly({ ...CRUISE, kt: 0 }).run(GROUND_MS);
+  device.sim.sendConfig(`{"cmd":"set","callsign":"${callsign}"}`);
+  device.run(PROMPT_MS);
+  if (!device.sim.prompt()) throw new Error("the settings write never reached the glass");
+  return device;
+}
+
+function setCallsign(device, callsign) {
+  asks(device, callsign).allow();
+  if (device.sim.prompt()) throw new Error("two presses did not answer the prompt");
+  return device;
+}
+
+// The device as a pilot has it after setup: named on the ground, then flown.
+function namedAndFlying(device) {
+  return flying(setCallsign(device, OWN_CALLSIGN));
+}
 const CRUISE = { kt: 95, ft: 3911, track: 0, fpm: 0, dps: 0 };
 const LEG_MS = 47 * 60_000;
 const HEARD_MS = 20_000;
@@ -282,9 +315,15 @@ const scenes = [
     shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.nearby)
   },
   {
+    name: "confirm",
+    page: PAGE.radar,
+    prompt: true,
+    shot: device => asks(device, OWN_CALLSIGN)
+  },
+  {
     name: "status",
     page: PAGE.status,
-    shot: device => flying(device).openMenu(PAGE.nearby, 0).press()
+    shot: device => namedAndFlying(device).openMenu(PAGE.nearby, 0).press()
   },
   {
     name: "satellites",
@@ -298,7 +337,7 @@ const scenes = [
     name: "radio-log",
     page: PAGE.log,
     shot(device) {
-      flying(device).openMenu(PAGE.nearby, 2).press().run(2000);
+      namedAndFlying(device).openMenu(PAGE.nearby, 2).press().run(2000);
       return tapeWithANameOnIt(device);
     }
   },
@@ -380,9 +419,10 @@ function verify(scene, device) {
     page: sim.page(),
     menu: sim.menuOpen() === 1,
     alarm: sim.alarm(),
-    powered: sim.powered() === 1
+    powered: sim.powered() === 1,
+    prompt: sim.prompt() === 1
   };
-  const want = { menu: false, alarm: 0, powered: true, ...scene };
+  const want = { menu: false, alarm: 0, powered: true, prompt: false, ...scene };
   for (const key of Object.keys(got))
     if (want[key] !== undefined && want[key] !== got[key])
       throw new Error(`${scene.name}: ${key} is ${got[key]}, the page wants ${want[key]}`);
@@ -418,7 +458,6 @@ function* drawnBlips() {
 mkdirSync(shots, { recursive: true });
 for (const scene of scenes) {
   const device = await Device.boot();
-  device.sim.setCallsign(OWN_CALLSIGN);
   device.run(STEP_MS);
   const captured = scene.shot(device);
   const shot = captured instanceof Buffer ? captured : png(panel(device.run(SETTLE_MS)));

@@ -384,6 +384,17 @@ void World::name_itself(const VirtualAircraft& a, uint64_t epoch_us, uint32_t ut
               static_cast<uint8_t>(chip_len), rssi_at(range_m));
 }
 
+void World::send_config(const char* json) {
+    if (!platform_.link().up()) connect_companion();
+    events::RxFrame frame{};
+    frame.session_id = platform_.link().session_id();
+    frame.endpoint = events::Endpoint::Config;
+    const size_t len = std::strlen(json);
+    frame.len = static_cast<uint16_t>(len < frame.data.size() ? len : frame.data.size());
+    std::memcpy(frame.data.data(), json, frame.len);
+    platform_.link().push_rx(frame);
+}
+
 void World::load(const Scenario& scenario) {
     scenario_ = scenario;
     next_event_ = 0;

@@ -90,15 +90,10 @@ KEEPALIVE int simulator_tx_named() {
 KEEPALIVE int simulator_rx_named() {
     return static_cast<int>(g_simulator.product().state().air.rx_named);
 }
-KEEPALIVE void simulator_set_callsign(const char* callsign) {
-    char* out = g_simulator.product().settings().callsign;
-    size_t n = 0;
-    while (n + 1 < go::kCallsignCap && callsign[n] != 0) {
-        out[n] = callsign[n];
-        n++;
-    }
-    out[n] = 0;
+KEEPALIVE int simulator_prompt() {
+    return g_simulator.product().screen().prompt() != comms::Pending::None ? 1 : 0;
 }
+KEEPALIVE void simulator_send_config(const char* json) { g_simulator.world().send_config(json); }
 KEEPALIVE void simulator_name_aircraft(int index, const char* callsign) {
     g_simulator.world().name_aircraft(index, callsign);
 }

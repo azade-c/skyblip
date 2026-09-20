@@ -11,8 +11,7 @@ namespace skyblip::go {
 
 struct StatusSnapshot {
     uint32_t device_addr{0};
-    // ADS-L carries no callsign, so this names the device on the glass and
-    // nowhere else: which of three on a bench is the one in front of you.
+    // INFO: fc 20sep26 the only place a pilot reads back the name payload 66 puts on air
     const char* callsign{""};
     bool fix_valid{false};
     bool utc_valid{false};
