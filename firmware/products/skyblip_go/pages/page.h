@@ -9,17 +9,17 @@
 namespace skyblip::go {
 
 enum class Page : uint8_t {
-    Radar,
-    Nearby,
-    SixPack,
-    GMeter,
-    Status,
-    Sats,
-    RadioLog,
-    Raw,
-    Capture,
-    SelfTest,
-    kCount
+    Radar = 0,
+    Nearby = 1,
+    SixPack = 2,
+    GMeter = 3,
+    Status = 4,
+    Sats = 5,
+    RadioLog = 6,
+    Raw = 7,
+    Capture = 8,
+    SelfTest = 9,
+    kCount = 10
 };
 
 constexpr int kPageCount = static_cast<int>(Page::kCount);

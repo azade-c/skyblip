@@ -1,5 +1,6 @@
 // Three facts the tape spelled DEC alike, told apart through the whole product.
 #include <cstring>
+#include <string>
 
 #include "core/events/rf.h"
 #include "core/model/aircraft.h"
@@ -67,6 +68,15 @@ protocol::AdslPacket adsl_from_neighbour(const model::OwnState& own) {
     protocol::AdslPacket p{};
     protocol::from_own(p, transmitter, 0xC5D804, /*addr_table=*/6, /*aircraft_cat=*/4);
     return p;
+}
+
+// A neighbour naming itself: OGN's payload 66, scrambled and checksummed as any ADS-L frame is.
+void hear_callsign(Rig& rig, uint32_t addr, uint8_t addr_table, const char* callsign) {
+    protocol::AdslPacket p{};
+    protocol::from_own_callsign(p, addr, addr_table, callsign);
+    p.scramble();
+    p.set_crc();
+    hear_mband(rig, protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes);
 }
 
 const radio::Entry* heard_entry(Rig& rig) {
@@ -208,6 +218,31 @@ TEST_CASE("radio verdicts: the frame we can read is read, and names its aircraft
     settle(rig, t);
 
     CHECK(heard_verdict(rig) == radio::Event::Received);
+}
+
+TEST_CASE("radio verdicts: a registration frame names its sender and is not a target") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t tracked = static_cast<uint32_t>(rig.state().traffic.count());
+
+    hear_callsign(rig, 0xC5D804, 58, "D-KXYZ");
+    settle(rig, t);
+
+    CHECK(heard_verdict(rig) == radio::Event::Named);
+    CHECK(rig.state().air.rx_named == 1);
+    CHECK(rig.state().air.rx_type == 0);
+    CHECK(rig.state().air.rx_ok == 0);
+    // A name is not a position, so nothing new is on the radar.
+    CHECK(static_cast<uint32_t>(rig.state().traffic.count()) == tracked);
+    REQUIRE(rig.state().callsigns.find(58, 0xC5D804) != nullptr);
+    CHECK(std::string(rig.state().callsigns.find(58, 0xC5D804)) == "D-KXYZ");
+
+    const radio::Entry* entry = heard_entry(rig);
+    REQUIRE(entry != nullptr);
+    CHECK(entry->addr == 0xC5D804u);
+    CHECK(entry->addr_valid);
 }
 
 // A skyBlip on the apron beside a chatty neighbour used to report a climbing bad-frame count.

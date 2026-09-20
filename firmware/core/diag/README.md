@@ -42,6 +42,16 @@ Every field is written and read one at a time, little-endian, exactly as `core/f
 
 A type is retired, never renumbered. A recorded corpus outlives the firmware that wrote it, and a laptop decoding a flight from last season has nothing but the number to go on - `test/core/diag/test_diag_record.cpp` fails if one moves. Type 0 is not a record, so an all-zero slot decodes as nothing rather than as a boot, and a slot no writer has reached reads erased (`store::erased`) rather than as a record of zeroes.
 
+### A stored code is a wire format
+
+A payload that carries a C++ enum stores one byte of it. Until 2026-09-20 that byte was the member's declared position, so inserting a member anywhere but the end changed what every record already written meant and nothing failed: `radio::Event` gained `Named` at position 5, the six verdicts behind it each moved up one, and the host decoder went on reading a capture taken that day as the old order. A `miskeyed` burst read back as `unframed`, with no CRC, no version and no count to say so.
+
+So every enum a record stores now writes its numbers down. `BadCrc = 6` is the wire format stated where the enum is declared, a new member takes the next free number, and inserting one in the middle of the list is a no-op for a corpus rather than a silent renumbering. Some of those enums belong to other features (`core/radio/log.h`, `core/timing/`, `core/power/`, the product's `Page` and `Gesture`) and are stored here as they stand: this layer may not move one of their values, only record what it is.
+
+The numbers fill 0 up to one less than the count, with no holes, because the host decoder reads a byte through a tuple it indexes by: a hole would shift every spelling behind it. That is what `codes_pinned` in the two pin tests checks, alongside each member's own number.
+
+Those pins are on both sides and separately, because nothing compares C++ to Python automatically. `test/core/diag/test_diag_ordinals.cpp` pins every enum this layer writes as a byte, and `test/products/test_diag_product_codes.cpp` the codes the product owns. Each maps its members through a `switch` that carries no default: a member added fails the build and the compiler names it, a member renumbered fails the case, and the case is named after the two files that have to move with it. On the host side `scripts/test_blip.py` holds every decoder tuple in `scripts/blip_records.py` against the schema enum of the same name, in order and in length, and refuses a schema enum no tuple decodes. The schema lists the numbers beside the spellings, which is what says the firmware's member and the decoder's word are the same value, so a member added here is an edit to the decoder and to `schemas/diagnostics_log.v1.schema.json` in the same commit.
+
 ## What each type answers
 
 Every field below is read off `bus::State` or off an `events::` value as it stands today. Nothing here is a sensor this device does not have.
@@ -52,7 +62,7 @@ Every field below is read off `bus::State` or off an `events::` value as it stan
 | `Config` 2 | address, address table, aircraft type, alarm volume, battery and frequency trims, whose the battery trim is, units, alarm enabled | what the firmware was assuming while it decided everything else |
 | `Gnss` 3 | nav_ms, residual, HDOP, VDOP, stage and its age, sats used and in view, fix mode, reject reason | where in its own second a solution lands (`kFixLagMaxMs`, 500 ms of §G.1.16 nav age), and what the rejects cost |
 | `Pps` 4 | edge interval, signed error against a nominal second, samples, holdover events, ms since the edge, lock | whether `kPpsHoldoverMs` is the right patience, and what the slot map is really anchored to |
-| `Burst` 5 | the whole of `radio::Entry`: verdict, band, channel, address, length, RSSI, key offset, tx_keyed_us, tx_span_us, airborne | every one of the eleven verdicts against the second it happened in: two devices on one bench read one link twice |
+| `Burst` 5 | the whole of `radio::Entry`: verdict, band, channel, address, length, RSSI, key offset, tx_keyed_us, tx_span_us, airborne, callsign | every verdict `radio::Event` declares against the second it happened in: two devices on one bench read one link twice |
 | `Dwell` 6 | slot state, band, frequency, start and end, the phase it was read at, duty, noise floor, refusal reason, tx_allowed | whether the dwell map spends the second where §C.5 says, and what refuses a burst when one is refused |
 | `Flight` 7 | speed, climb, altitude, HDOP, VDOP, declared state, latched state, rolling | how close the machine came to deciding the other way. Written on every evaluation, never only on transitions: a transition-only tape cannot say what the margin was, and the margin is the whole question when choosing 12.0 against 8.0 m/s |
 | `Power` 8 | cell millivolts, percent, level, the caution knee, charge condition, die temperature, the trim the charger taught this unit, supply warnings, implausible and charge counts | what a burst does to the rail, and whether `kCautionMv`, `kLowWarnMv` and `kCutoffMv` fire where a real pack needs them to |
@@ -65,6 +75,12 @@ Every field below is read off `bus::State` or off an `events::` value as it stan
 | `Screen` 15 | page, mode, prompt, alarm level, how long it had been up, backlight, powered, thermal hold | `ScreenService::kPresentFloorMs` and the refresh cadence against what a pilot was shown |
 | `Gap` 16 | records dropped, the span they cover, the total since arming, the ring capacity | nothing. It is the hole itself, written where the hole is |
 | `End` 17 | records written in the session, records dropped | nothing. It is the one record that says the session stopped rather than was stopped |
+
+### The burst that carried a name, and why the name is not in it
+
+Own-ship puts a callsign on the air once every ten seconds, in slot 1's tail, and a position every second in the air or every ten on the ground (`../timing/README.md`). On the air those are two different payloads. In a capture they were the same record, so a corpus could not tell the ident from the positions it sits between, nor say what the ident cost in air time. `kBurstFlagCallsign` is bit 6 of the burst record's flag byte, straight off `radio::Entry::callsign`, and it says this burst carried a name.
+
+The name itself is not recorded. Nine characters do not fit a payload whose sixteen bytes are spoken for, and they would say nothing a reader does not have: own-ship's address is on the same record, and what that address is called is `Config`'s business on this device and `core/traffic/callsigns.h`'s for everybody else. A name heard rather than sent needs no flag either, because the verdict already is one: `Named` is what `TrafficService::decode_adsl` returns for a registration frame, and it sits beside the address the name was filed under.
 
 ### The battery ladder, and what a replay works out for itself
 
@@ -82,7 +98,7 @@ So the session says it instead. A capture that stops cleanly - the pilot disarms
 
 The writer keeps the last two slots of its frontier sector in hand for this: one for the `Gap` that says why a capture stopped, one for the `End` that closes it.
 
-Two payloads carry a code this layer does not own: `Contact::gesture` is the product's `go::Gesture` and `Screen::page` its `go::Page`. The decoder resolves both through the schema, which is why they are listed there by name.
+Four fields carry a code this layer does not own: `Contact::gesture` is the product's `go::Gesture`, and `Screen`'s page, mode and prompt are `go::Page`, `go::Mode` and `comms::Pending`. All four store that enum's own number, the schema lists all four by name and number, and the decoder resolves them through it.
 
 ## Where each type is produced
 
@@ -112,7 +128,7 @@ One tap per fact, in the service that owns the field on `bus::State` (`core/bus/
 
 Two fields have no producer on this device and are left at their default rather than filled with a number nobody measured. `LinkAction::Sent` is never written: an outbound frame exists in `RecordPool::send` and in `core/comms`, and neither can see the claim the record carries, so a `Sent` emitted from the one a recorder reaches would cover the log endpoint's chunks and miss every reply the config endpoint sends - a corpus that reads as a device which answered nothing. The action keeps its number rather than being retired, because a decoder has nothing but the number. `Gap::span_ms` is zero on the marker the writer leaves when the partition is full, because the records still queued are the ring's and it does not hand out their instants.
 
-`Write::kind` is always `Settings`: the flight log's own records are not placed through `timing::DurableWriteWindow`, they stand off the direct slot instead (`services/flight_log.cpp`).
+`Write::kind` is always `Settings`: it records the verdicts of `timing::DurableWriteWindow` itself, and only the settings blob asks that object to place a write. Both rings do reach the same window, through `RecordPool::window_open()`, but they ask it whether a phase is free rather than handing it a write to schedule, so there is no verdict to record.
 
 ## The recorder
 

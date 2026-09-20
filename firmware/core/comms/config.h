@@ -19,7 +19,16 @@
 
 namespace skyblip::comms {
 
-enum class Pending : uint8_t { None, Set, Dfu, Apply, Recovery, PowerOff, EraseLog, GnssCold };
+enum class Pending : uint8_t {
+    None = 0,
+    Set = 1,
+    Dfu = 2,
+    Apply = 3,
+    Recovery = 4,
+    PowerOff = 5,
+    EraseLog = 6,
+    GnssCold = 7
+};
 
 // What a prompt says it is, and what confirming it will do. The panel and the
 // phone read the same two strings, so a pilot pressing the button and a pilot

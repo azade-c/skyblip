@@ -45,7 +45,12 @@ def i32(at):
 
 
 def enum8(at, names):
-    return lambda raw, flags: names[raw[at]] if raw[at] < len(names) else raw[at]
+    # INFO: fc 20sep26 the ordinal is the wire, and enum_fields() reads .names back off the closure
+    def read(raw, flags):
+        return names[raw[at]] if raw[at] < len(names) else raw[at]
+
+    read.names = names
+    return read
 
 
 def flag(bit):
@@ -57,6 +62,7 @@ def flag_field(shift, mask, names):
         value = (flags >> shift) & mask
         return names[value] if value < len(names) else value
 
+    read.names = names
     return read
 
 
@@ -87,8 +93,8 @@ RESET = ("UNKNOWN", "POWER ON", "RESET PIN", "BROWNOUT", "SOFT RESET", "WATCHDOG
 IMAGE_STATE = ("confirmed", "probation", "reverted")
 REJECT = ("NONE", "NO SOLUTION", "NO RMC", "NO GGA", "STALE", "NO DATE", "JUMP")
 STAGE = ("silent", "blind", "solving", "fixed")
-VERDICT = ("transmitted", "lost", "held", "unarmed", "received", "bad_crc", "unframed", "miskeyed",
-           "undecoded", "unsupported", "unattempted")
+VERDICT = ("transmitted", "lost", "held", "unarmed", "received", "named", "bad_crc", "unframed",
+           "miskeyed", "undecoded", "unsupported", "unattempted")
 SOURCE = ("adsl_direct", "adsl_uplink", "alptas", "own")
 BAND = ("M", "O")
 SLOT_STATE = ("uplink_rx_o", "switch_o_to_m", "slot0", "hop", "slot1", "switch_m_to_o")
@@ -127,7 +133,7 @@ DIAG_TYPES = {
         ("verdict", enum8(8, VERDICT)), ("source", enum8(9, SOURCE)), ("band", enum8(10, BAND)),
         ("channel", u8(11)), ("len", u8(12)), ("rssi_dbm", i8(13)), ("key_offset_s", i8(14)),
         ("addr_valid", flag(2)), ("rssi_valid", flag(3)), ("airborne", flag(4)),
-        ("tx_span_valid", flag(5)))),
+        ("tx_span_valid", flag(5)), ("callsign", flag(6)))),
     6: ("dwell", (
         ("freq_hz", u32(0)), ("start_ms", u16(4)), ("end_ms", u16(6)), ("phase_ms", u16(8)),
         ("duty_permille", u16(10)), ("state", enum8(12, SLOT_STATE)), ("band", enum8(13, BAND)),
@@ -189,6 +195,15 @@ FLIGHT_FIELDS = (
     ("fix_valid", flag(0)), ("utc_valid", flag(1)), ("pps_locked", flag(2)),
     ("climb_valid", flag(3)), ("geoid_measured", flag(4)), ("session_end", flag(7)),
 )
+
+
+def enum_fields():
+    """Every diagnostics field an ordinal is read through, as (field, names) pairs."""
+    for _, fields in DIAG_TYPES.values():
+        for field, read in fields:
+            names = getattr(read, "names", None)
+            if names is not None:
+                yield field, names
 
 
 def decode_record(store, raw, base_utc):

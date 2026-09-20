@@ -117,7 +117,8 @@ TEST_CASE("scenario: GNSS -> own, direct ADS-L RX over BER channel -> alarm -> N
     platform::host::Link efb;
     efb.raise_link(1);
     char buf[128];
-    int n = protocol::format_pflaa(buf, sizeof(buf), own, obs, traffic::to_number(a.level));
+    int n =
+        protocol::format_pflaa(buf, sizeof(buf), own, obs, traffic::to_number(a.level), nullptr);
     REQUIRE(n > 0);
     efb.send(events::Endpoint::Nmea, ConstByteSpan(reinterpret_cast<uint8_t*>(buf), n));
     n = protocol::format_pflau(buf, sizeof(buf), own, true, table.count(), &obs,

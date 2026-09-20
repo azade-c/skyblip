@@ -46,7 +46,7 @@ bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32
 }
 
 int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model::AircraftObs& t,
-                 uint8_t alarm_level) {
+                 uint8_t alarm_level, const char* callsign) {
     (void)cap;
     int32_t n_m, e_m, u_m;
     if (!relative_ned(own, t, n_m, e_m, u_m)) return 0;
@@ -63,6 +63,10 @@ int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model:
     n += fmt_uint(out + n, addr_table_to_idtype(t.addr_table));
     out[n++] = ',';
     n += fmt_hex(out + n, t.addr, 6);
+    if (callsign != nullptr && callsign[0] != 0) {
+        out[n++] = '!';
+        n += fmt_string(out + n, callsign);
+    }
     out[n++] = ',';
     if (t.flight_state != 1) {
         uint16_t deg = to_degrees(Cordic9(t.track_c9)).v;

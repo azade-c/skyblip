@@ -52,7 +52,9 @@ void TrafficService::tick(uint32_t now_ms) {
                 break;
         }
     }
-    context_.state.traffic.age_out(context_.state.traffic_now(now_ms));
+    const uint32_t now_s = context_.state.traffic_now(now_ms);
+    context_.state.traffic.age_out(now_s);
+    context_.state.callsigns.age_out(now_s);
 }
 
 events::Stamp TrafficService::stamp_for(const events::RfEvent& event, uint32_t now_ms) const {
@@ -83,6 +85,8 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
     entry.rssi_dbm = event.rssi_dbm;
     entry.rssi_valid = event.rssi_valid;
     if (event.type == events::RfEventType::RxDone) entry.len = event.len;
+    if (event.type == events::RfEventType::TxDone || event.type == events::RfEventType::Missed)
+        entry.callsign = state.rf.tx_callsign;
     if (outcome == radio::Event::Transmitted && state.rf.tx_deadline_us != 0) {
         entry.tx_keyed_us = radio::tx_span_of(event.keyed_at_us, state.rf.tx_deadline_us);
         entry.tx_span_us = radio::tx_span_of(event.at_us, state.rf.tx_deadline_us);
@@ -127,6 +131,11 @@ void TrafficService::on_frame(const events::RfEvent& event, uint32_t now_ms) {
     const radio::Event outcome =
         alptas ? decode_alptas(frame, keyed, stamp.phase_valid, obs, key_offset_s)
                : decode_adsl(frame, keyed, stamp, obs);
+    if (outcome == radio::Event::Named) {
+        context_.state.air.rx_named++;
+        log(event, stamp, outcome, &obs);
+        return;
+    }
     if (outcome != radio::Event::Received) {
         count_refusal(outcome);
         const bool named = alptas && names_its_sender(outcome);
@@ -209,12 +218,24 @@ radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
     if (p.check_crc() != 0 && (p.correct(frame.err) < 0 || p.check_crc() != 0))
         return radio::Event::BadCrc;
     p.descramble();
+    if (p.is_registration()) return learn_callsign(p, utc, obs);
     if (!p.is_position()) return radio::Event::Unsupported;
     events::Stamp received = stamp;
     received.at_s = utc;
     if (!protocol::to_obs(p, received, 0, model::Source::AdslDirect, obs))
         return radio::Event::Undecoded;
     return radio::Event::Received;
+}
+
+radio::Event TrafficService::learn_callsign(const protocol::AdslPacket& p, uint32_t utc,
+                                            model::AircraftObs& obs) {
+    char callsign[traffic::CallsignTable::kTextBytes];
+    if (protocol::callsign_of(p, callsign, sizeof(callsign)) == 0) return radio::Event::Undecoded;
+    obs.addr = p.address();
+    obs.addr_table = p.addr_table();
+    obs.source = model::Source::AdslDirect;
+    context_.state.callsigns.learn(obs.addr_table, obs.addr, callsign, utc);
+    return radio::Event::Named;
 }
 
 // INFO: fc 16sep26 ALP-TAS keys on the second its sender keyed in, so an undated burst is a guess

@@ -228,6 +228,32 @@ TEST_CASE("log session: a landing closes the session with a record that says so"
     CHECK(drained.utc == kBaseUtc + 4);
 }
 
+// A writer that drains late used to have ground samples queued behind the
+// landing record, so the last record of the file said the session was still
+// open and a tablet listed the flight as unclosed.
+TEST_CASE("log session: the landing record stays the last one while the writer is behind") {
+    flight::LogSession session;
+    uint32_t now_ms = 0;
+    REQUIRE(session.update(flying(kBaseUtc, 50000), now_ms) == flight::LogAction::OpenSession);
+    flight::LogRecord drained{};
+    while (session.peek(drained)) session.commit();
+
+    now_ms += 4000;
+    REQUIRE(session.update(parked(kBaseUtc + 4), now_ms) == flight::LogAction::CloseSession);
+    CHECK(session.closing());
+    // Half a minute of taxiing to the hangar, with nothing draining the ring.
+    for (uint32_t i = 2; i < 10; i++)
+        CHECK(session.update(parked(kBaseUtc + i * 4), now_ms + i * 4000) ==
+              flight::LogAction::Idle);
+    CHECK(session.queued() == 1);
+
+    REQUIRE(session.peek(drained));
+    session.commit();
+    CHECK(drained.session_end);
+    CHECK_FALSE(session.peek(drained));
+    CHECK_FALSE(session.closing());
+}
+
 TEST_CASE("log session: a fix outage does not end the flight, and nothing is written across it") {
     flight::LogSession session;
     REQUIRE(session.update(flying(kBaseUtc, 50000), 0) == flight::LogAction::OpenSession);
@@ -265,30 +291,6 @@ TEST_CASE("log session: a record peeked and not committed is still in the ring")
 }
 
 // A landing closes the file: what the aircraft did afterwards belongs to no flight.
-TEST_CASE("log session: a ground sample taken after the landing is not part of the closed flight") {
-    flight::LogSession session;
-    uint32_t now_ms = 0;
-    REQUIRE(session.update(flying(kBaseUtc, 50000), now_ms) == flight::LogAction::OpenSession);
-    flight::LogRecord drained{};
-    while (session.peek(drained)) session.commit();
-
-    now_ms += 4000;
-    REQUIRE(session.update(parked(kBaseUtc + 4), now_ms) == flight::LogAction::CloseSession);
-    CHECK(session.closing());
-
-    // The writer was busy: the ground goes on sampling into the same ring.
-    now_ms += 4000;
-    session.update(parked(kBaseUtc + 8), now_ms);
-    now_ms += 4000;
-    session.update(parked(kBaseUtc + 12), now_ms);
-
-    REQUIRE(session.peek(drained));
-    session.commit();
-    CHECK(drained.session_end);
-    CHECK_FALSE(session.peek(drained));
-    CHECK_FALSE(session.closing());
-}
-
 TEST_CASE("log ring: the cursor walks the slots of a sector and stops at the last one") {
     flight::LogRing ring;
     ring.configure(3, 2);

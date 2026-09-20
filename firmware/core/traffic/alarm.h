@@ -9,7 +9,7 @@
 
 namespace skyblip::traffic {
 
-enum class Level : uint8_t { None, Advisory };
+enum class Level : uint8_t { None = 0, Advisory = 1 };
 
 constexpr uint8_t to_number(Level level) { return static_cast<uint8_t>(level); }
 

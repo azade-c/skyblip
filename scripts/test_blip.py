@@ -111,11 +111,24 @@ class DiagnosticsPayloads(unittest.TestCase):
             since_edge_ms=450, locked=True, utc_valid=True))
 
     def test_burst_reads_the_radio_entry_with_its_signed_rssi_and_key_offset(self):
-        payload = struct.pack("<I2H5B2b", 0x0102AB, 410, 960, 7, 2, 1, 1, 26, -97, -2)
+        payload = struct.pack("<I2H5B2b", 0x0102AB, 410, 960, 8, 2, 1, 1, 26, -97, -2)
         self.assertEqual(decoded(5, payload, 0b0011_1100), whole(
             "burst", 0b0011_1100, addr=0x0102AB, tx_keyed_us=410, tx_span_us=960,
             verdict="miskeyed", source="alptas", band="O", channel=1, len=26, rssi_dbm=-97,
-            key_offset_s=-2, addr_valid=True, rssi_valid=True, airborne=True, tx_span_valid=True))
+            key_offset_s=-2, addr_valid=True, rssi_valid=True, airborne=True, tx_span_valid=True,
+            callsign=False))
+
+    def test_a_transmitted_burst_says_whether_it_carried_the_callsign_or_a_position(self):
+        payload = struct.pack("<I2H5B2b", 0x0102AB, 410, 960, 0, 3, 0, 0, 20, 0, 0)
+        self.assertTrue(decoded(5, payload, 0b0100_0000)["callsign"])
+        self.assertFalse(decoded(5, payload, 0b0000_0000)["callsign"])
+
+    # radio::Event gained Named at 5 in PR #69 and the six verdicts behind it each moved one up.
+    def test_the_verdict_behind_received_is_the_callsign_one_and_not_a_bad_crc(self):
+        payload = struct.pack("<I2H5B2b", 0x0102AB, 0, 0, 5, 0, 0, 0, 20, -70, 0)
+        self.assertEqual(decoded(5, payload)["verdict"], "named")
+        payload = struct.pack("<I2H5B2b", 0x0102AB, 0, 0, 6, 0, 0, 0, 20, -70, 0)
+        self.assertEqual(decoded(5, payload)["verdict"], "bad_crc")
 
     def test_dwell_reads_the_slot_map_and_a_refusal(self):
         payload = struct.pack("<I4H3Bb", 868_200_000, 450, 1200, 612, 7, 4, 0, 1, -105)
@@ -211,6 +224,17 @@ class TablesAgainstTheSchema(unittest.TestCase):
         self.assertEqual(named, self.schema["properties"]["type"]["enum"])
         self.assertEqual(sorted(records.DIAG_TYPES), list(range(1, 18)))
 
+    def test_every_enum_tuple_is_the_schema_enum_in_the_same_order(self):
+        for field, names in records.enum_fields():
+            self.assertEqual(list(names), self.schema["properties"][field]["enum"], field)
+
+    def test_every_schema_enum_has_a_tuple_to_decode_its_ordinal_through(self):
+        decoded_through_names = {field for field, _ in records.enum_fields()}
+        for field, spec in self.schema["properties"].items():
+            if field == "type" or "enum" not in spec:
+                continue
+            self.assertIn(field, decoded_through_names, field)
+
     def test_every_decoded_key_is_a_key_the_schema_declares(self):
         allowed = set(self.schema["properties"])
         for type_id in records.DIAG_TYPES:
@@ -240,7 +264,7 @@ class GoldenVectors(unittest.TestCase):
 
     def test_a_burst_record_encoded_by_the_firmware(self):
         decoded = records.decode_diag_record(
-            bytes.fromhex("053fb00400f15365ab0201009a01c003070201011a9ffe00"))
+            bytes.fromhex("053fb00400f15365ab0201009a01c003080201011a9ffe00"))
         self.assertEqual(decoded["addr"], 0x0102AB)
         self.assertEqual(decoded["verdict"], "miskeyed")
         self.assertEqual(decoded["rssi_dbm"], -97)

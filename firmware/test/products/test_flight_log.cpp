@@ -529,11 +529,10 @@ TEST_CASE("flight log: erasing every flight takes the button, not just the phone
     t += 100;
     CHECK(rig.product.flight_log().erasing());
 
-    // One sector a pass: 330 erases must not be one tick that stops reporting
-    // progress for the better part of a minute.
+    // 330 sectors at the rate one durable-write window a second allows: about 45 s.
     rig.platform.link().clear();
-    rig.run(t, t + 40000, 50);
-    t += 40000;
+    rig.run(t, t + 60000, 50);
+    t += 60000;
     CHECK_FALSE(rig.product.flight_log().erasing());
     CHECK(rig.product.flight_log().records_written() == 0);
 

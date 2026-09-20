@@ -10,17 +10,18 @@
 namespace skyblip::radio {
 
 enum class Event : uint8_t {
-    Transmitted,
-    Lost,
-    Held,
-    Unarmed,
-    Received,
-    BadCrc,
-    Unframed,
-    Miskeyed,
-    Undecoded,
-    Unsupported,
-    Unattempted
+    Transmitted = 0,
+    Lost = 1,
+    Held = 2,
+    Unarmed = 3,
+    Received = 4,
+    Named = 5,
+    BadCrc = 6,
+    Unframed = 7,
+    Miskeyed = 8,
+    Undecoded = 9,
+    Unsupported = 10,
+    Unattempted = 11
 };
 
 struct Entry {
@@ -42,6 +43,7 @@ struct Entry {
     bool airborne{false};
     bool phase_valid{false};
     bool tx_span_valid{false};
+    bool callsign{false};
 };
 
 // INFO: fc 16sep26 the field's own ceiling: a burst this late is a dwell that already ended

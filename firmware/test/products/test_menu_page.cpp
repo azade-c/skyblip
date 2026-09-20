@@ -7,6 +7,8 @@
 // doing it cannot spend the other two things the one button says - the double
 // press that authorises a firmware upload, and the hold that switches the
 // device off.
+#include <string>
+
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/input/gesture.h"
@@ -131,7 +133,7 @@ TEST_CASE("product: a press opens the menu of the page a pilot is standing on") 
     // On the rows the pad still navigates: it walks them one at a time.
     REQUIRE(rig.product.screen().editor().focus() == go::MenuRow::AircraftType);
     move(rig, t);
-    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Units);
+    CHECK(rig.product.screen().editor().focus() == go::MenuRow::Callsign);
 
     // The pad past the last row hands the glass back to the page the menu belongs to.
     focus_on(rig, t, go::MenuRow::Volume);
@@ -265,6 +267,37 @@ TEST_CASE("product: the aircraft type set on the panel is the one that goes on t
     push_solution(rig, 25000, 500);
     rig.run(t, t + 1000);
     CHECK(rig.state().own.aircraft_cat == 3);
+}
+
+// G3 again, for the one setting that is text: a pilot with no phone can name
+// their own aircraft, on the glass, with a pad and a button.
+TEST_CASE("product: a callsign typed on the panel is stored and put on the air") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 100;
+    REQUIRE(rig.settings().callsign[0] == 0);
+
+    open_menu(rig, t);
+    focus_on(rig, t, go::MenuRow::Callsign);
+    change(rig, t);
+    REQUIRE(rig.product.screen().editor().editing());
+
+    // "F-J", rolled a character at a time: the pad rolls, the button steps on.
+    const char* wanted = "F-J";
+    for (int at = 0; at < 3; at++) {
+        while (rig.product.screen().editor().text()[at] != wanted[at]) move(rig, t);
+        change(rig, t);
+    }
+    // The rest is left blank, and the button walked off the end stores the name.
+    for (int at = 3; at < go::kCallsignChars; at++) change(rig, t);
+    CHECK_FALSE(rig.product.screen().editor().editing());
+
+    run_past_the_write_settle(rig, t);
+    CHECK(std::string(rig.settings().callsign) == "F-J");
+
+    go::Settings stored{};
+    REQUIRE(stored_settings(rig, stored));
+    CHECK(std::string(stored.callsign) == "F-J");
 }
 
 TEST_CASE("product: walking the rows without changing one writes nothing at all") {

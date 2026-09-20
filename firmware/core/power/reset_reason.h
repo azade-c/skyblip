@@ -44,16 +44,16 @@ constexpr bool has_cause(ResetCause set, ResetCause wanted) {
 }
 
 enum class ResetReason : uint8_t {
-    Unknown,
-    PowerOn,
-    Pin,
-    Brownout,
-    Software,
-    Watchdog,
-    Lockup,
-    ChargerWake,
-    LowPowerWake,
-    Debug,
+    Unknown = 0,
+    PowerOn = 1,
+    Pin = 2,
+    Brownout = 3,
+    Software = 4,
+    Watchdog = 5,
+    Lockup = 6,
+    ChargerWake = 7,
+    LowPowerWake = 8,
+    Debug = 9,
 };
 
 // One reason out of a set of bits.

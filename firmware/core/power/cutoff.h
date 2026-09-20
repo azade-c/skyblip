@@ -30,7 +30,7 @@ constexpr uint16_t kImplausibleFloorMv = 1800;
 // but a charger unplugged mid-sample is not.
 constexpr uint8_t kCutoffSamples = 3;
 
-enum class PowerLevel : uint8_t { Unknown, Normal, Low, Cutoff };
+enum class PowerLevel : uint8_t { Unknown = 0, Normal = 1, Low = 2, Cutoff = 3 };
 
 const char* to_string(PowerLevel level);
 
@@ -41,11 +41,11 @@ enum class DurableWrite : uint8_t {
     // The settings blob, on the internal NVS sector. Rewritten on every accepted
     // change, and the sector NVS garbage-collects is the same internal flash the
     // running image executes from.
-    Settings,
+    Settings = 0,
     // The flight log record. Losing it loses the flight, and the moment it is
     // most needed is the moment the cell is going: a landing out, a pack that
     // sagged under a burst, a device switched off in a hurry.
-    FlightRecord,
+    FlightRecord = 1,
 };
 
 // THE RULE. Below the warning level nothing durable is written except the record

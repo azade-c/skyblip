@@ -85,6 +85,7 @@ class RadioService : public runtime::Service {
     uint32_t arm_count_{0};
     uint64_t tx_end_us_{0};
     uint32_t tx_utc_{0};
+    timing::Transmitter::Payload tx_payload_{timing::Transmitter::Payload::Position};
     uint32_t seen_tx_ok_{0};
     uint32_t seen_carrier_samples_{0};
     bool tx_armed_{false};

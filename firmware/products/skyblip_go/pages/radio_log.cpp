@@ -35,6 +35,13 @@ bool own_burst(radio::Event event) {
            event == radio::Event::Held || event == radio::Event::Unarmed;
 }
 
+// What own-ship put on air, in the column a reception spends on its sender: the
+// schedule the burst went out on, or the name that is on neither schedule.
+const char* own_burst_word(const radio::Entry& entry) {
+    if (entry.callsign) return "CALL";
+    return entry.airborne ? "AIR" : "GROUND";
+}
+
 // INFO: fc 17sep26 a transmission that worked prints no verdict, as a reception does not
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
@@ -47,6 +54,7 @@ const char* verdict_of(const radio::Entry& entry) {
         case radio::Event::Undecoded: return "DEC";
         case radio::Event::Unsupported: return "TYPE";
         case radio::Event::Unattempted: return "WAIT";
+        case radio::Event::Named: return "CALL";
         case radio::Event::Transmitted:
         case radio::Event::Received:
         default: return nullptr;
@@ -145,17 +153,15 @@ void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry) {
     fb.draw_text(kBandX, y, buf, true, 1);
 
     n = fmt_verdict(buf, entry);
-    if (n == 0 && !ours) {
-        buf[0] = model::source_letter(entry.source);
-        n = 1;
-    }
     if (n > 0) {
         buf[n] = 0;
         fb.draw_text(kVerdictX, y, buf, true, 1);
+    } else if (!ours) {
+        fb.draw_text(kVerdictX, y, model::source_word(entry.source), true, 1);
     }
 
     if (ours) {
-        fb.draw_text(kAddrX, y, entry.airborne ? "AIR" : "GND", true, 1);
+        fb.draw_text(kAddrX, y, own_burst_word(entry), true, 1);
         return;
     }
 

@@ -8,7 +8,7 @@
 
 namespace skyblip::dfu {
 
-enum class ImageState : uint8_t { Confirmed, Probation, Reverted };
+enum class ImageState : uint8_t { Confirmed = 0, Probation = 1, Reverted = 2 };
 
 const char* to_string(ImageState state);
 

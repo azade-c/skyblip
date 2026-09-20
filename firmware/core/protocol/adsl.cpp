@@ -342,6 +342,40 @@ uint8_t timestamp_code(uint32_t utc, int32_t lead_ms) {
     return static_cast<uint8_t>(ms / kTimeStampQuarterMs);
 }
 
+namespace {
+bool printable(char c) { return c >= 0x20 && c <= 0x7E; }
+}  // namespace
+
+void from_own_callsign(AdslPacket& p, uint32_t addr, uint8_t addr_table, const char* callsign) {
+    p.init(AdslPacket::kTypeOgnDiagnostics);
+    p.set_address(settings::air_address(addr));
+    p.set_addr_table(addr_table);
+    p.set_info_header(AdslPacket::kTelemTypeInfo, AdslPacket::kInfoTypeRegistration);
+
+    char* msg = p.info_msg();
+    int n = 0;
+    while (n < AdslPacket::kInfoMsgBytes && callsign[n] != 0 && printable(callsign[n])) {
+        msg[n] = callsign[n];
+        n++;
+    }
+    while (n < AdslPacket::kInfoMsgBytes) msg[n++] = 0;
+}
+
+int callsign_of(const AdslPacket& p, char* out, int cap) {
+    out[0] = 0;
+    if (!p.is_registration() || cap <= 1) return 0;
+    const char* msg = p.info_msg();
+    int n = 0;
+    while (n < AdslPacket::kInfoMsgBytes && msg[n] != 0) {
+        if (!printable(msg[n])) return 0;
+        n++;
+    }
+    if (n >= cap) n = cap - 1;
+    for (int i = 0; i < n; i++) out[i] = msg[i];
+    out[n] = 0;
+    return n;
+}
+
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat) {
     from_own(p, own, addr, addr_table, aircraft_cat, BurstInstant{own.utc, 0, 0});
@@ -349,7 +383,7 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
 
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, const BurstInstant& at) {
-    p.init(0x02);
+    p.init(AdslPacket::kTypePosition);
     p.set_address(settings::air_address(addr));
     p.set_addr_table(addr_table);
 

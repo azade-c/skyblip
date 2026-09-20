@@ -26,7 +26,7 @@
 
 namespace skyblip::go {
 
-enum class Mode : uint8_t { Page, Menu };
+enum class Mode : uint8_t { Page = 0, Menu = 1 };
 
 class ScreenService : public runtime::Service {
    public:

@@ -84,8 +84,8 @@ void arm(Rig& rig, uint32_t& t) {
 
 void stop(Rig& rig, uint32_t& t) {
     rig.product.diag().disarm();
-    rig.run(t, t + 500);
-    t += 500;
+    rig.run(t, t + 4000);
+    t += 4000;
     REQUIRE_FALSE(rig.product.capture().capturing());
 }
 

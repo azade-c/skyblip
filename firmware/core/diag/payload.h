@@ -90,8 +90,15 @@ constexpr uint8_t kBurstFlagAddrValid = 1u << 2;
 constexpr uint8_t kBurstFlagRssiValid = 1u << 3;
 constexpr uint8_t kBurstFlagAirborne = 1u << 4;
 constexpr uint8_t kBurstFlagTxSpanValid = 1u << 5;
+constexpr uint8_t kBurstFlagCallsign = 1u << 6;
 
-enum class Refusal : uint8_t { None, OverBudget, Unarmed, Unsettled, OffSchedule };
+enum class Refusal : uint8_t {
+    None = 0,
+    OverBudget = 1,
+    Unarmed = 2,
+    Unsettled = 3,
+    OffSchedule = 4
+};
 
 constexpr uint8_t kDwellFlagTxAllowed = 1u << 2;
 constexpr uint8_t kDwellFlagOwnTxDwell = 1u << 3;
@@ -202,7 +209,15 @@ struct Contact {
     bool down{false};
 };
 
-enum class LinkAction : uint8_t { Up, Down, ClaimTaken, ClaimReleased, Received, Sent, Dropped };
+enum class LinkAction : uint8_t {
+    Up = 0,
+    Down = 1,
+    ClaimTaken = 2,
+    ClaimReleased = 3,
+    Received = 4,
+    Sent = 5,
+    Dropped = 6
+};
 
 constexpr uint8_t kLinkFlagClaimHeld = 1u << 2;
 

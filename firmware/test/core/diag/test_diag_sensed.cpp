@@ -81,6 +81,7 @@ TEST_CASE("diag record: a burst is the whole tape entry, instant and verdict tog
     in.airborne = true;
     in.phase_valid = true;
     in.tx_span_valid = true;
+    in.callsign = true;
 
     const diag::Record record = diag::record_of(in);
     uint8_t raw[diag::kRecordBytes]{};
@@ -108,9 +109,25 @@ TEST_CASE("diag record: a burst is the whole tape entry, instant and verdict tog
     CHECK(out.airborne);
     CHECK(out.phase_valid);
     CHECK(out.tx_span_valid);
+    CHECK(out.callsign);
 }
 
-TEST_CASE("diag record: every one of the eleven verdicts survives the slot") {
+// A name is nine characters and the payload has none free, so the flag and the address are it.
+TEST_CASE("diag record: a burst that carried a callsign says so, and a position burst does not") {
+    radio::Entry named{};
+    named.event = radio::Event::Transmitted;
+    named.callsign = true;
+    radio::Entry position{};
+    position.event = radio::Event::Transmitted;
+
+    radio::Entry out{};
+    CHECK(diag::read(diag::record_of(named), out));
+    CHECK(out.callsign);
+    CHECK(diag::read(diag::record_of(position), out));
+    CHECK_FALSE(out.callsign);
+}
+
+TEST_CASE("diag record: every one of the twelve verdicts survives the slot") {
     for (uint8_t i = 0; i <= static_cast<uint8_t>(radio::Event::Unattempted); i++) {
         radio::Entry in{};
         in.event = static_cast<radio::Event>(i);

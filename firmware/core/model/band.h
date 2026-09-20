@@ -9,7 +9,7 @@ namespace skyblip::model {
 // channel on the O band. It lives here rather than in core/timing because it
 // travels with a received burst: the dwell that heard one knows which band it
 // was tuned to, and everything downstream would otherwise have to guess.
-enum class Band : uint8_t { M, O };
+enum class Band : uint8_t { M = 0, O = 1 };
 
 }  // namespace skyblip::model
 

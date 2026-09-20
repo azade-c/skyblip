@@ -10,6 +10,7 @@
 #include "core/model/aircraft.h"
 #include "core/model/band.h"
 #include "core/protocol/air.h"
+#include "core/radio/log.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
 #include "core/timing/transmit.h"
@@ -17,6 +18,7 @@
 #include "doctest/doctest.h"
 #include "hardware/parts/sx1262/model.h"
 #include "hardware/parts/sx1262/sx1262.h"
+#include "products/skyblip_go/settings.h"
 #include "simulator/simulator.h"
 #include "test/support/rf_channel.h"
 
@@ -314,6 +316,60 @@ TEST_CASE("rf: own-ship transmits once a second, inside its window, alternating 
           static_cast<uint32_t>(transmissions) * timing::Transmitter::kAirTimeMs);
     CHECK(h.product().radio().duty_permille(from_ms + 6000) < timing::AirTime::kLimitPermille);
     CHECK_FALSE(h.product().radio().over_budget());
+}
+
+// §C.5 reserves 0..200 and this is the one burst that goes there: core/timing/README.md.
+TEST_CASE("rf: the callsign goes out in slot 1's tail, once every ten seconds, on channel 1") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    std::strncpy(h.product().settings().callsign, "D-KXYZ", go::kCallsignCap - 1);
+    h.world().set_fix(true);
+    h.world().set_speed_kt(50);
+    const uint32_t from_ms = past_settling(h);
+    run_on(h, from_ms, 21000);
+
+    const simulator::Air& air = h.world().air();
+    int named = 0;
+    int positions = 0;
+    for (int i = 0; i < air.record_count(); i++) {
+        const simulator::AirRecord& r = air.record(i);
+        if (r.event != simulator::AirEvent::Tx) continue;
+        if (timing::Scheduler::in_direct_slot(r.phase_ms)) {
+            positions++;
+            continue;
+        }
+        named++;
+        CHECK(r.phase_ms < timing::kSlot1Wrap);
+        CHECK(r.phase_ms + timing::Transmitter::kAirTimeMs <= timing::kCallsignEnd - 1000);
+        CHECK(simulator::Air::tuned_to(r.freq_hz, timing::kMband1Hz));
+    }
+    // Twenty-one seconds of flight: twenty-one positions and two names.
+    CHECK(positions >= 19);
+    CHECK(named == 2);
+
+    // And the tape says which burst was which, where a position prints its rate.
+    const radio::Log& log = h.product().state().radio_log;
+    int rows = 0;
+    for (int i = 0; i < log.count(); i++)
+        if (log.newest(i).event == radio::Event::Transmitted && log.newest(i).callsign) rows++;
+    CHECK(rows > 0);
+}
+
+// The default is a device nobody has named, and a nameless burst would say nothing.
+TEST_CASE("rf: a device with no callsign set transmits nothing in the reserved window") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    h.world().set_fix(true);
+    h.world().set_speed_kt(50);
+    REQUIRE(h.product().settings().callsign[0] == 0);
+    run_on(h, past_settling(h), 21000);
+
+    const simulator::Air& air = h.world().air();
+    for (int i = 0; i < air.record_count(); i++) {
+        const simulator::AirRecord& r = air.record(i);
+        if (r.event != simulator::AirEvent::Tx) continue;
+        CHECK(timing::Scheduler::in_direct_slot(r.phase_ms));
+    }
 }
 
 TEST_CASE("rf: what own-ship put on air decodes back to own-ship state") {
