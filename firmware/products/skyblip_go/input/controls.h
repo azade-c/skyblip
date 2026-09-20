@@ -8,58 +8,58 @@
 
 namespace skyblip::go {
 
-enum class Command : uint8_t { None, Act, Next, Home };
+enum class Gesture : uint8_t { None, Tap, LongTouch, Press };
 
 class Controls {
    public:
-    static constexpr uint32_t kHomeTouchMs = 1000;
+    static constexpr uint32_t kLongTouchMs = 1000;
 
-    static_assert(kHomeTouchMs < power::kLongPressMs,
-                  "the pad's way home has to resolve before the hold that stows the device");
+    static_assert(kLongTouchMs < power::kLongPressMs,
+                  "the pad's long touch has to resolve before the press that stows the device");
 
-    Command read(const events::ContactEvent& event) {
+    Gesture read(const events::ContactEvent& event) {
         return event.contact == events::Contact::Button ? button(event) : pad(event);
     }
 
-    Command tick(uint32_t now_ms) {
-        if (!touching_ || touch_spent_ || now_ms - touched_ms_ < kHomeTouchMs) return Command::None;
+    Gesture tick(uint32_t now_ms) {
+        if (!touching_ || touch_spent_ || now_ms - touched_ms_ < kLongTouchMs) return Gesture::None;
         touch_spent_ = true;
-        return Command::Home;
+        return Gesture::LongTouch;
     }
 
     bool touching() const { return touching_; }
 
    private:
-    Command button(const events::ContactEvent& event) {
+    Gesture button(const events::ContactEvent& event) {
         if (event.down) {
             pressing_ = true;
             pressed_ms_ = event.at_ms;
             touch_spent_ = touch_spent_ || touching_;
-            return Command::None;
+            return Gesture::None;
         }
         pressing_ = false;
-        return released_before_the_stow(event.at_ms) ? Command::Act : Command::None;
+        return released_before_the_stow(event.at_ms) ? Gesture::Press : Gesture::None;
     }
 
-    Command pad(const events::ContactEvent& event) {
+    Gesture pad(const events::ContactEvent& event) {
         if (event.down) {
             touching_ = true;
             touched_ms_ = event.at_ms;
             touch_spent_ = pressing_;
-            return Command::None;
+            return Gesture::None;
         }
         touching_ = false;
-        if (touch_spent_) return Command::None;
+        if (touch_spent_) return Gesture::None;
         touch_spent_ = true;
-        return touched_shorter_than_the_way_home(event.at_ms) ? Command::Next : Command::Home;
+        return released_before_the_long_touch(event.at_ms) ? Gesture::Tap : Gesture::LongTouch;
     }
 
     bool released_before_the_stow(uint32_t at_ms) const {
         return at_ms - pressed_ms_ < power::kLongPressMs;
     }
 
-    bool touched_shorter_than_the_way_home(uint32_t at_ms) const {
-        return at_ms - touched_ms_ < kHomeTouchMs;
+    bool released_before_the_long_touch(uint32_t at_ms) const {
+        return at_ms - touched_ms_ < kLongTouchMs;
     }
 
     uint32_t pressed_ms_{0};

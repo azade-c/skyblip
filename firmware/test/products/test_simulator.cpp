@@ -30,7 +30,7 @@ uint32_t press(simulator::Simulator& h, uint32_t t) {
     return t;
 }
 
-// A touch has to outlast the pad's settle and end well inside go::Controls::kHomeTouchMs.
+// A touch has to outlast the pad's settle and end well inside go::Controls::kLongTouchMs.
 uint32_t page(simulator::Simulator& h, uint32_t t) {
     h.world().tap_pad();
     for (int i = 0; i < 5; i++) {

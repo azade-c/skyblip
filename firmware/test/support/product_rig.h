@@ -140,12 +140,12 @@ struct Rig {
     // through the board's debounce window before it is an edge at all.
     void press(uint32_t& t) {
         platform.board_gpio().button_down = true;
-        hold(t);
+        settle(t);
         platform.board_gpio().button_down = false;
-        hold(t);
+        settle(t);
     }
 
-    void hold(uint32_t& t) {
+    void settle(uint32_t& t) {
         for (int i = 0; i < 2; i++) {
             platform.clock().set_millis(t);
             product.step(t);
@@ -159,21 +159,20 @@ struct Rig {
         press(t);
     }
 
-    // The pad tapped: the page gesture, and it lands on the release.
-    void tap_pad(uint32_t& t) { touch_pad(t, 200); }
+    // The three gestures the device answers, as go::ScreenService names them.
+    void tap(uint32_t& t) { touch_pad(t, 200); }
 
-    // The pad held on its own, button up: the way back to the radar.
-    void hold_pad(uint32_t& t) { touch_pad(t, go::Controls::kHomeTouchMs + 200); }
+    void long_touch(uint32_t& t) { touch_pad(t, go::Controls::kLongTouchMs + 200); }
 
     // Reached the way a thumb reaches it: the pad along the walk, then the menu.
     void show(uint32_t& t, go::Page page) {
         for (int i = 0; i < go::kPageCount && product.screen().page() != go::menu_owner(page); i++)
-            tap_pad(t);
+            tap(t);
         if (go::walked(page)) return;
         press(t);
         const go::Menu menu = go::menu_for(go::menu_owner(page));
         for (int i = 0; i < menu.n && product.screen().editor().focus() != row_for(page); i++)
-            tap_pad(t);
+            tap(t);
         press(t);
         run(t, t + 200);
         t += 200;

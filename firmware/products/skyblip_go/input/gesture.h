@@ -20,7 +20,7 @@
 
 namespace skyblip::go {
 
-enum class Gesture : uint8_t { None, Confirm, Cancel };
+enum class Answer : uint8_t { None, Confirm, Cancel };
 
 class ConfirmGesture {
    public:
@@ -46,26 +46,26 @@ class ConfirmGesture {
     bool armed() const { return armed_; }
     bool pressed() const { return pressed_; }
 
-    Gesture press(uint32_t now_ms) {
-        if (!armed_) return Gesture::None;
+    Answer press(uint32_t now_ms) {
+        if (!armed_) return Answer::None;
         if (pressed_ && now_ms - first_ms_ <= kDoublePressMs) {
             disarm();
-            return Gesture::Confirm;
+            return Answer::Confirm;
         }
         pressed_ = true;
         first_ms_ = now_ms;
-        return Gesture::None;
+        return Answer::None;
     }
 
     // INFO: cf 02aug26 A lone press is a refusal, not a nudge: the gesture a
     // pilot makes to change pages, made at a prompt, cancels the operation
     // rather than leaving it standing. Fail closed, and it is what makes
     // "press twice to allow, once to refuse" true on the panel.
-    Gesture tick(uint32_t now_ms) {
-        if (!armed_ || !pressed_) return Gesture::None;
-        if (now_ms - first_ms_ < kDoublePressMs) return Gesture::None;
+    Answer tick(uint32_t now_ms) {
+        if (!armed_ || !pressed_) return Answer::None;
+        if (now_ms - first_ms_ < kDoublePressMs) return Answer::None;
         disarm();
-        return Gesture::Cancel;
+        return Answer::Cancel;
     }
 
    private:

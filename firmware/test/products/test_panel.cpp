@@ -31,20 +31,20 @@ TEST_CASE("product: a pad tap switches page, and no swap costs the full waveform
     CHECK(rig.product.screen().page() == go::Page::Radar);
 
     uint32_t t = 100;
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::Nearby);
     CHECK_FALSE(rig.platform.chips().epd.last_full);  // power on to power off, partials alone
     rig.run(t, t + 4000);
     t += 4000;
 
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::SixPack);
 
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::GMeter);
 
     // Four pictures on the walk, and it wraps. The rest are opened by name.
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK(rig.product.screen().mode() == go::Mode::Page);
 }
@@ -58,9 +58,9 @@ TEST_CASE("product: the pad leaves a page it was sent to for the page that sent 
     rig.show(t, go::Page::RadioLog);
     REQUIRE(rig.product.screen().page() == go::Page::RadioLog);
 
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::Nearby);
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::SixPack);
 }
 
@@ -72,14 +72,14 @@ TEST_CASE("product: a long touch comes back to the radar from wherever the pilot
     rig.show(t, go::Page::Status);
     REQUIRE(rig.product.screen().page() == go::Page::Status);
 
-    rig.hold_pad(t);
+    rig.long_touch(t);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK(rig.product.screen().mode() == go::Mode::Page);
 
     // And out of the menu, which the pad did not take the pilot into.
     rig.press(t);
     REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
-    rig.hold_pad(t);
+    rig.long_touch(t);
     CHECK(rig.product.screen().mode() == go::Mode::Page);
     CHECK(rig.product.screen().page() == go::Page::Radar);
     CHECK_FALSE(rig.product.screen().editor().active());

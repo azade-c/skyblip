@@ -177,7 +177,7 @@ in `firmware/products/skyblip_go/settings.h`.
 
 | Constant | Value | Unit | Mechanism | Why |
 |---|---|---|---|---|
-| `kHomeTouchMs` | 1000 (1 s) | milliseconds | - | [README](../firmware/products/skyblip_go/input/README.md) argues it |
+| `kLongTouchMs` | 1000 (1 s) | milliseconds | - | [README](../firmware/products/skyblip_go/input/README.md) argues it |
 | `kDoublePressMs` | 600 | milliseconds | - | Wider than a human double tap (~200 ms) and far narrower than core/power's kLongPressMs, so the three things the button says stay disjoint: one press pages or refuses, two inside this window authorise, a hold past 2 s powers the device down. |
 
 ## [`firmware/products/skyblip_go/pages`](../firmware/products/skyblip_go/pages/README.md)

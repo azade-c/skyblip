@@ -76,10 +76,10 @@ struct Rig {
     }
 
     // The pad held past the way home, a gesture read on the tick, not the release.
-    void hold_pad(uint32_t& t) {
+    void long_touch(uint32_t& t) {
         bus.input.push(events::ContactEvent{events::Contact::Pad, true, t});
         tick(t += 100);
-        tick(t += go::Controls::kHomeTouchMs);
+        tick(t += go::Controls::kLongTouchMs);
         bus.input.push(events::ContactEvent{events::Contact::Pad, false, t});
         tick(t += 100);
     }
@@ -93,7 +93,7 @@ struct Rig {
     }
 
     // The pad tapped: the next page along the walk, or the next row down a menu.
-    void tap_pad(uint32_t& t) {
+    void tap(uint32_t& t) {
         bus.input.push(events::ContactEvent{events::Contact::Pad, true, t});
         tick(t += 100);
         bus.input.push(events::ContactEvent{events::Contact::Pad, false, t});
@@ -102,13 +102,11 @@ struct Rig {
 
     // Reached the way a thumb reaches it: the pad along the walk, then the menu row that opens it.
     void show(uint32_t& t, go::Page page) {
-        for (int i = 0; i < go::kPageCount && screen.page() != go::menu_owner(page); i++)
-            tap_pad(t);
+        for (int i = 0; i < go::kPageCount && screen.page() != go::menu_owner(page); i++) tap(t);
         if (go::walked(page)) return;
         press(t);
         const go::Menu menu = go::menu_for(go::menu_owner(page));
-        for (int i = 0; i < menu.n && go::page_behind(screen.editor().focus()) != page; i++)
-            tap_pad(t);
+        for (int i = 0; i < menu.n && go::page_behind(screen.editor().focus()) != page; i++) tap(t);
         press(t);
     }
 

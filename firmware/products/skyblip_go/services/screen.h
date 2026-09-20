@@ -83,15 +83,17 @@ class ScreenService : public runtime::Service {
     void enter_menu(uint32_t now_ms);
     void leave_menu();
     void page_forward(uint32_t now_ms);
-    void go_home();
     void show_radar();
     void show_page(Page page);
     void handle_input(uint32_t now_ms);
-    void obey(Command command, uint32_t now_ms);
+    void obey(Gesture gesture, uint32_t now_ms);
+    void tap(uint32_t now_ms);
+    void long_touch();
+    void press(uint32_t now_ms);
     void sync_editor(uint32_t now_ms);
     void step_editor(uint32_t now_ms);
     MenuValues menu_values() const;
-    void resolve(Gesture gesture);
+    void resolve(Answer answer);
     enum class Change : uint8_t { None, Asked, Wiped };
     bool refresh_allowed() const;
     void wipe_glass(uint32_t now_ms);
@@ -115,6 +117,10 @@ class ScreenService : public runtime::Service {
         return powered_ && mode_ == Mode::Page && page_ == Page::Sats &&
                ports::has(context_.roles.capabilities, ports::Capability::Display);
     }
+
+    bool showing_radar() const { return mode_ == Mode::Page && page_ == Page::Radar; }
+
+    bool answering() const { return prompt_ != comms::Pending::None; }
 
     bool alarm_takes_glass() const {
         return context_.state.alarm_live >= kAlarmTakesGlass && !diagnostics_on_glass();
@@ -146,7 +152,7 @@ class ScreenService : public runtime::Service {
     const BootSnapshot& self_test_;
     comms::Pending prompt_{comms::Pending::None};
     Controls controls_{};
-    ConfirmGesture gesture_{};
+    ConfirmGesture confirm_{};
     MenuEditor editor_{};
 
     // INFO: cf 02aug26 a prompt is answered once read and once the thumb has stopped, never sooner

@@ -62,7 +62,7 @@ void open_menu(Rig& rig, uint32_t& t) {
 
 // A tap of the pad: the focus moves down a row.
 void move(Rig& rig, uint32_t& t) {
-    rig.tap_pad(t);
+    rig.tap(t);
     settle(rig, t);
 }
 
@@ -141,7 +141,7 @@ TEST_CASE("product: a press opens the menu of the page a pilot is standing on") 
     CHECK_FALSE(rig.product.screen().editor().active());
 
     // And the next page along carries its own menu, not the radar's.
-    rig.tap_pad(t);
+    rig.tap(t);
     settle(rig, t);
     REQUIRE(rig.product.screen().page() == go::Page::Nearby);
     rig.press(t);
@@ -150,8 +150,8 @@ TEST_CASE("product: a press opens the menu of the page a pilot is standing on") 
     CHECK(rig.product.screen().editor().focus() == go::MenuRow::Status);
 }
 
-// The pad's gestures are one hold apart from the stow, and this one takes the device off.
-TEST_CASE("product: a hold the button joins switches the device off, it opens nothing") {
+// The pad's gestures are one long press apart from the stow, and this one takes the device off.
+TEST_CASE("product: a long touch the button joins switches the device off, it opens nothing") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
@@ -172,7 +172,7 @@ TEST_CASE("product: the self test is a page the nearby menu opens") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
     uint32_t t = 100;
-    rig.tap_pad(t);
+    rig.tap(t);
     settle(rig, t);
     REQUIRE(rig.product.screen().page() == go::Page::Nearby);
 
@@ -190,7 +190,7 @@ TEST_CASE("product: the self test is a page the nearby menu opens") {
           rig.product.boot_page().count_black());
 
     // A tap goes back to the page whose menu opened it, not on to a fourth picture.
-    rig.tap_pad(t);
+    rig.tap(t);
     settle(rig, t);
     CHECK(rig.product.screen().page() == go::Page::Nearby);
 }
@@ -287,7 +287,7 @@ TEST_CASE("product: walking the rows without changing one writes nothing at all"
     go::Settings stored{};
     CHECK_FALSE(stored_settings(rig, stored));
 
-    rig.tap_pad(t);
+    rig.tap(t);
     CHECK(rig.product.screen().page() == go::Page::Nearby);
 }
 

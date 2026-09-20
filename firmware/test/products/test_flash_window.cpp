@@ -134,10 +134,10 @@ TEST_CASE("flash window: a thumb stepping the volume on the panel writes flash o
 
     rig.press(t);
     REQUIRE(rig.product.screen().mode() == go::Mode::Menu);
-    rig.tap_pad(t);  // off the self test, onto the rows
+    rig.tap(t);  // off the self test, onto the rows
 
     // Down to the volume row: a tap of the pad moves the focus.
-    while (rig.product.screen().editor().focus() != go::MenuRow::Volume) rig.tap_pad(t);
+    while (rig.product.screen().editor().focus() != go::MenuRow::Volume) rig.tap(t);
 
     const uint32_t before = writes(rig);
     const uint8_t started_at = rig.settings().alarm_volume;

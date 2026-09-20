@@ -39,10 +39,10 @@ void ScreenService::handle_input(uint32_t now_ms) {
         prompt_ = pending;
         prompt_since_ms_ = now_ms;
         change_screen();
-        gesture_.disarm();
+        confirm_.disarm();
         prompt_on_glass_ = false;
     }
-    if (prompt_ != comms::Pending::None && !gesture_.armed()) {
+    if (answering() && !confirm_.armed()) {
         // INFO: cf 02aug26 The two conditions that make a press an answer
         // rather than an accident: the question has reached the glass where it
         // can be read, and the thumb has stopped. A run of presses that began
@@ -54,7 +54,7 @@ void ScreenService::handle_input(uint32_t now_ms) {
                               !ports::has(context_.roles.capabilities, ports::Capability::Display);
         const bool quiet = settled_for_a_double_press(now_ms, prompt_since_ms_) &&
                            (!pressed_once_ || settled_for_a_double_press(now_ms, last_press_ms_));
-        if (readable && quiet) gesture_.arm(now_ms);
+        if (readable && quiet) confirm_.arm(now_ms);
     }
 
     sync_editor(now_ms);
@@ -63,29 +63,41 @@ void ScreenService::handle_input(uint32_t now_ms) {
     while (context_.bus.input.pop(event)) obey(controls_.read(event), now_ms);
     obey(controls_.tick(now_ms), now_ms);
 
-    if (prompt_ != comms::Pending::None) {
-        resolve(gesture_.tick(now_ms));
+    if (answering()) {
+        resolve(confirm_.tick(now_ms));
         return;
     }
     step_editor(now_ms);
 }
 
-void ScreenService::obey(Command command, uint32_t now_ms) {
-    switch (command) {
-        case Command::Next:
-            if (prompt_ == comms::Pending::None) page_forward(now_ms);
-            return;
-        case Command::Home:
-            if (prompt_ == comms::Pending::None) go_home();
-            return;
-        case Command::Act: break;
-        case Command::None: return;
+void ScreenService::obey(Gesture gesture, uint32_t now_ms) {
+    switch (gesture) {
+        case Gesture::Tap: tap(now_ms); return;
+        case Gesture::LongTouch: long_touch(); return;
+        case Gesture::Press: press(now_ms); return;
+        case Gesture::None: return;
     }
+}
 
+void ScreenService::tap(uint32_t now_ms) {
+    if (answering()) return;
+    page_forward(now_ms);
+}
+
+void ScreenService::long_touch() {
+    if (answering()) return;
+    if (alarm_stands()) {
+        alarm_.dismiss();
+        return;
+    }
+    show_radar();
+}
+
+void ScreenService::press(uint32_t now_ms) {
     last_press_ms_ = now_ms;
     pressed_once_ = true;
-    if (prompt_ != comms::Pending::None) {
-        if (gesture_.armed()) resolve(gesture_.press(now_ms));
+    if (answering()) {
+        if (confirm_.armed()) resolve(confirm_.press(now_ms));
         return;
     }
     if (editor_.active()) {
@@ -97,7 +109,7 @@ void ScreenService::obey(Command command, uint32_t now_ms) {
 
 // INFO: cf 02aug26 the menu owns the button until a prompt takes it away unasked
 void ScreenService::sync_editor(uint32_t now_ms) {
-    const bool wanted = mode_ == Mode::Menu && prompt_ == comms::Pending::None;
+    const bool wanted = mode_ == Mode::Menu && !answering();
     if (wanted == editor_.active()) return;
     if (wanted) {
         editor_.enter(page_, now_ms);
@@ -141,19 +153,10 @@ bool ScreenService::sensor_fitted(Page page) const {
     return ports::has(context_.roles.capabilities, ports::Capability::Inclinometer);
 }
 
-void ScreenService::go_home() {
-    if (alarm_stands()) {
-        alarm_.dismiss();
-        return;
-    }
-    show_radar();
-}
-
 void ScreenService::show_radar() { show_page(Page::Radar); }
 
 void ScreenService::show_page(Page page) {
     if (mode_ == Mode::Menu) leave_menu();
-    if (page_ == page) return;
     page_ = page;
     change_screen();
 }
@@ -199,14 +202,14 @@ void ScreenService::step_editor(uint32_t now_ms) {
     }
 }
 
-void ScreenService::resolve(Gesture gesture) {
-    if (gesture == Gesture::None) return;
-    if (gesture == Gesture::Confirm)
+void ScreenService::resolve(Answer answer) {
+    if (answer == Answer::None) return;
+    if (answer == Answer::Confirm)
         config_.confirm();
     else
         config_.cancel();
     prompt_ = comms::Pending::None;
-    gesture_.disarm();
+    confirm_.disarm();
     prompt_on_glass_ = false;
     change_screen();
 }
@@ -218,7 +221,7 @@ void ScreenService::tick(uint32_t now_ms) {
 
     if (context_.state.alarm_live != last_live_) {
         const bool escalated_into_glass =
-            alarm_takes_glass() && context_.state.alarm_live > last_live_;
+            alarm_takes_glass() && context_.state.alarm_live > last_live_ && !showing_radar();
         last_live_ = context_.state.alarm_live;
         dirty_ = true;
         if (escalated_into_glass) show_radar();
@@ -293,7 +296,7 @@ void ScreenService::note_presented(uint32_t now_ms) {
     std::memcpy(presented_.data(), fb_.data(), Glass::kBytes);
     presented_once_ = true;
     context_.state.panel_presented = true;
-    prompt_on_glass_ = prompt_ != comms::Pending::None;
+    prompt_on_glass_ = answering();
     last_present_ms_ = now_ms;
 }
 
@@ -434,7 +437,7 @@ RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
 }
 
 void ScreenService::render(uint32_t now_ms) {
-    if (prompt_ != comms::Pending::None) {
+    if (answering()) {
         draw_prompt();
         return;
     }
