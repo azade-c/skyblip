@@ -739,8 +739,8 @@ TEST_CASE("wake: a cell nobody read never refuses a boot") {
     CHECK(boot_path(ResetCause::PowerOn, false, healthy(kImplausibleFloorMv)) == BootPath::Run);
 }
 
-// A cell emptied on a shelf never ran a shutdown, so the refusal is where both roads meet.
-TEST_CASE("wake: the boot a flat cell refuses is what tells the glass the cell is flat") {
+// A cell emptied on a shelf ran no shutdown, so the refusal is the only thing left to name it.
+TEST_CASE("wake: the boot a flat cell refuses names it for the unit that never shut down") {
     CHECK(refused_frame(healthy(power::kCutoffMv), /*flat_on_glass=*/false) ==
           RefusedFrame::FlatCell);
     CHECK(refused_frame(healthy(kBootLockoutMv - 1), false) == RefusedFrame::FlatCell);

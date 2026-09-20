@@ -402,24 +402,25 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
 
   <div class="feature">
     <div>
-      <h3>A cell that ran out <span class="highlight">says so when you ask</span>.</h3>
+      <h3>A cell that runs out <span class="highlight">says so as it goes</span>.</h3>
       <p>
-        Nothing is written on the way down, because the other way a cell arrives
-        empty is a winter on a shelf, and that unit never ran a shutdown at all.
-        Two devices with the same empty cell should not be two different devices
-        to look at.
+        At 3.2&nbsp;V the device switches itself off, and the last thing it
+        writes is why. You pressed nothing, so the glass is the only thing that
+        can tell you: without it, a device that stopped on its own is a device
+        that crashed or died. The button stops working at the same moment,
+        because a press could only reach the same cutoff again.
       </p>
       <p>
-        The press is what gets answered. A cell under 3.4&nbsp;V is refused a
-        boot, and the refusal writes <span class="mono">FLAT BATTERY</span>
-        under the mark before the rails go. Plug the charger in and the wordmark
-        comes back, because the device is an ordinary switched-off one again:
-        the next press starts it, still charging.
+        The cable is the way out, and it is one act. Plugging it in wakes the
+        electronics, which refuse to become a device and put the wordmark back:
+        an ordinary switched-off unit again, charging, and the next press starts
+        it. A cell that emptied itself on a shelf wrote nothing, so there the
+        press is what gets answered, with the same line.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "off-flat-battery.png", alt: "The screen of a device whose cell is too flat to start: the skyBlip wordmark with the words FLAT BATTERY under it" %>
-      <figcaption>Too flat to start</figcaption>
+      <%= pages_image_tag "off-flat-battery.png", alt: "The screen of a device that switched itself off on an empty cell: the skyBlip wordmark with the words FLAT BATTERY under it" %>
+      <figcaption>Out of battery</figcaption>
     </figure>
   </div>
 
@@ -430,9 +431,10 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       </thead>
       <tbody>
         <tr><th>Press the button</th><td>boots, unless the cell is under 3.4&nbsp;V with no charger, and then the glass says <span class="mono">FLAT BATTERY</span></td></tr>
+        <tr><th>Press after a flat-battery shutdown</th><td>nothing, by design: the glass already says it, and the cable is the way back</td></tr>
         <tr><th>Plug the charger in</th><td>charges, stays off: a cable in a flight bag is not a request to transmit</td></tr>
+        <tr><th>Plug the charger into a flat device</th><td>charges, stays off, and the wordmark replaces <span class="mono">FLAT BATTERY</span></td></tr>
         <tr><th>Hold the button, plug the charger in</th><td>boots and charges</td></tr>
-        <tr><th>Press after a flat-battery shutdown</th><td>nothing, by design: plug the charger in</td></tr>
         <tr><th>Press <span class="mono">RST</span></th><td>reboots, and twice inside half a second, the USB bootloader</td></tr>
       </tbody>
     </table>
