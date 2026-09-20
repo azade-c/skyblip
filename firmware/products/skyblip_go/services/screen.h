@@ -15,6 +15,7 @@
 #include "products/skyblip_go/pages/page.h"
 #include "products/skyblip_go/pages/radar.h"
 #include "products/skyblip_go/pages/radio_log.h"
+#include "products/skyblip_go/pages/raw.h"
 #include "products/skyblip_go/pages/sats.h"
 #include "products/skyblip_go/pages/sixpack.h"
 #include "products/skyblip_go/pages/status.h"
@@ -75,6 +76,7 @@ class ScreenService : public runtime::Service {
 
    private:
     void render(uint32_t now_ms);
+    RawSnapshot raw_snapshot(uint32_t now_ms) const;
     void change_screen();
     void draw_prompt();
     void draw_menu_page();

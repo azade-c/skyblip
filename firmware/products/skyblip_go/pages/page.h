@@ -16,6 +16,7 @@ enum class Page : uint8_t {
     Status,
     Sats,
     RadioLog,
+    Raw,
     SelfTest,
     kCount
 };
@@ -46,6 +47,9 @@ constexpr int64_t range_metres(int step, Units units) {
 
 constexpr const char* range_unit(Units units) { return units == Units::Metric ? "KM" : "NM"; }
 
+// INFO: fc 20sep26 four digits of seconds, so a clock with no UTC behind it still fits its column
+constexpr uint32_t kUptimeClockWrapS = 10000;
+
 constexpr int kWalkedPages = 4;
 
 constexpr bool walked(Page page) { return static_cast<int>(page) < kWalkedPages; }
@@ -62,6 +66,7 @@ constexpr const char* page_title(Page page) {
         case Page::Status: return "STATUS";
         case Page::Sats: return "SATELLITES";
         case Page::RadioLog: return "RADIO LOG";
+        case Page::Raw: return "RAW";
         case Page::SelfTest: return "SELF TEST";
         case Page::GMeter: return "G METER";
         default: return "";

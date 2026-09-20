@@ -340,12 +340,23 @@ The page a pilot opens on the apron, and the answer to why a device has been on 
 
 Nothing measures a level until this page is opened. GSV is asked for as the page comes up and given up as it goes (`core/gnss/README.md`), so the bars fill a second after the page does, and a device searching on the apron with any other page on the glass spends nothing on the sky it is not being asked to draw.
 
+Under the two DOPs it carries the two figures the receiver's own wire decides: `NAV`, how far into its own second the last solution landed, and `BAUD`, the rate the port ended up at with the driver's word for how far the configuration got. A burst is refused while this second's solution is missing, and the direct slot opens at 450 ms, so `NAV` past that is the page saying which transmissions are being lost and why (`core/gnss/README.md`). No PPS edge to measure against is no figure at all, never a zero, and the overrun count only appears once the port has actually dropped a byte.
+
 The levels run for as long as the page is up, fix or no fix. A pilot watching the sky while the device transmits is watching a picture that is still being measured, which is the only kind worth drawing: bars nobody is measuring any more are the sky as it was, and on an instrument that is a lie with a timestamp nobody reads. In the second before the first set lands the page has no bars to draw and says `LEVELS COMING UP`, standing on what GSA and GGA carry anyway - how many satellites solved, how they split across the constellations, and the two DOPs - and a receiver that has heard nothing at all says `NO SATELLITE HEARD` instead.
+
+## raw
+
+The page nobody flies with. `sats` and `radio_log` each answer a question a pilot has; this one answers "a burst went missing and I need to know which of the twenty things it was", and it is the `diag` dump over USB put on the glass so a bench with no cable can read it.
+
+Two blocks, the order the second runs in. The receiver first: the port's rate, how far the configuration got, bytes the port dropped, the phase the solution landed at and the wire time behind it, the sentence and solution counts, the fix with its satellites and DOPs, the model residual, the last refusal and how many there have been, whether the transmit settle has cleared, the PPS state and the UTC second. The radio second: the dwell it is in with its channel and whether own-ship may transmit there, the noise floor, every receive verdict apart (CRC, sync, key, decode, type, wait), the uplink's three counts, every transmit outcome apart (sent, lost, missed, held), the duty against its thousand, the last burst's keyed and span microseconds, and the worst slot and PPS error the bench has accumulated.
+
+Nothing here is rounded, nothing is a word where the counter is a number, and nothing on this page is computed for it: every figure is a plain read of something a service already keeps, which is what makes it evidence rather than a second opinion.
 
 ## The others
 
 | Page | What it answers |
 |---|---|
+| `raw` | every counter and phase behind a burst that did not happen |
 | `sixpack` | what own-ship is doing: speed, altitude, vertical speed, track, turn |
 | `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |
 | `sats` | what is above the antenna, how loud, and which satellites solved |

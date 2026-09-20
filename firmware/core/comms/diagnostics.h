@@ -80,11 +80,6 @@ struct Diagnostics {
     bool die_valid{false};
 };
 
-// Why the last GNSS solution was refused, as a word. core/gnss spells no name for
-// its own enum and this is the only surface that needs one; the day it grows a
-// to_string, this delegates to it.
-const char* reject_name(gnss::FixReject reason);
-
 // Tenths of a degree as the whole degrees a support case is read in. The port
 // carries tenths because the sensor resolves 0.25 C and rounding a sensor's
 // resolution away at the port is not the port's decision. Rounded away from zero

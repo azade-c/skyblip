@@ -25,7 +25,6 @@ constexpr int kRightEnd = kColumn(32);
 constexpr int kPpsX = kColumn(9);
 
 constexpr uint8_t kFewestSatsForAltitude = 4;
-constexpr uint32_t kUptimeClockWrapS = 10000;
 
 void right_aligned(ui::Canvas& fb, int x_end, int y, const char* text, int len) {
     fb.draw_text(x_end - len * kCellW, y, text, true, 1);

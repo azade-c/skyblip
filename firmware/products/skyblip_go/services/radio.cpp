@@ -34,6 +34,7 @@ void RadioService::publish_dwell(uint32_t now_ms) {
     dwell.armed = armed_ != ports::RfMode::Idle;
     dwell.burst_armed = tx_armed_;
     context_.state.rf.noise_dbm = noise_.dbm();
+    context_.state.rf.duty_permille = duty_permille(now_ms);
 }
 
 // From the latched edge, at the instant it is asked for. Deriving it from a

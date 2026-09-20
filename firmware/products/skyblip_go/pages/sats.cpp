@@ -25,8 +25,9 @@ constexpr int kGroupLabelY = kBaseY + 4;
 constexpr int kFullScaleDbHz = 50;
 constexpr int kGoodDbHz = 40;
 
-constexpr int kDopY = 160;
-constexpr int kNoteY = 178;
+constexpr int kDopY = 158;
+constexpr int kPortY = 170;
+constexpr int kNoteY = 184;
 
 constexpr gnss::System kSystemOrder[] = {gnss::System::Gps, gnss::System::Beidou,
                                          gnss::System::Glonass, gnss::System::Qzss,
@@ -112,6 +113,31 @@ void draw_dops(ui::Canvas& fb, const SatsSnapshot& s) {
     fb.draw_text(kLeft, kDopY, buf, true, 1);
 }
 
+void draw_nav_phase(ui::Canvas& fb, const SatsSnapshot& s) {
+    if (!s.nav_valid) return;
+    char buf[12];
+    int n = fmt_string(buf, "NAV ");
+    n += fmt_uint(buf + n, s.nav_ms, 3);
+    n += fmt_string(buf + n, "MS");
+    buf[n] = 0;
+    right_aligned(fb, kRight, kDopY, buf, n);
+}
+
+void draw_port(ui::Canvas& fb, const SatsSnapshot& s) {
+    if (s.health.baud == 0) return;
+    char buf[32];
+    int n = fmt_string(buf, "BAUD ");
+    n += fmt_uint(buf + n, s.health.baud);
+    n += fmt_string(buf + n, "  ");
+    n += fmt_string(buf + n, ports::to_string(s.health.config));
+    if (s.health.overruns > 0) {
+        n += fmt_string(buf + n, "  OVR ");
+        n += fmt_uint(buf + n, s.health.overruns);
+    }
+    buf[n] = 0;
+    fb.draw_text(kLeft, kPortY, buf, true, 1);
+}
+
 void draw_stage(ui::Canvas& fb, const SatsSnapshot& s) {
     if (s.fix_valid) return;
     fb.draw_text(kLeft, kDopY - 12, gnss::stage_name(s.stage), true, 1);
@@ -143,6 +169,8 @@ void draw_sats(ui::Canvas& fb, const SatsSnapshot& s) {
     fb.hline(kLeft, kRuleY, kRight - kLeft, true);
 
     draw_dops(fb, s);
+    draw_nav_phase(fb, s);
+    draw_port(fb, s);
     draw_stage(fb, s);
 
     if (!s.levels_live || s.sky == nullptr || s.sky->count() == 0) {

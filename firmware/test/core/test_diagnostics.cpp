@@ -301,13 +301,13 @@ TEST_CASE("diagnostics: the receiver's own answers reach the dump, named not num
 
     // Every reason core/gnss can refuse a solution for has a word, so a support
     // case reads a cause and not an enum value.
-    CHECK(std::string(reject_name(gnss::FixReject::None)) == "NONE");
-    CHECK(std::string(reject_name(gnss::FixReject::NoSolution)) == "NO SOLUTION");
-    CHECK(std::string(reject_name(gnss::FixReject::MissingRmc)) == "NO RMC");
-    CHECK(std::string(reject_name(gnss::FixReject::MissingGga)) == "NO GGA");
-    CHECK(std::string(reject_name(gnss::FixReject::Stale)) == "STALE");
-    CHECK(std::string(reject_name(gnss::FixReject::NoDate)) == "NO DATE");
-    CHECK(std::string(reject_name(gnss::FixReject::Jump)) == "JUMP");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::None)) == "NONE");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::NoSolution)) == "NO SOLUTION");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::MissingRmc)) == "NO RMC");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::MissingGga)) == "NO GGA");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::Stale)) == "STALE");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::NoDate)) == "NO DATE");
+    CHECK(std::string(gnss::reject_name(gnss::FixReject::Jump)) == "JUMP");
 }
 
 // The narrowest phone in the field carries 182 bytes of notification payload, and

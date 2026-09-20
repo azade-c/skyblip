@@ -23,17 +23,7 @@ class L76k : public ports::Gnss {
     explicit L76k(io::Uart& uart, io::UartRate& rate = io::kFixedUartRate)
         : uart_(uart), rate_(rate) {}
 
-    enum class Config : uint8_t {
-        Idle,
-        Restarting,
-        Waking,
-        Identifying,
-        Sending,
-        Verifying,
-        Confirming,
-        Ready,
-        Degraded
-    };
+    using Config = ports::GnssConfig;
 
     // INFO: gn 09jun25 t_echo_plus.dts:278 `current-speed` must equal this, nothing checks it
     static constexpr uint32_t kBaudRate = 9600;
@@ -155,6 +145,19 @@ class L76k : public ports::Gnss {
     }
 
     uint32_t port_overruns() const { return uart_.overruns(); }
+
+    ports::GnssHealth health() const override {
+        ports::GnssHealth h{};
+        h.baud = baud_rate();
+        h.overruns = port_overruns();
+        h.sentences = updates();
+        h.rejected = rejected();
+        h.pps_latency_ms = pps_latency_ms();
+        h.reject = reject_reason();
+        h.config = state_;
+        h.identified = identified();
+        return h;
+    }
 
     // Did the part name itself, and as what. An unidentified receiver still gets
     // the $PCAS sequence, because the alternative is no configuration at all,

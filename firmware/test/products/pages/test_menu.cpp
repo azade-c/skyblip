@@ -182,9 +182,10 @@ TEST_CASE("menu: a menu is titled what it holds, not the page a thumb came from"
 
 TEST_CASE("nearby menu: every row opens a page rather than changing a value") {
     const Menu menu = menu_for(Page::Nearby);
-    REQUIRE(menu.n == 4);
+    REQUIRE(menu.n == 5);
     for (int i = 0; i < menu.n; i++) CHECK(opens_a_page(menu.rows[i]));
     CHECK(page_behind(MenuRow::RadioLog) == Page::RadioLog);
+    CHECK(page_behind(MenuRow::Raw) == Page::Raw);
     CHECK(page_behind(MenuRow::Sats) == Page::Sats);
     CHECK(page_behind(MenuRow::Status) == Page::Status);
     CHECK(page_behind(MenuRow::SelfTest) == Page::SelfTest);
@@ -198,8 +199,8 @@ TEST_CASE("nearby menu: every row opens a page rather than changing a value") {
 }
 
 TEST_CASE("menu: a page with nothing behind it opens no menu at all") {
-    for (Page page :
-         {Page::SixPack, Page::GMeter, Page::Status, Page::Sats, Page::RadioLog, Page::SelfTest})
+    for (Page page : {Page::SixPack, Page::GMeter, Page::Status, Page::Sats, Page::RadioLog,
+                      Page::Raw, Page::SelfTest})
         CHECK(menu_for(page).n == 0);
 
     MenuEditor editor;

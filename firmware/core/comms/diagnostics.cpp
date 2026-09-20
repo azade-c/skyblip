@@ -39,19 +39,6 @@ using frame::counter;
 
 }  // namespace
 
-const char* reject_name(gnss::FixReject reason) {
-    switch (reason) {
-        case gnss::FixReject::NoSolution: return "NO SOLUTION";
-        case gnss::FixReject::MissingRmc: return "NO RMC";
-        case gnss::FixReject::MissingGga: return "NO GGA";
-        case gnss::FixReject::Stale: return "STALE";
-        case gnss::FixReject::NoDate: return "NO DATE";
-        case gnss::FixReject::Jump: return "JUMP";
-        case gnss::FixReject::None: break;
-    }
-    return "NONE";
-}
-
 int whole_celsius(int16_t decicelsius) {
     const int16_t bias = decicelsius >= 0 ? 5 : -5;
     return (decicelsius + bias) / 10;
@@ -120,7 +107,7 @@ void DiagnosticsReport::build(const Diagnostics& d, const Group* only) {
         add_int(Group::Gnss, "overruns", counter(d.gnss_overruns));
         add_bool(Group::Gnss, "identified", d.gnss_identified);
         add_text(Group::Gnss, "firmware", d.gnss_firmware);
-        add_text(Group::Gnss, "reject", reject_name(d.gnss_reject));
+        add_text(Group::Gnss, "reject", gnss::reject_name(d.gnss_reject));
         add_int(Group::Gnss, "rejected", counter(d.gnss_rejected));
         // Absent rather than zero: a device with no two consecutive fixes has no
         // residual, and 0 m is what a perfect one reports.

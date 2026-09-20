@@ -6,6 +6,19 @@ namespace {
 int32_t magnitude(int32_t v) { return v < 0 ? -v : v; }
 }
 
+const char* reject_name(FixReject reason) {
+    switch (reason) {
+        case FixReject::NoSolution: return "NO SOLUTION";
+        case FixReject::MissingRmc: return "NO RMC";
+        case FixReject::MissingGga: return "NO GGA";
+        case FixReject::Stale: return "STALE";
+        case FixReject::NoDate: return "NO DATE";
+        case FixReject::Jump: return "JUMP";
+        case FixReject::None: break;
+    }
+    return "NONE";
+}
+
 void FixValidity::reset() {
     have_rmc_ = false;
     have_gga_ = false;

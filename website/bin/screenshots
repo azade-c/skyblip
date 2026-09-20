@@ -188,7 +188,18 @@ function flying(device) {
   return neighbours(device.fly(CRUISE).run(LEG_MS)).run(HEARD_MS);
 }
 
-const PAGE = { radar: 0, nearby: 1, sixpack: 2, gmeter: 3, status: 4, sats: 5, log: 6, boot: 7 };
+// products/skyblip_go/pages/page.h, in its order: a page inserted there moves these.
+const PAGE = {
+  radar: 0,
+  nearby: 1,
+  sixpack: 2,
+  gmeter: 3,
+  status: 4,
+  sats: 5,
+  log: 6,
+  raw: 7,
+  boot: 8
+};
 const ADVISORY = 1;
 
 const scenes = [
@@ -277,7 +288,7 @@ const scenes = [
   {
     name: "self-test",
     page: PAGE.boot,
-    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.nearby, 3).press()
+    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.nearby, 4).press()
   },
   {
     name: "no-fix",

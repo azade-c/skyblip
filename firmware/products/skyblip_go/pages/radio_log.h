@@ -5,6 +5,7 @@
 
 #include "core/radio/log.h"
 #include "products/skyblip_go/glass.h"
+#include "products/skyblip_go/pages/page.h"
 
 namespace skyblip::go {
 

@@ -376,6 +376,63 @@ void ScreenService::draw_menu_page() {
     draw_menu(fb_, snapshot);
 }
 
+RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
+    const bus::State& state = context_.state;
+    const model::OwnState& own = state.own;
+    const timing::SlotTimingStats& stats = state.rf.timing_stats;
+
+    RawSnapshot snap;
+    snap.uptime_s = now_ms / 1000;
+
+    snap.gnss.health = context_.roles.gnss.health();
+    snap.gnss.stage = state.gnss.stage;
+    snap.gnss.pps = pps_state(state.clock);
+    snap.gnss.pps_age_ms = state.clock.ms_since_pps;
+    snap.gnss.solutions = state.flight.gnss_solutions;
+    snap.gnss.utc = own.utc;
+    snap.gnss.nav_ms = state.gnss.solution_phase_ms;
+    snap.gnss.nav_valid = state.gnss.solution_phase_valid;
+    snap.gnss.hdop_e2 = own.hdop_e2;
+    snap.gnss.vdop_e2 = own.vdop_e2;
+    snap.gnss.resid_m = own.pred_resid_m;
+    snap.gnss.resid_valid = own.pred_resid_valid;
+    snap.gnss.sats = own.sats;
+    snap.gnss.in_use = static_cast<uint8_t>(state.gnss.sky.in_use());
+    snap.gnss.fix_mode = state.gnss.fix_mode;
+    snap.gnss.fix_valid = own.fix_valid;
+    snap.gnss.utc_valid = own.utc_valid;
+    snap.gnss.settled = own.tx_settled;
+    snap.gnss.levels_live = state.gnss.levels_live;
+
+    snap.radio.rx_ok = state.air.rx_ok;
+    snap.radio.rx_bad = state.air.rx_bad;
+    snap.radio.rx_wait = state.air.rx_wait;
+    snap.radio.rx_type = state.air.rx_type;
+    snap.radio.rx_unframed = state.air.rx_unframed;
+    snap.radio.rx_miskeyed = state.air.rx_miskeyed;
+    snap.radio.rx_noise = state.air.rx_noise;
+    snap.radio.uplink_frames = state.air.uplink_frames;
+    snap.radio.uplink_bad = state.air.uplink_bad;
+    snap.radio.uplink_targets = state.air.uplink_targets;
+    snap.radio.tx_ok = state.air.tx_ok;
+    snap.radio.tx_lost = state.air.tx_lost;
+    snap.radio.missed = stats.missed();
+    snap.radio.refused = stats.refused();
+    snap.radio.duty_permille = state.rf.duty_permille;
+    snap.radio.holdover = stats.holdover_events();
+    snap.radio.dwell_worst_us = stats.dwell_worst_us();
+    snap.radio.pps_worst_us = stats.pps_worst_us();
+    snap.radio.tx_keyed_us = state.rf.last_tx_keyed_us;
+    snap.radio.tx_span_us = state.rf.last_tx_span_us;
+    snap.radio.tracked = static_cast<uint16_t>(state.traffic.count());
+    snap.radio.alarm = traffic::to_number(state.alarm_level);
+    snap.radio.noise_dbm = state.rf.noise_dbm;
+    snap.radio.slot = state.rf.plan.state;
+    snap.radio.freq_hz = state.rf.plan.freq_hz;
+    snap.radio.tx_allowed = state.rf.plan.tx_allowed;
+    return snap;
+}
+
 void ScreenService::render(uint32_t now_ms) {
     if (prompt_ != comms::Pending::None) {
         draw_prompt();
@@ -468,6 +525,9 @@ void ScreenService::render(uint32_t now_ms) {
             snap.sats = own.sats;
             snap.hdop_e2 = own.hdop_e2;
             snap.vdop_e2 = own.vdop_e2;
+            snap.nav_ms = context_.state.gnss.solution_phase_ms;
+            snap.nav_valid = context_.state.gnss.solution_phase_valid;
+            snap.health = context_.roles.gnss.health();
             snap.sky = &context_.state.gnss.sky;
             draw_sats(fb_, snap);
             break;
@@ -508,6 +568,10 @@ void ScreenService::render(uint32_t now_ms) {
             snap.n_rows = context_.state.radio_log.count();
             snap.log = &context_.state.radio_log;
             draw_radio_log(fb_, snap);
+            break;
+        }
+        case Page::Raw: {
+            draw_raw(fb_, raw_snapshot(now_ms));
             break;
         }
         case Page::Status:
