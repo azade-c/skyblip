@@ -100,7 +100,7 @@ TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
     t.lon_1e7 = own.lon_1e7 + 100000;
     t.alt_m = 1150;
     char buf[128];
-    int n = format_pflaa(buf, sizeof(buf), own, t, 2);
+    int n = format_pflaa(buf, sizeof(buf), own, t, 2, nullptr);
     REQUIRE(n > 0);
     std::string s(buf, n);
     CHECK(s.rfind("$PFLAA,2,", 0) == 0);
@@ -108,12 +108,37 @@ TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
     CHECK(checksum_ok(s));
 }
 
+// OGN hangs the name off the ID field behind a '!' (oss/nrf52-ogn-tracker/src/lookout.h:144).
+TEST_CASE("nmea: PFLAA carries a known callsign behind the address, as OGN's does") {
+    auto own = own_at(481000000, 81000000, 1000);
+    model::AircraftObs t{};
+    t.position_valid = true;
+    t.addr = 0xC5D804;
+    t.addr_table = 0x06;
+    t.lat_1e7 = own.lat_1e7 + 100000;
+    t.lon_1e7 = own.lon_1e7;
+    t.alt_m = 1000;
+
+    char buf[128];
+    int n = format_pflaa(buf, sizeof(buf), own, t, 0, "D-KXYZ");
+    REQUIRE(n > 0);
+    std::string named(buf, n);
+    CHECK(named.find(",2,C5D804!D-KXYZ,") != std::string::npos);
+    CHECK(checksum_ok(named));
+
+    n = format_pflaa(buf, sizeof(buf), own, t, 0, "");
+    REQUIRE(n > 0);
+    std::string unnamed(buf, n);
+    CHECK(unnamed.find(",2,C5D804,") != std::string::npos);
+    CHECK(checksum_ok(unnamed));
+}
+
 TEST_CASE("nmea: PFLAA returns 0 without own position") {
     model::OwnState own{};  // no fix
     model::AircraftObs t{};
     t.position_valid = true;
     char buf[128];
-    CHECK(format_pflaa(buf, sizeof(buf), own, t, 0) == 0);
+    CHECK(format_pflaa(buf, sizeof(buf), own, t, 0, nullptr) == 0);
 }
 
 TEST_CASE("nmea: PFLAU reports rx count, gps and threat") {
@@ -288,7 +313,7 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     t.flight_state = 2;
 
     char buf[256];
-    const int traffic = format_pflaa(buf, sizeof(buf), own, t, 3);
+    const int traffic = format_pflaa(buf, sizeof(buf), own, t, 3, "ABCDEFGHIJKLMN");
     CHECK(traffic > 0);
     CHECK(traffic <= comms::kSmallestSupportedPayload);
     const int status = format_pflau(buf, sizeof(buf), own, true, 99, &t, 3, -180, -99999, 999999);

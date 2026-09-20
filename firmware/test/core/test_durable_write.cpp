@@ -3,11 +3,11 @@
 //
 // The thing being pinned down is that 1-ARCHITECTURE.md §5.1's "no flash work
 // inside a dwell" has to be read as a statement about deadlines, because the
-// dwell map leaves no unarmed phase to write in: 0..200 is slot 1's tail, 205..395
-// the uplink dwell, 400..1200 the two M-band dwells, and the only two gaps are the
-// 5 ms retune guards, which are the worst place in the second for an 85 ms stall.
-// So the cases below say where the stall IS allowed, and prove that the set is the
-// two stretches the map's own numbers leave.
+// dwell map leaves no unarmed phase to write in: 205..395 is the uplink dwell,
+// 400..1200 the two M-band dwells own-ship keys the PA inside, and the only two
+// gaps are the 5 ms retune guards, which are the worst place in the second for an
+// 85 ms stall. So the cases below say where the stall IS allowed, and prove that
+// the set is the one stretch the map's own numbers leave.
 #include "core/timing/durable_write.h"
 #include "doctest/doctest.h"
 
@@ -73,12 +73,13 @@ TEST_CASE("durable write: the cost is the nRF52840's own page erase plus the cop
     CHECK(DurableWriteWindow::kPartialEraseMs < static_cast<uint32_t>(kJitterGuardMs));
 }
 
-// The whole second, phase by phase. Two stretches and no others:
-//   0..109   slot 1's tail, which closes at 200 (kSlot1Wrap) - the write finishes
-//            by 195 and the 5 ms guard before the uplink dwell is still whole.
+// The whole second, phase by phase. One stretch and no others:
 //   205..304 the uplink dwell, which closes at 395 - the write finishes by 390 and
 //            the guard in front of the safety-critical O->M edge is still whole.
-TEST_CASE("durable write: the free phases are the two the dwell map leaves") {
+// Slot 1's tail was the second one until the callsign burst was placed there
+// (core/timing/README.md), and a write inside it now stalls the core through an
+// instant own-ship may have keyed the PA at.
+TEST_CASE("durable write: the free phase is the one the dwell map leaves") {
     int first_free = -1;
     int last_free = -1;
     int stretches = 0;
@@ -92,13 +93,13 @@ TEST_CASE("durable write: the free phases are the two the dwell map leaves") {
         if (free) last_free = phase;
         was_free = free;
     }
-    CHECK(stretches == 2);
-    CHECK(first_free == 0);
+    CHECK(stretches == 1);
+    CHECK(first_free == 205);
     CHECK(last_free == 304);
 
     // Named, so a moved constant fails here and not in a product case.
-    CHECK(free_at(109));
-    CHECK_FALSE(free_at(110));
+    CHECK_FALSE(free_at(0));
+    CHECK_FALSE(free_at(109));
     CHECK(free_at(205));
     CHECK(free_at(304));
     CHECK_FALSE(free_at(305));
@@ -135,7 +136,7 @@ TEST_CASE("durable write: a write is never allowed to span the top of the second
 
 TEST_CASE("durable write: nothing pending is not a decision to make") {
     DurableWriteWindow window;
-    CHECK(window.decide(anchored_plan(0), view_at(0, 0), 0) == DurableWriteVerdict::Idle);
+    CHECK(window.decide(anchored_plan(250), view_at(250, 0), 0) == DurableWriteVerdict::Idle);
     CHECK(window.writes() == 0);
 }
 
@@ -148,12 +149,12 @@ TEST_CASE("durable write: rapid changes coalesce into one placement") {
     for (int i = 0; i < 6; i++) {
         window.request(t);
         t += 150;
-        CHECK(window.decide(anchored_plan(0), view_at(0, t), t) == DurableWriteVerdict::Hold);
+        CHECK(window.decide(anchored_plan(250), view_at(250, t), t) == DurableWriteVerdict::Hold);
     }
     CHECK(window.requests() == 6);
 
     t += DurableWriteWindow::kSettleMs;
-    REQUIRE(window.decide(anchored_plan(50), view_at(50, t), t) == DurableWriteVerdict::Place);
+    REQUIRE(window.decide(anchored_plan(250), view_at(250, t), t) == DurableWriteVerdict::Place);
     window.placed(t, false);
     CHECK(window.writes() == 1);
     CHECK(window.forced() == 0);
@@ -166,11 +167,11 @@ TEST_CASE("durable write: a burst in flight refuses the write whatever the phase
     DurableWriteWindow window;
     window.request(0);
     const uint32_t t = DurableWriteWindow::kSettleMs;
-    DwellPhase dwell = view_at(0, t);
+    DwellPhase dwell = view_at(250, t);
     dwell.burst_armed = true;
-    CHECK(window.decide(anchored_plan(0), dwell, t) == DurableWriteVerdict::Hold);
+    CHECK(window.decide(anchored_plan(250), dwell, t) == DurableWriteVerdict::Hold);
     dwell.burst_armed = false;
-    CHECK(window.decide(anchored_plan(0), dwell, t) == DurableWriteVerdict::Place);
+    CHECK(window.decide(anchored_plan(250), dwell, t) == DurableWriteVerdict::Place);
 }
 
 // A view nobody refreshed is not evidence about where the second is.
@@ -178,9 +179,9 @@ TEST_CASE("durable write: a stale view of the second refuses rather than guesses
     DurableWriteWindow window;
     window.request(0);
     const uint32_t t = DurableWriteWindow::kSettleMs;
-    const DwellPhase stale = view_at(0, t - DurableWriteWindow::kViewStaleMs - 1);
-    CHECK(window.decide(anchored_plan(0), stale, t) == DurableWriteVerdict::Hold);
-    CHECK(window.decide(anchored_plan(0), view_at(0, t), t) == DurableWriteVerdict::Place);
+    const DwellPhase stale = view_at(250, t - DurableWriteWindow::kViewStaleMs - 1);
+    CHECK(window.decide(anchored_plan(250), stale, t) == DurableWriteVerdict::Hold);
+    CHECK(window.decide(anchored_plan(250), view_at(250, t), t) == DurableWriteVerdict::Place);
 }
 
 // A product with no radio fitted has no second to respect.
@@ -224,7 +225,7 @@ TEST_CASE("durable write: past the bound a free phase is still preferred") {
     window.request(0);
     const uint32_t t = DurableWriteWindow::kMaxDeferMs;
     REQUIRE(window.decide(anchored_plan(500), view_at(500, t), t) == DurableWriteVerdict::Forced);
-    CHECK(window.decide(anchored_plan(50), view_at(50, t), t) == DurableWriteVerdict::Place);
+    CHECK(window.decide(anchored_plan(250), view_at(250, t), t) == DurableWriteVerdict::Place);
 }
 
 // The bound is never reached in practice, because the second offers the window
@@ -268,12 +269,12 @@ TEST_CASE("durable write: the settle, the bound and the stale view span the 49.7
     DurableWriteWindow window;
     window.request(before);
     // Inside the settle, at a phase the write would otherwise fit: held.
-    CHECK(window.decide(anchored_plan(50), view_at(50, before + 100u), before + 100u) ==
+    CHECK(window.decide(anchored_plan(250), view_at(250, before + 100u), before + 100u) ==
           DurableWriteVerdict::Hold);
     // The settle expires 750 ms after the request, which is 494 ms past zero.
     const uint32_t settled = before + DurableWriteWindow::kSettleMs;
     REQUIRE(settled < before);  // the case is worthless unless it wrapped
-    CHECK(window.decide(anchored_plan(50), view_at(50, settled), settled) ==
+    CHECK(window.decide(anchored_plan(250), view_at(250, settled), settled) ==
           DurableWriteVerdict::Place);
     window.placed(settled, false);
     // 750 ms waited, not 49.7 days: worst_wait_ms is the same subtraction.
@@ -291,8 +292,9 @@ TEST_CASE("durable write: the settle, the bound and the stale view span the 49.7
     DurableWriteWindow view;
     const uint32_t asked = 20u;
     view.request(asked - 800u);
-    const DwellPhase fresh = view_at(20, 0xFFFFFFC0u);  // 84 ms old
-    const DwellPhase stale = view_at(20, 0xFFFFFF00u);  // 276 ms old, past the bound
-    CHECK(view.decide(anchored_plan(104), fresh, asked) == DurableWriteVerdict::Place);
-    CHECK(view.decide(anchored_plan(104), stale, asked) == DurableWriteVerdict::Hold);
+    // 210 + 84 ms of carry is 294, and 294 + 86 + 5 still closes inside the dwell.
+    const DwellPhase fresh = view_at(210, 0xFFFFFFC0u);  // 84 ms old
+    const DwellPhase stale = view_at(210, 0xFFFFFF00u);  // 276 ms old, past the bound
+    CHECK(view.decide(anchored_plan(210), fresh, asked) == DurableWriteVerdict::Place);
+    CHECK(view.decide(anchored_plan(210), stale, asked) == DurableWriteVerdict::Hold);
 }

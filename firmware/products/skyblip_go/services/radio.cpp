@@ -143,8 +143,11 @@ timing::Transmitter::Attempt RadioService::attempt(const timing::SlotPlan& plan,
     // says the solution behind it has settled.
     if (!timing::own_ship_transmits(own, context_.state.clock))
         return timing::Transmitter::Attempt{};
-    return transmitter_.attempt(plan, slot_utc(now_ms), now_ms, flight::airborne(own.flight_state),
-                                fix_lag_ms());
+    const timing::Transmitter::Attempt a = transmitter_.attempt(
+        plan, slot_utc(now_ms), now_ms, flight::airborne(own.flight_state), fix_lag_ms());
+    if (a.payload == timing::Transmitter::Payload::Callsign && settings_.callsign[0] == 0)
+        return timing::Transmitter::Attempt{};
+    return a;
 }
 
 // INFO: fc 13sep26 zero when this second's solution is in hand, a whole second when one was missed
@@ -191,9 +194,13 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     const bool carries_tx =
         a.go && burst_in_ms >= 0 && tx_at_us >= plan.start_us && tx_at_us < plan.end_us;
     if (carries_tx) {
-        protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
-                           settings::kAddrTableSkyblip, context_.state.own.aircraft_cat,
-                           burst_instant(a, tx_at_us, slot_utc(now_ms)));
+        if (a.payload == timing::Transmitter::Payload::Callsign)
+            protocol::from_own_callsign(outgoing_, context_.roles.device_addr,
+                                        settings::kAddrTableSkyblip, settings_.callsign);
+        else
+            protocol::from_own(outgoing_, context_.state.own, context_.roles.device_addr,
+                               settings::kAddrTableSkyblip, context_.state.own.aircraft_cat,
+                               burst_instant(a, tx_at_us, slot_utc(now_ms)));
         outgoing_.scramble();
         outgoing_.set_crc();
         plan.tx = outgoing_chips_;
@@ -215,9 +222,11 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
     arm_count_++;
     tx_armed_ = carries_tx;
     if (carries_tx) {
+        tx_payload_ = a.payload;
         tx_utc_ = slot_utc(now_ms);
         tx_end_us_ = plan.end_us;
         context_.state.rf.tx_deadline_us = tx_at_us;
+        context_.state.rf.tx_callsign = a.payload == timing::Transmitter::Payload::Callsign;
     }
 }
 
@@ -243,7 +252,8 @@ void RadioService::collect_outcome(uint32_t now_ms) {
     if (context_.state.air.tx_ok != seen_tx_ok_) {
         seen_tx_ok_ = context_.state.air.tx_ok;
         held_logged_ = false;
-        transmitter_.sent(tx_utc_, now_ms);
+        transmitter_.sent(tx_utc_, now_ms, tx_payload_);
+        if (tx_payload_ == timing::Transmitter::Payload::Callsign) context_.state.air.tx_named++;
         // The executor's own report against the deadline this dwell was armed
         // for: both absolute instants on the same clock, so slot 1's wrap
         // costs this nothing.

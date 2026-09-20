@@ -16,6 +16,14 @@ struct __attribute__((packed)) AdslPacket {
     static constexpr uint8_t kSync2 = 0x4B;
     static constexpr uint8_t kDataBytes = kTxBytes - 3;      // 24: Version+payload+CRC
     static constexpr uint8_t kCrcCoverBytes = kTxBytes - 6;  // 21: Version+payload
+    // INFO: fc 20sep26 F.2.1 leaves payload 66 to OGN, layout: nrf52-ogn-tracker/src/adsl.h:120
+    static constexpr uint8_t kTypePosition = 0x02;
+    static constexpr uint8_t kTypeOgnDiagnostics = 0x42;
+    static constexpr uint8_t kTelemTypeInfo = 1;
+    static constexpr uint8_t kInfoTypeRegistration = 5;
+    static constexpr int kInfoHeaderByte = 5;
+    static constexpr int kInfoMsgByte = 6;
+    static constexpr int kInfoMsgBytes = 14;
 
     uint8_t SYNC[2];
     uint8_t Length;
@@ -50,7 +58,7 @@ struct __attribute__((packed)) AdslPacket {
     };
     uint8_t SpareByte;
 
-    void init(uint8_t type = 0x02) {
+    void init(uint8_t type = kTypePosition) {
         SYNC[0] = kSync1;
         SYNC[1] = kSync2;
         Length = kTxBytes - 3;
@@ -61,7 +69,19 @@ struct __attribute__((packed)) AdslPacket {
         CRC[0] = CRC[1] = CRC[2] = 0;
     }
 
-    bool is_position() const { return Type == 0x02; }
+    bool is_position() const { return Type == kTypePosition; }
+
+    uint8_t telem_type() const { return static_cast<uint8_t>(Byte[kInfoHeaderByte] >> 6); }
+    uint8_t info_type() const { return static_cast<uint8_t>(Byte[kInfoHeaderByte] & 0x3F); }
+    void set_info_header(uint8_t telem_type, uint8_t info_type) {
+        Byte[kInfoHeaderByte] = static_cast<uint8_t>((telem_type << 6) | (info_type & 0x3F));
+    }
+    bool is_registration() const {
+        return Type == kTypeOgnDiagnostics && telem_type() == kTelemTypeInfo &&
+               info_type() == kInfoTypeRegistration;
+    }
+    const char* info_msg() const { return reinterpret_cast<const char*>(Byte + kInfoMsgByte); }
+    char* info_msg() { return reinterpret_cast<char*>(Byte + kInfoMsgByte); }
 
     static uint32_t get4(const uint8_t* b) {
         return static_cast<uint32_t>(b[0]) | (static_cast<uint32_t>(b[1]) << 8) |
@@ -224,6 +244,9 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
               uint8_t aircraft_cat);
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, const BurstInstant& at);
+
+void from_own_callsign(AdslPacket& p, uint32_t addr, uint8_t addr_table, const char* callsign);
+int callsign_of(const AdslPacket& p, char* out, int cap);
 
 }
 

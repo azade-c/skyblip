@@ -4,6 +4,7 @@
 // collision alarm. No mocks of logic.
 #include <algorithm>
 #include <cstdlib>
+#include <string>
 
 #include "core/events/link.h"
 #include "core/flight/atmosphere.h"
@@ -104,6 +105,24 @@ TEST_CASE("simulator: a virtual aircraft arrives as a real ADS-L frame and enter
     CHECK(h.product().state().air.rx_ok > 0);         // frames actually decoded (CRC ok)
     CHECK(h.product().state().air.rx_bad == 0);       // and none corrupt
     CHECK(h.product().state().traffic.count() >= 1);  // fused into the table
+}
+
+// The one path a name can reach the glass by, end to end: a neighbour's own burst.
+TEST_CASE("simulator: an aircraft that names itself is named on the device") {
+    simulator::Simulator h;
+    REQUIRE(h.setup() == Status::Ok);
+    run(h, 0, 2000);
+    const int index = h.world().add_aircraft(2000, 0, 0);
+    REQUIRE(index >= 0);
+    h.world().name_aircraft(index, "D-KXYZ");
+    const uint32_t addr = h.world().aircraft_at(index)->addr;
+
+    // A name goes out once in ten seconds, so the window has to be wider than that.
+    run(h, 2000, 26000);
+
+    CHECK(h.product().state().air.rx_named > 0);
+    REQUIRE(h.product().state().callsigns.find(6, addr) != nullptr);
+    CHECK(std::string(h.product().state().callsigns.find(6, addr)) == "D-KXYZ");
 }
 
 // The radar's chevron and its counting altitude tag have nothing to read until an aircraft moves.

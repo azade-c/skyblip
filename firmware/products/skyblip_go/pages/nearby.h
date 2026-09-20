@@ -23,6 +23,7 @@ struct NearbySnapshot {
 constexpr int kNearbyScale = 2;
 constexpr int kNearbyCellW = 6 * kNearbyScale;
 constexpr int kNearbyIdX = 4;
+constexpr int kNearbyIdChars = 8;
 constexpr int kNearbyAddrX = kNearbyIdX + 2 * kNearbyCellW;
 constexpr int kNearbyDistEnd = 152;
 constexpr int kNearbyRelEnd = 196;

@@ -2,6 +2,16 @@
 
 The wire formats, in both directions and with no I/O: `adsl.{h,cpp}` and `adsl_uplink.{h,cpp}` are the ADS-L 4 SRD-860 packet the radio carries, `air.{h,cpp}` the shared air-frame plumbing, `alptas.{h,cpp}` and `nmea_out.{h,cpp}` what a tablet reads over the companion link.
 
+## The name ADS-L has no field for
+
+An iConspicuity payload carries no callsign, so a target on the glass is six hex digits and a pilot's radio call is not. The name comes from the one payload the specification hands to somebody else: F.2.1 assigns value 66 to "OGN Diagnostics" and footnotes it "payload definition is outside the scope of this document", which makes the layout Jalocha's (`oss/nrf52-ogn-tracker/src/adsl.h:120-128`) and ours to follow rather than to invent.
+
+`from_own_callsign` writes the one record of it we speak. Type 66, the same 6+24 sender address our position frames carry, then a header byte of `TelemType` 1 and `InfoType` 5, then 14 characters. Everything around it is the frame we already build: the same sync word, Manchester coding, scramble and CRC24, which is why the radio needed no new dwell and the receiver no new configuration.
+
+`callsign_of` is the other direction, and it is a trust boundary: text off the air is refused whole when any byte of it is not printable, rather than drawn with a control character in it. What it returns goes to `core/traffic/callsigns.h` keyed on the sender's table and address, never into an `AircraftObs` - a name is an attribute of an address, a position is an observation, and the two have different lifetimes.
+
+An OGN tracker reads what we send: `ProcessRxADSL` takes any telemetry frame, pulls `getInfo(Call, 5)` out of it and hangs the name on the target of that address (`oss/nrf52-ogn-tracker/src/proc.cpp:715-733`), with no opinion about our AMT 58. It transmits the same record itself every 40 to 60 seconds, hopping between four channels, so we hear one of theirs perhaps once in four.
+
 ## What ALP-TAS costs us
 
 `$PFLAA` carries an `IDType` with three values, and ADS-L's address mapping table has 64. The mapping is `addr_table_to_idtype`, and it is a lie chosen from a short list of lies.

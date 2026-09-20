@@ -63,6 +63,7 @@ LogAction LogSession::update(const model::OwnState& own, uint32_t now_ms) {
     sampled_ = true;
 
     const LogRecord record = log_record_from(own);
+    if (closing_) return LogAction::Idle;
     if (!flying && !open_) {
         // On the ground and staying there: kept in RAM, never written, and
         // overwritten by the next one. This is the whole answer to "the device

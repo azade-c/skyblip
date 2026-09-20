@@ -116,6 +116,8 @@ Nothing to list is a word at double height on the second row of the list, centre
 
 Three columns and no more, all of them at double height, because a row read at arm's length in a bumpy cockpit is a row of four or five characters and not a table. The identifier is the source letter (`model::Source`) and the whole 24-bit address - `A 3FA21C` for a direct ADS-L frame, `F` for ALP-TAS, `U` for a position relayed by a ground station - so the address is the one a pilot reads back, matches against a club list or types into a phone, rather than the last four digits of it. Distance is next, to a tenth, in the unit `settings::units` asked for and the menu names. Relative altitude is last, in hundreds of feet with its sign, and this is the page that carries the figure at all: `+12` is twelve hundred feet above, `+01` is one hundred, and level traffic reads `00` without a sign because `+00` and `-00` are the same separation. Two digits always, the way a TCAS or ADS-B tag is written, because a column of figures is scanned down its own edge and a reading that drops a digit steps the whole row sideways under the eye doing it.
 
+A row wears a callsign the moment one is heard, in place of the hex: `A D-KXYZ` rather than `A 3FA21C`. The name is the better identifier for every use the address column has - the radio call, the club list, the question a pilot is actually asking - and it is only ever there because the aircraft said so in a Type 66 burst of its own (`core/traffic/README.md`). The column ends where `DIST` begins, so `kNearbyIdChars` is eight and a name longer than six characters after the source letter is cut rather than run into the distance. Cut and not shrunk: a second type size in the list would be a row that reads differently from the row above it, and the first six characters of a registration are the ones that identify it.
+
 Ground distance, because that is the distance a pilot flies: the aircraft 2 km overhead is no conflict at all, and a column that read 1.1 NM for it would be the page arguing with the `+66` beside it. Slant range is the path the wave took, which is a fact about the receiver and not about the sky, and no pilot turns, climbs or looks out of the window on a hypotenuse. The radar ring and the alarm have always meant ground distance by distance, and now the list does too: one word for one thing across the device. The vertical is the column next door, where a separation is read in the feet it is cleared in. A tenth of a mile is 185 m, which is the resolution two GNSS receivers and one extrapolation to a common instant can honestly support, and hundredths would be a digit that moves when nothing has.
 
 What left this page is the radio: RSSI, and the e.r.p. that level implied at that range. Those are a question about antennas rather than about traffic, they are read on a bench and not in a circuit, and the level of a burst is already on the row `radio_log` prints for it. The link-budget model went with them rather than staying as arithmetic nothing on the glass reads (`git log core/traffic/range.cpp`), and what is left of that file is the geometry the list is ordered by. Eight rows fit at this size where nine fitted at the old one, and the corner still counts every emitter heard rather than the handful on the glass: a page that quietly lists eight of twelve says the sky is emptier than it is.
@@ -131,18 +133,21 @@ The station log, newest at the top, `radio::Log::kCapacity` rows and no more: wh
 Each row is one burst.
 
 ```
-34:56.462 RX M0 A     3FA21C -87   an ADS-L frame from 3FA21C
-34:56.918 RX M1 F     4C11A0 -93   an ALP-TAS frame, the other channel
+34:56.462 RX M0 ADS-L  3FA21C -87   an ADS-L frame from 3FA21C
+34:56.918 RX M1 FLARM  4C11A0 -93   an ALP-TAS frame, the other channel
+34:56.085 RX M1 CALL   3FA21C -87   that aircraft's own registration
+34:56.240 RX O  UPLINK        -74   a ground station's relay, which names no one sender
 34:55.107 RX M0 DEC    ED4838 -101  a frame that passed its check and was refused
 34:55.482 RX M1 TYPE   4C11A0 -62   a message type this firmware does not read
-34:55.913 RX M0 WAIT         -58   no fix of our own yet, so nothing was tried
+34:55.913 RX M0 WAIT          -58   no fix of our own yet, so nothing was tried
 34:55.221 RX M0 KEY+18 ED4838 -18   its sender keyed 18 s away from our second
-34:55.033 RX M1 SYNC         -97   framed as neither system: not ours to decode
-34:55.694 TX M0       GND          own-ship's burst left the antenna
-34:53.881 TX M1 LOST  GND          armed, and the radio never reported it sent
+34:55.033 RX M1 SYNC          -97   framed as neither system: not ours to decode
+34:55.694 TX M0        AIR          own-ship's burst left the antenna
+34:55.165 TX M1        CALL         and this one carried its callsign
+34:53.881 TX M1 LOST   GROUND       armed, and the radio never reported it sent
 ```
 
-The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device.
+The columns are the stamp, the direction, the dwell's own channel, the verdict, the emitter's address and the level it arrived at. The verdict column is six characters wide, which `KEY+18` set and `CALL` fills, so a reception that worked spells the system it framed as - `ADS-L`, `FLARM`, `UPLINK` - rather than the single letter it used to print. The letter belongs on `nearby`, where a row is at double height and there is glass for one glyph; here there is room for the word and nothing to learn. A transmission that worked prints no verdict, exactly as a reception that worked prints none: sixteen rows reading `SENT` is sixteen rows a reader scans past to find the one that says `HELD`. What a transmit row carries instead is the schedule it went out on, `GROUND` at 0.1 Hz or `AIR` at 1 Hz (§G.1.16), which is the one thing about own-ship's transmissions that can surprise a reader and is invisible everywhere else on the device. That column is the one a reception spends on its sender's address, six characters and room to spare, so it spells the word rather than abbreviating it to `GND`. A callsign burst is on neither schedule, so it prints `CALL` there instead, which is also how a reader tells the one burst in ten that carried a name from the nine that carried a position.
 
 `DEC` is the row that matters, and it says one thing: a burst reached the dwell, framed, passed its own protocol's check and was refused anyway. It is the reading that separates an empty sky from a receiver that hears everything and frames none of it, and that second case is a real fault that once shipped, see `git log core/protocol/air.cpp`. What the band's own noise framed is not a row at all, it is the `NOISE` counter on the title line (`core/radio/README.md`).
 
@@ -236,6 +241,8 @@ The card reads `TRK`, not `HDG`. It is GNSS course over ground, referenced to tr
 
 Every reading on this page is a measurement except two, and those two are states a pilot has to be able to read without knowing what is inside the box.
 
+The callsign is the exception to the exceptions: it is neither a measurement nor a state but a setting, and this page is where it is read back. It is set on the radar menu or over the companion link, it goes on the air every ten seconds, and it sits at the right of the identity line, in the small font, opposite the address at double height: the address is what a device is, the callsign is what the aircraft is called, and the pair is what another aircraft sees on its own `nearby`.
+
 The first row is the receiver. `GNSS 3D 9 SAT` when there is a fix, where `2D` or `3D` is GSA field 2, the receiver's own answer, falling back to the four satellites that are the fewest which can solve for altitude when it reported none. Without a fix the row is the acquisition ladder and how long it has been on this rung, `GNSS BLIND 0:48` or `GNSS SOLVING 1:20` (`core/gnss/README.md`), where it used to read `GNSS NO FIX` and leave a pilot on the apron with nothing to judge by. The seconds cost this page nothing, since the row already redraws every second. In every case: the label names the sensor and the value names the state, where `FIX` as a label read like a claim the page was not always able to make. The satellite count goes with the fix rather than reading `--` beside it, because the count a receiver reports is satellites used in the solution, and there is no solution to have used any.
 
 How many satellites are in view is not on this row, and cannot be: the count arrives in GSV, GSV is only asked for while the `sats` page is on the glass (`core/gnss/README.md`), and this page is not that page. What the row has instead is the rung and the seconds, which is the same question answered out of sentences the receiver was sending anyway.
@@ -306,6 +313,8 @@ The panel half of "a pilot with no phone can change the things that matter". The
 
 Neither is titled after the page behind it. A heading reading `RADAR` over five settings, or `NEARBY` over four diagnostic pages, names where a thumb came from rather than what it is looking at, and a pilot who pressed the button knows which page they pressed it on. So the headings are `SETTINGS` and `DIAGNOSTICS`, which is what the rows under them are. Eleven characters at double height leave a third of the glass over, so nothing had to shrink to say it.
 
+`CALLSIGN` is the sixth row and the reason `kMenuRowHeight` is 26 rather than 28: six rows at 28 would stand on the hint line. It is second, under `TYPE`, because those two are what another aircraft sees of this one and nothing else on the menu changes that. The row shows six characters of the stored name, which is the length a registration is identified by and the same cut the `nearby` column makes, or `NONE` on a device nobody has named yet.
+
 Every row is at that height too, label and value both, which is the size the rest of the device prints a reading at: a menu is read in the same cockpit as the pages it sets up, and the small font was the one thing here a pilot had to stop and look for. Five rows of it on a 200 px panel is 28 px to a row, so the rows are spread down the glass rather than stacked under the rule with a void beneath them, and the focused row's bar grows with them. The hint at the foot stays small. It is twenty-seven characters, double height fits fifteen, and it is a legend read once on the ground rather than a reading: shrinking the sentence to fit the font would cost the words that say which contact does what. It is centred rather than hung off the left margin, because it is the one thing on the page that belongs to no column, and the two halves are held apart by four spaces rather than by a dash: `PAD MOVES` and `BUTTON CHANGES` are two legends and not a sentence with punctuation in the middle of it.
 
 What double height cost is one label. `AIRCRAFT` and `HELICOPTER` together are eighteen characters where a row holds fifteen, so the label is `TYPE`, which is what the row is under a heading that already says `SETTINGS`, and the ADS-L names stay whole. Abbreviating those instead would have put `HELI` and `PARA` on the one row whose value another aircraft reads. A category the panel has no name for prints as `CODE 12`, since `TYPE 12` beside a label reading `TYPE` says the same word twice.
@@ -325,6 +334,18 @@ It is also the one page the walk can be short of. A plain T-Echo has no inertial
 The two contacts mean here what they mean everywhere else: a tap of the pad moves the focus down a row, a press of the button acts on the row the focus is on, and every further press steps the same field again, which is what makes a volume settable with a thumb. No timing to get right, so nothing here can be produced by accident out of the long press that switches the device off, and a standing prompt takes the button away from a menu entirely before the gesture that answers it can be armed.
 
 A pilot cannot get stuck here: the rows only ever advance, the tap past the last one lands back on the page the menu belongs to, a long touch of the pad goes back to the radar, and a menu nobody has touched for `kIdleReturnMs` gives the picture back on its own. There is no `Leave` row, because the pad already leaves and a row that only said "done" was a row to walk past on the way to the one a pilot wanted.
+
+## The callsign field
+
+Every other row is a value with a handful of choices, so the button steps it and the pad moves on. A name is nine characters out of thirty-eight, which is a field and not a row, so pressing `CALLSIGN` opens the one screen on this device that has a cursor.
+
+The two gestures swap over, and they say so at the foot: `PAD ROLLS      BUTTON NEXT`. The pad rolls the character the bar is under, the button steps to the next character, and the button pressed on the last one is what stores the name. Nothing else could work: the pad is the only contact that can be repeated freely, a name is read left to right, and a field a pilot walks off the end of is a field they have finished with. It is also why the ring is a ring - blank, dash, `A` to `Z`, `0` to `9`, blank again - since a thumb that rolls past `Z` has to be able to come back without a second gesture for "back".
+
+Blank first, because a name is shorter than the field and the character a pilot leaves alone should be the one that costs nothing. Dash next, because every registration this device is for carries one in its second position: `F-JABC`, `D-KXYZ`, `G-ABCD`. Then the letters, then the digits, which is the order the characters are used in.
+
+Nine characters is what the settings blob has always held, and the stored form drops the blanks at the end: `F-JABC   ` is stored as `F-JABC`, nine blanks as no callsign at all, which is how a name is removed. A blank in the middle is kept, because a pilot who typed it meant it.
+
+The field is drawn at triple height, which is the largest type on any page: it is read once on the ground, character by character, against a registration painted on a fuselage. The bar under the cursor is three pixels of ink the width of a glyph, so the character being rolled is the one a thumb is watching. Leaving without finishing - the pad's long touch, or `kIdleReturnMs` of nobody pressing - stores nothing, which makes the field its own undo.
 
 ## gmeter
 

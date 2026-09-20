@@ -1,10 +1,12 @@
 // Three facts the tape spelled DEC alike, told apart through the whole product.
 #include <cstring>
+#include <string>
 
 #include "core/events/rf.h"
 #include "core/model/aircraft.h"
 #include "core/model/band.h"
 #include "core/model/ownship.h"
+#include "core/protocol/adsl.h"
 #include "core/protocol/air.h"
 #include "core/protocol/alptas.h"
 #include "core/radio/log.h"
@@ -33,10 +35,10 @@ model::AircraftObs neighbour(const model::OwnState& own) {
 }
 
 // A neighbour two metres away, as the chip hands one over: past the shared sync window.
-void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chip_byte = -1) {
+void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chip_byte = -1,
+                int frame_bytes = protocol::kAlptasFrameBytes) {
     uint8_t chips[protocol::kTxChipBytes];
-    const size_t chip_len =
-        protocol::encode_mband(sync_word, frame, protocol::kAlptasFrameBytes, chips);
+    const size_t chip_len = protocol::encode_mband(sync_word, frame, frame_bytes, chips);
     if (dead_chip_byte >= 0) chips[dead_chip_byte] ^= 0x01;
 
     events::RfEvent event{};
@@ -52,6 +54,15 @@ void hear_mband(Rig& rig, uint32_t sync_word, const uint8_t* frame, int dead_chi
 
 void hear_alptas(Rig& rig, const uint8_t* frame, int dead_chip_byte = -1) {
     hear_mband(rig, protocol::kAlptasSyncWord, frame, dead_chip_byte);
+}
+
+// A neighbour naming itself: OGN's payload 66, scrambled and checksummed as any ADS-L frame is.
+void hear_callsign(Rig& rig, uint32_t addr, uint8_t addr_table, const char* callsign) {
+    protocol::AdslPacket p{};
+    protocol::from_own_callsign(p, addr, addr_table, callsign);
+    p.scramble();
+    p.set_crc();
+    hear_mband(rig, protocol::kAdslSyncWord, p.Data, -1, protocol::kAdslFrameBytes);
 }
 
 const radio::Entry* heard_entry(Rig& rig) {
@@ -158,6 +169,31 @@ TEST_CASE("radio verdicts: the frame we can read is read, and names its aircraft
     settle(rig, t);
 
     CHECK(heard_verdict(rig) == radio::Event::Received);
+}
+
+TEST_CASE("radio verdicts: a registration frame names its sender and is not a target") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    const uint32_t tracked = static_cast<uint32_t>(rig.state().traffic.count());
+
+    hear_callsign(rig, 0xC5D804, 58, "D-KXYZ");
+    settle(rig, t);
+
+    CHECK(heard_verdict(rig) == radio::Event::Named);
+    CHECK(rig.state().air.rx_named == 1);
+    CHECK(rig.state().air.rx_type == 0);
+    CHECK(rig.state().air.rx_ok == 0);
+    // A name is not a position, so nothing new is on the radar.
+    CHECK(static_cast<uint32_t>(rig.state().traffic.count()) == tracked);
+    REQUIRE(rig.state().callsigns.find(58, 0xC5D804) != nullptr);
+    CHECK(std::string(rig.state().callsigns.find(58, 0xC5D804)) == "D-KXYZ");
+
+    const radio::Entry* entry = heard_entry(rig);
+    REQUIRE(entry != nullptr);
+    CHECK(entry->addr == 0xC5D804u);
+    CHECK(entry->addr_valid);
 }
 
 // A skyBlip on the apron beside a chatty neighbour used to report a climbing bad-frame count.

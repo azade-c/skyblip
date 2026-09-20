@@ -20,6 +20,7 @@ using namespace skyblip;
 namespace {
 
 void taxi(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 0, 300); }
+void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 25000, 900); }
 
 int config_frames(Rig& rig) { return rig.platform.link().count_on(events::Endpoint::Config); }
 
@@ -115,6 +116,45 @@ TEST_CASE(
     rig.platform.battery().millivolts = 4100;
     taxi(rig, t, 5);
     CHECK(config_frames(rig) == pushed);
+}
+
+// The one setting no menu can carry, so the link is the only way in: pinned end
+// to end because a name nobody can set is a feature nobody has.
+TEST_CASE("companion link: a callsign is written by an app and authorised on the glass") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    taxi(rig, t, 6);
+    REQUIRE(rig.settings().callsign[0] == 0);
+
+    rig.send("{\"cmd\":\"set\",\"callsign\":\"F-JABC\"}");
+    rig.run(t, t + 3000);
+    t += 3000;
+    // Staged, not applied: the glass has the question and nothing is stored yet.
+    REQUIRE(rig.product.config().config().pending() == comms::Pending::Set);
+    CHECK(rig.settings().callsign[0] == 0);
+
+    rig.double_press(t);
+    rig.run(t, t + 1000);
+    t += 1000;
+    CHECK(std::string(rig.settings().callsign) == "F-JABC");
+}
+
+// A write is refused in the air, so a name is set before the aircraft moves.
+TEST_CASE("companion link: a callsign written in flight is refused, not staged") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 6);
+
+    rig.send("{\"cmd\":\"set\",\"callsign\":\"F-JABC\"}");
+    rig.run(t, t + 3000);
+    t += 3000;
+    CHECK(rig.product.config().config().pending() == comms::Pending::None);
+    rig.double_press(t);
+    rig.run(t, t + 200);
+    t += 200;
+    CHECK(rig.settings().callsign[0] == 0);
 }
 
 TEST_CASE("companion link: a connection that drops takes the standing prompt with it") {

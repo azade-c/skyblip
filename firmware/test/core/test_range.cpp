@@ -85,7 +85,8 @@ TEST_CASE("range: ranking puts the nearest emitters first and drops the rest") {
     }
 
     RangeRow rows[4];
-    const int n = rank_by_range(table, own_at_equator(), rows, 4);
+    const CallsignTable callsigns;
+    const int n = rank_by_range(table, callsigns, own_at_equator(), rows, 4);
     REQUIRE(n == 4);
     CHECK(rows[0].addr == 0x103);  // 300 m
     CHECK(rows[1].addr == 0x101);  // 1000 m
@@ -106,7 +107,8 @@ TEST_CASE("range: ranking skips what it cannot range") {
     table.update(blind, 100);
 
     RangeRow rows[4];
-    const int n = rank_by_range(table, own_at_equator(), rows, 4);
+    const CallsignTable callsigns;
+    const int n = rank_by_range(table, callsigns, own_at_equator(), rows, 4);
     CHECK(n == 1);
     CHECK(rows[0].addr == 0x200);
 }

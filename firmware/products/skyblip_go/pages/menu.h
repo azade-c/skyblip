@@ -11,6 +11,7 @@ namespace skyblip::go {
 
 enum class MenuRow : uint8_t {
     AircraftType,
+    Callsign,
     Units,
     Range,
     Alarm,
@@ -43,6 +44,14 @@ struct MenuSnapshot {
 
 constexpr uint8_t kMaxAlarmVolume = 5;
 
+// Nine characters, which is what the settings blob has always held, and the ring
+// a pad rolls through them: blank, dash, A to Z, 0 to 9, blank again.
+constexpr int kCallsignChars = static_cast<int>(kCallsignCap) - 1;
+constexpr char kCallsignBlank = ' ';
+char next_callsign_char(char c);
+// The stored form: a name is edited nine wide and stored as what a pilot typed.
+int callsign_stored(char* out, const char* edited);
+
 // INFO: fc 12sep26 ADS-L G.1.3 codes 11 up are UAV and reserved, nothing a pilot sits in
 constexpr uint8_t kNamedAircraftTypes = 11;
 
@@ -68,7 +77,7 @@ constexpr int kSmallCellW = 6;
 constexpr int kMenuCellW = kSmallCellW * kMenuScale;
 constexpr int kMenuRightX = 194;
 constexpr int kMenuRowsTop = 26;
-constexpr int kMenuRowHeight = 28;
+constexpr int kMenuRowHeight = 26;
 constexpr int kMenuTextInset = 7;
 constexpr int kMenuHintY = 190;
 constexpr const char* kMenuHintText = "PAD MOVES    BUTTON CHANGES";
@@ -88,6 +97,24 @@ int menu_row_index(const Menu& menu, MenuRow row);
 
 void draw_menu(ui::Canvas& fb, const MenuSnapshot& snapshot);
 
+// The one field on this device, so it is a screen and not a row: the characters
+// at a size a thumb can check, and a bar under the one the pad is rolling.
+struct CallsignSnapshot {
+    const char* text{""};
+    int cursor{0};
+};
+
+constexpr int kCallsignScale = 3;
+constexpr int kCallsignCellW = kSmallCellW * kCallsignScale;
+constexpr int kCallsignTextX = (kGlassW - kCallsignChars * kCallsignCellW) / 2;
+constexpr int kCallsignTextY = 80;
+constexpr int kCallsignCursorY = kCallsignTextY + 7 * kCallsignScale + 4;
+constexpr int kCallsignCursorH = 3;
+constexpr const char* kCallsignHintText = "PAD ROLLS      BUTTON NEXT";
+constexpr int kCallsignHintX = (kGlassW - text_cells(kCallsignHintText) * kSmallCellW) / 2;
+
+void draw_callsign(ui::Canvas& fb, const CallsignSnapshot& snapshot);
+
 class MenuEditor {
    public:
     // INFO: cf 02aug26 a menu left open is the traffic picture taken away, and nobody dismissed it
@@ -101,14 +128,24 @@ class MenuEditor {
     MenuRow focus() const;
     Page opening() const { return opening_; }
 
-    void change(uint32_t now_ms);
-    void next_row(uint32_t now_ms);
+    // The two gestures, named after them: in the rows the pad moves the focus
+    // and the button acts, in the callsign field the pad rolls a character and
+    // the button steps to the next one.
+    void button(uint32_t now_ms);
+    void pad(uint32_t now_ms);
+
+    bool editing() const { return editing_; }
+    const char* text() const { return text_; }
+    int cursor() const { return cursor_; }
 
     MenuAction tick(uint32_t now_ms, const MenuValues& current, MenuValues& next);
 
    private:
     MenuAction act(const MenuValues& current, MenuValues& next);
     MenuAction advance();
+    void edit(const MenuValues& current);
+    MenuAction roll();
+    MenuAction step(const MenuValues& current, MenuValues& next);
 
     enum class Pending : uint8_t { None, Act, Advance };
 
@@ -118,6 +155,9 @@ class MenuEditor {
     uint32_t idle_since_ms_{0};
     Pending pending_{Pending::None};
     bool active_{false};
+    bool editing_{false};
+    int cursor_{0};
+    char text_[kCallsignCap]{0};
 };
 
 }  // namespace skyblip::go

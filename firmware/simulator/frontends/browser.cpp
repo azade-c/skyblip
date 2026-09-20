@@ -84,6 +84,19 @@ KEEPALIVE void simulator_add_aircraft_at(int north_m, int east_m, int up_m, int 
 KEEPALIVE void simulator_add_threat(int alptas) {
     g_simulator.world().add_threat(system_of(alptas));
 }
+KEEPALIVE int simulator_tx_named() {
+    return static_cast<int>(g_simulator.product().state().air.tx_named);
+}
+KEEPALIVE int simulator_rx_named() {
+    return static_cast<int>(g_simulator.product().state().air.rx_named);
+}
+KEEPALIVE int simulator_prompt() {
+    return g_simulator.product().screen().prompt() != comms::Pending::None ? 1 : 0;
+}
+KEEPALIVE void simulator_send_config(const char* json) { g_simulator.world().send_config(json); }
+KEEPALIVE void simulator_name_aircraft(int index, const char* callsign) {
+    g_simulator.world().name_aircraft(index, callsign);
+}
 KEEPALIVE void simulator_clear_traffic() { g_simulator.world().clear_aircraft(); }
 KEEPALIVE int simulator_formation_members() {
     return g_simulator.product().alarm().formation_members();

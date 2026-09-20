@@ -16,6 +16,7 @@
 #include "core/timing/durable_write.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
+#include "core/traffic/callsigns.h"
 #include "core/traffic/table.h"
 
 namespace skyblip::bus {
@@ -31,6 +32,8 @@ struct RfState {
     // the PPS half, products/skyblip_go/services/radio.cpp of the dwell half.
     timing::SlotTimingStats timing_stats{};
     uint64_t tx_deadline_us{0};
+    // INFO: fc 20sep26 which payload the armed burst carries, for the row the tape writes
+    bool tx_callsign{false};
     uint32_t duty_permille{0};
     uint16_t last_tx_keyed_us{0};
     uint16_t last_tx_span_us{0};
@@ -111,6 +114,7 @@ struct State {
     model::OwnState own{};
     timing::ClockState clock{};
     traffic::TrafficTable traffic{};
+    traffic::CallsignTable callsigns{};
     radio::Log radio_log{};
     RfState rf{};
     PowerState power{};
@@ -133,8 +137,10 @@ struct State {
         uint32_t rx_unframed{0};
         uint32_t rx_miskeyed{0};
         uint32_t rx_noise{0};
+        uint32_t rx_named{0};
         uint32_t tx_ok{0};
         uint32_t tx_lost{0};
+        uint32_t tx_named{0};
         // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart
         // from the M band's: every frame that arrived in the uplink dwell, the ones
         // Reed-Solomon refused, and the aircraft the rest of them put in the table.

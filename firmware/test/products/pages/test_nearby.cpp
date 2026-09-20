@@ -97,6 +97,30 @@ TEST_CASE("nearby: a row names the system that was heard and the whole address")
     CHECK(reads_at(fb, kNearbyIdX, row_y(2), "U 3FA21C", kNearbyScale));
 }
 
+// ADS-L carries no name, so one only reaches this column from a Type 66 burst.
+TEST_CASE("nearby: a row wears the callsign in place of the address once one is heard") {
+    traffic::RangeRow rows[2] = {row_at(400, 0), row_at(900, 0)};
+    rows[0].callsign = "D-KXYZ";
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 2, go::Units::Nautical));
+
+    CHECK(reads_at(fb, kNearbyIdX, row_y(0), "A D-KXYZ", kNearbyScale));
+    CHECK(reads_at(fb, kNearbyIdX, row_y(1), "A 3FA21C", kNearbyScale));
+}
+
+// The column ends where DIST begins, and a name that would run into it is cut, not wrapped.
+TEST_CASE("nearby: a callsign wider than the column is drawn as far as the column goes") {
+    traffic::RangeRow rows[1] = {row_at(400, 0)};
+    rows[0].callsign = "ABCDEFGHIJKLMN";
+
+    Glass fb;
+    draw_nearby(fb, listing(rows, 1, go::Units::Nautical));
+
+    CHECK(reads_at(fb, kNearbyIdX, row_y(0), "A ABCDEF", kNearbyScale));
+    CHECK(reads_right_of(fb, kNearbyDistEnd, row_y(0), "0.2", kNearbyScale));
+}
+
 TEST_CASE("nearby: no fix means no range, and the page says so instead of listing") {
     traffic::RangeRow rows[1] = {row_at(4300, 120)};
     NearbySnapshot snap = listing(rows, 1, go::Units::Nautical);

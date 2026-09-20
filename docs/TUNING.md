@@ -147,6 +147,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kAirTimeMs` | 5 | milliseconds | - | §C.2 at 100 kchip/s: 16-chip preamble, 64-chip Manchester sync word, then 25 Manchester-encoded bytes = 4.8 ms, rounded up. |
 | `kGroundPeriodS` | 10 | seconds | Period | §G.1.16: at least 1 Hz airborne, 0.1 Hz on the ground. |
 | `kAirbornePeriodS` | 1 | seconds | Period | - |
+| `kCallsignPeriodS` | 10 | seconds | Period | a name never changes in flight, this only bounds how long a contact is hex |
 | `kFixLagMaxMs` | 500 | milliseconds | - | G.1.16 nav age, to the top of the transmit second: the burst is extrapolated |
 | `kCompletionSlackMs` | 5 | milliseconds | - | Ours, not the spec's: §C.5 gives the direct slot 450..1000 and requires a burst to complete before the slot ends. |
 
@@ -160,6 +161,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kAlertMaxAgeMs` | 5000 (5 s) | milliseconds | MaxAge | SoftRF alerts only on targets seen within ALERT_EXPIRATION_TIME (5 s) and re-checks no more often than every 2 s (oss/SoftRF-lyusupov .../src/TrafficHelper.h:58-59, .../src/TrafficHelper.cpp:236-260). |
 | `kRenotifyFloorMs` | 2000 (2 s) | milliseconds | Floor | [README](../firmware/core/traffic/README.md) argues it |
 | `kTargetForgetMs` | 12000 (12 s) | milliseconds | Forget | [README](../firmware/core/traffic/README.md) argues it |
+| `kCallsignForgetS` | 600 | seconds | Forget | a name outlives the target it belongs to, which ages out in seconds |
 | `kRangeM` | 1000 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kVertM` | 100 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kDriftM` | 60 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
@@ -222,4 +224,4 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kBaroPpsWindowMs` | `2 * kServiceStepMs` = 20 | milliseconds | Window | - |
 | `kBatteryPeriodMs` | 1000 (1 s) | milliseconds | Period | A cell moves over minutes. The gauge needs three readings before it can throw out a transient, so a second between them is the slowest cadence that still shows the state of charge on the first screen a pilot sees. |
 
-132 constants over 15 folders.
+134 constants over 15 folders.

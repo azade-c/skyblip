@@ -9,6 +9,7 @@ What the sky around this aircraft contains, how dangerous it is, and who in it i
 | `alarm` | whether a contact is an advisory, and what the annunciator is allowed to say |
 | `formation` | which contacts are flying with us, on geometry alone |
 | `range` | how far an emitter is and how far above, and the order the nearby page lists them in |
+| `callsigns` | what each address is called, for as long as anybody should believe it |
 
 ## The model
 
@@ -70,3 +71,9 @@ A member is silenced on the annunciator and never on the plot. It stops being dr
 The lease ends by itself: a contact nobody has heard for `kContactForgetMs` is forgotten with its membership, and a neighbour that settles back on station for `kTogetherHoldMs` rejoins. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None`.
 
 What this design gives up, deliberately, is the slow merge. A member drifting in at less than `kClosingMps` stays silent, and 3 m/s across a 30 m gap is ten seconds. The alarm is not the thing protecting that pair: they have been in formation for at least `kTogetherHoldMs`, the pilot is looking out at an aircraft they chose to fly next to, and an annunciator that shouts through the whole flight to cover those ten seconds is an annunciator switched off before them.
+
+## Why the names are not in the table
+
+`CallsignTable` is keyed on the same pair `TrafficTable` is, the address table and the address, and it is a separate table because a name and a position have nothing in common but that key. A position is an observation: it is worthless in twelve seconds and the table forgets it. A name arrives once every ten seconds at best, never changes in flight, and is worth keeping long after the aircraft has dropped off the plot and come back, which is what `kCallsignForgetS` is for. Putting it in `Target` would have thrown the name away with every gap in reception, and made every reader of an observation carry fourteen bytes it does not use.
+
+It holds one name per target slot, so everything the traffic table can track can be named, and past that the aircraft heard longest ago loses its name first. Only ADS-L Type 66 frames fill it (`core/protocol/README.md`): FLARM broadcasts no name at all, so a FLARM-path target stays hex for ever - and so does the same aircraft's ADS-L identity if the two arrive under different address tables, which is correct rather than unfortunate. Those are two identities on the wire and this device does not guess that they are one aircraft.

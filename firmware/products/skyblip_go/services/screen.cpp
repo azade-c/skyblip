@@ -102,7 +102,7 @@ void ScreenService::press(uint32_t now_ms) {
         return;
     }
     if (editor_.active()) {
-        editor_.change(now_ms);
+        editor_.button(now_ms);
         return;
     }
     enter_menu(now_ms);
@@ -136,7 +136,7 @@ void ScreenService::page_forward(uint32_t now_ms) {
         next_page();
         return;
     }
-    editor_.next_row(now_ms);
+    editor_.pad(now_ms);
 }
 
 void ScreenService::next_page() { show_page(next_fitted_page(page_)); }
@@ -402,6 +402,13 @@ void ScreenService::draw_prompt() {
 }
 
 void ScreenService::draw_menu_page() {
+    if (editor_.editing()) {
+        CallsignSnapshot field;
+        field.text = editor_.text();
+        field.cursor = editor_.cursor();
+        draw_callsign(fb_, field);
+        return;
+    }
     MenuSnapshot snapshot;
     snapshot.page = editor_.page();
     snapshot.values = menu_values();
@@ -444,11 +451,13 @@ RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
     snap.radio.rx_unframed = state.air.rx_unframed;
     snap.radio.rx_miskeyed = state.air.rx_miskeyed;
     snap.radio.rx_noise = state.air.rx_noise;
+    snap.radio.rx_named = state.air.rx_named;
     snap.radio.uplink_frames = state.air.uplink_frames;
     snap.radio.uplink_bad = state.air.uplink_bad;
     snap.radio.uplink_targets = state.air.uplink_targets;
     snap.radio.tx_ok = state.air.tx_ok;
     snap.radio.tx_lost = state.air.tx_lost;
+    snap.radio.tx_named = state.air.tx_named;
     snap.radio.missed = stats.missed();
     snap.radio.refused = stats.refused();
     snap.radio.duty_permille = state.rf.duty_permille;
@@ -571,8 +580,8 @@ void ScreenService::render(uint32_t now_ms) {
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
-            snap.n_rows =
-                traffic::rank_by_range(context_.state.traffic, own, nearby_rows_, kNearbyRows);
+            snap.n_rows = traffic::rank_by_range(context_.state.traffic, context_.state.callsigns,
+                                                 own, nearby_rows_, kNearbyRows);
             snap.rows = nearby_rows_;
             draw_nearby(fb_, snap);
             break;

@@ -131,6 +131,26 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     rig.product.bus().rf.push(event);
 }
 
+// The same aircraft naming itself, one Type 66 burst (core/protocol/README.md).
+void hear_callsign(Rig& rig, uint32_t addr, const char* callsign) {
+    protocol::AdslPacket packet;
+    protocol::from_own_callsign(packet, addr, /*addr_table=*/6, callsign);
+    packet.scramble();
+    packet.set_crc();
+
+    uint8_t chips[protocol::kTxChipBytes];
+    const size_t chip_len = protocol::encode_mband(protocol::kAdslSyncWord, packet.Data,
+                                                   protocol::kAdslFrameBytes, chips);
+
+    events::RfEvent event{};
+    event.type = events::RfEventType::RxDone;
+    event.rssi_dbm = -80;
+    event.len = models::Sx1262::deliver_after_sync(chips, static_cast<uint8_t>(chip_len),
+                                                   protocol::kSharedSync, protocol::kSharedSyncBits,
+                                                   event.data.data(), protocol::kRxChipBytes);
+    rig.product.bus().rf.push(event);
+}
+
 // Airborne, timed and moving: everything below needs a fix, because a relative
 // position has no meaning without one.
 void fly(Rig& rig, uint32_t& t, uint32_t seconds) { rig.seconds(t, seconds, 25000, 900); }
@@ -207,6 +227,25 @@ TEST_CASE("nmea: an aircraft heard over the air becomes a $PFLAA a tablet can pa
     CHECK(f[5] == "2");
     CHECK(f[6] == "C5D804");
     CHECK(f[11] == "1");  // ALP-TAS aircraft type: glider
+}
+
+TEST_CASE("nmea: a target that named itself reaches the tablet with the name on its ID") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t, 3);
+    rig.raise_link();
+    fly(rig, t, 1);
+
+    hear(rig, 0xC5D804, 1200, 800, 150);
+    hear_callsign(rig, 0xC5D804, "D-KXYZ");
+    rig.platform.link().clear();
+    hear(rig, 0xC5D804, 1200, 800, 150);
+    fly(rig, t, 2);
+
+    const std::vector<std::string> f = fields(last_of(rig, "$PFLAA,"));
+    REQUIRE(f.size() >= 12);
+    CHECK(f[6] == "C5D804!D-KXYZ");
 }
 
 // FTD-012's GPS field is 1 for a 3D fix on the ground, 2 for one moving, and XCSoar names 1 GPS_2D.

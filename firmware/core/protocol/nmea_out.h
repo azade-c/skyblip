@@ -15,8 +15,9 @@ int nmea_finish(char* sentence, int body_len);
 uint8_t adsl_cat_to_alptas(uint8_t adsl_cat);
 uint8_t addr_table_to_idtype(uint8_t addr_table);
 
+// INFO: fc 20sep26 callsign rides the ID field behind a '!', as OGN's does: lookout.h:144
 int format_pflaa(char* out, size_t cap, const model::OwnState& own, const model::AircraftObs& t,
-                 uint8_t alarm_level);
+                 uint8_t alarm_level, const char* callsign);
 
 // rel_bearing_deg is SIGNED, half a turn either way: the field is, and a value
 // pushed through an unsigned parameter puts a threat off the left wing at 340

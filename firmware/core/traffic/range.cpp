@@ -13,19 +13,22 @@ bool range_to(const model::OwnState& own, const model::AircraftObs& obs, RangeRo
 
     out = RangeRow{};
     out.addr = obs.addr;
+    out.addr_table = obs.addr_table;
     out.source = obs.source;
     out.up_m = up_m;
     out.ground_m = static_cast<int32_t>(idistance(north_m, east_m));
     return true;
 }
 
-int rank_by_range(const TrafficTable& table, const model::OwnState& own, RangeRow* out, int cap) {
+int rank_by_range(const TrafficTable& table, const CallsignTable& callsigns,
+                  const model::OwnState& own, RangeRow* out, int cap) {
     int n = 0;
     for (int i = 0; i < TrafficTable::kCapacity; i++) {
         const Target* t = table.at(i);
         if (!t || !t->used) continue;
         RangeRow row;
         if (!range_to(own, t->obs, row)) continue;
+        row.callsign = callsigns.find(row.addr_table, row.addr);
 
         int at = n;
         while (at > 0 && out[at - 1].ground_m > row.ground_m) at--;

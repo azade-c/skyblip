@@ -78,7 +78,7 @@ TEST_CASE("radio log page: a received frame shows when, from whom, and how loud"
     CHECK(shows(fb, 4, kFirstRowY, "34:56.462"));
     CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "RX"));
     CHECK(shows(fb, 4 + 13 * 6, kFirstRowY, "M0"));
-    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "A"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "ADS-L"));
     CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "3FA21C"));
     CHECK(shows(fb, 4 + 29 * 6, kFirstRowY, "-87"));
 }
@@ -154,7 +154,23 @@ TEST_CASE("radio log page: a sent burst names the schedule it went out on") {
     Glass fb;
     draw_radio_log(fb, with(log));
     CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "AIR"));
-    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY + kLineH, "GND"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY + kLineH, "GROUND"));
+}
+
+// A name is on neither schedule, so it says which burst it was where the rate would be.
+TEST_CASE("radio log page: own-ship's callsign burst says so where its schedule is printed") {
+    radio::Log log;
+    radio::Entry named = entry_of(radio::Event::Transmitted);
+    named.airborne = true;
+    named.callsign = true;
+    log.record(named);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "CALL"));
+    CHECK_FALSE(shows(fb, 4 + 22 * 6, kFirstRowY, "AIR"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "CALL"));
 }
 
 // The one row that separates an empty sky from a receiver that frames nothing.
@@ -236,6 +252,24 @@ TEST_CASE("radio log page: a frame keyed on another second prints the offset it 
     draw_radio_log(fb, with(log));
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "KEY-2"));
     CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "KEY+18"));
+}
+
+// A letter per system was a legend to learn; the column the verdicts use holds the word.
+TEST_CASE("radio log page: a reception that worked names the system it framed as") {
+    radio::Log log;
+    radio::Entry flarm = received(0x4C11A0, -93);
+    flarm.source = model::Source::Alptas;
+    radio::Entry relayed = received(0, -101);
+    relayed.source = model::Source::AdslUplink;
+    relayed.addr_valid = false;
+    log.record(flarm);
+    log.record(relayed);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "UPLINK"));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY + kLineH, "FLARM"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY + kLineH, "4C11A0"));
 }
 
 // Two photos of a bench tape and no way to tell whose frames were being refused.

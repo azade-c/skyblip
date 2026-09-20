@@ -2,9 +2,11 @@
 #define SKYBLIP_SIMULATOR_WORLD_WORLD_H
 
 #include "core/bus/state.h"
+#include "core/events/link.h"
 #include "core/flight/atmosphere.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
+#include "core/protocol/adsl.h"
 #include "core/timing/slot.h"
 #include "hardware/platform/host/platform.h"
 #include "simulator/world/air.h"
@@ -37,6 +39,9 @@ struct VirtualAircraft {
     int phase_ms{-1};
     int slot{-1};
     uint32_t transmissions{0};
+    // Empty for an aircraft nobody named, which is most of them: only a skyBlip
+    // or an OGN tracker puts its registration on air.
+    char callsign[protocol::AdslPacket::kInfoMsgBytes + 1]{0};
 };
 
 // The sky, the air and the ground the firmware flies through. It drives the part
@@ -64,6 +69,7 @@ class World {
         return add_aircraft(0, 1000, 30, 40, 270, -1, -1, system, 0, kThreatSinkMps);
     }
     void clear_aircraft();
+    void name_aircraft(int index, const char* callsign);
     int aircraft_count() const;
     // Where the world says the two aircraft actually are, which is not what the
     // firmware knows: the device only ever has the target's last report.
@@ -104,6 +110,9 @@ class World {
     // comms::LinkSession, which is the object Zephyr's connection callbacks drive
     // on silicon, so the device learns about the central the same way either side.
     void connect_companion(uint16_t session_id = 1) { platform_.link().raise_link(session_id); }
+    // What a phone says on the config endpoint, arriving where the board polls
+    // it: the only path a callsign reaches this device by.
+    void send_config(const char* json);
     void disconnect_companion() { platform_.link().drop_link(); }
 
     int failures() const { return failures_; }
@@ -121,6 +130,8 @@ class World {
     void service_aircraft(uint32_t now_ms, const model::OwnState& own);
     void schedule_second(uint64_t epoch_us, const model::OwnState& own);
     void transmit(VirtualAircraft& aircraft, uint64_t epoch_us, const model::OwnState& own);
+    void name_itself(const VirtualAircraft& aircraft, uint64_t epoch_us, uint32_t utc,
+                     double range_m);
     void relay(uint64_t epoch_us, const model::OwnState& own);
     model::AircraftObs as_relayed(const VirtualAircraft& aircraft,
                                   const model::OwnState& own) const;

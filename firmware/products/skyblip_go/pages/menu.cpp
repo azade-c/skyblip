@@ -9,8 +9,8 @@ namespace {
 constexpr int kHeaderY = 3;
 constexpr int kHeaderRuleY = 21;
 
-constexpr MenuRow kRadarMenuRows[] = {MenuRow::AircraftType, MenuRow::Units, MenuRow::Range,
-                                      MenuRow::Alarm, MenuRow::Volume};
+constexpr MenuRow kRadarMenuRows[] = {MenuRow::AircraftType, MenuRow::Callsign, MenuRow::Units,
+                                      MenuRow::Range,        MenuRow::Alarm,    MenuRow::Volume};
 constexpr MenuRow kNearbyMenuRows[] = {MenuRow::Status, MenuRow::Sats, MenuRow::RadioLog,
                                        MenuRow::Raw, MenuRow::SelfTest};
 
@@ -23,6 +23,9 @@ constexpr Menu menu_of(const MenuRow (&rows)[N]) {
 const char* const kAircraftNames[kNamedAircraftTypes] = {
     "UNKNOWN",    "LIGHT",      "HEAVY",    "HELICOPTER", "GLIDER",    "BALLOON",
     "MICROLIGHT", "PARAGLIDER", "SKYDIVER", "VTOL",       "GYROCOPTER"};
+
+// CALLSIGN at double height is eight cells, and the row holds fifteen.
+constexpr int kCallsignRowChars = 6;
 
 void row_text(ui::Canvas& fb, int line, const char* label, const char* value, bool focused) {
     const int top = menu_line_top(line);
@@ -52,6 +55,7 @@ int menu_row_index(const Menu& menu, MenuRow row) {
 const char* menu_row_label(MenuRow row) {
     switch (row) {
         case MenuRow::AircraftType: return "TYPE";
+        case MenuRow::Callsign: return "CALLSIGN";
         case MenuRow::Units: return "UNITS";
         case MenuRow::Range: return "RANGE";
         case MenuRow::Alarm: return "ALARM";
@@ -85,6 +89,26 @@ uint8_t next_aircraft_type(uint8_t code) {
     return static_cast<uint8_t>(code + 1);
 }
 
+char next_callsign_char(char c) {
+    if (c == kCallsignBlank) return '-';
+    if (c == '-') return 'A';
+    if (c >= 'A' && c < 'Z') return static_cast<char>(c + 1);
+    if (c == 'Z') return '0';
+    if (c >= '0' && c < '9') return static_cast<char>(c + 1);
+    return kCallsignBlank;
+}
+
+int callsign_stored(char* out, const char* edited) {
+    int n = 0;
+    while (n < kCallsignChars && edited[n] != 0) {
+        out[n] = edited[n];
+        n++;
+    }
+    while (n > 0 && out[n - 1] == kCallsignBlank) n--;
+    out[n] = 0;
+    return n;
+}
+
 int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
     int n = 0;
     switch (row) {
@@ -95,6 +119,19 @@ int menu_row_value(char* out, MenuRow row, const MenuValues& v) {
             } else {
                 n = fmt_string(out, "CODE ");
                 n += fmt_uint(out + n, v.settings.aircraft_type);
+            }
+            break;
+        }
+        case MenuRow::Callsign: {
+            if (v.settings.callsign[0] == 0) {
+                n = fmt_string(out, "NONE");
+                break;
+            }
+            // The row has the label beside it, so it shows what a registration
+            // is identified by and the field itself shows all nine.
+            while (n < kCallsignRowChars && v.settings.callsign[n] != 0) {
+                out[n] = v.settings.callsign[n];
+                n++;
             }
             break;
         }
@@ -133,18 +170,34 @@ void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
     fb.draw_text(kMenuHintX, kMenuHintY, kMenuHintText, true, 1);
 }
 
+void draw_callsign(ui::Canvas& fb, const CallsignSnapshot& s) {
+    fb.clear(true);
+    fb.draw_text(kMenuLeftX - 2, kHeaderY, "CALLSIGN", true, kMenuScale);
+    fb.hline(kMenuLeftX - 2, kHeaderRuleY, kGlassW - 2 * (kMenuLeftX - 2), true);
+
+    fb.draw_text(kCallsignTextX, kCallsignTextY, s.text, true, kCallsignScale);
+    const int at = kCallsignTextX + s.cursor * kCallsignCellW;
+    fb.rect(at, kCallsignCursorY, 5 * kCallsignScale, kCallsignCursorH, true, /*fill=*/true);
+
+    fb.draw_text(kCallsignHintX, kMenuHintY, kCallsignHintText, true, 1);
+}
+
 void MenuEditor::enter(Page page, uint32_t now_ms) {
     page_ = page;
     focus_ = 0;
     idle_since_ms_ = now_ms;
     active_ = menu_for(page).n > 0;
     pending_ = Pending::None;
+    editing_ = false;
+    cursor_ = 0;
 }
 
 void MenuEditor::leave() {
     focus_ = 0;
     active_ = false;
     pending_ = Pending::None;
+    editing_ = false;
+    cursor_ = 0;
 }
 
 MenuRow MenuEditor::focus() const {
@@ -153,13 +206,13 @@ MenuRow MenuEditor::focus() const {
     return menu.rows[focus_];
 }
 
-void MenuEditor::change(uint32_t now_ms) {
+void MenuEditor::button(uint32_t now_ms) {
     if (!active_) return;
     idle_since_ms_ = now_ms;
     pending_ = Pending::Act;
 }
 
-void MenuEditor::next_row(uint32_t now_ms) {
+void MenuEditor::pad(uint32_t now_ms) {
     if (!active_) return;
     idle_since_ms_ = now_ms;
     pending_ = Pending::Advance;
@@ -169,8 +222,8 @@ MenuAction MenuEditor::tick(uint32_t now_ms, const MenuValues& current, MenuValu
     if (!active_) return MenuAction::None;
     const Pending pending = pending_;
     pending_ = Pending::None;
-    if (pending == Pending::Act) return act(current, next);
-    if (pending == Pending::Advance) return advance();
+    if (pending == Pending::Act) return editing_ ? step(current, next) : act(current, next);
+    if (pending == Pending::Advance) return editing_ ? roll() : advance();
     if (now_ms - idle_since_ms_ >= kIdleReturnMs) {
         leave();
         return MenuAction::Leave;
@@ -187,6 +240,43 @@ MenuAction MenuEditor::advance() {
     return MenuAction::Moved;
 }
 
+// Nine characters wide whatever is stored, so every position can be rolled and
+// the ones a pilot leaves blank are what the stored form drops.
+void MenuEditor::edit(const MenuValues& current) {
+    editing_ = true;
+    cursor_ = 0;
+    int n = 0;
+    while (n < kCallsignChars && current.settings.callsign[n] != 0) {
+        text_[n] = current.settings.callsign[n];
+        n++;
+    }
+    while (n < kCallsignChars) text_[n++] = kCallsignBlank;
+    text_[kCallsignChars] = 0;
+}
+
+MenuAction MenuEditor::roll() {
+    text_[cursor_] = next_callsign_char(text_[cursor_]);
+    return MenuAction::Moved;
+}
+
+// The last character's button press is what stores the name: a field a pilot
+// walks off the end of is a field they have finished with.
+MenuAction MenuEditor::step(const MenuValues& current, MenuValues& next) {
+    if (cursor_ + 1 < kCallsignChars) {
+        cursor_++;
+        return MenuAction::Moved;
+    }
+    next = current;
+    callsign_stored(next.settings.callsign, text_);
+    editing_ = false;
+    cursor_ = 0;
+    if (go::validate(next.settings) != Status::Ok) {
+        next = current;
+        return MenuAction::Moved;
+    }
+    return MenuAction::Changed;
+}
+
 // INFO: cf 02aug26 one gate for every accepted value, go::validate, the same one a phone goes past
 MenuAction MenuEditor::act(const MenuValues& current, MenuValues& next) {
     next = current;
@@ -197,6 +287,7 @@ MenuAction MenuEditor::act(const MenuValues& current, MenuValues& next) {
         return MenuAction::Open;
     }
     switch (row) {
+        case MenuRow::Callsign: edit(current); return MenuAction::Moved;
         case MenuRow::AircraftType:
             next.settings.aircraft_type = next_aircraft_type(current.settings.aircraft_type);
             break;
