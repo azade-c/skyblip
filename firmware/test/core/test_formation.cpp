@@ -177,3 +177,17 @@ TEST_CASE("formation: a contact nobody has heard from is forgotten, membership a
     CHECK(tracker.members() == 0);
     CHECK_FALSE(tracker.together(6, 0x424242));
 }
+
+// A tug and its glider hold station on the apron as well as they do on tow.
+TEST_CASE("formation: an aircraft that says it is on the ground is never a wingman") {
+    Tracker tracker;
+    Report r{};
+    for (uint32_t t = 1000; t <= 1000 + kTogetherHoldMs + 1000; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        model::AircraftObs parked = neighbour(own, -60, -120, 10, 40, 90, t);
+        parked.flight_state = static_cast<uint8_t>(flight::FlightState::OnGround);
+        r = tracker.observe(own, parked, t);
+    }
+    CHECK(r.state == State::None);
+    CHECK(tracker.members() == 0);
+}

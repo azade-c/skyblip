@@ -37,9 +37,15 @@ One multiple, and not two numbers, because the error it buys is the same at both
 
 Six is where a fade stops being a fade. At 1 Hz, six consecutive misses is a link that stopped rather than a burst that collided: even at half the bursts lost it is 1.5% of the time. It was twelve seconds for everything, which airborne was 720 m of lie, and on the ground was 1.2 of an emitter's own intervals - one missed transmission deleted a parked or taxiing aircraft, and the symbol blinked once a cycle on a screen that redraws every second.
 
-`kAlertMaxAgeMs` is 5 s: what the alarm is allowed to grade. It acts on a position, and at 100 m/s of closure a five-second-old fix is already 500 m of uncertainty, so a contact older than that is no longer something to say a word about. It does not scale with the sender's interval and must not: stretching it to a minute for a parked aircraft would be grading a position half a kilometre wrong.
+`kAlertMaxAgeMs` is 5 s: what the alarm is allowed to grade. It acts on a position, and at 100 m/s of closure a five-second-old fix is already 500 m of uncertainty, so a contact older than that is no longer something to say a word about. It does not scale with the sender's interval and must not: stretching it to a minute for a parked aircraft would be grading a position half a kilometre wrong. What the ground rate asks for instead is below.
 
 `direct_preferred_max_age_s` is the one figure that takes the larger of the two: the alarm's patience airborne, for the reason `table.h` gives, and the sender's own interval on the ground. At 0.1 Hz a relay allowed past after five seconds replaces every ground report with the poorer copy of itself, for ever, when the next direct report is not even due.
+
+## An aircraft on the ground is not traffic
+
+A contact whose G.1.2 code says it is on the ground is drawn, named and listed, and never graded: `assess` returns `Level::None` for it whatever the geometry. A ring of 3 km and 300 m over an airfield is every aeroplane on the apron, and a 0.1 Hz emitter is inside `kAlertMaxAgeMs` for five seconds in every ten anyway, so half of those advisories would be decided on a position the same layer calls too old. `formation` ignores the same contacts, because a tug and its glider hold station on the apron as well as they do on tow.
+
+Unknown is not ground: ALP-TAS carries no state at all, and an emitter that does not say where it is gets the airborne treatment in both places.
 
 ## Dismissal
 

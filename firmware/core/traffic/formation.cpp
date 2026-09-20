@@ -28,6 +28,7 @@ void heading_up(int32_t north_m, int32_t east_m, int32_t track_cdeg, int32_t& ah
 Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs& reported,
                         uint32_t now_ms) {
     Report out{};
+    if (flight::on_ground(reported.flight_state)) return out;
     const model::OwnState own = flight::carried_to(own_fix, now_ms);
     const model::AircraftObs target = flight::carried_to(reported, now_ms);
     int32_t north_m, east_m, up_m;

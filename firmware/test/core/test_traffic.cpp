@@ -274,6 +274,20 @@ TEST_CASE("alarm: an aircraft inside three kilometres and three hundred metres i
     CHECK(assess(own, neighbour(own, 1500, 0, 350, 40, 180), 0).level == Level::None);
 }
 
+// A circuit flown over a full apron is a circuit of advisories, and G.1.2 says which those are.
+TEST_CASE("alarm: an aircraft that says it is on the ground is a contact and never an advisory") {
+    const model::OwnState own = flying(40, 0);
+
+    model::AircraftObs apron = neighbour(own, 400, 0, 0, 0, 0);
+    CHECK(assess(own, apron, 0).level == Level::Advisory);
+
+    apron.flight_state = static_cast<uint8_t>(flight::FlightState::OnGround);
+    const AlarmAssessment graded = assess(own, apron, 0);
+    CHECK(graded.level == Level::None);
+    CHECK(graded.valid);
+    CHECK(graded.rel_dist_m == doctest::Approx(400).epsilon(0.02));
+}
+
 TEST_CASE("alarm: an aircraft leaving is as much an advisory as one arriving") {
     const model::OwnState own = flying(30, 0);
 
