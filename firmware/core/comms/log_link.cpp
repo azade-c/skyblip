@@ -22,10 +22,44 @@ int finished(json::Writer& writer) {
     return writer.overflowed() ? 0 : len;
 }
 
+bool named_store(json::Writer& writer, LogStore store) {
+    if (store == LogStore::None) return false;
+    if (store != LogStore::Flights) writer.kv_str("log", log_store_name(store));
+    return true;
+}
+
+bool parse_store(const json::Reader& reader, LogRequest& request) {
+    char name[16] = {0};
+    if (!reader.get_str("log", name, sizeof(name))) return true;
+    for (LogStore store : {LogStore::Flights, LogStore::Diagnostics}) {
+        if (std::strcmp(name, log_store_name(store)) != 0) continue;
+        request.store = store;
+        return true;
+    }
+    return false;
+}
+
+uint32_t clamped_chunk_count(long value) {
+    const uint32_t count = non_negative(value);
+    if (count == 0) return 1;
+    return count > kLogReadChunksMax ? kLogReadChunksMax : count;
+}
+
 }  // namespace
 
-int log_records_per_chunk(int payload_bytes) {
-    const int room = payload_bytes - kLogChunkEnvelopeBytes;
+const char* log_store_name(LogStore store) {
+    switch (store) {
+        case LogStore::Flights: return "flights";
+        case LogStore::Diagnostics: return "diagnostics";
+        case LogStore::None: break;
+    }
+    return "";
+}
+
+int log_records_per_chunk(int payload_bytes, LogStore store) {
+    const int envelope =
+        kLogChunkEnvelopeBytes + (store == LogStore::Flights ? 0 : kLogStoreFieldBytes);
+    const int room = payload_bytes - envelope;
     if (room < kLogChunkBase64PerRecord) return 0;
     const int records = room / kLogChunkBase64PerRecord;
     return records > kLogRecordsPerChunkMax ? kLogRecordsPerChunkMax : records;
@@ -53,8 +87,13 @@ LogRequest parse_log_request(const events::RxFrame& frame) {
     LogRequest request{};
     if (frame.endpoint != events::Endpoint::Log) return request;
     request.link_session = frame.session_id;
+    request.reason = "unknown_cmd";
 
     json::Reader reader(reinterpret_cast<const char*>(frame.data.data()), frame.len);
+    if (!parse_store(reader, request)) {
+        request.reason = "unknown_log";
+        return request;
+    }
     char command[16] = {0};
     if (!reader.get_str("cmd", command, sizeof(command))) return request;
 
@@ -71,24 +110,53 @@ LogRequest parse_log_request(const events::RxFrame& frame) {
         if (!reader.get_int("session", value)) return request;
         request.session = non_negative(value);
         request.from = reader.get_int("from", value) ? non_negative(value) : 0;
+        request.count = reader.get_int("count", value) ? clamped_chunk_count(value) : 1;
     } else {
         return request;
     }
     request.understood = true;
+    request.reason = nullptr;
     return request;
 }
 
-int format_log_ack(char* buf, int cap, bool ok, const char* reason) {
+LogWindow plan_log_window(uint32_t from, uint32_t count, int records_per_chunk,
+                          uint32_t session_records) {
+    LogWindow window{};
+    if (records_per_chunk <= 0 || from >= session_records) return window;
+    window.from = from;
+    window.session_records = session_records;
+    window.records_per_chunk = records_per_chunk;
+
+    const uint32_t per_chunk = static_cast<uint32_t>(records_per_chunk);
+    const uint32_t to_the_end = (session_records - from + per_chunk - 1) / per_chunk;
+    window.chunks = static_cast<int>(count < to_the_end ? count : to_the_end);
+    return window;
+}
+
+LogChunkSpan LogWindow::at(int nth) const {
+    LogChunkSpan span{};
+    if (nth < 0 || nth >= chunks) return span;
+    const uint32_t per_chunk = static_cast<uint32_t>(records_per_chunk);
+    span.from = from + static_cast<uint32_t>(nth) * per_chunk;
+    const uint32_t left = session_records - span.from;
+    span.records = static_cast<int>(left < per_chunk ? left : per_chunk);
+    span.eof = span.from + static_cast<uint32_t>(span.records) >= session_records;
+    return span;
+}
+
+int format_log_ack(char* buf, int cap, bool ok, const char* reason, LogStore store) {
     json::Writer writer(buf, cap);
     writer.kv_str("cmd", "log");
+    if (!named_store(writer, store)) return 0;
     writer.kv_bool("ack", ok);
     if (reason != nullptr) writer.kv_str("reason", reason);
     return finished(writer);
 }
 
-int format_log_count(char* buf, int cap, uint32_t sessions, bool truncated) {
+int format_log_count(char* buf, int cap, uint32_t sessions, bool truncated, LogStore store) {
     json::Writer writer(buf, cap);
     writer.kv_str("cmd", "log");
+    if (!named_store(writer, store)) return 0;
     writer.kv_bool("ack", true);
     writer.kv_int("sessions", static_cast<long>(sessions));
     // The partition holds more flights than the index offers. Said out loud,
@@ -98,9 +166,10 @@ int format_log_count(char* buf, int cap, uint32_t sessions, bool truncated) {
 }
 
 int format_log_session(char* buf, int cap, uint32_t index, uint32_t count, uint32_t session_id,
-                       uint32_t records, bool closed) {
+                       uint32_t records, bool closed, bool truncated, LogStore store) {
     json::Writer writer(buf, cap);
     writer.kv_str("cmd", "session");
+    if (!named_store(writer, store)) return 0;
     writer.kv_int("index", static_cast<long>(index));
     writer.kv_int("of", static_cast<long>(count));
     // The session's opening UTC second: its name, and the base every one of its
@@ -110,11 +179,13 @@ int format_log_session(char* buf, int cap, uint32_t index, uint32_t count, uint3
     // False means the log stops where the power did. The tablet says so instead
     // of presenting a truncated flight as a complete one.
     writer.kv_bool("closed", closed);
+    // INFO: fc 20sep26 the session opened in a sector the ring recycled: a suffix, not the run
+    writer.kv_bool("truncated", truncated);
     return finished(writer);
 }
 
 int format_log_chunk(char* buf, int cap, uint32_t session_id, uint32_t from, const uint8_t* raw,
-                     int record_count, bool eof) {
+                     int record_count, bool eof, LogStore store) {
     char data[kLogChunkRawBytes * 4 / 3 + 8];
     const int encoded = base64_encode(raw, record_count * static_cast<int>(flight::kLogRecordBytes),
                                       data, static_cast<int>(sizeof(data)));
@@ -122,6 +193,7 @@ int format_log_chunk(char* buf, int cap, uint32_t session_id, uint32_t from, con
 
     json::Writer writer(buf, cap);
     writer.kv_str("cmd", "chunk");
+    if (!named_store(writer, store)) return 0;
     writer.kv_int("session", static_cast<long>(session_id));
     writer.kv_int("from", static_cast<long>(from));
     writer.kv_int("n", record_count);

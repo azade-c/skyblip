@@ -12,27 +12,38 @@ void LogSession::push(const LogRecord& record) {
         // pre-takeoff window. Only a record the writer owed and did not take is
         // a loss worth counting.
         if (open_ || closing_) dropped_++;
+        if (to_flush_ > 0) to_flush_--;
     }
     ring_[(head_ + count_) % kLogPreTakeoffRecords] = record;
     count_++;
 }
 
-bool LogSession::take(LogRecord& out) {
-    if (!open_ && !closing_) return false;
+// INFO: fc 20sep26 a closed session yields what it held at the landing, never a later ground sample
+bool LogSession::peek(LogRecord& out) {
+    if (!open_ && to_flush_ == 0) {
+        closing_ = false;
+        return false;
+    }
     if (count_ == 0) {
         closing_ = false;
         return false;
     }
     out = ring_[head_];
+    return true;
+}
+
+void LogSession::commit() {
+    if (count_ == 0) return;
     head_ = (head_ + 1) % kLogPreTakeoffRecords;
     count_--;
-    if (!open_ && count_ == 0) closing_ = false;
-    return true;
+    if (to_flush_ > 0) to_flush_--;
+    if (!open_ && to_flush_ == 0) closing_ = false;
 }
 
 void LogSession::reset() {
     head_ = 0;
     count_ = 0;
+    to_flush_ = 0;
     session_id_ = 0;
     sampled_ = false;
     open_ = false;
@@ -54,6 +65,7 @@ LogAction LogSession::update(const model::OwnState& own, uint32_t now_ms) {
         }
         open_ = false;
         closing_ = true;
+        to_flush_ = count_;
         return LogAction::CloseSession;
     }
 
@@ -96,25 +108,11 @@ void LogRing::configure(uint32_t sector_count, uint32_t slots_per_sector) {
 void LogRing::rewind() {
     sector_ = 0;
     slot_ = 0;
-    sequence_ = 0;
-    claimed_ = false;
 }
 
-void LogRing::restore(uint32_t sector, uint32_t slot, uint32_t sequence) {
+void LogRing::restore(uint32_t sector, uint32_t slot) {
     sector_ = sector;
     slot_ = slot;
-    sequence_ = sequence;
-    claimed_ = true;
-}
-
-void LogRing::claim_next_sector() {
-    if (!configured()) return;
-    // The very first sector of a virgin partition is sector zero, not sector
-    // one: nothing has been claimed yet, so there is nothing to step past.
-    if (claimed_) sector_ = sector_ + 1 >= sector_count_ ? 0 : sector_ + 1;
-    claimed_ = true;
-    sequence_++;
-    slot_ = 0;
 }
 
 }  // namespace skyblip::flight

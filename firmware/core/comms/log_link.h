@@ -1,36 +1,57 @@
-// core/comms/log_link.h: the flight log's half of the companion link. Same JSON
-// dialect core/comms/config.h speaks, on its own endpoint, with three commands:
-// list, read, erase.
-//
-// Every reply fits in one frame and every read is asked for by the tablet, one
-// chunk at a time, carrying the index it wants next. That makes the transfer
-// acknowledged by construction - the next command IS the acknowledgement - and
-// resumable at no cost: a dropped connection is a tablet that asks again from
-// the last index it kept. It is also what makes a failed send harmless here: a
-// chunk that never left consumed nothing on the device, so the tablet asking for
-// the same index again is the whole recovery.
 #ifndef SKYBLIP_CORE_COMMS_LOG_LINK_H
 #define SKYBLIP_CORE_COMMS_LOG_LINK_H
 
 #include "core/events/link.h"
 #include "core/flight/log_record.h"
+#include "core/store/sector.h"
 
 namespace skyblip::comms {
 
 enum class LogCommand : uint8_t { None, List, Read, Erase };
 
+// INFO: fc 20sep26 the allocator's owners, so this dialect cannot name a ring the partition lacks
+using LogStore = store::SectorOwner;
+
+// INFO: fc 20sep26 eight 498-byte notifications is a quarter second of link at one per interval
+constexpr uint32_t kLogReadChunksMax = 8;
+
 struct LogRequest {
     LogCommand command{LogCommand::None};
+    LogStore store{LogStore::Flights};
     // INFO: fc 18sep26 session is the flight being read, link_session is the app reading it.
     uint16_t link_session{0};
     uint32_t session{0};
     uint32_t from{0};
+    uint32_t count{1};
     // A bare list asks how many flights there are; a list with an index asks
     // about one of them. One command, one frame, either way.
     uint32_t index{0};
     bool has_index{false};
     bool understood{false};
+    const char* reason{nullptr};
 };
+
+LogRequest parse_log_request(const events::RxFrame& frame);
+
+const char* log_store_name(LogStore store);
+
+struct LogChunkSpan {
+    uint32_t from{0};
+    int records{0};
+    bool eof{false};
+};
+
+struct LogWindow {
+    uint32_t from{0};
+    uint32_t session_records{0};
+    int records_per_chunk{0};
+    int chunks{0};
+
+    LogChunkSpan at(int nth) const;
+};
+
+LogWindow plan_log_window(uint32_t from, uint32_t count, int records_per_chunk,
+                          uint32_t session_records);
 
 // INFO: fc 04aug26 The widest frame this dialect can be asked to build, which is
 // a buffer bound and not a promise: what actually goes out is cut to the payload
@@ -57,19 +78,23 @@ constexpr int kLogChunkBase64PerRecord = static_cast<int>(flight::kLogRecordByte
 // partition can produce, the two-digit count, and an empty data string.
 constexpr int kLogChunkEnvelopeBytes = 83;
 
+// INFO: fc 20sep26 `,"log":"diagnostics"`, the only store spelled on the wire
+constexpr int kLogStoreFieldBytes = 20;
+
 // How many records a chunk may carry over a link that negotiated this payload.
 // Zero means not even one fits, which is a refusal for the caller to count.
-int log_records_per_chunk(int payload_bytes);
-
-LogRequest parse_log_request(const events::RxFrame& frame);
+int log_records_per_chunk(int payload_bytes, LogStore store = LogStore::Flights);
 
 // Returns the number of characters written, excluding the terminator.
-int format_log_ack(char* buf, int cap, bool ok, const char* reason);
-int format_log_count(char* buf, int cap, uint32_t sessions, bool truncated);
+int format_log_ack(char* buf, int cap, bool ok, const char* reason,
+                   LogStore store = LogStore::Flights);
+int format_log_count(char* buf, int cap, uint32_t sessions, bool truncated,
+                     LogStore store = LogStore::Flights);
 int format_log_session(char* buf, int cap, uint32_t index, uint32_t count, uint32_t session_id,
-                       uint32_t records, bool closed);
+                       uint32_t records, bool closed, bool truncated,
+                       LogStore store = LogStore::Flights);
 int format_log_chunk(char* buf, int cap, uint32_t session_id, uint32_t from, const uint8_t* raw,
-                     int record_count, bool eof);
+                     int record_count, bool eof, LogStore store = LogStore::Flights);
 
 // Standard base64, no padding omitted, no line breaks. Returns characters
 // written, or -1 if they would not fit.

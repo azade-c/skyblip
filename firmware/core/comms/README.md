@@ -23,3 +23,25 @@ Broadcast is for everyone. Configuration is not: two apps writing settings to on
 So `LinkClaim` grants config and log to the first session that writes a command, and holds it until that session disconnects or releases it. A command from any other session is refused with a reason naming the state, never accepted and quietly ignored. The claim is what makes a *dropped* link safe to act on: only the holder's disconnect cancels a pending prompt and closes an upload window, and before the claim existed any second EFB walking out of range did both.
 
 What a claim is not is access control. `CONFIG_BT_SMP` is off on this product, deliberately (see `products/skyblip_go/prj.conf`), so there is no identity behind a session id. The claim stops two cooperating apps from stepping on each other. What stops a hostile one is the MCUboot signature on the image and the confirmation gesture on the device itself.
+
+## The log dialect
+
+`log_link.h` is the log partition's half of the link: the same JSON `config.h` speaks, on its own endpoint, with three commands, list, read and erase. Every reply fits one frame and carries the record index it starts at, which is what makes the transfer acknowledged by construction: the next command IS the acknowledgement, a host that lost chunks asks again from the index it kept, and a chunk that never left the device consumed nothing, so asking again is the whole recovery.
+
+`parse_log_request()` is the boundary. A request it does not understand comes back with `understood` false and `reason` set to the word a service refuses with, so a refusal names what was wrong rather than answering something adjacent.
+
+### Either store, named on both halves
+
+`core/store` puts two rings on the partition and this dialect addresses either through an optional `"log"` field on any command: `"flights"`, `"diagnostics"`, or absent, which is flights and therefore every client that exists today. A value that is neither is refused as `unknown_log`; it is never quietly read as flights, because the two stores share a session id space and the wrong one would answer with a plausible flight. The selector is `store::SectorOwner` itself rather than a second enum beside it, so a store this dialect can name is a store the allocator owns.
+
+The service side refuses by name for the same reason the parser does: a store this build has no writer for is `no_diagnostics` rather than `no_storage`, because a phone told the partition is missing would stop asking, and an erase aimed at a store that is recycled rather than erased is `flights_only`.
+
+A reply names its store by the same rule: `"log":"diagnostics"` on every diagnostics reply, absent for flights. Two fetches in flight on one link can then never misfile a chunk, and a flights chunk stays byte for byte what it was before the field existed. That symmetry is also what keeps the geometry: the chunk envelope is sized to the byte at the widest session id and record index (83), and the 20 bytes of `,"log":"diagnostics"` cost a 244-byte link one of its five records. `log_records_per_chunk()` takes the store for that reason and answers four where flights gets five; at the 498-byte ATT_MTU both reach the twelve-record ceiling.
+
+### A window of chunks
+
+`{"cmd":"read","session":S,"from":X,"count":K}` asks for K chunks back to back, `count` absent meaning one. One chunk per round trip was the throughput ceiling: a round trip on this link is 99 ms measured on the device, so a 288-byte chunk each time is about 2.9 kB/s, where notifications leave at a 498-byte frame per connection interval, roughly 16 kB/s. A full partition is seven minutes at the first rate and eighty seconds at the second.
+
+K is clamped to `kLogReadChunksMax`, 8, at the parse boundary. Eight notifications are eight connection intervals, about a quarter of a second at the interval those figures were measured at, which is as much of a second as an offload may take from the traffic picture the same link is broadcasting; eight chunks is also 96 records, a little over half a sector.
+
+`plan_log_window()` holds the arithmetic, and the three ways a window goes wrong are what it is tested on: it cuts the window at the end of the session instead of wrapping into the next one, it yields no chunks at all for a `from` past the last record, and it puts `eof` on the chunk that ends the session and on no other. A window changes nothing about the acknowledgement model, since each chunk still carries its own index: a host that received three of eight asks again from the fourth.
