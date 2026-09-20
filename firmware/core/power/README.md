@@ -46,9 +46,11 @@ The device has to be switched on across a charge for any of this to happen, whic
 
 ## What the glass says about a flat cell, and when it says it
 
-Going down says nothing. A device that reaches `kCutoffMv` in the air parks the wordmark, exactly like one switched off by a thumb, because the other way a cell arrives empty is a winter on a shelf: that unit never ran a shutdown, never painted anything, and must not read differently from the one that did.
+A device that reaches `kCutoffMv` in the air says so before the rails go: `FLAT BATTERY` under the mark, pushed by the shutdown the cutoff asked for. Nobody pressed anything, so the frame is the only thing that can tell a pilot what happened, and the alternatives they would otherwise pick between are a crash and a dead unit. The same shutdown withholds the wake pin (`button_wake_after`), so the press that follows is answered by the frame already on the glass and not by a boot the cell cannot pay for.
 
-So the flat cell is named where both roads meet, which is the refused boot. `refused_frame` decides it. Pressed with no cable and a cell under the lockout, the glass gets `FLAT BATTERY`. On the cable the device is an ordinary switched-off one again, because the refusal re-arms the button (`button_wake_after_refusal`), so the wordmark is the whole instruction and it replaces the flat frame if that is what the panel is wearing. Anything else is `Leave`: the glass already says the right thing, and a full refresh is seconds of panel rail off a cell with none to spare.
+The other way a cell arrives empty is a winter on a shelf. That unit ran no shutdown and painted nothing, so it is the refused boot that names it: `refused_frame` pushes the same `FLAT BATTERY` for the press that gets no device, and `button_wake_after_refusal` withholds the button after it. Both roads end at the same glass and the same dead button.
+
+The cable is the way out of both. On the cable the device is an ordinary switched-off one again, because VBUS wakes the SoC, the boot is refused, and the refusal re-arms the button - so the wordmark replaces the flat frame, and the wordmark is the whole instruction. Anything else is `Leave`: the glass already says the right thing, and a full refresh is seconds of panel rail off a cell with none to spare.
 
 What the panel wears has to outlive the rails for that comparison to exist, so one bit does: `ports::SystemPower::flat_on_glass`. A platform with nowhere to keep it answers false, which costs a repeated frame and nothing else.
 
