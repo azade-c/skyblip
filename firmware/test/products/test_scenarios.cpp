@@ -52,6 +52,36 @@ TEST_CASE("scenario: the parser reads ownship, traffic and events") {
     CHECK(s.events[2].value == 0);
 }
 
+// A simulated device is one somebody set up, so it carries a registration unless a file says not.
+TEST_CASE("scenario: a loaded scenario names the device, and a file can say which name") {
+    simulator::Simulator s;
+    REQUIRE(s.setup() == Status::Ok);
+
+    simulator::Scenario sc;
+    const int len = static_cast<int>(__builtin_strlen(kInlineScenario));
+    REQUIRE(simulator::parse_scenario(kInlineScenario, len, sc));
+    s.load(sc);
+    CHECK(std::string(s.product().settings().callsign) == "S-BLIP");
+
+    simulator::Scenario named;
+    const char* json = "{\"name\":\"named\",\"callsign\":\"F-CBAY\"}";
+    REQUIRE(simulator::parse_scenario(json, static_cast<int>(__builtin_strlen(json)), named));
+    s.load(named);
+    CHECK(std::string(s.product().settings().callsign) == "F-CBAY");
+}
+
+// The registration goes on the air, so a scenario about a device nobody named has to say so.
+TEST_CASE("scenario: an empty callsign in the file leaves the device unnamed") {
+    simulator::Simulator s;
+    REQUIRE(s.setup() == Status::Ok);
+
+    simulator::Scenario sc;
+    const char* json = "{\"name\":\"quiet\",\"callsign\":\"\"}";
+    REQUIRE(simulator::parse_scenario(json, static_cast<int>(__builtin_strlen(json)), sc));
+    s.load(sc);
+    CHECK(std::string(s.product().settings().callsign).empty());
+}
+
 TEST_CASE("scenario: an unparseable scenario is refused, not half-applied") {
     simulator::Scenario s;
     CHECK_FALSE(simulator::parse_scenario(nullptr, 0, s));
