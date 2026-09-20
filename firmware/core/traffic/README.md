@@ -5,6 +5,7 @@ What the sky around this aircraft contains, how dangerous it is, and who in it i
 | File | What it decides |
 |---|---|
 | `sanity` | whether a decoded position is close enough to have been heard at all |
+| `lease` | how long one reception is believed, for every layer that holds a slot |
 | `table` | which aircraft the finite table holds, and each one's turn rate |
 | `alarm` | whether a contact is an advisory, and what the annunciator is allowed to say |
 | `formation` | which contacts are flying with us, on geometry alone |
@@ -28,15 +29,17 @@ A target that reports no velocity is still charged at `kUnknownTargetSpeedMps` i
 
 ## How long an aircraft is held
 
-Two figures, and everything else follows one of them.
+Two questions, and they have nothing to do with each other. Have we lost this aircraft, which is about the link. Is this position fresh enough to grade, which is about metres a second. `lease.h` answers the first, `kAlertMaxAgeMs` the second.
 
-`kAlertMaxAgeMs` is 5 s: what the alarm is allowed to grade. It acts on a position, and at 100 m/s of closure a five-second-old fix is already 500 m of uncertainty, so a contact older than that is no longer something to say a word about. `kDirectPreferredMaxAgeSec` is the same figure in seconds, for the reason `table.h` gives.
+`kTargetForgetReports` is 6: a target is dropped when six of its own transmissions have gone missing. The interval those are counted in is the sender's, from `flight::report_period_s`, so one multiple gives `kAirborneTargetForgetS` = 6 s and `kGroundTargetForgetS` = 60 s. Every layer that holds a slot takes its window from the observation itself - the table, the alarm tracker's dismissal, the formation membership - so a takeoff shortens the lease on the burst that announces it, and a slot cannot outlive the target it was opened for.
 
-`TrafficTable::kDefaultMaxAgeSec` is 12 s: how long an aircraft nobody has heard from stays on the glass. The slowest emitter the plot draws sets it. G.1.16 puts an aircraft on the ground at 0.1 Hz, so anything under ten seconds deletes a parked or taxiing aircraft between two of its own transmissions, and the symbol blinks once per cycle on a screen that redraws every second. Airborne it is twelve missed 1 Hz bursts, which is an emitter that has left rather than one that faded behind a wing.
+One multiple, and not two numbers, because the error it buys is the same at both ends. A target is drawn where it was last reported and nothing extrapolates it, so the lie on the glass at drop time is the period times the speed times the multiple. Airborne that is 6 s at 60 m/s, 360 m. On the ground it is 60 s at the 5 to 8 m/s nothing taxis faster than, 300 to 480 m. The ground interval is ten times longer and ground speed about ten times slower, which is why the same six reports cost about the same distance.
 
-What twelve seconds costs is the symbol's own error, because a target is drawn where it was last reported and nothing extrapolates it: at 60 m/s that is 700 m by the time it ages out, which is a third of the closest radar ring. That is the price of one number instead of a rate-aware one, and it is paid on the plot alone - the alarm stopped looking at that contact seven seconds earlier.
+Six is where a fade stops being a fade. At 1 Hz, six consecutive misses is a link that stopped rather than a burst that collided: even at half the bursts lost it is 1.5% of the time. It was twelve seconds for everything, which airborne was 720 m of lie, and on the ground was 1.2 of an emitter's own intervals - one missed transmission deleted a parked or taxiing aircraft, and the symbol blinked once a cycle on a screen that redraws every second.
 
-`kTargetForgetMs` and `kContactForgetMs` are the same twelve seconds in milliseconds. All three say one thing, that the device has lost this aircraft, and a slot that outlived the table would hold a dismissal or a formation membership for an aeroplane no longer on the screen.
+`kAlertMaxAgeMs` is 5 s: what the alarm is allowed to grade. It acts on a position, and at 100 m/s of closure a five-second-old fix is already 500 m of uncertainty, so a contact older than that is no longer something to say a word about. It does not scale with the sender's interval and must not: stretching it to a minute for a parked aircraft would be grading a position half a kilometre wrong.
+
+`direct_preferred_max_age_s` is the one figure that takes the larger of the two: the alarm's patience airborne, for the reason `table.h` gives, and the sender's own interval on the ground. At 0.1 Hz a relay allowed past after five seconds replaces every ground report with the poorer copy of itself, for ever, when the next direct report is not even due.
 
 ## Dismissal
 
@@ -68,12 +71,12 @@ A member is silenced on the annunciator and never on the plot. It stops being dr
 
 **A split is not a conflict.** When station keeping breaks, the contact becomes `State::Parting` rather than traffic again, and stays quiet while it goes. Two aircraft leaving each other are the least surprising thing in the sky, and the geometry of a break reads like a closure to an alarm that grades distance. Parting ends the way it must: the moment they close again by `kClosingMps`, or when they are out of the band entirely and are two aircraft that have nothing to do with each other.
 
-The lease ends by itself: a contact nobody has heard for `kContactForgetMs` is forgotten with its membership, and a neighbour that settles back on station for `kTogetherHoldMs` rejoins. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None`.
+The lease ends by itself: a contact nobody has heard for its own lease (`lease.h`) is forgotten with its membership, and a neighbour that settles back on station for `kTogetherHoldMs` rejoins. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None`.
 
 What this design gives up, deliberately, is the slow merge. A member drifting in at less than `kClosingMps` stays silent, and 3 m/s across a 30 m gap is ten seconds. The alarm is not the thing protecting that pair: they have been in formation for at least `kTogetherHoldMs`, the pilot is looking out at an aircraft they chose to fly next to, and an annunciator that shouts through the whole flight to cover those ten seconds is an annunciator switched off before them.
 
 ## Why the names are not in the table
 
-`CallsignTable` is keyed on the same pair `TrafficTable` is, the address table and the address, and it is a separate table because a name and a position have nothing in common but that key. A position is an observation: it is worthless in twelve seconds and the table forgets it. A name arrives once every ten seconds at best, never changes in flight, and is worth keeping long after the aircraft has dropped off the plot and come back, which is what `kCallsignForgetS` is for. Putting it in `Target` would have thrown the name away with every gap in reception, and made every reader of an observation carry fourteen bytes it does not use.
+`CallsignTable` is keyed on the same pair `TrafficTable` is, the address table and the address, and it is a separate table because a name and a position have nothing in common but that key. A position is an observation: it is worthless in six of the sender's own reports and the table forgets it. A name arrives once every ten seconds at best, never changes in flight, and is worth keeping long after the aircraft has dropped off the plot and come back, which is what `kCallsignForgetS` is for. Putting it in `Target` would have thrown the name away with every gap in reception, and made every reader of an observation carry fourteen bytes it does not use.
 
 It holds one name per target slot, so everything the traffic table can track can be named, and past that the aircraft heard longest ago loses its name first. Only ADS-L Type 66 frames fill it (`core/protocol/README.md`): FLARM broadcasts no name at all, so a FLARM-path target stays hex for ever - and so does the same aircraft's ADS-L identity if the two arrive under different address tables, which is correct rather than unfortunate. Those are two identities on the wire and this device does not guess that they are one aircraft.

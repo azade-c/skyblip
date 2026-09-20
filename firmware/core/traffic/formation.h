@@ -18,7 +18,6 @@ constexpr int32_t kVertDriftM = 30;
 constexpr uint32_t kTogetherHoldMs = 6000;
 constexpr int kBreakFixes = 2;
 constexpr int kTrackedContacts = 8;
-constexpr uint32_t kContactForgetMs = 12000;
 constexpr int32_t kClosingMps = 3;
 
 struct Report {
@@ -46,6 +45,7 @@ class Tracker {
         uint8_t addr_table{0};
         uint32_t addr{0};
         uint32_t seen_ms{0};
+        uint32_t forget_ms{0};
         int32_t ref_ahead_m{0};
         int32_t ref_right_m{0};
         int32_t ref_up_m{0};

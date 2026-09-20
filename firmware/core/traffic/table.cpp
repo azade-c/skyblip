@@ -32,7 +32,8 @@ bool TrafficTable::prefer_new(const model::AircraftObs& in, const model::Aircraf
     // would still act on. Being newer is not enough: a relayed frame is always
     // newer than the direct one it repeats, which is how a relay would
     // otherwise walk a target backwards once a second, for ever.
-    if (rank_in < rank_ex && tin >= tex && tin - tex <= kDirectPreferredMaxAgeSec) return false;
+    if (rank_in < rank_ex && tin >= tex && tin - tex <= direct_preferred_max_age_s(ex))
+        return false;
     if (tin != tex) return tin > tex;
     return rank_in >= rank_ex;
 }
@@ -103,10 +104,10 @@ int TrafficTable::update(const model::AircraftObs& obs, uint32_t now) {
     return idx;
 }
 
-void TrafficTable::age_out(uint32_t now, uint32_t max_age) {
+void TrafficTable::age_out(uint32_t now) {
     for (int i = 0; i < kCapacity; i++) {
         if (!slots_[i].used) continue;
-        if (now - obs_time(slots_[i].obs) > max_age) {
+        if (now - obs_time(slots_[i].obs) > forget_s(slots_[i].obs)) {
             slots_[i].used = false;
             slots_[i].turn = TargetTurn{};
             slots_[i].alarm_level = Level::None;

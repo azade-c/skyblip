@@ -1,7 +1,9 @@
 #include "core/traffic/formation.h"
 
 #include "core/flight/extrapolate.h"
+#include "core/flight/state.h"
 #include "core/protocol/nmea_out.h"
+#include "core/traffic/lease.h"
 #include "core/units/units.h"
 #include "core/util/intmath.h"
 
@@ -38,6 +40,7 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
     Slot* slot = slot_for(target, now_ms);
     if (slot == nullptr) return out;
     slot->seen_ms = now_ms;
+    slot->forget_ms = traffic::forget_ms(target);
 
     const int32_t range_m = static_cast<int32_t>(idistance(north_m, east_m));
     if (range_m > kRangeM || iabs32(up_m) > kVertM) {
@@ -93,7 +96,7 @@ int Tracker::members() const {
 
 void Tracker::forget_stale(uint32_t now_ms) {
     for (Slot& s : slots_)
-        if (s.used && now_ms - s.seen_ms > kContactForgetMs) s = Slot{};
+        if (s.used && now_ms - s.seen_ms > s.forget_ms) s = Slot{};
 }
 
 Tracker::Slot* Tracker::slot_for(const model::AircraftObs& target, uint32_t now_ms) {

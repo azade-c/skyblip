@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include "core/traffic/formation.h"
+#include "core/traffic/lease.h"
 #include "core/units/units.h"
 #include "core/util/intmath.h"
 #include "doctest/doctest.h"
@@ -171,7 +172,8 @@ TEST_CASE("formation: a contact nobody has heard from is forgotten, membership a
     }
     CHECK(tracker.members() == 1);
 
-    tracker.forget_stale(1000 + kTogetherHoldMs + 1000 + kContactForgetMs + 1);
+    const uint32_t lease_ms = traffic::kAirborneTargetForgetS * 1000;
+    tracker.forget_stale(1000 + kTogetherHoldMs + 1000 + lease_ms + 1);
     CHECK(tracker.members() == 0);
     CHECK_FALSE(tracker.together(6, 0x424242));
 }
