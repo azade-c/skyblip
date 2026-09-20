@@ -145,10 +145,11 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
       <h3>Qui est là, <span class="highlight">du plus proche au plus loin</span>.</h3>
       <p>
         Le radar dit où regarder, cette page dit qui c&rsquo;est. Une ligne par
-        aéronef que l&rsquo;appareil sait placer&nbsp;: son adresse, la distance
-        au sol qui vous en sépare, et de combien il est au-dessus ou en dessous
-        de vous. En haut, votre propre adresse et le nombre d&rsquo;appareils
-        entendus.
+        aéronef que l&rsquo;appareil sait placer&nbsp;: son indicatif s&rsquo;il
+        en émet un et son adresse sinon, la distance au sol qui vous en sépare,
+        et de combien il est au-dessus ou en dessous de vous. En haut, votre
+        propre indicatif avec l&rsquo;adresse sous laquelle vous émettez à côté,
+        et le nombre d&rsquo;appareils entendus.
       </p>
       <p>
         La lettre en tête de ligne dit d&rsquo;où vient le report.
@@ -159,7 +160,7 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "nearby.png", alt: "La page nearby : l’adresse de l’appareil et le compte de tout ce qui a été entendu sur la ligne du haut, puis cinq aéronefs listés du plus proche au plus loin, chacun avec sa lettre de source, son adresse, sa distance au sol et son altitude relative" %>
+      <%= pages_image_tag "nearby.png", alt: "La page nearby : l’indicatif S-BLIP avec l’adresse de l’appareil à côté et le compte de tout ce qui a été entendu sur la ligne du haut, puis cinq aéronefs listés du plus proche au plus loin, chacun avec sa lettre de source, son indicatif ou son adresse, sa distance au sol et son altitude relative" %>
       <figcaption>Nearby</figcaption>
     </figure>
   </div>

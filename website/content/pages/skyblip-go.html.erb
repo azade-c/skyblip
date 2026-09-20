@@ -140,9 +140,10 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       <h3>Who is out there, <span class="highlight">nearest first</span>.</h3>
       <p>
         The radar says where to look, this page says who that is. One row per
-        aircraft the device can place: its address, the ground distance between
-        you, and how far above or below you it is. On the top line, your own
-        address and the count of everything heard.
+        aircraft the device can place: its callsign if it broadcasts one and its
+        address otherwise, the ground distance between you, and how far above or
+        below you it is. On the top line, your own callsign with the address you
+        transmit under beside it, and the count of everything heard.
       </p>
       <p>
         The letter at the head of the row says where the report came from.
@@ -152,7 +153,7 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "nearby.png", alt: "The nearby page: own address and the count of everything heard on the top line, then five aircraft listed nearest first, each with its source letter, its address, its ground distance and its relative altitude" %>
+      <%= pages_image_tag "nearby.png", alt: "The nearby page: own callsign S-BLIP with its address beside it and the count of everything heard on the top line, then five aircraft listed nearest first, each with its source letter, its callsign or address, its ground distance and its relative altitude" %>
       <figcaption>Nearby</figcaption>
     </figure>
   </div>
@@ -254,7 +255,7 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-callsign.png", alt: "The callsign field: F-JABC at triple height with a bar under the third character, and the hint PAD ROLLS - BUTTON NEXT at the foot" %>
+      <%= pages_image_tag "menu-callsign.png", alt: "The callsign field: S-BLIP at triple height with a bar under the third character, and the hint PAD ROLLS - BUTTON NEXT at the foot" %>
       <figcaption>The callsign field</figcaption>
     </figure>
   </div>

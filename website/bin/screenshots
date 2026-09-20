@@ -189,7 +189,7 @@ function panel(device) {
   return { w: W, h: H, stride: STRIDE, bits: device.frame() };
 }
 
-const OWN_CALLSIGN = "F-GJPT";
+const OWN_CALLSIGN = "S-BLIP";
 
 // The only way a callsign reaches the device: an app writes it on the config
 // endpoint, the glass asks, and two presses allow it. A write is refused unless
@@ -275,7 +275,7 @@ const scenes = [
     name: "nearby",
     page: PAGE.nearby,
     shot(device) {
-      flying(device)
+      namedAndFlying(device)
         .traffic({ bearing: 20, range: 6100, ft: 1700, kt: 95, track: 30, addr: 0x4dd903, alptas: 1 })
         .traffic({
           bearing: 160, range: 7000, ft: -2300, kt: 130, track: 150,
