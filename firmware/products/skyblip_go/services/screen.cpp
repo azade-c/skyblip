@@ -102,7 +102,7 @@ void ScreenService::press(uint32_t now_ms) {
         return;
     }
     if (editor_.active()) {
-        editor_.change(now_ms);
+        editor_.button(now_ms);
         return;
     }
     enter_menu(now_ms);
@@ -136,7 +136,7 @@ void ScreenService::page_forward(uint32_t now_ms) {
         next_page();
         return;
     }
-    editor_.next_row(now_ms);
+    editor_.pad(now_ms);
 }
 
 void ScreenService::next_page() { show_page(next_fitted_page(page_)); }
@@ -402,6 +402,13 @@ void ScreenService::draw_prompt() {
 }
 
 void ScreenService::draw_menu_page() {
+    if (editor_.editing()) {
+        CallsignSnapshot field;
+        field.text = editor_.text();
+        field.cursor = editor_.cursor();
+        draw_callsign(fb_, field);
+        return;
+    }
     MenuSnapshot snapshot;
     snapshot.page = editor_.page();
     snapshot.values = menu_values();

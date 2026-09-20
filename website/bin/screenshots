@@ -245,6 +245,8 @@ const PAGE = {
   boot: 8
 };
 const ADVISORY = 1;
+// products/skyblip_go/pages/menu.cpp's radar rows: TYPE, CALLSIGN, UNITS, RANGE, ALARM, VOLUME.
+const CALLSIGN_ROW = 1;
 
 const scenes = [
   {
@@ -306,7 +308,19 @@ const scenes = [
     name: "menu-radar",
     page: PAGE.radar,
     menu: true,
-    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.radar)
+    shot: device =>
+      setCallsign(device, OWN_CALLSIGN).fly(CRUISE).run(20_000).openMenu(PAGE.radar)
+  },
+  {
+    name: "menu-callsign",
+    page: PAGE.radar,
+    menu: true,
+    shot(device) {
+      setCallsign(device, OWN_CALLSIGN);
+      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      // Two characters in, so the bar is under a character and not at either end.
+      return device.press().press();
+    }
   },
   {
     name: "menu-nearby",

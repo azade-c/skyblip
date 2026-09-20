@@ -220,7 +220,7 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-radar.png", alt: "The radar menu: aircraft type, units, range, alarm and volume, with the hint PAD MOVES - BUTTON CHANGES at the foot" %>
+      <%= pages_image_tag "menu-radar.png", alt: "The radar menu: aircraft type, callsign, units, range, alarm and volume, with the hint PAD MOVES - BUTTON CHANGES at the foot" %>
       <figcaption>The radar menu</figcaption>
     </figure>
   </div>
@@ -233,6 +233,31 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
     <li>Past the last row: back to the picture</li>
     <li>A minute untouched: it comes back on its own</li>
   </ul>
+
+  <div class="feature feature--reverse">
+    <div>
+      <h3>Your callsign, <span class="highlight">typed with two contacts</span>.</h3>
+      <p>
+        <span class="mono">CALLSIGN</span> is the one row that opens a field
+        rather than stepping a value, and the two gestures swap over inside it:
+        the pad rolls the character the bar is under, the button steps to the
+        next one. The ring is a blank, a dash, <span class="mono">A</span> to
+        <span class="mono">Z</span>, <span class="mono">0</span> to
+        <span class="mono">9</span>, and round to the blank again, so a thumb
+        that goes past a letter comes back to it without a second gesture.
+      </p>
+      <p>
+        The button on the last character is what stores the name, and the blanks
+        you left at the end are dropped: nine of them is how a callsign is
+        removed. Leave the field without finishing it, or let it sit for a
+        minute, and nothing is stored at all.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "menu-callsign.png", alt: "The callsign field: F-JABC at triple height with a bar under the third character, and the hint PAD ROLLS - BUTTON NEXT at the foot" %>
+      <figcaption>The callsign field</figcaption>
+    </figure>
+  </div>
 
   <div class="feature feature--reverse">
     <div>
@@ -426,12 +451,10 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
   </figure>
 
   <p class="lede">
-    Your callsign is one of those writes, and it is the one setting that is not
-    on the menu: there is no way to type six characters with a pad and a button,
-    so the app sends it and the glass asks. It is refused in the air and
-    accepted parked, it is kept when the device is switched off, and from then
-    on it is on the status screen, on the air once every ten seconds, and on the
-    screens of the aircraft around you.
+    Your callsign is one of those writes. The app sends it, the glass asks, and
+    from then on it is on the status screen, on the air once every ten seconds,
+    and on the screens of the aircraft around you. You can also type it on the
+    device itself, which is the section below.
   </p>
   <p class="lede">
     Presses only count once the question has reached the glass and your thumb
