@@ -3,6 +3,7 @@
 
 #include "core/comms/config.h"
 #include "core/diag/payload.h"
+#include "core/diag/profile.h"
 #include "products/skyblip_go/services/record_store.h"
 #include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
@@ -40,6 +41,8 @@ class CaptureService : public runtime::Service {
     uint32_t sectors_owned() const { return store_.sectors_owned(); }
     bus::CaptureStop stopped() const { return stopped_; }
 
+    uint32_t keeps_s(diag::Profile profile) const;
+
    private:
     void open(uint32_t now_ms);
     void record_boot(uint32_t now_ms);
@@ -52,8 +55,11 @@ class CaptureService : public runtime::Service {
     bool write_gap(uint32_t now_ms);
     void publish(uint32_t now_ms);
     bool publish_due(uint32_t now_ms) const;
-    uint32_t records_per_second(uint32_t now_ms) const;
+    uint32_t records_per_hour(uint32_t now_ms) const;
+    uint32_t measured_records_per_hour(uint32_t now_ms) const;
+    uint32_t growth_slots() const;
     uint32_t growth_sectors() const;
+    static uint32_t span_s(uint32_t slots, uint32_t records_per_hour);
 
     RecordStore& store_;
     const RecordStore& flights_;

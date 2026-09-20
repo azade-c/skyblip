@@ -213,6 +213,18 @@ class DiagnosticsPayloads(unittest.TestCase):
         self.assertEqual(decoded(17, payload), whole(
             "end", 0, records=512, dropped=3))
 
+    def test_duty_reads_seven_counters_out_of_fourteen_bytes(self):
+        payload = struct.pack("<7H", 1904, 37, 41_250, 58_300, 1420, 22_700, 640)
+        self.assertEqual(decoded(18, payload), whole(
+            "duty", 0, panel_partial_refreshes=1904, panel_full_refreshes=37,
+            backlight_ms=41_250, rx_armed_ms=58_300, tx_keyed_ms=1420, ble_connected_ms=22_700,
+            annunciator_ms=640))
+
+    def test_two_duty_records_subtract_to_the_true_interval_across_a_wrap(self):
+        before = decoded(18, struct.pack("<7H", 0, 0, 65_000, 0, 0, 0, 0))
+        after = decoded(18, struct.pack("<7H", 0, 0, 95_000 % 65_536, 0, 0, 0, 0))
+        self.assertEqual((after["backlight_ms"] - before["backlight_ms"]) % 65_536, 30_000)
+
 
 class TablesAgainstTheSchema(unittest.TestCase):
     def setUp(self):
@@ -222,7 +234,7 @@ class TablesAgainstTheSchema(unittest.TestCase):
         named = [name for name, _ in
                  (records.DIAG_TYPES[key] for key in sorted(records.DIAG_TYPES))]
         self.assertEqual(named, self.schema["properties"]["type"]["enum"])
-        self.assertEqual(sorted(records.DIAG_TYPES), list(range(1, 18)))
+        self.assertEqual(sorted(records.DIAG_TYPES), list(range(1, 19)))
 
     def test_every_enum_tuple_is_the_schema_enum_in_the_same_order(self):
         for field, names in records.enum_fields():

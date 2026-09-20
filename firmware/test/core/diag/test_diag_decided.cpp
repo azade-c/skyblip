@@ -211,3 +211,46 @@ TEST_CASE("diag record: the end marker counts the session it closes") {
     CHECK(out.records == in.records);
     CHECK(out.dropped == in.dropped);
 }
+
+TEST_CASE("diag record: duty carries how long each consumer was on") {
+    diag::Duty in{};
+    in.panel_partial_refreshes = 1904;
+    in.panel_full_refreshes = 37;
+    in.backlight_ms = 41250;
+    in.rx_armed_ms = 58300;
+    in.tx_keyed_ms = 1420;
+    in.ble_connected_ms = 22700;
+    in.annunciator_ms = 640;
+
+    const diag::Duty out = diag_round_trip(in);
+    CHECK(out.panel_partial_refreshes == in.panel_partial_refreshes);
+    CHECK(out.panel_full_refreshes == in.panel_full_refreshes);
+    CHECK(out.backlight_ms == in.backlight_ms);
+    CHECK(out.rx_armed_ms == in.rx_armed_ms);
+    CHECK(out.tx_keyed_ms == in.tx_keyed_ms);
+    CHECK(out.ble_connected_ms == in.ble_connected_ms);
+    CHECK(out.annunciator_ms == in.annunciator_ms);
+}
+
+TEST_CASE("diag record: a duty counter past 16 bits wraps, because a clamp would lose the delta") {
+    diag::Duty in{};
+    in.backlight_ms = 65536 + 2000;
+    in.rx_armed_ms = 4000000000u;
+    in.panel_partial_refreshes = 70000;
+
+    const diag::Duty out = diag_round_trip(in);
+    CHECK(out.backlight_ms == 2000);
+    CHECK(out.rx_armed_ms == 4000000000u % 65536u);
+    CHECK(out.panel_partial_refreshes == 70000 - 65536);
+}
+
+TEST_CASE("diag record: two duty records subtract to the true interval across a wrap") {
+    diag::Duty before{};
+    before.backlight_ms = 65000;
+    diag::Duty after{};
+    after.backlight_ms = 95000;
+
+    const uint16_t first = static_cast<uint16_t>(diag_round_trip(before).backlight_ms);
+    const uint16_t second = static_cast<uint16_t>(diag_round_trip(after).backlight_ms);
+    CHECK(static_cast<uint16_t>(second - first) == 30000);
+}

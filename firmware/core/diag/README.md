@@ -75,6 +75,7 @@ Every field below is read off `bus::State` or off an `events::` value as it stan
 | `Screen` 15 | page, mode, prompt, alarm level, how long it had been up, backlight, powered, thermal hold | `ScreenService::kPresentFloorMs` and the refresh cadence against what a pilot was shown |
 | `Gap` 16 | records dropped, the span they cover, the total since arming, the ring capacity | nothing. It is the hole itself, written where the hole is |
 | `End` 17 | records written in the session, records dropped | nothing. It is the one record that says the session stopped rather than was stopped |
+| `Duty` 18 | panel partial and full refreshes, backlight ms, receiver armed ms, transmit keyed ms, BLE connected ms, annunciator ms | what each consumer cost over a flight, on a board that cannot measure current: time in state is the only half of a power budget this device holds |
 
 ### The burst that carried a name, and why the name is not in it
 
@@ -89,6 +90,16 @@ The `Power` record carries the steps of `core/power`'s ladder the device decided
 Both fit where the record already had room: `caution` and `trim_learned` are the last two bits of the flag byte, the offset is payload bytes 13 and 14, and byte 15 is still free.
 
 Four more things the ladder decides are left out on purpose, all of them a decoder's arithmetic rather than the device's: the lamp condition, which `indication::condition_for` computes from the alarm level, the power level, this caution flag and the fix, every one of them already in the corpus; the panel's `battery_low`, which is `level` in two comparisons; `may_write` and `may_refresh`, which are `level` and a supply warning count that is already a field; and the trim window's own workings, the session low and the plateau spread, which are the derivation and not the result. The parked low-cell frame is invisible for a different reason: the capture is closed before the glass is drawn.
+
+### Duty, and a power budget on a board with no shunt
+
+There is no current sense on this hardware. What a capture can say about power is the cell's terminal voltage against time, which `Power` already writes once a second, and how long each consumer was switched on, which is this record. Consumption is the one thing it cannot report: nothing on the board measures a milliamp.
+
+A reader turns it into energy by hand. Take two `Duty` records, subtract each field, divide by the seconds between their two instants, and multiply the resulting fraction of the interval by the milliamp figure that consumer draws on the bench. The refresh counts work the same way against a milliamp-seconds figure per refresh. What comes out is an estimate whose error is the bench measurement's, which is the honest bound on a device with no shunt, and the terminal voltage over the same interval is what says whether the estimate matches the pack.
+
+All seven fields are `uint16_t` and the counters they come from on `bus::State` are `uint32_t`, so the codec keeps the low half. That is a wrap and not a clamp, and it is deliberate: every reader subtracts two records, and unsigned subtraction crosses a wrap correctly as long as one interval's delta stays under 65536. A clamp would stick at 65535 and report an interval that never happened. The `diag` dump already reads milliseconds the same way, across the 49.7-day wrap of the millisecond clock.
+
+What buys that is a bound on how far apart two records can be, so the bound is written down as `kDutyMaxPeriodMs`, 60 s, and the service that emits the record asserts its own period against it. At a 30 s cadence the worst interval holds about 30 partial refreshes, 30,000 ms of backlight, 30,000 ms of receiver armed, 30,000 ms of BLE connected and 150 ms of PA keyed (the 1% band M allowance over 30 s), every one of them with room to spare. At 60 s each doubles and the widest is still 60,000. Past that the arithmetic stops being true, which is why the cadence is a constant with an assertion behind it rather than a number chosen in a service.
 
 ### The end marker, and the tail a reader must drop
 
@@ -123,6 +134,7 @@ One tap per fact, in the service that owns the field on `bus::State` (`core/bus/
 | `Screen` | `services/screen.cpp` `record_screen` | `ScreenService::kRecordPeriodMs`, the render cadence |
 | `Gap` | `recorder.cpp` `flush_gap`, `services/capture.cpp` `write_gap`, `announce_rotation` | where the ring refused a record, where the partition refused a sector, and where the sector ring recycled one of this session's own |
 | `End` | `services/capture.cpp` `write_end` | the last record of a session that stopped rather than died |
+| `Duty` | `services/power.cpp` `record_duty` | on the `Power` pass and under its instant: `PowerService::kDutyRecordPeriodMs` in a full capture, `diag::kPowerRunRecordPeriodMs` in a power run |
 
 `Gnss::reject` is the receiver's own verdict and reaches the tap the way every other receiver fact does: `gnss::FixValidity` lives on the L76K driver, which no `runtime::Context` reaches, so the board publishes its reason and its count onto `bus::State` beside the sky view as it pushes the solution, and own-ship reads them there. The board is a writer of that group by the table in `core/bus/README.md`.
 
@@ -133,10 +145,12 @@ Two fields have no producer on this device and are left at their default rather 
 ## The recorder
 
 ```
-void arm();                                 a capture starts, and the ring starts empty
+void arm(Profile = Full);                   a capture starts, and the ring starts empty
 void disarm();                              nothing more is accepted, what is buffered still drains
 bool armed() const;
-bool record(const Record&);                 false when disarmed or dropped
+Profile profile() const;
+bool records(Type) const;                   armed, and this type is one the profile wants
+bool record(const Record&);                 false when disarmed, refused by the profile, or dropped
 bool record(const radio::Entry&);           a tape entry carries its own instant
 template <class T> bool record(const T&, const Instant&);
 bool peek(Record& out);                     the head, still in the ring
@@ -147,6 +161,14 @@ uint32_t dropped() const;
 ```
 
 `record()` returns on the armed flag before it encodes anything, so a disarmed device pays one branch per tap. A tap that has to gather its fields first checks `armed()` itself.
+
+### The two profiles
+
+A profile is what a capture is for, chosen when it is armed and held in RAM beside the armed flag, so a boot comes up with neither. `Full` lists every type: it is the corpus the tuning work replays, and at eleven records a second it fills the ring in about an hour. `PowerRun` lists `Boot`, `Config`, `Power`, `Duty`, `Gap` and `End`, and nothing else.
+
+PowerRun exists because a discharge run to cutoff on the 2400 mAh pack is 35 to 50 hours and a full capture keeps 68 minutes. Two records every 30 s is 240 an hour, so the 45,220 slots of the diagnostics ring hold 188 hours: a run to cutoff fits whole, with its start intact, which is the part of the curve a power budget is built from. The cadence is one constant with that arithmetic behind it rather than a divider a bench can turn, because a number is defensible where a knob is not, and `Power` and `Duty` go out on the same pass so a reader divides one pair of records by another without interpolating between two clocks.
+
+A type the profile does not list is refused and **not counted as a drop**: a `Gap` naming records the profile never wanted would be a lie about a hole. What the profile cannot do is change what a record means, which is why `Boot`, `Config` and `End` are in both: a corpus that cannot say which build and which settings produced it, or whether it ended or died, is not evidence.
 
 The writer peeks and commits rather than taking, because the two failures it can meet are different. A flash that refused the write still owes that record: it stays at the head of the ring and the next pass tries again, where a `take()` in front of the write would have dropped it somewhere no counter can see. Only a record the flash has taken leaves the ring. `flight::LogSession` drains the same way, for the same reason.
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "core/diag/payload.h"
+#include "core/diag/profile.h"
 #include "core/diag/record.h"
 
 namespace skyblip::diag {
@@ -16,12 +17,23 @@ class Recorder {
     // INFO: fc 20sep26 seven subjects a second, three dwells and own-ship's own burst
     static constexpr uint32_t kPeriodicRecordsPerSecond = 11;
 
-    void arm();
+    static constexpr uint32_t kSecondsPerHour = 3600;
+    static constexpr uint32_t kMsPerHour = kSecondsPerHour * 1000;
+
+    static constexpr uint32_t records_per_hour(Profile profile) {
+        return profile == Profile::PowerRun
+                   ? kPowerRunRecordsPerPass * kMsPerHour / kPowerRunRecordPeriodMs
+                   : kPeriodicRecordsPerSecond * kSecondsPerHour;
+    }
+
+    void arm(Profile profile = Profile::Full);
     void disarm();
     bool armed() const { return armed_; }
+    Profile profile() const { return profile_; }
 
     bool record(const Record& record);
     bool record(const radio::Entry& entry);
+    bool records(Type type) const { return armed_ && lists(profile_, type); }
 
     template <class T>
     bool record(const T& value, const Instant& at) {
@@ -51,6 +63,7 @@ class Recorder {
     uint32_t dropped_{0};
     int head_{0};
     int count_{0};
+    Profile profile_{Profile::Full};
     bool armed_{false};
 };
 

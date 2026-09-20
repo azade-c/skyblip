@@ -354,7 +354,7 @@ class Product {
     NmeaService nmea_{ctx_, kFeatures, config_.config()};
     FlightLogService flight_log_{ctx_, flights_store_, &capture_store_, config_.config()};
     CaptureService capture_{ctx_, capture_store_, flights_store_, settings_, config_.config()};
-    ScreenService screen_{ctx_, settings_, config_.config(), alarm_, boot_snapshot_};
+    ScreenService screen_{ctx_, settings_, config_.config(), alarm_, capture_, boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
     // published the slot plan it defers to, and before the screen, which is the

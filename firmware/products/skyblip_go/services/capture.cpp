@@ -169,13 +169,31 @@ uint32_t CaptureService::growth_sectors() const {
     return pool.free_sectors() + from_flights + store_.sectors_owned();
 }
 
-uint32_t CaptureService::records_per_second(uint32_t now_ms) const {
-    if (!open_) return diag::Recorder::kPeriodicRecordsPerSecond;
+uint32_t CaptureService::growth_slots() const {
+    return growth_sectors() * store_.pool().slots_per_sector();
+}
+
+uint32_t CaptureService::keeps_s(diag::Profile profile) const {
+    return span_s(growth_slots(), diag::Recorder::records_per_hour(profile));
+}
+
+uint32_t CaptureService::span_s(uint32_t slots, uint32_t records_per_hour) {
+    if (records_per_hour == 0) return 0;
+    return static_cast<uint32_t>(static_cast<uint64_t>(slots) * diag::Recorder::kSecondsPerHour /
+                                 records_per_hour);
+}
+
+uint32_t CaptureService::records_per_hour(uint32_t now_ms) const {
+    const uint32_t measured = measured_records_per_hour(now_ms);
+    return measured != 0 ? measured : diag::Recorder::records_per_hour(context_.diag.profile());
+}
+
+uint32_t CaptureService::measured_records_per_hour(uint32_t now_ms) const {
+    if (!open_) return 0;
     const uint32_t elapsed_s = (now_ms - opened_ms_) / 1000;
-    const uint32_t written = store_.session_records();
-    if (elapsed_s == 0 || written == 0) return diag::Recorder::kPeriodicRecordsPerSecond;
-    const uint32_t measured = written / elapsed_s;
-    return measured == 0 ? 1 : measured;
+    if (elapsed_s == 0) return 0;
+    return static_cast<uint32_t>(static_cast<uint64_t>(store_.session_records()) *
+                                 diag::Recorder::kSecondsPerHour / elapsed_s);
 }
 
 void CaptureService::publish(uint32_t now_ms) {
@@ -202,7 +220,7 @@ void CaptureService::publish(uint32_t now_ms) {
     out.price_flights =
         flights_.sessions_within(flights > floor_sectors ? flights - floor_sectors : 0);
     // INFO: fc 20sep26 the ring rotates: this is what survives, not a deadline
-    out.keeps_s = growth * pool.slots_per_sector() / records_per_second(now_ms);
+    out.keeps_s = span_s(growth * pool.slots_per_sector(), records_per_hour(now_ms));
 }
 
 }  // namespace skyblip::go

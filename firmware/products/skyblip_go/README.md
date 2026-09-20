@@ -34,6 +34,12 @@ Opening a session touches no flash at all: `begin_session()` names the session a
 
 What that costs is a rate, and the rate follows the dwell map. Since own-ship's callsign took slot 1's tail (`core/timing/README.md`), the uplink dwell is the one stretch the second offers, so erasing the whole partition on a pilot's request takes around 45 seconds rather than the three it took when a sector went out on every pass. The page reports progress throughout, and the alternative was a pass that spends its time on flash and hands the radio a dwell it can no longer arm.
 
+### Which capture is armed
+
+A capture is `Full` or `PowerRun` (`../../core/diag/README.md`), and the glass is the only place either is chosen: nothing arms a capture over Bluetooth. The focus a pilot moves with the pad lives in `ScreenService`, the profile that is running lives in `diag::Recorder` and is read back from there, so a boot comes up armed with nothing and remembering nothing.
+
+`CaptureService::keeps_s(profile)` is the span the page quotes before arming: the slots the claim buys over `diag::Recorder::records_per_hour(profile)`. The screen service holds the capture service by const reference for that one figure, because `bus::CaptureState` carries a single span and it belongs to the capture that is running, measured at the rate that capture is producing. Two captures at rest need two figures, and only the service that owns the partition knows how many slots a sector holds.
+
 ### How a capture ends
 
 A capture session is named the way a flight is, by the UTC second it opened, and it ends in one of three ways. The pilot stops it, the device powers off, or the allocator refuses a sector because the flights floor blocks the claim. Whichever it is, the last record written is a `diag::End`, and that record is the only thing that makes the session read `closed` - a diagnostics slot has no CRC, so a session without one is a session whose tail may be torn (`../../core/diag/README.md`). The store keeps the last two slots of the frontier sector in hand: one for the `diag::Gap` that names the records still queued when the partition refused, one for the `End`.
