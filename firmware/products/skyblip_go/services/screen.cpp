@@ -294,6 +294,7 @@ void ScreenService::wipe_glass(uint32_t now_ms) {
 
 void ScreenService::note_presented(uint32_t now_ms) {
     change_ = Change::None;
+    flat_on_glass_ = false;
     std::memcpy(presented_.data(), fb_.data(), Glass::kBytes);
     presented_once_ = true;
     context_.state.panel_presented = true;
@@ -315,7 +316,7 @@ void ScreenService::set_power(bool on) {
         return;
     }
     dirty_ = true;
-    park(ParkFrame::Wordmark);
+    park_for_off();
 }
 
 // INFO: fc 01aug25 pushed before power-off: the glass wears it while off
@@ -333,6 +334,7 @@ void ScreenService::settle_park(uint32_t now_ms) {
         park_ = ParkStep::Sleep;
         draw_park_frame(park_frame_);
         context_.roles.display.present(fb_, ports::Refresh::Full, now_ms);
+        flat_on_glass_ = park_frame_ == ParkFrame::FlatCell;
         return;
     }
     park_ = ParkStep::None;
@@ -345,10 +347,10 @@ void ScreenService::draw_park_frame(ParkFrame frame) {
         case ParkFrame::Installing: draw_installing(fb_); return;
         // INFO: fc 12sep26 months of one image is the ghosting an e-paper never fully loses
         case ParkFrame::Blank: fb_.clear(/*white=*/true); return;
-        case ParkFrame::LowCell:
+        case ParkFrame::FlatCell:
             fb_.clear(/*white=*/true);
             ui::draw_wordmark(fb_, kGlassW / 2, kGlassH / 2);
-            draw_parked_low_cell();
+            draw_parked_flat_cell();
             return;
         case ParkFrame::Wordmark:
         default:
@@ -358,19 +360,10 @@ void ScreenService::draw_park_frame(ParkFrame frame) {
     }
 }
 
-// INFO: fc 20sep26 VBUS wakes the SoC and core/power/wake.h refuses that boot: the press is the ask
-void ScreenService::draw_parked_low_cell() {
-    const int said_h = kGlyphRows * kParkedSaidScale;
-    const int action_h = kGlyphRows * kParkedActionScale;
-    const int stack = 2 * said_h + action_h + 2 * kParkedStackGap;
+void ScreenService::draw_parked_flat_cell() {
     const int wordmark_bottom = kGlassH / 2 + ui::wordmark_height() / 2;
-    int y = (wordmark_bottom + kGlassH) / 2 - stack / 2;
-
-    centred_text(y, "SWITCHED OFF", kParkedSaidScale);
-    y += said_h + kParkedStackGap;
+    const int y = (wordmark_bottom + kGlassH) / 2 - kGlyphRows * kParkedSaidScale / 2;
     centred_text(y, "FLAT BATTERY", kParkedSaidScale);
-    y += said_h + kParkedStackGap;
-    centred_text(y, "PLUG IN THEN PRESS", kParkedActionScale);
 }
 
 void ScreenService::centred_text(int y, const char* text, int scale) {
@@ -391,7 +384,9 @@ void ScreenService::park_for_install() { park(ParkFrame::Installing); }
 
 void ScreenService::park_for_stow() { park(ParkFrame::Blank); }
 
-void ScreenService::park_for_low_cell() { park(ParkFrame::LowCell); }
+void ScreenService::park_for_off() { park(ParkFrame::Wordmark); }
+
+void ScreenService::park_for_flat_cell() { park(ParkFrame::FlatCell); }
 
 void ScreenService::draw_prompt() {
     ConfirmSnapshot snapshot;

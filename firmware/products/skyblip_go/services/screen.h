@@ -55,7 +55,8 @@ class ScreenService : public runtime::Service {
     void settle_park(uint32_t now_ms);
     void park_for_install();
     void park_for_stow();
-    void park_for_low_cell();
+    void park_for_off();
+    void park_for_flat_cell();
     void set_range_step(int step) {
         range_step_ = clamped_range_step(step);
         dirty_ = true;
@@ -72,6 +73,7 @@ class ScreenService : public runtime::Service {
     bool backlight() const { return backlight_; }
     bool powered() const { return powered_; }
     bool parking() const { return park_ != ParkStep::None; }
+    bool flat_on_glass() const { return flat_on_glass_; }
     const Glass& framebuffer() const { return fb_; }
     void mark_dirty() { dirty_ = true; }
 
@@ -99,15 +101,13 @@ class ScreenService : public runtime::Service {
     bool refresh_allowed() const;
     void wipe_glass(uint32_t now_ms);
     bool may_present_park_frame() const;
-    enum class ParkFrame : uint8_t { Wordmark, Installing, Blank, LowCell };
+    enum class ParkFrame : uint8_t { Wordmark, Installing, Blank, FlatCell };
     enum class ParkStep : uint8_t { None, Frame, Sleep };
     void park(ParkFrame frame);
     void draw_park_frame(ParkFrame frame);
-    void draw_parked_low_cell();
+    void draw_parked_flat_cell();
     void centred_text(int y, const char* text, int scale);
     static constexpr int kParkedSaidScale = 2;
-    static constexpr int kParkedActionScale = 1;
-    static constexpr int kParkedStackGap = 6;
     static constexpr int kGlyphCols = 6;
     static constexpr int kGlyphRows = 7;
     void note_presented(uint32_t now_ms);
@@ -192,6 +192,7 @@ class ScreenService : public runtime::Service {
     bool presented_once_{false};
     ParkStep park_{ParkStep::None};
     ParkFrame park_frame_{ParkFrame::Wordmark};
+    bool flat_on_glass_{false};
     bool backlight_{false};
     bool powered_{true};
 };

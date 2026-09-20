@@ -17,6 +17,7 @@ extern "C" {
 
 KEEPALIVE void simulator_setup() { g_simulator.setup(); }
 KEEPALIVE void simulator_step(unsigned ms) { g_simulator.step(ms); }
+KEEPALIVE int simulator_park_refusal(unsigned ms) { return g_simulator.park_refusal(ms) ? 1 : 0; }
 KEEPALIVE int simulator_load_scenario(const char* json, int len) {
     simulator::Scenario s;
     if (!simulator::parse_scenario(json, len, s)) return 0;

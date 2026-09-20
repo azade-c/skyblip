@@ -102,7 +102,36 @@ class SystemPower : public ports::SystemPower, private power::PowerDownSink {
 
     void reboot() override { sys_reboot(SYS_REBOOT_WARM); }
 
+    bool flat_on_glass() const override { return read_glass_byte() == kFlatOnGlassMagic; }
+
+    void set_flat_on_glass(bool flat) override { write_glass_byte(flat ? kFlatOnGlassMagic : 0); }
+
    private:
+    // INFO: fc 21sep26 a power-on clears GPREGRET2, and a magic makes anything else read as no
+    static constexpr uint8_t kFlatOnGlassMagic = 0x5f;
+
+    static uint8_t read_glass_byte() {
+#if DT_NODE_EXISTS(DT_NODELABEL(glass_retention))
+        const struct device* area = DEVICE_DT_GET(DT_NODELABEL(glass_retention));
+        uint8_t byte = 0;
+        if (!device_is_ready(area)) return 0;
+        if (retention_read(area, 0, &byte, sizeof(byte)) != 0) return 0;
+        return byte;
+#else
+        return 0;
+#endif
+    }
+
+    static void write_glass_byte(uint8_t byte) {
+#if DT_NODE_EXISTS(DT_NODELABEL(glass_retention))
+        const struct device* area = DEVICE_DT_GET(DT_NODELABEL(glass_retention));
+        if (!device_is_ready(area)) return;
+        (void)retention_write(area, 0, &byte, sizeof(byte));
+#else
+        (void)byte;
+#endif
+    }
+
     static power::ResetCause read_causes() {
         power::ResetCause causes = power::ResetCause::None;
 #if NRFX_RESET_REASON_HAS_VBUS

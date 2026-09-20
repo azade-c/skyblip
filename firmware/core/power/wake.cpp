@@ -10,6 +10,15 @@ const char* to_string(BootPath path) {
     return "RUN";
 }
 
+const char* to_string(RefusedFrame frame) {
+    switch (frame) {
+        case RefusedFrame::Wordmark: return "WORDMARK";
+        case RefusedFrame::FlatCell: return "FLAT CELL";
+        case RefusedFrame::Leave: break;
+    }
+    return "LEAVE";
+}
+
 namespace {
 
 bool too_flat_to_run(const BootCell& cell) {
@@ -22,6 +31,11 @@ bool too_flat_to_run(const BootCell& cell) {
 
 ButtonWake button_wake_after_refusal(const BootCell& cell) {
     return too_flat_to_run(cell) ? ButtonWake::Withheld : ButtonWake::Armed;
+}
+
+RefusedFrame refused_frame(const BootCell& cell, bool flat_on_glass) {
+    if (too_flat_to_run(cell)) return flat_on_glass ? RefusedFrame::Leave : RefusedFrame::FlatCell;
+    return flat_on_glass ? RefusedFrame::Wordmark : RefusedFrame::Leave;
 }
 
 BootPath boot_path(ResetCause causes, bool button_down, const BootCell& cell) {

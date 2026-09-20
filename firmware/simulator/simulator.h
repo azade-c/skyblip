@@ -25,6 +25,11 @@ class Simulator {
         product_.step(now_ms);
     }
 
+    bool park_refusal(uint32_t now_ms) {
+        platform_.clock().set_millis(now_ms);
+        return product_.park_refusal(now_ms);
+    }
+
     // A step is how finely the one host loop stands in for the radio thread the
     // silicon platform runs: coarser than the 5 ms guard on the O->M edge and
     // the simulation, not the firmware, is what misses a slot boundary.
