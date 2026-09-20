@@ -93,6 +93,7 @@ bool parse_scenario(const char* json, int len, Scenario& out) {
 
     char buf[64] = {0};
     if (top.get_str("name", buf, sizeof(buf))) out.name = buf;
+    if (top.get_str("callsign", buf, sizeof(buf))) out.callsign = buf;
     if (top.get_str("mode", buf, sizeof(buf))) out.mode = mode_from(buf);
 
     out.lat_1e7 = static_cast<int32_t>(int_or(top, "lat_1e7", out.lat_1e7));

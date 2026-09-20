@@ -57,8 +57,11 @@ struct ScenarioEvent {
 
 // One scenario file drives the browser, the terminal and the regression tests, so
 // a bug found in flight becomes a committed fixture rather than a bug report.
+constexpr const char* kDefaultCallsign = "S-BLIP";
+
 struct Scenario {
     std::string name;
+    std::string callsign{kDefaultCallsign};
     Mode mode{Mode::Dev};
     int32_t lat_1e7{485000000};
     int32_t lon_1e7{85000000};
