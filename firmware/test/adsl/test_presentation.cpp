@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <string>
 
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
@@ -72,6 +73,45 @@ TEST_CASE("ADS-L.4.SRD860.F.2.1: a payload that is not Traffic never becomes an 
         CHECK_FALSE(protocol::to_obs(p, events::Stamp{}, -80, model::Source::AdslDirect, obs));
         CHECK_FALSE(obs.position_valid);
     }
+}
+
+// Payload 66 is the entry F.2.1 assigns to OGN and leaves outside its own scope.
+TEST_CASE("ADS-L.4.SRD860.F.2.1: payload 66 carries the registration ADS-L has no field for") {
+    protocol::AdslPacket p{};
+    protocol::from_own_callsign(p, 0x123456, 58, "D-KXYZ");
+
+    CHECK(p.Type == 0x42);
+    CHECK(p.Type == 66);
+    CHECK(p.Type < 0x80);
+    CHECK_FALSE(p.is_position());
+    CHECK(p.is_registration());
+    CHECK(p.telem_type() == 1);
+    CHECK(p.info_type() == 5);
+    // The header byte OGN reads: TelemType in the top two bits, InfoType in the low six.
+    CHECK(p.Byte[protocol::AdslPacket::kInfoHeaderByte] == 0x45);
+    CHECK(p.address() == 0x123456u);
+    CHECK(p.addr_table() == 58);
+
+    char name[protocol::AdslPacket::kInfoMsgBytes + 1] = {0};
+    CHECK(protocol::callsign_of(p, name, sizeof(name)) == 6);
+    CHECK(std::string(name) == "D-KXYZ");
+}
+
+TEST_CASE("ADS-L.4.SRD860.F.2.1: a registration that is not printable is refused, not drawn") {
+    protocol::AdslPacket p{};
+    protocol::from_own_callsign(p, 0x123456, 58, "D-KXYZ");
+    p.info_msg()[3] = 0x07;
+
+    char name[protocol::AdslPacket::kInfoMsgBytes + 1] = {0};
+    CHECK(protocol::callsign_of(p, name, sizeof(name)) == 0);
+    CHECK(name[0] == 0);
+
+    // And a telemetry record that is not the registration one is not a name either.
+    protocol::AdslPacket other{};
+    protocol::from_own_callsign(other, 0x123456, 58, "D-KXYZ");
+    other.set_info_header(0, 5);
+    CHECK_FALSE(other.is_registration());
+    CHECK(protocol::callsign_of(other, name, sizeof(name)) == 0);
 }
 
 TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits of address") {
