@@ -89,7 +89,8 @@ class Device {
   }
 
   // Bearing in degrees true, range in metres, height above own ship in feet.
-  traffic({ bearing, range, ft = 0, kt = 110, track = 0, fpm = 0, addr, alptas = 0 }) {
+  // `callsign` is what that aircraft puts on air itself, once every ten seconds.
+  traffic({ bearing, range, ft = 0, kt = 110, track = 0, fpm = 0, addr, alptas = 0, callsign }) {
     const radians = (bearing * Math.PI) / 180;
     this.sim.addAircraft(
       Math.round(Math.cos(radians) * range),
@@ -102,6 +103,7 @@ class Device {
       alptas,
       addr
     );
+    if (callsign) this.sim.nameAircraft(this.sim.aircraftCount() - 1, callsign);
     return this;
   }
 
@@ -179,13 +181,18 @@ function panel(device) {
 const CRUISE = { kt: 95, ft: 3911, track: 0, fpm: 0, dps: 0 };
 const LEG_MS = 47 * 60_000;
 const HEARD_MS = 20_000;
+// A callsign goes out once in ten seconds, so a scene that shows one listens longer.
+const NAMED_MS = 25_000;
 
 // One above, one below, one level and climbing, all outside the 3 km an advisory starts at.
 function neighbours(device) {
   return device
     .traffic({ bearing: 320, range: 2600, ft: 1200, kt: 120, track: 290, addr: 0x3fa21c })
     .traffic({ bearing: 95, range: 3600, ft: -800, kt: 140, track: 120, addr: 0x4c11a0 })
-    .traffic({ bearing: 215, range: 3300, ft: -150, kt: 70, track: 200, fpm: 600, addr: 0x300003 });
+    .traffic({
+      bearing: 215, range: 3300, ft: -150, kt: 70, track: 200, fpm: 600,
+      addr: 0x300003, callsign: "D-KXYZ"
+    });
 }
 
 // A leg long enough for the clock to read like a logbook entry, then the sky.
@@ -236,7 +243,10 @@ const scenes = [
     shot(device) {
       flying(device)
         .traffic({ bearing: 20, range: 6100, ft: 1700, kt: 95, track: 30, addr: 0x4dd903, alptas: 1 })
-        .traffic({ bearing: 160, range: 7000, ft: -2300, kt: 130, track: 150, addr: 0x3ab1e4 })
+        .traffic({
+          bearing: 160, range: 7000, ft: -2300, kt: 130, track: 150,
+          addr: 0x3ab1e4, callsign: "F-CBAY"
+        })
         .run(HEARD_MS)
         .walkTo(PAGE.nearby);
     }

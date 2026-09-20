@@ -8,6 +8,7 @@
 #include "core/model/ownship.h"
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
+#include "core/timing/transmit.h"
 #include "core/units/units.h"
 
 namespace skyblip::simulator {
@@ -80,6 +81,17 @@ void World::service_pad(uint32_t now_ms) {
 // Before this the two positions were only ever differenced, so a scenario in
 // which own-ship manoeuvres described no encounter at all: the range closed at
 // the target's speed alone while the alarm was told both speeds.
+void World::name_aircraft(int index, const char* callsign) {
+    if (index < 0 || index >= kMaxAircraft || !aircraft_[index].used || callsign == nullptr) return;
+    char* out = aircraft_[index].callsign;
+    int n = 0;
+    while (n < protocol::AdslPacket::kInfoMsgBytes && callsign[n] != 0) {
+        out[n] = callsign[n];
+        n++;
+    }
+    out[n] = 0;
+}
+
 int World::add_aircraft(double north_m, double east_m, double up_m, double speed_mps,
                         double track_deg, int phase_ms, int slot, protocol::System system,
                         double turn_dps, double climb_mps, uint32_t addr) {
@@ -247,6 +259,15 @@ int16_t climb_e8_of(const VirtualAircraft& a) {
     return static_cast<int16_t>(std::lround(a.climb_mps * kEighthsPerMps));
 }
 
+size_t callsign_burst(const VirtualAircraft& a, uint8_t* chips) {
+    protocol::AdslPacket p;
+    protocol::from_own_callsign(p, a.addr, 6, a.callsign);
+    p.scramble();
+    p.set_crc();
+    return protocol::encode_mband(protocol::kAdslSyncWord, p.Data, protocol::kAdslFrameBytes,
+                                  chips);
+}
+
 size_t adsl_burst(const VirtualAircraft& a, uint32_t utc, int32_t alt_m, int32_t lat_1e7,
                   int32_t lon_1e7, uint8_t* chips) {
     protocol::AdslPacket p;
@@ -341,6 +362,26 @@ void World::transmit(VirtualAircraft& a, uint64_t epoch_us, const model::OwnStat
     air_.emit(epoch_us + static_cast<uint64_t>(tail ? phase_ms + 1000 : phase_ms) * 1000,
               timing::Scheduler::slot_freq(slot), chips, static_cast<uint8_t>(chip_len),
               rssi_at(range_m));
+    name_itself(a, epoch_us, utc, range_m);
+}
+
+// What a skyBlip or an OGN tracker adds to its position bursts: its registration,
+// in slot 1's tail, in the one second of ten its own address owns.
+void World::name_itself(const VirtualAircraft& a, uint64_t epoch_us, uint32_t utc, double range_m) {
+    if (a.callsign[0] == 0) return;
+    const uint32_t period = timing::Transmitter::kCallsignPeriodS;
+    if (utc % period != a.addr % period) return;
+
+    uint8_t chips[protocol::kTxChipBytes] = {0};
+    const size_t chip_len = callsign_burst(a, chips);
+    if (chip_len == 0) return;
+    const int first = timing::kCallsignStart;
+    const int last =
+        timing::kCallsignEnd - timing::kJitterGuardMs - static_cast<int>(Air::kAirTimeUs / 1000);
+    const int phase_ms =
+        first + static_cast<int>((a.addr * 2654435761u) % static_cast<uint32_t>(last - first));
+    air_.emit(epoch_us + static_cast<uint64_t>(phase_ms) * 1000, timing::kMband1Hz, chips,
+              static_cast<uint8_t>(chip_len), rssi_at(range_m));
 }
 
 void World::load(const Scenario& scenario) {
