@@ -103,11 +103,11 @@ TEST_CASE("fb: text advances and draws glyph pixels") {
 
 // A character with no glyph prints as a space, and only the glass ever notices.
 TEST_CASE("fb: every character the pages print has a glyph of its own") {
-    for (const char c : std::string("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/+%")) {
+    for (const char* c = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/+%"; *c != 0; c++) {
         Glass fb;
         fb.clear(true);
-        fb.draw_char(0, 0, c, true, 1);
-        CAPTURE(c);
+        fb.draw_char(0, 0, *c, true, 1);
+        CAPTURE(*c);
         CHECK(fb.count_black() > 0);
     }
 }
