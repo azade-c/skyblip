@@ -312,7 +312,7 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
 void write_json_fields(json::Writer& w, const Settings& s, uint32_t device_addr) {
     w.kv_int("version", s.version);
     w.kv_int("addr", static_cast<long>(settings::air_address(device_addr)));
-    w.kv_int("addr_table", settings::kAddrTableOgn);
+    w.kv_int("addr_table", settings::kAddrTableSkyblip);
     w.kv_int("aircraft_type", s.aircraft_type);
     w.kv_bool("alarm", s.alarm_enabled);
     w.kv_int("alarm_volume", s.alarm_volume);

@@ -103,7 +103,7 @@ TEST_CASE("address: neither all-zeros nor all-ones goes on the air") {
 
 // Issue 2 F.2.2: 0 is privacy and must be re-drawn every start-up, 1 to 4 are reserved.
 TEST_CASE("address: the table is a constant, not a field anything can hold") {
-    CHECK(int(kAddrTableOgn) == 7);
+    CHECK(int(kAddrTableSkyblip) == 58);
     char buf[256];
     const int n = to_json(defaults(), 0xDD0042, buf, static_cast<int>(sizeof(buf)));
     json::Reader r(buf, n);
@@ -111,7 +111,7 @@ TEST_CASE("address: the table is a constant, not a field anything can hold") {
     CHECK(r.get_int("addr", v));
     CHECK(v == 0xDD0042);  // the chip's number, prefix and all
     CHECK(r.get_int("addr_table", v));
-    CHECK(v == 7);
+    CHECK(v == 58);
 }
 
 // B4. A stored blob is a data format: deleting a field is expand, migrate,
@@ -333,7 +333,7 @@ TEST_CASE("settings: a blob written by version-7 firmware comes back without its
     CHECK(r.get_int("addr", v));
     CHECK(v == 0x123456);  // the board's, not the 0xDD1234 that blob carried
     CHECK(r.get_int("addr_table", v));
-    CHECK(v == 7);
+    CHECK(v == 58);
 }
 
 // L, the migration: the two settings that left take their stored bytes with them.
@@ -643,7 +643,7 @@ TEST_CASE("settings: a patch that names an identity changes nothing and refuses 
     CHECK(r.get_int("addr", v));
     CHECK(v == 0x5B7E57);
     CHECK(r.get_int("addr_table", v));
-    CHECK(v == 7);
+    CHECK(v == 58);
 }
 
 TEST_CASE("json_min: the reader parses ints, bools and strings, the writer emits them") {

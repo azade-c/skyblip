@@ -94,7 +94,7 @@ TEST_CASE("product: the identity a tablet is told is the board's, not a stored s
 
     const std::string reply = rig.last_on(events::Endpoint::Config);
     CHECK(reply.find("\"addr\":5987070") != std::string::npos);  // 0x5B5AFE, the host board's
-    CHECK(reply.find("\"addr_table\":7") != std::string::npos);
+    CHECK(reply.find("\"addr_table\":58") != std::string::npos);
 }
 
 TEST_CASE("product: barometric pressure drives vertical speed") {
