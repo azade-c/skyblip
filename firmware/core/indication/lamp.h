@@ -14,7 +14,7 @@
 
 namespace skyblip::indication {
 
-enum class Condition : uint8_t { Off, Alarm, Low, NoFix, Alive, kCount };
+enum class Condition : uint8_t { Off, Alarm, Low, Caution, NoFix, Alive, kCount };
 
 // An LED reaches full brightness in microseconds, so core/annunciation's 90 ms
 // floor - an ear figure, the shortest blip a pilot can place and count - does not
@@ -63,6 +63,10 @@ inline constexpr Row kTable[kRowCount] = {
      {indication::Lamp::Red, 60, 540},
      Budget::Transient,
      "red, blinking every 600 ms: cell below the warning level"},
+    {Condition::Caution,
+     {indication::Lamp::Red, 30, 2970},
+     Budget::Steady,
+     "red, one wink every 3 s: cell past the knee, the last of its charge"},
     {Condition::NoFix,
      {indication::Lamp::Blue, 30, 2970},
      Budget::Steady,
@@ -157,6 +161,8 @@ struct Situation {
     // so the lamp says LOW at exactly the voltage the panel and the tablet do,
     // with the same debounce and the same sanity floor.
     power::PowerLevel power_level{power::PowerLevel::Unknown};
+    // INFO: fc 20sep26 the knee the same monitor read, never a percentage: core/power/README.md
+    bool cell_caution{false};
     bool fix_valid{false};
 };
 

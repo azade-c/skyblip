@@ -17,10 +17,8 @@ struct SixPackSnapshot {
     bool vs_valid{false};
     uint16_t track_deg{0};
     int16_t turn_cdps{0};  // rate of turn in hundredths of a degree a second, positive = right
-    uint32_t flight_seconds{0};
-    bool flight_time_valid{false};
-    bool airborne{false};
-    bool taxiing{false};
+    uint8_t battery_percent{0};
+    bool battery_valid{false};
     int16_t lateral_mg{0};  // right-positive, thousandths of g across the wings
     bool inclinometer_fitted{false};
     bool lateral_valid{false};
