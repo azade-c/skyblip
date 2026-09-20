@@ -133,6 +133,9 @@ class DurableWriteWindow {
 
     bool pending() const { return pending_; }
 
+    // INFO: fc 20sep26 the wait kMaxDeferMs bounds, measured from the oldest unwritten change
+    uint32_t waited_ms(uint32_t now_ms) const { return pending_ ? now_ms - first_request_ms_ : 0; }
+
     // What the bench reads: how many changes arrived, how many writes they cost
     // (the coalescing ratio), how many could not be placed inside the bound, and
     // the longest a change ever waited.
@@ -144,6 +147,9 @@ class DurableWriteWindow {
     // Exposed so the window itself is testable at a phase, without a request and
     // a clock in front of it.
     static bool free_at(const SlotPlan& plan, int phase_ms, uint32_t cost_ms);
+
+    static bool free_now(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms,
+                         uint32_t cost_ms);
 
    private:
     static bool placeable(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms);

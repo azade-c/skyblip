@@ -352,10 +352,21 @@ Two blocks, the order the second runs in. The receiver first: the port's rate, h
 
 Nothing here is rounded, nothing is a word where the counter is a number, and nothing on this page is computed for it: every figure is a plain read of something a service already keeps, which is what makes it evidence rather than a second opinion.
 
+## capture
+
+The diagnostics capture's one screen, and the only place a capture is ever armed: the recorder is never armed over Bluetooth, so this page is the switch (`../../../core/diag/README.md`). It is opened from the `DIAGNOSTICS` menu like every other bench page, and it is the only page off the walk where the button does something.
+
+Disarmed, it states the price before the pilot can pay it. `TAKES n OF m SECTORS` is what the capture may grow into: every free sector, plus whatever flights holds above the twelve protected hours (`../../../core/store/README.md`). `EVICTS k FLIGHTS` turns the second half of that into the thing a pilot owns, the whole stored flights that go, counted oldest first out of the flights index. `KEEPS 1H47 ROLLING` is the one number that used to lie: the ring rotates, so a capture does not stop after that long, it keeps that much of itself. It is how long those sectors hold at the rate the corpus is sized on, eleven records a second, and once a capture is running it is the rate that capture is actually producing.
+
+Armed, it shows the three numbers that say whether the capture is healthy: the session, the records this session wrote against the records the ring had to drop, and the sectors owned with the span they keep. A capture that stopped says so in place of `ARMED` - `STOPPED NO SECTORS` when the allocator refused one - because a capture that quietly stopped is a corpus with an invisible end. `FLASH FAULTS n UNREAD m` appears only when there is something to say: writes the part refused, and sectors the boot scan could not read and therefore quarantined.
+
+The gesture is the one the product already has for anything a thumb must mean: a double press inside `ConfirmGesture::kDoublePressMs`, the same one that authorises a firmware upload, and it arms or stops. A single press does nothing but refuse, and nothing counts until the page has actually reached the glass, which is the same rule a prompt is answered under (`../input/README.md`).
+
 ## The others
 
 | Page | What it answers |
 |---|---|
+| `capture` | what a diagnostics capture costs, and what it has written so far |
 | `raw` | every counter and phase behind a burst that did not happen |
 | `sixpack` | what own-ship is doing: speed, altitude, vertical speed, track, turn |
 | `status` | what the sensors say: fix, position, pressure, battery, UTC, and whether we transmit |

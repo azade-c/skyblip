@@ -8,6 +8,13 @@
 
 namespace skyblip::go {
 
+namespace {
+// INFO: fc 20sep26 the branch bus::State::traffic_now() takes is what dates the second it returns
+bool utc_dated(const bus::State& state) {
+    return (state.clock.pps_locked && state.clock.utc_s != 0) || state.own.utc_valid;
+}
+}  // namespace
+
 // The one thing this service knows before any frame arrives: which aircraft is
 // this one. A ground relay rebroadcasts everything it heard, us included, and
 // the table is where that is refused (core/traffic/table.h).
@@ -71,7 +78,7 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
     entry.at_s = stamp.at_s;
     entry.into_ms = stamp.into_ms;
     entry.phase_valid = stamp.phase_valid;
-    entry.utc = state.own.utc_valid;
+    entry.utc = utc_dated(state);
     entry.airborne = flight::airborne(state.own.flight_state);
     entry.rssi_dbm = event.rssi_dbm;
     entry.rssi_valid = event.rssi_valid;
@@ -90,6 +97,7 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
         entry.addr_valid = obs->source != model::Source::AdslUplink;
     }
     context_.state.radio_log.record(entry);
+    context_.diag.record(entry);
 }
 
 void TrafficService::on_frame(const events::RfEvent& event, uint32_t now_ms) {
@@ -201,6 +209,7 @@ radio::Event TrafficService::decode_adsl(protocol::Frame& frame, uint32_t utc,
     if (p.check_crc() != 0 && (p.correct(frame.err) < 0 || p.check_crc() != 0))
         return radio::Event::BadCrc;
     p.descramble();
+    if (!p.is_position()) return radio::Event::Unsupported;
     events::Stamp received = stamp;
     received.at_s = utc;
     if (!protocol::to_obs(p, received, 0, model::Source::AdslDirect, obs))

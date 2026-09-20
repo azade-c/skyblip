@@ -17,6 +17,7 @@ enum class Page : uint8_t {
     Sats,
     RadioLog,
     Raw,
+    Capture,
     SelfTest,
     kCount
 };
@@ -67,6 +68,7 @@ constexpr const char* page_title(Page page) {
         case Page::Sats: return "SATELLITES";
         case Page::RadioLog: return "RADIO LOG";
         case Page::Raw: return "RAW";
+        case Page::Capture: return "CAPTURE";
         case Page::SelfTest: return "SELF TEST";
         case Page::GMeter: return "G METER";
         default: return "";

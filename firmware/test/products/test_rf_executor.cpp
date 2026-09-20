@@ -41,7 +41,8 @@ struct Pass {
                        null.annunciator, null.dfu,  null.die_temperature,
                        null.indicator,   null.gnss, ports::Capability::Rf,
                        0x5B7E57};
-    runtime::Context context{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context context{roles, bus, state, recorder};
     go::Settings settings{};
     go::RadioService radio_service{context, settings};
     go::TrafficService traffic_service{context, go::kFeatures};
@@ -489,7 +490,8 @@ struct Armings {
                        null.gnss,
                        ports::Capability::Rf,
                        0x5B7E57};
-    runtime::Context context{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context context{roles, bus, state, recorder};
     go::Settings settings{};
     go::RadioService radio{context, settings};
 

@@ -8,6 +8,7 @@
 #include "ports/die_temperature.h"
 #include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
+#include "runtime/tasks.h"
 
 namespace skyblip::go {
 
@@ -54,6 +55,9 @@ class PowerService : public runtime::Service {
         return die_valid_ && now_ms - die_valid_ms_ <= kDieStaleMs;
     }
 
+    // INFO: fc 20sep26 the cadence the cell is sampled at, so no record repeats a reading
+    static constexpr uint32_t kRecordPeriodMs = runtime::kBatteryPeriodMs;
+
    private:
     // INFO: fc 05aug26 Die temperature moves in minutes: it is the temperature of
     // a lump of plastic in the sun, low-passed by its own mass. Ten seconds is
@@ -68,11 +72,13 @@ class PowerService : public runtime::Service {
 
     void sample_die_temperature(uint32_t now_ms);
     void watch_charge();
+    void record_power(uint32_t now_ms);
 
     power::Gauge gauge_{};
     power::CutoffMonitor cutoff_{};
     power::ChargeCondition charge_{power::ChargeCondition::Unknown};
     uint32_t charge_warnings_{0};
+    uint32_t recorded_ms_{0};
     uint32_t die_read_ms_{0};
     uint32_t die_valid_ms_{0};
     int16_t die_dc_{0};

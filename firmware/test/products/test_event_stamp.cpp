@@ -41,7 +41,8 @@ struct Rig {
         null.gnss};
     bus::Bus bus{};
     bus::State state{};
-    runtime::Context context{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context context{roles, bus, state, recorder};
     go::TrafficService traffic{context, go::kFeatures};
 
     Rig() {

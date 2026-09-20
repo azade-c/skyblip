@@ -1,10 +1,13 @@
 #include "products/skyblip_go/services/ownship.h"
 
+#include "core/diag/payload.h"
 #include "core/events/sensor.h"
 #include "core/flight/arc.h"
 #include "core/flight/atmosphere.h"
 #include "core/flight/turn.h"
 #include "core/model/ownship.h"
+#include "core/timing/slot.h"
+#include "core/timing/timing_stats.h"
 #include "core/units/units.h"
 #include "core/util/intmath.h"
 
@@ -23,11 +26,13 @@ void OwnshipService::tick(uint32_t now_ms) {
     while (context_.bus.gnss.pop(solution)) apply_solution(solution, now_ms);
 
     events::BaroSample sample{};
-    while (context_.bus.baro.pop(sample)) apply_baro(sample);
+    while (context_.bus.baro.pop(sample)) apply_baro(sample, now_ms);
 
     events::AccelSample specific_force{};
     while (context_.bus.accel.pop(specific_force)) apply_accel(specific_force);
     publish_inertial(now_ms);
+    record_motion(now_ms);
+    record_pps(now_ms);
 
     timer_.update(flight_.state(), now_ms);
     context_.state.flight.confirmed_state = ground_.state();
@@ -85,6 +90,74 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     update_turn_rate(now_ms);
     update_residual(previous);
     settle_.update(convergence_of(own), now_ms);
+    own.tx_settled = settle_.settled(now_ms);
+    record_gnss(solution, now_ms);
+    record_flight(now_ms);
+}
+
+void OwnshipService::record_gnss(const gnss::GnssSolution& solution, uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    const model::OwnState& own = context_.state.own;
+    const bus::GnssStatus& status = context_.state.gnss;
+    diag::Gnss sample{};
+    sample.nav_ms = status.solution_phase_ms;
+    sample.resid_m = own.pred_resid_m;
+    sample.hdop_e2 = own.hdop_e2;
+    sample.vdop_e2 = own.vdop_e2;
+    sample.stage_s = acquisition_.stage_ms(now_ms) / 1000;
+    sample.sats = own.sats;
+    sample.sats_in_view = static_cast<uint8_t>(status.sky.count());
+    sample.fix_mode = solution.fix_mode;
+    sample.reject = status.reject;
+    sample.stage = acquisition_.stage();
+    sample.fix_valid = own.fix_valid;
+    sample.resid_valid = own.pred_resid_valid;
+    sample.pps_locked = context_.state.clock.pps_locked;
+    sample.geoid_measured = own.geoid_separation_measured;
+    sample.tx_settled = own.tx_settled;
+    context_.diag.record(sample, context_.instant(now_ms));
+}
+
+void OwnshipService::record_pps(uint32_t now_ms) {
+    const timing::ClockState& clock = context_.state.clock;
+    const bool edged = clock.pps_edge_us != pps_edge_us_;
+    if (!edged && now_ms - pps_recorded_ms_ < kPpsRecordPeriodMs) return;
+    const uint64_t previous = pps_edge_us_;
+    pps_edge_us_ = clock.pps_edge_us;
+    pps_recorded_ms_ = now_ms;
+    if (!context_.diag.armed()) return;
+
+    const timing::SlotTimingStats& stats = context_.state.rf.timing_stats;
+    diag::Pps sample{};
+    if (edged && previous != 0)
+        sample.interval_us = static_cast<uint32_t>(clock.pps_edge_us - previous);
+    if (sample.interval_us != 0)
+        sample.error_us = static_cast<int32_t>(static_cast<int64_t>(sample.interval_us) -
+                                               timing::SlotTimingStats::kNominalSecondUs);
+    sample.samples = stats.pps_samples();
+    sample.holdover_events = stats.holdover_events();
+    sample.since_edge_ms = diag::clamp_u16(clock.ms_since_pps);
+    sample.locked = clock.pps_locked;
+    sample.utc_valid = clock.utc_valid;
+    context_.diag.record(sample, context_.instant(now_ms));
+}
+
+void OwnshipService::record_flight(uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    const model::OwnState& own = context_.state.own;
+    diag::Flight sample{};
+    sample.speed_mm_s = own.speed_mm_s;
+    sample.climb_mm_s = own.climb_mm_s;
+    sample.alt_msl_m = static_cast<int16_t>(own.alt_msl_mm / 1000);
+    sample.hdop_e2 = own.hdop_e2;
+    sample.vdop_e2 = own.vdop_e2;
+    sample.declared = static_cast<flight::FlightState>(own.flight_state);
+    sample.confirmed = ground_.state();
+    sample.fix_valid = own.fix_valid;
+    sample.rolling = flight_.rolling();
+    sample.climb_valid = own.climb_valid;
+    sample.tx_settled = own.tx_settled;
+    context_.diag.record(sample, context_.instant(now_ms));
 }
 
 gnss::Convergence OwnshipService::convergence_of(const model::OwnState& own) {
@@ -144,14 +217,52 @@ uint32_t OwnshipService::solution_instant(const gnss::GnssSolution& solution,
         solution, now_ms, static_cast<uint32_t>(clock.pps_edge_us / 1000), clock.pps_locked);
 }
 
-void OwnshipService::apply_baro(const events::BaroSample& sample) {
+void OwnshipService::apply_baro(const events::BaroSample& sample, uint32_t now_ms) {
     context_.state.baro.pressure_mpa = sample.pressure_mpa;
     context_.state.baro.temperature_decicelsius = sample.temperature_decicelsius;
     context_.state.baro.temperature_valid = sample.temperature_valid;
     const int32_t alt_mm = flight::pressure_to_alt_mm(sample.pressure_mpa);
     int32_t mm_s = 0;
-    if (vs_from_alt_mm(alt_mm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_mm_, baro_ref_ms_, mm_s))
-        adopt_climb(mm_s);
+    const bool adopted =
+        vs_from_alt_mm(alt_mm, sample.at_ms, kBaroVsWindowMs, baro_ref_alt_mm_, baro_ref_ms_, mm_s);
+    if (adopted) adopt_climb(mm_s);
+    record_baro(sample, alt_mm, mm_s, adopted, now_ms);
+}
+
+void OwnshipService::record_baro(const events::BaroSample& sample, int32_t alt_mm,
+                                 int32_t climb_mm_s, bool adopted, uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    diag::Baro value{};
+    value.pressure_mpa = sample.pressure_mpa;
+    value.alt_mm = alt_mm;
+    value.climb_mm_s = climb_mm_s;
+    value.temperature_dc = sample.temperature_decicelsius;
+    value.active = baro_active();
+    value.temperature_valid = sample.temperature_valid;
+    value.climb_adopted = adopted;
+    context_.diag.record(value, context_.instant(now_ms));
+}
+
+void OwnshipService::record_motion(uint32_t now_ms) {
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Inclinometer)) return;
+    if (now_ms - motion_recorded_ms_ < kMotionRecordPeriodMs) return;
+    motion_recorded_ms_ = now_ms;
+    if (!context_.diag.armed()) return;
+
+    const bus::State& state = context_.state;
+    diag::Motion value{};
+    value.slip_mg = state.slip.lateral_mg;
+    value.normal_mg = state.gload.now.normal_mg;
+    value.lateral_mg = state.gload.now.lateral_mg;
+    value.longitudinal_mg = state.gload.now.longitudinal_mg;
+    value.most_normal_mg = state.gload.most.normal_mg;
+    value.least_normal_mg = state.gload.least.normal_mg;
+    value.imu_error = state.imu.error;
+    value.sensor_error = state.imu.sensor_error;
+    value.slip_valid = state.slip.valid;
+    value.gload_valid = state.gload.valid;
+    value.fitted = true;
+    context_.diag.record(value, context_.instant(now_ms));
 }
 
 void OwnshipService::apply_accel(const events::AccelSample& sample) {

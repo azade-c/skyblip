@@ -11,8 +11,8 @@ constexpr int kHeaderRuleY = 21;
 
 constexpr MenuRow kRadarMenuRows[] = {MenuRow::AircraftType, MenuRow::Units, MenuRow::Range,
                                       MenuRow::Alarm, MenuRow::Volume};
-constexpr MenuRow kNearbyMenuRows[] = {MenuRow::Status, MenuRow::Sats, MenuRow::RadioLog,
-                                       MenuRow::Raw, MenuRow::SelfTest};
+constexpr MenuRow kNearbyMenuRows[] = {MenuRow::Status, MenuRow::Sats,    MenuRow::RadioLog,
+                                       MenuRow::Raw,    MenuRow::Capture, MenuRow::SelfTest};
 
 template <int N>
 constexpr Menu menu_of(const MenuRow (&rows)[N]) {
@@ -60,6 +60,7 @@ const char* menu_row_label(MenuRow row) {
         case MenuRow::Sats: return "SATELLITES";
         case MenuRow::RadioLog: return "RADIO LOG";
         case MenuRow::Raw: return "RAW";
+        case MenuRow::Capture: return "CAPTURE";
         case MenuRow::SelfTest: return "SELF TEST";
         default: return "";
     }
@@ -69,6 +70,7 @@ Page page_behind(MenuRow row) {
     switch (row) {
         case MenuRow::RadioLog: return Page::RadioLog;
         case MenuRow::Raw: return Page::Raw;
+        case MenuRow::Capture: return Page::Capture;
         case MenuRow::Sats: return Page::Sats;
         case MenuRow::Status: return Page::Status;
         case MenuRow::SelfTest: return Page::SelfTest;
@@ -130,7 +132,8 @@ void draw_menu(ui::Canvas& fb, const MenuSnapshot& s) {
         row_text(fb, i, menu_row_label(row), value, row == s.focus);
     }
 
-    fb.draw_text(kMenuHintX, kMenuHintY, kMenuHintText, true, 1);
+    if (menu_line_top(menu.n) <= kMenuHintY)
+        fb.draw_text(kMenuHintX, kMenuHintY, kMenuHintText, true, 1);
 }
 
 void MenuEditor::enter(Page page, uint32_t now_ms) {

@@ -58,16 +58,70 @@ void ScreenService::handle_input(uint32_t now_ms) {
     }
 
     sync_editor(now_ms);
+    sync_arming(now_ms);
 
     events::ContactEvent event{};
-    while (context_.bus.input.pop(event)) obey(controls_.read(event), now_ms);
+    while (context_.bus.input.pop(event)) {
+        const Gesture gesture = controls_.read(event);
+        record_contact(event, gesture, now_ms);
+        obey(gesture, now_ms);
+    }
     obey(controls_.tick(now_ms), now_ms);
 
     if (answering()) {
         resolve(confirm_.tick(now_ms));
         return;
     }
+    if (arming_.tick(now_ms) != Answer::None) dirty_ = true;
     step_editor(now_ms);
+}
+
+void ScreenService::record_contact(const events::ContactEvent& event, Gesture gesture,
+                                   uint32_t now_ms) {
+    const int which = static_cast<int>(event.contact);
+    const uint32_t held_ms = event.at_ms - contact_edge_ms_[which];
+    contact_edge_ms_[which] = event.at_ms;
+    if (!context_.diag.armed()) return;
+    diag::Contact value{};
+    value.at_ms = event.at_ms;
+    value.held_ms = held_ms;
+    value.contact = event.contact;
+    value.gesture = static_cast<uint8_t>(gesture);
+    value.down = event.down;
+    context_.diag.record(value, context_.instant(now_ms));
+}
+
+void ScreenService::record_screen(uint32_t now_ms) {
+    if (now_ms - recorded_ms_ < kRecordPeriodMs) return;
+    recorded_ms_ = now_ms;
+    if (!context_.diag.armed()) return;
+    diag::Screen value{};
+    value.since_ms = now_ms - screen_since_ms_;
+    value.page = static_cast<uint8_t>(page_);
+    value.mode = static_cast<uint8_t>(mode_);
+    value.prompt = static_cast<uint8_t>(prompt_);
+    value.alarm = context_.state.alarm_live;
+    value.backlight = backlight_;
+    value.powered = powered_;
+    value.holding = thermal() == Thermal::Hold;
+    context_.diag.record(value, context_.instant(now_ms));
+}
+
+// INFO: fc 20sep26 the price has to be on the glass before a press can be spent arming
+void ScreenService::sync_arming(uint32_t now_ms) {
+    if (answering() || !on_capture_page() || !capture_on_glass_ ||
+        !context_.state.capture.available) {
+        arming_.disarm();
+        return;
+    }
+    if (!arming_.armed()) arming_.arm(now_ms);
+}
+
+void ScreenService::toggle_capture() {
+    if (context_.diag.armed())
+        context_.diag.disarm();
+    else
+        context_.diag.arm();
 }
 
 void ScreenService::obey(Gesture gesture, uint32_t now_ms) {
@@ -104,6 +158,11 @@ void ScreenService::press(uint32_t now_ms) {
         editor_.change(now_ms);
         return;
     }
+    if (on_capture_page()) {
+        if (arming_.press(now_ms) == Answer::Confirm) toggle_capture();
+        dirty_ = true;
+        return;
+    }
     enter_menu(now_ms);
 }
 
@@ -120,6 +179,7 @@ void ScreenService::sync_editor(uint32_t now_ms) {
 
 void ScreenService::change_screen() {
     dirty_ = true;
+    screen_since_ms_ = last_tick_ms_;
     if (change_ != Change::Wiped) change_ = Change::Asked;
 }
 
@@ -228,6 +288,7 @@ void ScreenService::tick(uint32_t now_ms) {
     }
 
     if (mode_ == Mode::Menu && alarm_takes_glass()) leave_menu();
+    record_screen(now_ms);
 
     if (!ports::has(context_.roles.capabilities, ports::Capability::Display)) return;
     settle_park(now_ms);
@@ -286,6 +347,7 @@ void ScreenService::wipe_glass(uint32_t now_ms) {
     context_.roles.display.paint_black(now_ms);
     note_presented(now_ms);
     prompt_on_glass_ = false;
+    capture_on_glass_ = false;
     last_render_ms_ = now_ms;
     dirty_ = true;
     change_ = Change::Wiped;
@@ -297,6 +359,7 @@ void ScreenService::note_presented(uint32_t now_ms) {
     presented_once_ = true;
     context_.state.panel_presented = true;
     prompt_on_glass_ = answering();
+    capture_on_glass_ = on_capture_page();
     last_present_ms_ = now_ms;
 }
 
@@ -433,6 +496,14 @@ RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
     snap.radio.slot = state.rf.plan.state;
     snap.radio.freq_hz = state.rf.plan.freq_hz;
     snap.radio.tx_allowed = state.rf.plan.tx_allowed;
+    return snap;
+}
+
+CaptureSnapshot ScreenService::capture_snapshot(uint32_t now_ms) const {
+    CaptureSnapshot snap;
+    snap.uptime_s = now_ms / 1000;
+    snap.capture = context_.state.capture;
+    snap.arming = arming_.pressed();
     return snap;
 }
 
@@ -575,6 +646,10 @@ void ScreenService::render(uint32_t now_ms) {
         }
         case Page::Raw: {
             draw_raw(fb_, raw_snapshot(now_ms));
+            break;
+        }
+        case Page::Capture: {
+            draw_capture(fb_, capture_snapshot(now_ms));
             break;
         }
         case Page::Status:

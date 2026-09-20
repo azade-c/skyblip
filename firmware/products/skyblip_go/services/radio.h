@@ -1,6 +1,7 @@
 #ifndef SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_RADIO_H
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_RADIO_H
 
+#include "core/diag/payload.h"
 #include "core/flight/state.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
@@ -54,6 +55,11 @@ class RadioService : public runtime::Service {
     timing::Transmitter::Attempt attempt(const timing::SlotPlan& plan, uint32_t now_ms) const;
     bool transmit_due(const timing::SlotPlan& plan, uint32_t now_ms) const;
     void arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms);
+    void record_dwell(const timing::SlotPlan& slot, const timing::Transmitter::Attempt& attempt,
+                      int phase, bool armed, bool carries_tx, uint32_t now_ms);
+    diag::Refusal refusal_of(const timing::SlotPlan& slot,
+                             const timing::Transmitter::Attempt& attempt, bool armed,
+                             bool carries_tx) const;
     void log_refusal(radio::Event outcome, const timing::SlotPlan& slot, uint32_t now_ms);
     void publish_dwell(uint32_t now_ms);
     void collect_outcome(uint32_t now_ms);

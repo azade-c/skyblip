@@ -2,6 +2,7 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_CONFIG_H
 
 #include "core/comms/config.h"
+#include "core/diag/payload.h"
 #include "core/power/cutoff.h"
 #include "core/timing/durable_write.h"
 #include "products/skyblip_go/services/power.h"
@@ -69,11 +70,16 @@ class ConfigLinkService : public runtime::Service {
 
    private:
     void spend_gnss_cold_start();
+    void record_link(diag::LinkAction action, uint16_t session, uint16_t frame_bytes,
+                     uint32_t now_ms);
+    void record_write(timing::DurableWriteVerdict verdict, uint32_t now_ms);
+    void watch_claim(uint32_t now_ms);
+    void watch_link_drops(uint32_t now_ms);
 
     static constexpr size_t kBlobCap = 64;
     static constexpr const char* kUpdateKey = "update";
 
-    void drain_link_events();
+    void drain_link_events(uint32_t now_ms);
     void take_request(uint32_t now_ms);
     void drain_settings(uint32_t now_ms);
     void persist();
@@ -95,6 +101,9 @@ class ConfigLinkService : public runtime::Service {
     comms::ConfigService config_;
     const PowerService& power_;
     timing::DurableWriteWindow writes_{};
+    uint16_t recorded_holder_{0};
+    bool recorded_claim_held_{false};
+    uint32_t recorded_drops_{0};
     uint32_t refused_{0};
     bool held_{false};
     bool loaded_{false};

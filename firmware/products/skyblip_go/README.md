@@ -14,7 +14,35 @@ A service is one unit of work the loop steps, under the watchdog, in dataflow or
 
 That is why `nmea` is a service and not a helper, though it drains nothing and writes nothing: it drives `ports::Link` on a one-second cadence that has to defer around an armed burst, which needs its own place in the order and its own watchdog row. Something that consumes the finished product rather than being stepped by it is a reader, and `DiagnosticsDump` is the one the tree has.
 
-Everything a service needs arrives at construction: the `runtime::Context` with the roles, the bus and the state, plus whatever else it is handed as a reference. There is no `attach_` after the fact and no member that starts null, because a service that can be half-built is a service every method has to check.
+Everything a service needs arrives at construction: the `runtime::Context` with the roles, the bus, the state and the diagnostics recorder, plus whatever else it is handed as a reference. There is no `attach_` after the fact and no member that starts null, because a service that can be half-built is a service every method has to check.
+
+The recorder is in the Context rather than on either of the other two because it is neither kind of thing they hold: it has many producers and one consumer, where `core/bus`'s queues have one producer each, and the blackboard's one-writer rule forbids a field every service writes. A tap is one call behind `armed()`, and a disarmed device pays one branch for it (`../../core/diag/README.md`).
+
+## The partition, and the two logs on it
+
+`record_store.h` is the flash half of a log, and it is not a service: `RecordPool` is the partition - one `store::SectorAllocator`, one boot scan of the labels, one set of reply buffers, one drop counter for the link - and `RecordStore` is one ring on it: recovery, the prepared sector, append, the session index, the erase, and the answers to the Log endpoint. The product owns one pool and two stores, and hands them to the two services that bracket sessions differently.
+
+`FlightLogService` is `flight::LogSession` on top of the flights store: a takeoff opens, a landing closes, and the records come from own-ship. `CaptureService` is `diag::Recorder` on top of the diagnostics store: the pilot arms, power off or a refused sector closes, and the records come from every tap in the tree.
+
+### When flash may be touched
+
+Every claim, erase, header and slot program goes through `RecordPool::window_open()`, which is `timing::DurableWriteWindow::free_now()` against the plan and the dwell view the radio publishes: inside a dwell that is already running, finishing a guard's width before it must be re-armed, and never where own-ship may key the PA. Standing off `tx_allowed` alone was not enough - it leaves the erase that opens a session, the erase of a prepared spare and the erase-all outside any window, and a pass that spends 200 ms on flash misses the next dwell edge whether or not the PA was keyed in it.
+
+The budgets the window is asked for are `kSectorEraseCostMs` and `kSlotWriteCostMs` in `record_store.h`. They are budgets for the external NOR on spi1, not datasheet figures, and the bench is what settles them; a `static_assert` holds a claim (erase, header, first record) to the narrowest dwell the map offers. Work is accounted per pass rather than per operation, because the phase the radio published does not advance inside a pass: `RecordStore::room_in_window()` adds up what the pass has already spent and asks for the sum, so a drain, a spare erase and a bulk erase cannot each spend the same window. On top of that the capture writes at most `CaptureService::kDrainCeilingRecords` records in one pass, and a bulk erase at most `kEraseCeilingSectors` sectors.
+
+Opening a session touches no flash at all: `begin_session()` names the session and the first `append()` claims the sector, so the erase and the header land in a window like everything else.
+
+### How a capture ends
+
+A capture session is named the way a flight is, by the UTC second it opened, and it ends in one of three ways. The pilot stops it, the device powers off, or the allocator refuses a sector because the flights floor blocks the claim. Whichever it is, the last record written is a `diag::End`, and that record is the only thing that makes the session read `closed` - a diagnostics slot has no CRC, so a session without one is a session whose tail may be torn (`../../core/diag/README.md`). The store keeps the last two slots of the frontier sector in hand: one for the `diag::Gap` that names the records still queued when the partition refused, one for the `End`.
+
+Power off is the case that needs the rest of the product. The shutdown sequencer parks the capture after `rf.abort()` and `rf.sleep()`, and it is `Product::publish_radio_asleep()` that makes the drain possible: the plan and the dwell view the radio last published still said a burst was coming, so a drain that respects them would defer until the rails dropped. With nothing armed the park drains to exhaustion, then closes - never the other way round, because a session closed over records still in hand is a corpus missing its last second.
+
+A write the part refuses is not the same thing as a sector the allocator refuses. The first is a storage fault: it is counted on the pool, published to the capture page, and the record stays in the RAM ring for the next pass. The second is the end of the capture, and it is written down.
+
+A long capture rotates rather than stopping, so it can lose the sector it opened in. The allocator counts that at the moment it decides it, the capture turns it into a `Gap` plus a fresh `Boot` and `Config`, and the `list` reply marks the session `truncated` (`../../core/store/README.md`).
+
+One service drains `bus.log_rx`, and it is the flight log, because the gates it applies are the flights gates: the link claim, the ground state, and the prompt a destructive erase takes. It routes by `request.store` and refuses by name - `no_diagnostics` for a store this build has no service for, `flights_only` for an erase aimed at the capture, whose ring the allocator recycles on its own. Erasing is per ring: the flights erase clears every sector that is not the capture's, one a pass, and the capture's sectors are left where they are.
 
 The order in `services_` is the dataflow, not a preference. `ownship` publishes the fix before `traffic` measures against it; `traffic` drains `bus.rf` and stamps the transmit before `radio` closes its deadline against it; `screen` goes last because it is the only service allowed to spend a whole pass on pixels.
 

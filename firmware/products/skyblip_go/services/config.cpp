@@ -12,7 +12,7 @@ Status ConfigLinkService::setup() {
 }
 
 void ConfigLinkService::tick(uint32_t now_ms) {
-    drain_link_events();
+    drain_link_events(now_ms);
     // INFO: cf 02aug26 nobody calling this leaves the gate at Unknown, which refuses everything
     config_.set_flight_state(context_.state.flight.confirmed_state);
 
@@ -34,12 +34,50 @@ void ConfigLinkService::tick(uint32_t now_ms) {
     config_.set_range_refused(context_.state.traffic.implausible_count());
 
     events::RxFrame frame{};
-    while (context_.bus.link_rx.pop(frame)) config_.on_rx(frame);
+    while (context_.bus.link_rx.pop(frame)) {
+        config_.on_rx(frame);
+        record_link(diag::LinkAction::Received, frame.session_id, frame.len, now_ms);
+    }
 
     config_.tick(now_ms);
     drain_settings(now_ms);
     spend_gnss_cold_start();
     confirm_image_once_healthy();
+    watch_claim(now_ms);
+    watch_link_drops(now_ms);
+}
+
+void ConfigLinkService::record_link(diag::LinkAction action, uint16_t session, uint16_t frame_bytes,
+                                    uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    diag::Link event{};
+    event.session = session;
+    event.payload_bytes = context_.roles.link.payload_bytes();
+    event.frame_bytes = frame_bytes;
+    event.holder = config_.claim().holder();
+    event.drops = config_.link_drops();
+    event.action = action;
+    event.endpoint = events::Endpoint::Config;
+    event.claim_held = config_.claim().held();
+    context_.diag.record(event, context_.instant(now_ms));
+}
+
+// INFO: fc 20sep26 one central at a time commands the device, and which one is what stalls the next
+void ConfigLinkService::watch_claim(uint32_t now_ms) {
+    const comms::LinkClaim& claim = config_.claim();
+    if (claim.held() == recorded_claim_held_ && claim.holder() == recorded_holder_) return;
+    const bool taken = claim.held();
+    recorded_claim_held_ = taken;
+    const uint16_t was = recorded_holder_;
+    recorded_holder_ = claim.holder();
+    record_link(taken ? diag::LinkAction::ClaimTaken : diag::LinkAction::ClaimReleased,
+                taken ? claim.holder() : was, 0, now_ms);
+}
+
+void ConfigLinkService::watch_link_drops(uint32_t now_ms) {
+    if (config_.link_drops() == recorded_drops_) return;
+    recorded_drops_ = config_.link_drops();
+    record_link(diag::LinkAction::Dropped, config_.session(), 0, now_ms);
 }
 
 // A cold start costs the next fix and the driver puts our configuration back
@@ -57,13 +95,16 @@ void ConfigLinkService::spend_gnss_cold_start() {
 // pushes while somebody is listening. Nothing published these events until the
 // board raised them from the platform; the host suite was green because every
 // case called on_link_up() by hand.
-void ConfigLinkService::drain_link_events() {
+void ConfigLinkService::drain_link_events(uint32_t now_ms) {
     events::LinkEvent event{};
     while (context_.bus.link_events.pop(event)) {
-        if (event.type == events::LinkEventType::Up)
+        const bool up = event.type == events::LinkEventType::Up;
+        if (up)
             config_.on_link_up(events::LinkUp{event.session_id, event.payload_bytes});
         else
             config_.on_link_down(events::LinkDown{event.session_id});
+        record_link(up ? diag::LinkAction::Up : diag::LinkAction::Down, event.session_id, 0,
+                    now_ms);
     }
 }
 
@@ -100,11 +141,26 @@ void ConfigLinkService::drain_settings(uint32_t now_ms) {
     take_request(now_ms);
     const timing::DurableWriteVerdict verdict =
         writes_.decide(context_.state.rf.plan, context_.state.rf.dwell, now_ms);
+    if (verdict != timing::DurableWriteVerdict::Idle) record_write(verdict, now_ms);
     if (verdict != timing::DurableWriteVerdict::Place &&
         verdict != timing::DurableWriteVerdict::Forced)
         return;
     persist();
     writes_.placed(now_ms, verdict == timing::DurableWriteVerdict::Forced);
+}
+
+void ConfigLinkService::record_write(timing::DurableWriteVerdict verdict, uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    diag::Write value{};
+    value.waited_ms = writes_.waited_ms(now_ms);
+    value.phase_ms = static_cast<uint16_t>(context_.state.rf.dwell.phase_ms);
+    value.requests = writes_.requests();
+    value.writes = writes_.writes();
+    value.forced = writes_.forced();
+    value.placement = verdict;
+    value.kind = power::DurableWrite::Settings;
+    value.pending = writes_.pending();
+    context_.diag.record(value, context_.instant(now_ms));
 }
 
 // The deliberate power-off. Same gate: a cell that is collapsing takes the log

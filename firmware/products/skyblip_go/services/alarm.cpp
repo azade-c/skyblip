@@ -39,7 +39,9 @@ void AlarmService::tick(uint32_t now_ms) {
                 tracker_.update(context_.state.own, t->obs, now_ms);
             t->alarm_level = d.assessment.level;
             t->alarm_dismissed = d.dismissed;
-            if (silenced(*t, f, d.assessment, now_ms)) continue;
+            const bool quiet = silenced(*t, f, d.assessment, now_ms);
+            record_traffic(i, *t, d, now_ms);
+            if (quiet) continue;
             worst = std::max(d.assessment.level, worst);
             if (!d.dismissed) live = std::max(d.assessment.level, live);
             announced = announced || d.notify;
@@ -69,6 +71,33 @@ void AlarmService::tick(uint32_t now_ms) {
 
     if (!situation.enabled || !running_) return;
     if (announced) context_.roles.annunciator.vibrate(kHapticFeltThroughAHarnessMs);
+}
+
+// INFO: fc 20sep26 one record per reception: between two of them nothing new is known about it
+void AlarmService::record_traffic(int slot, const traffic::Target& target,
+                                  const traffic::AlarmTracker::Decision& decision,
+                                  uint32_t now_ms) {
+    if (target.obs.at_ms == recorded_obs_ms_[slot]) return;
+    recorded_obs_ms_[slot] = target.obs.at_ms;
+    if (!context_.diag.armed()) return;
+
+    const traffic::AlarmAssessment& assessment = decision.assessment;
+    diag::Traffic value{};
+    value.addr = target.obs.addr;
+    value.dist_m = diag::clamp_u16(
+        assessment.rel_dist_m < 0 ? 0 : static_cast<uint32_t>(assessment.rel_dist_m));
+    value.bearing_deg = assessment.rel_bearing_deg;
+    value.rel_alt_m = diag::clamp_i16(assessment.rel_alt_m);
+    value.closing_mps = diag::clamp_i16(assessment.closing_mps);
+    value.alarm = target.alarm_level;
+    value.source = target.obs.source;
+    value.rssi_dbm = target.obs.rssi_dbm;
+    value.tracked = static_cast<uint8_t>(context_.state.traffic.count());
+    value.assessed = assessment.valid;
+    value.dismissed = decision.dismissed;
+    value.in_formation = target.in_formation;
+    value.position_valid = target.obs.position_valid;
+    context_.diag.record(value, context_.instant(now_ms));
 }
 
 void AlarmService::park(uint32_t now_ms) {
