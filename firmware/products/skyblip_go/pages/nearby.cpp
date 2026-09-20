@@ -10,9 +10,7 @@ namespace skyblip::go {
 namespace {
 constexpr int kSmallCellW = 6;
 constexpr int kGlyphH = 7;
-constexpr int kTitleScale = 2;
 constexpr int kCountScale = 2;
-constexpr int kWordGap = 3;
 constexpr int kRuleY = 32;
 constexpr int kRelHundredsCap = 99;
 constexpr int32_t kDistE1Cap = 999;
@@ -33,17 +31,39 @@ void draw_count(ui::Canvas& fb, int n_heard) {
     buf[n] = 0;
     right_aligned(fb, kNearbyRelEnd, kNearbyTitleY, buf, n, kCountScale);
 
-    const int word_end = kNearbyRelEnd - n * kSmallCellW * kCountScale - kWordGap;
+    const int word_end = kNearbyRelEnd - n * kSmallCellW * kCountScale - kNearbyWordGap;
     right_aligned_text(fb, word_end, kNearbyTitleY + kGlyphH * (kCountScale - 1), "TRAFFIC", 1);
 }
 
-void draw_own_id(ui::Canvas& fb, uint32_t addr) {
-    fb.draw_text(kNearbyIdX, kNearbyTitleY + kGlyphH * (kTitleScale - 1), "ID", true, 1);
+int fmt_own_name(char* out, const char* callsign) {
+    int n = 0;
+    while (n < kNearbyOwnNameChars && callsign[n] != 0) {
+        out[n] = callsign[n];
+        n++;
+    }
+    return n;
+}
 
+void draw_own_addr(ui::Canvas& fb, int x, int y, uint32_t addr, int scale) {
     char buf[8];
     const int n = fmt_hex(buf, addr, 6);
     buf[n] = 0;
-    fb.draw_text(kNearbyAddrX, kNearbyTitleY, buf, true, kTitleScale);
+    fb.draw_text(x, y, buf, true, scale);
+}
+
+void draw_own_id(ui::Canvas& fb, const NearbySnapshot& snap) {
+    if (snap.own_callsign == nullptr || snap.own_callsign[0] == 0) {
+        draw_own_addr(fb, kNearbyIdX, kNearbyTitleY, snap.own_addr, kNearbyTitleScale);
+        return;
+    }
+
+    char buf[16];
+    const int n = fmt_own_name(buf, snap.own_callsign);
+    buf[n] = 0;
+    fb.draw_text(kNearbyIdX, kNearbyTitleY, buf, true, kNearbyTitleScale);
+
+    const int addr_x = kNearbyIdX + n * kSmallCellW * kNearbyTitleScale + kNearbyWordGap;
+    draw_own_addr(fb, addr_x, kNearbyTitleY + kGlyphH * (kNearbyTitleScale - 1), snap.own_addr, 1);
 }
 
 void banner(ui::Canvas& fb, const char* text) {
@@ -54,7 +74,7 @@ void banner(ui::Canvas& fb, const char* text) {
 }
 
 void draw_header(ui::Canvas& fb, const NearbySnapshot& snap) {
-    draw_own_id(fb, snap.own_addr);
+    draw_own_id(fb, snap);
     draw_count(fb, snap.n_heard);
 
     fb.draw_text(kNearbyIdX, kNearbyHeadY, "SRC ID", true, 1);

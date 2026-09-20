@@ -168,9 +168,22 @@ TEST_CASE("radio log page: own-ship's callsign burst says so where its schedule 
     Glass fb;
     draw_radio_log(fb, with(log));
     CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
-    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "CALL"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "CALLSIGN"));
     CHECK_FALSE(shows(fb, 4 + 22 * 6, kFirstRowY, "AIR"));
-    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "CALL"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "CALLSIGN"));
+}
+
+// A name carries no position, so the row has to say what it was or it reads as a target.
+TEST_CASE("radio log page: a received registration says it named its sender, and who") {
+    radio::Log log;
+    radio::Entry named = received(0x3FA21C, -87);
+    named.event = radio::Event::Named;
+    log.record(named);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 16 * 6, kFirstRowY, "NAMED"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "3FA21C"));
 }
 
 // The one row that separates an empty sky from a receiver that frames nothing.

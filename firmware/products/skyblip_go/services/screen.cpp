@@ -464,6 +464,7 @@ void ScreenService::draw_menu_page() {
         CallsignSnapshot field;
         field.text = editor_.text();
         field.cursor = editor_.cursor();
+        field.clears = callsign_press_clears(field.text, field.cursor);
         draw_callsign(fb_, field);
         return;
     }
@@ -643,6 +644,7 @@ void ScreenService::render(uint32_t now_ms) {
         case Page::Nearby: {
             NearbySnapshot snap;
             snap.own_addr = context_.roles.device_addr;
+            snap.own_callsign = settings.callsign;
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();

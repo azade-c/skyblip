@@ -1,6 +1,9 @@
 #ifndef SKYBLIP_SIMULATOR_SIM_H
 #define SKYBLIP_SIMULATOR_SIM_H
 
+#include <cstring>
+#include <string>
+
 #include "core/events/link.h"
 #include "hardware/platform/host/platform.h"
 #include "products/skyblip_go/product.h"
@@ -39,6 +42,7 @@ class Simulator {
     void load(const Scenario& scenario) {
         scenario_ = scenario;
         world_.load(scenario);
+        name_device(scenario.callsign);
     }
 
     bool load_file(const char* path) {
@@ -76,6 +80,15 @@ class Simulator {
     uint16_t haptic_ms() { return platform_.annunciator().haptic_ms(); }
 
    private:
+    // INFO: fc 21sep26 settings are what a device was found with, not an act inside the scenario
+    void name_device(const std::string& callsign) {
+        char* out = product_.settings().callsign;
+        const size_t n =
+            callsign.size() < go::kCallsignCap - 1 ? callsign.size() : go::kCallsignCap - 1;
+        std::memcpy(out, callsign.c_str(), n);
+        out[n] = 0;
+    }
+
     parts::Ssd1681& panel_driver() { return product_.board().display(); }
 
     platform::host::Platform platform_{};
