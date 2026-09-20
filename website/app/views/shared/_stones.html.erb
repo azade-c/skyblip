@@ -1,0 +1,50 @@
+<%
+  families = [
+    { key: "crown-near",    name: crown_near,    bearing: crown_near_when,    alarms: true },
+    { key: "diamond",       name: diamond,       bearing: diamond_when,       alarms: true },
+    { key: "pavilion-near", name: pavilion_near, bearing: pavilion_near_when, alarms: true },
+    { key: "crown-far",     name: crown_far,     bearing: crown_far_when,     alarms: false },
+    { key: "pavilion-far",  name: pavilion_far,  bearing: pavilion_far_when,  alarms: false }
+  ]
+  motions = [ [ "climbing", climbing ], [ "level", level ], [ "sinking", sinking ] ]
+%>
+
+<div class="table-scroll">
+  <table class="stones">
+    <thead>
+      <tr>
+        <td></td>
+        <th colspan="3" scope="colgroup"><%= plain %></th>
+        <th colspan="3" scope="colgroup"><%= alarm %></th>
+      </tr>
+      <tr>
+        <td></td>
+        <% 2.times do %>
+          <% motions.each { |_, label| %><th scope="col"><%= label %></th><% } %>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% families.each do |family| %>
+        <tr>
+          <th scope="row">
+            <%= family[:name] %>
+            <span><%= family[:bearing] %></span>
+          </th>
+          <% motions.each do |key, label| %>
+            <td><%= pages_image_tag "stones/#{family[:key]}-#{key}.png",
+                      alt: "#{family[:name]}, #{label}" %></td>
+          <% end %>
+          <% if family[:alarms] %>
+            <% motions.each do |key, label| %>
+              <td><%= pages_image_tag "stones/#{family[:key]}-#{key}-alarm.png",
+                        alt: "#{family[:name]}, #{label}, #{alarm.downcase}" %></td>
+            <% end %>
+          <% else %>
+            <td colspan="3" class="stones-none"><%= out_of_window %></td>
+          <% end %>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
