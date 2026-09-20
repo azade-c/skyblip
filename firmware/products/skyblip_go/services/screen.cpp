@@ -358,7 +358,7 @@ void ScreenService::draw_park_frame(ParkFrame frame) {
     }
 }
 
-// INFO: fc 20sep26 a low-cell shutdown withholds the wake pin, so the cable is the only way back
+// INFO: fc 20sep26 VBUS wakes the SoC and core/power/wake.h refuses that boot: the press is the ask
 void ScreenService::draw_parked_low_cell() {
     const int said_h = kGlyphRows * kParkedSaidScale;
     const int action_h = kGlyphRows * kParkedActionScale;
@@ -370,7 +370,7 @@ void ScreenService::draw_parked_low_cell() {
     y += said_h + kParkedStackGap;
     centred_text(y, "FLAT BATTERY", kParkedSaidScale);
     y += said_h + kParkedStackGap;
-    centred_text(y, "PLUG IN TO WAKE", kParkedActionScale);
+    centred_text(y, "PLUG IN THEN PRESS", kParkedActionScale);
 }
 
 void ScreenService::centred_text(int y, const char* text, int scale) {

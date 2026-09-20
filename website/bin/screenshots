@@ -313,6 +313,16 @@ const scenes = [
       device.run(20_000);
     }
   },
+  // The stack: the cell takes the banner and the state word it displaced reads under it.
+  {
+    name: "low-battery-taxi",
+    page: PAGE.radar,
+    shot(device) {
+      device.fly({ kt: 6, ft: 340, track: 90, fpm: 0, dps: 0 }).run(30_000);
+      device.sim.setBatteryMv(3400);
+      device.run(20_000);
+    }
+  },
   {
     name: "off",
     powered: false,

@@ -764,19 +764,26 @@ TEST_CASE("radar: a warned cell takes the ring, at the size the ring is read at"
     CHECK(reads_in(warned, "0:42", 0, 176, 60, 198, 2));
     CHECK(reads_in(warned, "FLIGHT", 0, 168, 50, 182));
 
-    // On the ground the state word gives way: a cell this flat outranks GROUND and TAXI.
+    // The stack moves down a slot rather than losing a reading: the cell takes the
+    // banner, the state word takes the small line, and the receiver's stage drops.
     RadarSnapshot parked = low;
     parked.airborne = false;
     const Glass ground = radar(parked);
     CHECK(reads_in(ground, "BAT 4%", 40, 120, 160, 160, 2));
-    CHECK_FALSE(reads_in(ground, "GROUND", 0, 0, 200, 199, 2));
+    CHECK(reads_in(ground, "GROUND", 40, 145, 160, 170));
+    CHECK_FALSE(reads_in(ground, "GROUND", 40, 120, 160, 160, 2));
 
-    // A blind receiver still says so, in the small font under the charge.
+    RadarSnapshot rolling = parked;
+    rolling.taxiing = true;
+    CHECK(reads_in(radar(rolling), "TAXI", 40, 145, 160, 170));
+
     RadarSnapshot blind = low;
     blind.fix_valid = false;
+    blind.stage = skyblip::gnss::Stage::Blind;
     const Glass searching = radar(blind);
     CHECK(reads_in(searching, "BAT 4%", 40, 120, 160, 160, 2));
     CHECK(reads_in(searching, "NO FIX", 40, 145, 160, 170));
+    CHECK_FALSE(reads_in(searching, "BLIND", 0, 0, 200, 199));
 
     // A healthy cell writes nothing there at all.
     CHECK_FALSE(reads_in(radar(flying(47)), "BAT", 0, 0, 200, 199, 2));

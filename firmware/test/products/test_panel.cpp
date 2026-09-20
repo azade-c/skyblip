@@ -121,7 +121,7 @@ TEST_CASE("product: a device that went down on its cell wears the charge under t
     // Halfway between the mark and the bottom: what happened, why, and the way back.
     CHECK(reads_in(parked, "SWITCHED OFF", 10, 130, 190, 170, 2));
     CHECK(reads_in(parked, "FLAT BATTERY", 10, 145, 190, 185, 2));
-    CHECK(reads_in(parked, "PLUG IN TO WAKE", 10, 165, 190, 197));
+    CHECK(reads_in(parked, "PLUG IN THEN PRESS", 10, 165, 190, 197));
 
     // Never a percentage: it would be the reading the device died at, standing unchanged
     // through the whole charge that follows.
