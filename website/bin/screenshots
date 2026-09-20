@@ -219,7 +219,7 @@ const scenes = [
     alarm: ADVISORY,
     shot(device) {
       flying(device).traffic({
-        bearing: 45,
+        bearing: 38,
         range: 2500,
         ft: 100,
         kt: CRUISE.kt,

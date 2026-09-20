@@ -1,12 +1,12 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: Le traceur de poche, écran par écran · le tracé du trafic, l’alarme qui dit où regarder, les quatre pages, les menus, et ce dont l’e-paper et la batterie sont protégés.
+description: Le traceur de poche, écran par écran · le trafic tracé comme vous le voyez, l’alarme qui donne l’angle, les quatre pages, les deux touches, et ce que l’appareil fait au parking.
 ---
 
 <section id="simulator">
   <h2 class="kicker">skyBlip Go</h2>
-  <h3>Allumez-en un. Il fait tourner le firmware d&rsquo;un vrai.</h3>
+  <h3>Allumez-en un. C&rsquo;est le firmware d&rsquo;un vrai qui tourne.</h3>
 
   <%= render "shared/simulator",
         wake: "Maintenez la touche du bas pour le rallumer.",
@@ -23,38 +23,38 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         missing: "Le simulateur ne fait pas partie de cette version du site." %>
 
   <p class="note">
-    Rien ne vole là-haut tant que vous n&rsquo;en demandez pas, et chaque aéronef
-    ajouté par le bouton émet de vraies trames ADS-L que le firmware reçoit,
-    décode et trace. Le voyant à gauche de l&rsquo;écran est celui du firmware,
-    allumé tant qu&rsquo;un contact mérite une alarme. Celui de droite appartient
-    au chargeur, il reste donc éteint sur cette page. Tous les écrans ci-dessous
-    sont des captures de ce même firmware.
+    Le ciel est vide tant que vous ne demandez rien. Chaque aéronef que vous
+    ajoutez émet de vraies trames ADS-L, que le firmware reçoit, décode et
+    trace comme il le ferait en vol. Le voyant de gauche est celui du
+    firmware&nbsp;: il s&rsquo;allume quand un contact mérite une alarme. Celui
+    de droite est celui du chargeur, il reste éteint ici. Toutes les captures
+    qui suivent sortent de ce même firmware.
   </p>
 </section>
 
 <section>
-  <h2 class="kicker">Ce qu&rsquo;il vous montre</h2>
+  <h2 class="kicker">Ce que vous voyez en vol</h2>
 
   <div class="feature">
     <div>
-      <h3>Un tracé qui se lit <span class="highlight">comme une fenêtre</span>.</h3>
+      <h3>Le trafic dessiné <span class="highlight">comme vous le voyez</span>.</h3>
       <p>
-        Votre appareil est au centre, nez en haut, et il ne tourne jamais&nbsp;:
-        c&rsquo;est le ciel qui tourne autour de lui. Une cible en haut à droite
-        est une cible à chercher à droite du nez, et rien n&rsquo;est écrit en
-        haut de l&rsquo;écran, parce que c&rsquo;est la moitié vers laquelle vous
-        volez.
+        Vous êtes au centre, nez en haut, et l&rsquo;image ne tourne
+        jamais&nbsp;: c&rsquo;est le ciel qui tourne autour de vous. Un trafic
+        en haut à droite est un trafic à chercher à droite du nez, sans rien
+        convertir. Rien n&rsquo;est écrit en haut de l&rsquo;écran, parce que
+        c&rsquo;est la moitié vers laquelle vous volez.
       </p>
       <p>
-        Chaque aéronef est une pierre taillée. Un losange, c&rsquo;est un trafic à
-        votre niveau&nbsp;; la moitié haute seule, un trafic au-dessus&nbsp;; la
-        moitié basse, un trafic en dessous. La marque dit donc où regarder avant
-        même d&rsquo;être lue. Un chevron accompagne celui qui monte ou qui
-        descend, et le trait qui en sort mène là où il sera dans une minute.
+        Chaque aéronef est une forme, et la forme dit déjà où lever les
+        yeux&nbsp;: pointe en haut, il est au-dessus de vous&nbsp;; pointe en
+        bas, en dessous&nbsp;; losange, à votre niveau. Un chevron
+        s&rsquo;ajoute s&rsquo;il monte ou s&rsquo;il descend, et le trait qui
+        en part mène là où il sera dans une minute.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "radar.png", alt: "La page radar : trois aéronefs dessinés en pierres taillées, un au-dessus, un en dessous, un au même niveau en montée, chacun avec son trait d’une minute, la route de l’appareil en pointillés avec une bille à chacune des deux minutes suivantes, le cercle de quatre milles, le temps de vol et le nombre d’aéronefs dans le cercle" %>
+      <%= pages_image_tag "radar.png", alt: "La page radar : trois aéronefs dessinés en losanges, un au-dessus, un en dessous, un au même niveau en montée, chacun avec son trait d’une minute, la route de l’appareil en pointillés avec une bille à chacune des deux minutes suivantes, le cercle de quatre milles, le temps de vol et le nombre d’aéronefs dans le cercle" %>
       <figcaption>Radar</figcaption>
     </figure>
   </div>
@@ -62,58 +62,100 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
   <ul class="points">
     <li>Route en haut, jamais le nord</li>
     <li>Cercle de 1, 2, 4 ou 8&nbsp;NM</li>
-    <li>Une pierre taillée&nbsp;: au-dessus, au niveau, en dessous</li>
+    <li>La forme dit au-dessus, au niveau, en dessous</li>
     <li>Une minute de route devant chaque cible</li>
-    <li>Aéronefs comptés dans le cercle</li>
-    <li>Temps depuis le décollage, pour le carnet</li>
+    <li>Le nombre d&rsquo;aéronefs dans le cercle</li>
+    <li>Le temps de vol, pour le carnet</li>
   </ul>
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Une seule alarme, et ce qu&rsquo;elle dit, c&rsquo;est <span class="highlight">où regarder</span>.</h3>
+      <h3>Une alarme, et elle dit <span class="highlight">où regarder</span>.</h3>
       <p>
-        Un aéronef à moins de 3&nbsp;km et 300&nbsp;m de vous remplit sa pierre,
-        et le quadrant où il se trouve clignote une fois par seconde. Un quart
-        d&rsquo;écran qui passe au noir se voit sans être regardé, et c&rsquo;est
-        toute l&rsquo;instruction&nbsp;: tournez la tête par là.
+        Un aéronef à moins de 3&nbsp;km et 300&nbsp;m de vous voit son symbole
+        se noircir, et un quart d&rsquo;écran centré sur lui passe au noir, une fois
+        par seconde. Vous n&rsquo;avez rien à lire&nbsp;: un coin
+        d&rsquo;écran qui clignote se voit du coin de l&rsquo;&oelig;il, et
+        c&rsquo;est toute l&rsquo;instruction, tournez la tête par là. Quelle
+        que soit la page affichée, le radar reprend la main.
       </p>
       <p>
-        Il n&rsquo;y a rien au-dessus, et il n&rsquo;y aura jamais rien. Un ordre
-        de monter ou de descendre se coordonne avec l&rsquo;autre aéronef, et cet
-        appareil n&rsquo;a aucune liaison pour cela. Le plus fort qu&rsquo;il
-        puisse dire, c&rsquo;est regardez.
+        Le secteur noir attrape l&rsquo;&oelig;il, le symbole donne
+        l&rsquo;angle. Un trafic à 38° du nez n&rsquo;est pas arrondi à
+        «&nbsp;devant à droite&nbsp;»&nbsp;: le secteur est penché sur ses 38°,
+        et vous cherchez là plutôt qu&rsquo;au milieu d&rsquo;un quart de ciel.
+      </p>
+      <p>
+        Au-dessus, il n&rsquo;y a rien, et il n&rsquo;y aura jamais rien. Monter
+        ou descendre se coordonne avec l&rsquo;autre aéronef, et cet appareil
+        n&rsquo;a aucune liaison pour le faire. Le plus fort qu&rsquo;il puisse
+        dire, c&rsquo;est regardez.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "alarm.png", alt: "La page radar pendant un avis de trafic : un quadrant de l’écran inversé en noir, avec la pierre pleine de l’aéronef convergent et son trait d’une minute en réserve" %>
+      <%= pages_image_tag "alarm.png", alt: "La page radar pendant un avis de trafic : un secteur de 90° penché sur le relèvement du trafic, passé au noir, avec le losange plein de l’aéronef convergent et son trait d’une minute en réserve" %>
       <figcaption>Avis de trafic</figcaption>
     </figure>
   </div>
 
   <ul class="points">
     <li>3&nbsp;km autour de vous, 300&nbsp;m au-dessus et en dessous</li>
-    <li>Le secteur clignote une fois par seconde</li>
-    <li>Buzzer, vibreur et voyant ensemble</li>
-    <li>La page affichée cède la place au radar</li>
+    <li>Un quart d&rsquo;écran, centré sur le trafic</li>
+    <li>Un clignotement par seconde</li>
+    <li>Le buzzer, le vibreur et le voyant avec</li>
     <li>Un contact sur le pavé le fait taire</li>
     <li>Un avertissement, jamais un ordre</li>
   </ul>
 
+  <h3>Cinq formes, et <span class="highlight">vous les lisez sans les apprendre</span>.</h3>
+  <p class="lede">
+    La pointe en haut, c&rsquo;est un trafic au-dessus&nbsp;; la pointe en bas,
+    un trafic en dessous&nbsp;; le losange, quelqu&rsquo;un dans vos 60&nbsp;m.
+    Un symbole à sa taille normale tient dans les 300&nbsp;m qui comptent pour
+    l&rsquo;alarme&nbsp;; un symbole réduit est plus loin verticalement, et il
+    reste sur l&rsquo;image sans jamais la réclamer. Le chevron s&rsquo;ajoute à
+    partir de 2,5&nbsp;m/s de montée ou de descente, du côté où le trafic va.
+  </p>
+  <p class="lede">
+    Le noirci est réservé à l&rsquo;alarme. Tant qu&rsquo;aucun symbole
+    n&rsquo;est noirci, rien n&rsquo;est urgent&nbsp;: c&rsquo;est le seul
+    contraste que l&rsquo;écran garde en réserve.
+  </p>
+
+  <%= render "shared/stones",
+        plain: "Normal",
+        alarm: "Alarme",
+        climbing: "monte",
+        level: "stable",
+        sinking: "descend",
+        crown_near: "Pointe en haut",
+        crown_near_when: "au-dessus de vous, jusqu’à 300 m",
+        diamond: "Losange",
+        diamond_when: "à 60 m près de votre niveau",
+        pavilion_near: "Pointe en bas",
+        pavilion_near_when: "en dessous de vous, jusqu’à 300 m",
+        crown_far: "Pointe en haut, réduite",
+        crown_far_when: "au-dessus de vous, au-delà de 300 m",
+        pavilion_far: "Pointe en bas, réduite",
+        pavilion_far_when: "en dessous de vous, au-delà de 300 m",
+        out_of_window: "hors de la tranche d’altitude de l’alarme" %>
+
   <div class="feature">
     <div>
-      <h3>Qui est là-haut, <span class="highlight">du plus proche au plus loin</span>.</h3>
+      <h3>Qui est là, <span class="highlight">du plus proche au plus loin</span>.</h3>
       <p>
-        Le radar répond où regarder. Cette page répond qui c&rsquo;est&nbsp;: une
-        ligne par aéronef que l&rsquo;appareil sait placer, la distance au sol qui
-        vous en sépare, et de combien il est au-dessus ou en dessous de vous.
-        Votre propre adresse et le compte de tout ce qui a été entendu tiennent la
-        ligne du haut.
+        Le radar dit où regarder, cette page dit qui c&rsquo;est. Une ligne par
+        aéronef que l&rsquo;appareil sait placer&nbsp;: son adresse, la distance
+        au sol qui vous en sépare, et de combien il est au-dessus ou en dessous
+        de vous. En haut, votre propre adresse et le nombre d&rsquo;appareils
+        entendus.
       </p>
       <p>
-        La lettre dit d&rsquo;où vient le report. <span class="mono">A</span> pour
-        une trame ADS-L directe, <span class="mono">F</span> pour un trafic
-        compatible FLARM, <span class="mono">U</span> pour un aéronef relayé par
-        une station au sol.
+        La lettre en tête de ligne dit d&rsquo;où vient le report.
+        <span class="mono">A</span> pour une trame ADS-L directe,
+        <span class="mono">F</span> pour un trafic compatible FLARM,
+        <span class="mono">U</span> pour un aéronef relayé par une station au
+        sol.
       </p>
     </div>
     <figure class="shot">
@@ -124,18 +166,18 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Six cadrans, et <span class="highlight">l&rsquo;heure qu&rsquo;on recopie</span>.</h3>
+      <h3>Six cadrans, et <span class="highlight">l&rsquo;heure que vous recopiez</span>.</h3>
       <p>
-        Vitesse sol, horizon, altimètre, bille et aiguille, route, vario. Le
-        chiffre au-dessus du cadran central est le temps depuis le décollage, le
-        seul nombre de cet appareil qui finisse dans un carnet de vol.
+        Vitesse sol, horizon, altimètre, bille et aiguille, route, vario.
+        Au-dessus du cadran central, le temps depuis le décollage&nbsp;: le seul
+        chiffre de cet appareil qui finisse dans un carnet de vol.
       </p>
       <p>
-        L&rsquo;horizon s&rsquo;incline de l&rsquo;inclinaison qu&rsquo;un virage
-        symétrique demanderait à cette vitesse, parce que rien à bord ne mesure
-        une inclinaison. La bille, elle, est mesurée, et elle répond au palonnier.
-        Rien ici n&rsquo;est certifié, et ce n&rsquo;est pas un horizon artificiel
-        pour voler en nuage.
+        L&rsquo;horizon s&rsquo;incline de ce qu&rsquo;un virage symétrique
+        demanderait à cette vitesse, parce que rien à bord ne mesure une
+        inclinaison. La bille, elle, est mesurée, et elle répond au palonnier.
+        Rien ici n&rsquo;est certifié, et ce n&rsquo;est pas un horizon
+        artificiel pour voler en nuage.
       </p>
     </div>
     <figure class="shot">
@@ -148,13 +190,13 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <div>
       <h3>Ce que la cellule <span class="highlight">a encaissé</span>.</h3>
       <p>
-        La quatrième page, c&rsquo;est l&rsquo;accéléromètre lu comme un
-        accéléromètre, sans rien en déduire. Le marqueur dit où en est
-        l&rsquo;aile, le cadre autour dit où elle est passée&nbsp;: le plus et le
-        moins encaissés, et jusqu&rsquo;où elle a été jetée de chaque côté.
+        La quatrième page lit l&rsquo;accéléromètre sans rien en déduire. Le
+        marqueur dit où en est l&rsquo;aile maintenant, le cadre autour dit où
+        elle est passée&nbsp;: le plus et le moins encaissés, et jusqu&rsquo;où
+        elle a été jetée de chaque côté.
       </p>
       <p>
-        Les extrêmes appartiennent à ce vol, et repartent de zéro quand le
+        Les extrêmes appartiennent à ce vol et repartent de zéro quand le
         chronomètre démarre. L&rsquo;axe avant-arrière a sa propre bande, parce
         qu&rsquo;un freinage ou un atterrissage dur n&rsquo;est pas une charge
         d&rsquo;aile.
@@ -168,22 +210,22 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 </section>
 
 <section>
-  <h2 class="kicker">Comment on s&rsquo;en sert</h2>
+  <h2 class="kicker">La prise en main</h2>
 
   <div class="feature">
     <div>
       <h3>Le pavé déplace, <span class="highlight">le bouton agit</span>.</h3>
       <p>
-        Deux contacts, et ce partage est tout le vocabulaire. Le pavé capacitif du
-        bord haut parcourt les quatre pages et ne peut rien changer. Le bouton du
-        côté ouvre le menu de la page affichée, et chaque pression suivante fait
-        avancer la ligne sélectionnée.
+        Deux contacts, et le partage entre les deux est tout ce qu&rsquo;il y a
+        à retenir. Le pavé capacitif du bord haut fait défiler les quatre pages,
+        et ne peut rien changer. Le bouton du côté ouvre le menu de la page
+        affichée, et chaque pression suivante fait avancer la ligne.
       </p>
       <p>
-        Deux pages en ont un. Tout ce qu&rsquo;un pouce peut régler tient sous le
-        radar, le premier écran sur lequel on installe un appareil, et le menu de
-        la liste ouvre les pages qui ne sont pas sur le parcours. Rien n&rsquo;est
-        un brouillon, chaque pression est un changement terminé.
+        Deux pages ont un menu. Tout ce qu&rsquo;un pouce peut régler tient sous
+        le radar, le premier écran sur lequel on installe un appareil. Rien
+        n&rsquo;est un brouillon à valider&nbsp;: chaque pression est un réglage
+        terminé.
       </p>
     </div>
     <figure class="shot">
@@ -203,20 +245,20 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Quatre pages sur le parcours, <span class="highlight">le reste par son nom</span>.</h3>
+      <h3>Quatre pages qui défilent, <span class="highlight">le reste par son nom</span>.</h3>
       <p>
-        Une tape passe du radar à la liste, aux instruments puis au G-mètre, et
-        c&rsquo;est tout&nbsp;: un pilote qui fait défiler l&rsquo;écran en vol ne
-        doit jamais tomber sur les barres de satellites. Une carte sans capteur
-        inertiel n&rsquo;a pas de G-mètre à dessiner, la tape l&rsquo;enjambe plutôt
-        que d&rsquo;offrir une image <span class="mono">NO SENSOR</span> une fois
-        sur quatre.
+        Une tape passe du radar à la liste, aux instruments, puis au G-mètre, et
+        à rien d&rsquo;autre&nbsp;: un pilote qui fait défiler l&rsquo;écran en
+        vol ne doit pas tomber sur les barres de satellites. Une carte sans
+        capteur inertiel n&rsquo;a pas de G-mètre à dessiner, la tape
+        l&rsquo;enjambe plutôt que d&rsquo;afficher
+        <span class="mono">NO SENSOR</span> une fois sur quatre.
       </p>
       <p>
         Le reste s&rsquo;ouvre par son nom depuis le menu de la liste, et vous
-        ramène où vous étiez&nbsp;: les quatre pages ci-dessous sont celles de
-        l&rsquo;établi, du parking et du rapport de bug, et aucune n&rsquo;est une
-        image sur laquelle tomber avec le pouce.
+        rend la page où vous étiez. Les quatre écrans ci-dessous sont ceux de
+        l&rsquo;établi, du parking et du rapport de bug&nbsp;: aucun n&rsquo;est
+        une image sur laquelle tomber avec le pouce.
       </p>
     </div>
     <figure class="shot">
@@ -257,7 +299,7 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         </tr>
         <tr>
           <th>Contact d&rsquo;1&nbsp;s sur le pavé</th>
-          <td>lève une alarme en cours, et s&rsquo;il n&rsquo;y en a pas, le radar</td>
+          <td>fait taire une alarme en cours, et s&rsquo;il n&rsquo;y en a pas, ramène le radar</td>
           <td>le radar</td>
         </tr>
         <tr>
@@ -290,13 +332,14 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <h3>Il dit <span class="highlight">ce qu&rsquo;il attend</span>.</h3>
       <p>
         Une pression et il est allumé, directement sur l&rsquo;image du trafic.
-        Sans position, le cercle le dit, et le mot en dessous indique où en est le
-        récepteur&nbsp;: il s&rsquo;est tu, il envoie des solutions encore sans
-        date, ou il a lu une date sur un satellite.
+        Tant qu&rsquo;il n&rsquo;a pas de position, le cercle vous le dit, et le
+        mot en dessous vous donne où en est le récepteur&nbsp;: silencieux, des
+        solutions qui arrivent encore sans date, ou une date lue sur un
+        satellite.
       </p>
       <p>
-        C&rsquo;est la différence entre un appareil qu&rsquo;il faut attendre et un
-        appareil qu&rsquo;il faut sortir à découvert. Le premier point
+        C&rsquo;est la différence entre un appareil qu&rsquo;il faut attendre et
+        un appareil qu&rsquo;il faut sortir à découvert. Le premier point
         s&rsquo;annonce, et l&rsquo;image devient une image du ciel.
       </p>
     </div>
@@ -311,16 +354,16 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
       <h3>Le logo à l&rsquo;écran <span class="highlight">veut dire éteint</span>.</h3>
       <p>
         Un appui de deux secondes éteint&nbsp;: la radio est arrêtée,
-        l&rsquo;écran reçoit trois secondes pour dessiner le logo, et les
-        alimentations tombent une fois le pouce relevé. Le papier électronique
-        garde son image sans aucune alimentation&nbsp;: c&rsquo;est donc ce que
-        porte un appareil éteint.
+        l&rsquo;écran reçoit trois secondes pour dessiner le logo, et
+        l&rsquo;alimentation tombe quand vous relâchez. Le papier électronique
+        garde son image sans courant&nbsp;: c&rsquo;est donc ce qu&rsquo;un
+        appareil éteint porte.
       </p>
       <p>
-        Le même appui avec un doigt sur le pavé laisse l&rsquo;écran vierge. Une
-        image laissée tout un hiver sur un papier électronique y laisse une ombre
-        que la dalle ne perd jamais tout à fait, et un appareil qui part au
-        placard ne doit rien porter.
+        Le même appui, un doigt posé sur le pavé, laisse l&rsquo;écran vierge.
+        Une image laissée tout un hiver sur du papier électronique y laisse une
+        ombre que la dalle ne perd plus, et un appareil qui part au placard ne
+        doit rien porter.
       </p>
     </div>
     <figure class="shot">
@@ -355,15 +398,15 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
         <span class="mono">skyBlip Go 5B5AFE</span>&nbsp;: le produit, puis sa
         propre adresse 24 bits. Rien à appairer, aucun code à taper. Il porte le
         flux NMEA FLARM sur les deux profils série Bluetooth que cherchent les
-        logiciels de navigation, donc l&rsquo;application avec laquelle vous volez
-        le trouve.
+        logiciels de navigation, donc l&rsquo;application avec laquelle vous
+        volez déjà le trouve.
       </p>
       <p>
-        La tablette sur le manche, le téléphone dans une poche et l&rsquo;iPad du
-        passager lisent le même trafic. La configuration est la seule chose qui ne
-        se partage pas&nbsp;: la première application à écrire garde ce droit
-        jusqu&rsquo;à sa déconnexion, et la deuxième s&rsquo;entend dire qui le
-        détient.
+        La tablette sur le manche, le téléphone dans une poche et l&rsquo;iPad
+        du passager voient le même trafic. La configuration est la seule chose
+        qui ne se partage pas&nbsp;: la première application qui écrit garde ce
+        droit jusqu&rsquo;à sa déconnexion, et la deuxième s&rsquo;entend dire
+        qui le détient.
       </p>
     </div>
     <figure class="shot shot--photo">
@@ -380,22 +423,22 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     <li>Récupérés au sol par la même liaison</li>
   </ul>
 
-  <h3>Deux pressions autorisent, une pression refuse.</h3>
+  <h3>Deux pressions autorisent, <span class="highlight">une pression refuse</span>.</h3>
   <p class="lede">
-    Quand une application demande quelque chose qui pourrait changer l&rsquo;avion
-    que vous pilotez, un nouveau firmware, une écriture de réglages,
-    l&rsquo;effacement de vos vols, une extinction, l&rsquo;appareil n&rsquo;agit
-    pas sur la parole du téléphone. Il met la question sur son propre écran, la
+    Quand une application demande quelque chose qui touche à l&rsquo;appareil
+    que vous avez à bord, un nouveau firmware, une écriture de réglages,
+    l&rsquo;effacement de vos vols, une extinction, l&rsquo;appareil ne croit
+    pas le téléphone sur parole. Il pose la question sur son propre écran, la
     nomme, et attend trente secondes&nbsp;:
     <span class="mono">PRESS TWICE TO ALLOW</span>,
-    <span class="mono">ONE PRESS REFUSES</span>. Aucune réponse dans la fenêtre est
-    un refus aussi.
+    <span class="mono">ONE PRESS REFUSES</span>. Pas de réponse dans la fenêtre
+    vaut refus.
   </p>
   <p class="lede">
     Les pressions ne comptent qu&rsquo;une fois la question arrivée à
-    l&rsquo;écran et votre pouce arrêté, donc une série de pressions qui faisait
-    avancer une valeur ne peut pas être dépensée en autorisation. Le pavé est
-    inerte tant qu&rsquo;une question est posée.
+    l&rsquo;écran et votre pouce arrêté&nbsp;: une série de pressions qui
+    faisait avancer un réglage ne peut pas être dépensée en autorisation. Le
+    pavé est inerte tant qu&rsquo;une question est posée.
   </p>
 </section>
 
@@ -404,11 +447,11 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <h3>Où passe la seconde.</h3>
   <p class="lede">
-    Il y a une radio dans l&rsquo;appareil et une antenne, donc la seconde est
-    découpée en plages et chaque plage reçoit une fréquence. Le GPS donne le haut
-    de la seconde à la microseconde près, et chaque skyBlip, chaque skyPost et
-    chaque appareil de génération FLARM à portée découpe la même seconde de la
-    même façon.
+    Il y a une radio et une antenne dans l&rsquo;appareil, donc la seconde est
+    découpée en plages et chaque plage reçoit une fréquence. Le GPS donne le
+    haut de la seconde à la microseconde près, et chaque skyBlip, chaque skyPost
+    et chaque appareil de génération FLARM à portée découpe la même seconde de
+    la même façon.
   </p>
 
   <div class="table-scroll">
@@ -429,8 +472,8 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     Passer sur les deux canaux 868 n&rsquo;est pas un raffinement. ADS-L alterne
     les canaux d&rsquo;une émission à la suivante, et un appareil de génération
     FLARM émet sur le canal bas dans la première moitié de la seconde et sur le
-    canal haut dans la seconde moitié. Un récepteur campé sur l&rsquo;un des deux
-    entendrait la moitié de ses voisins, sans savoir laquelle.
+    canal haut dans la seconde moitié. Un récepteur campé sur l&rsquo;un des
+    deux entendrait la moitié de ses voisins, sans savoir laquelle.
   </p>
   <p class="lede">
     Sur ces deux canaux, l&rsquo;appareil entend deux systèmes dans une seule
@@ -438,18 +481,18 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     trames derrière un mot de synchronisation de 32 bits, et les deux mots
     coïncident sur leurs dix-huit premiers chips&nbsp;: le récepteur
     s&rsquo;accroche aux chips qu&rsquo;ils partagent, et le logiciel nomme le
-    système d&rsquo;après ceux qui suivent. Les quelques millisecondes de part et
-    d&rsquo;autre de la plage 869,525&nbsp;MHz sont la marge qu&rsquo;exige un
-    changement de bande, parce que les deux bandes sont deux modulations et non
-    deux fréquences&nbsp;: 100&nbsp;kbit/s Manchester FSK en bas, 200&nbsp;kbit/s
-    GMSK en haut.
+    système d&rsquo;après ceux qui suivent. Les quelques millisecondes de part
+    et d&rsquo;autre de la plage 869,525&nbsp;MHz sont la marge qu&rsquo;exige
+    un changement de bande, parce que les deux bandes sont deux modulations et
+    non deux fréquences&nbsp;: 100&nbsp;kbit/s Manchester FSK en bas,
+    200&nbsp;kbit/s GMSK en haut.
   </p>
   <p class="lede">
-    L&rsquo;émission est la partie étroite. L&rsquo;appareil ne parle que sur les
-    canaux 868, entre 450 et 1000&nbsp;ms, sur celui des deux canaux à qui
-    revient cette seconde, et ce qui sort est toujours de l&rsquo;ADS-L&nbsp;: le
-    format de génération FLARM est reçu, jamais émis. Le 869,525&nbsp;MHz
-    appartient à la station sol pour parler et à nous pour écouter&nbsp;: rien
+    L&rsquo;émission est la partie étroite. L&rsquo;appareil ne parle que sur
+    les canaux 868, entre 450 et 1000&nbsp;ms, sur celui des deux canaux à qui
+    revient cette seconde, et ce qui sort est toujours de l&rsquo;ADS-L&nbsp;:
+    le format de génération FLARM est reçu, jamais émis. Le 869,525&nbsp;MHz
+    appartient à la station sol pour parler et à nous pour écouter, donc rien
     dans cet appareil n&rsquo;y passe jamais en émission. L&rsquo;instant de la
     salve dans la plage est tiré de l&rsquo;adresse de l&rsquo;appareil et de la
     seconde en cours, retiré à chaque seconde, ce qui empêche deux aéronefs dont
@@ -467,19 +510,20 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
 
   <h3>Pourquoi l&rsquo;écran se comporte ainsi.</h3>
   <p class="lede">
-    La dalle est un papier électronique de 1,54&Prime;, 200&times;200 pixels. Elle
-    garde sa dernière image alimentations coupées et ne consomme rien pour la
+    La dalle est un papier électronique de 1,54&Prime;, 200&times;200 pixels.
+    Elle garde sa dernière image alimentation coupée et ne consomme rien pour la
     garder&nbsp;: c&rsquo;est ce qui fait du logo garé une indication, et de
     l&rsquo;écran vierge la bonne image de rangement.
   </p>
   <p class="lede">
     En vol, chaque image est un rafraîchissement partiel. La forme d&rsquo;onde
     complète, celle qui fait clignoter la dalle en noir et blanc pendant une
-    seconde et demie, est dépensée deux fois par session&nbsp;: à l&rsquo;allumage
-    et à l&rsquo;extinction. Un changement de page passe par un seul effacement au
-    noir, et le clignotement d&rsquo;alarme, une fois par seconde, est le plancher
-    de la dalle plutôt qu&rsquo;un rythme choisi. Plus vite est possible, et une
-    grande zone noire basculée à ce rythme marque la dalle pour de bon.
+    seconde et demie, est dépensée deux fois par session&nbsp;: à
+    l&rsquo;allumage et à l&rsquo;extinction. Un changement de page passe par un
+    seul effacement au noir, et le clignotement d&rsquo;alarme, une fois par
+    seconde, est le plancher de la dalle plutôt qu&rsquo;un rythme choisi. Plus
+    vite est possible, et une grande zone noire basculée à ce rythme marque la
+    dalle pour de bon.
   </p>
 
   <ul class="points">
@@ -497,14 +541,14 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
     l&rsquo;ordre en est tout le contenu. La mémoire flash externe reçoit
     l&rsquo;ordre de dormir pendant qu&rsquo;elle a encore de quoi
     l&rsquo;entendre&nbsp;: après la coupure cet ordre ne fait rien, et le
-    composant tire son courant de veille complet toute la nuit que l&rsquo;appareil
-    passe dans une sacoche à avoir l&rsquo;air éteint.
+    composant tire son courant de veille complet toute la nuit que
+    l&rsquo;appareil passe dans une sacoche à avoir l&rsquo;air éteint.
   </p>
   <p class="lede">
-    Le reste, c&rsquo;est la radio et les capteurs. En vol l&rsquo;appareil parle
-    une fois par seconde, au sol une fois sur dix, et laquelle des dix secondes
-    est la sienne vient de son adresse, si bien qu&rsquo;un terrain plein
-    d&rsquo;aéronefs s&rsquo;étale de lui-même.
+    Le reste, c&rsquo;est la radio et les capteurs. En vol l&rsquo;appareil
+    parle une fois par seconde, au sol une fois sur dix, et laquelle des dix
+    secondes est la sienne vient de son adresse, si bien qu&rsquo;un terrain
+    plein d&rsquo;aéronefs s&rsquo;étale de lui-même.
   </p>
 
   <ul class="points">
@@ -524,8 +568,8 @@ description: Le traceur de poche, écran par écran · le tracé du trafic, l’
   </p>
   <p class="lede">
     Elle ne recule jamais, et l&rsquo;affaissement dû à une émission à
-    22&nbsp;dBm ne la fait pas bouger. Une jauge qui saute quand la radio émet est
-    une jauge qu&rsquo;un pilote cesse de croire.
+    22&nbsp;dBm ne la fait pas bouger. Une jauge qui saute quand la radio émet
+    est une jauge qu&rsquo;un pilote cesse de croire.
   </p>
 
   <div class="table-scroll">
