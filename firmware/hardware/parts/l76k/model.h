@@ -79,6 +79,7 @@ class L76k : public io::Uart, public io::UartRate {
     // The rate the receiver itself is talking at. The MCU end is set through
     // io::UartRate, and the two only agree because someone made them.
     uint32_t baud{parts::L76k::kBaudRate};
+    bool refuses_baud_command{false};
 
     // INFO: fc 03aug26 $PCAS06 is answered with the CASIC firmware banner. A
     // clone that takes $PCAS sentences but never introduces itself is exactly
@@ -129,6 +130,7 @@ class L76k : public io::Uart, public io::UartRate {
     // io::UartRate: the MCU end of the link retunes. Always possible here;
     // whether it is possible on silicon is the platform's answer, not the chip's.
     bool set(uint32_t rate) override {
+        if (port_baud_ == rate) return true;
         port_baud_ = rate;
         baud_changes++;
         return true;
@@ -274,7 +276,9 @@ class L76k : public io::Uart, public io::UartRate {
             return;
         }
         if (!accepts_commands) return;
-        if (starts_with(command_, command_len_, "$PCAS04,"))
+        if (starts_with(command_, command_len_, "$PCAS01,"))
+            apply_baud(static_cast<int>(argument(command_, command_len_, 8)));
+        else if (starts_with(command_, command_len_, "$PCAS04,"))
             constellations = static_cast<uint8_t>(argument(command_, command_len_, 8));
         else if (starts_with(command_, command_len_, "$PCAS03,"))
             apply_sentence_set();
@@ -284,6 +288,13 @@ class L76k : public io::Uart, public io::UartRate {
             solution_period_ms = argument(command_, command_len_, 8);
         else if (starts_with(command_, command_len_, "$PCAS10,"))
             apply_restart(static_cast<int>(argument(command_, command_len_, 8)));
+    }
+
+    // INFO: fc 19sep26 $PCAS01 numbers the rates 0..5, L76K protocol spec V1.1 SS2.3.1
+    void apply_baud(int code) {
+        static constexpr uint32_t kRates[6] = {4800, 9600, 19200, 38400, 57600, 115200};
+        if (refuses_baud_command || code < 0 || code >= 6) return;
+        baud = kRates[code];
     }
 
     // INFO: fc 18sep26 $PCAS03 fields are GGA,GLL,GSA,GSV,RMC,VTG and an empty one keeps its

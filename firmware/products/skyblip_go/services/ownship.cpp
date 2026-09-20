@@ -70,6 +70,7 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
 
     context_.state.clock.utc_valid = solution.utc_valid;
     anchor_utc(solution);
+    publish_solution_phase(now_ms);
 
     // A barometer, once it has spoken, owns vertical speed. The GNSS reference
     // keeps moving anyway so losing the sensor falls back seamlessly.
@@ -123,6 +124,16 @@ void OwnshipService::anchor_utc(const gnss::GnssSolution& solution) {
     if (context_.state.own.fix_ms != static_cast<uint32_t>(clock.pps_edge_us / 1000)) return;
     clock.utc_s = solution.utc;
     clock.utc_edge_us = clock.pps_edge_us;
+}
+
+// INFO: fc 19sep26 a pass late at worst, and the deadline it is read against is 450 ms wide
+void OwnshipService::publish_solution_phase(uint32_t now_ms) {
+    const timing::ClockState& clock = context_.state.clock;
+    bus::GnssStatus& status = context_.state.gnss;
+    status.solution_phase_valid = clock.pps_locked;
+    if (!status.solution_phase_valid) return;
+    const uint32_t edge_ms = static_cast<uint32_t>(clock.pps_edge_us / 1000);
+    status.solution_phase_ms = static_cast<uint16_t>((now_ms - edge_ms) % 1000);
 }
 
 // INFO: fc 13sep26 the latched edge dates the solution exactly, the estimate only when it is lost

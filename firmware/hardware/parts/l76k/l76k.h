@@ -16,6 +16,8 @@ namespace skyblip::parts {
 // The rate port is io::UartRate (hardware/io/io.h): a board whose platform can
 // retune the port hands the driver one, and autobaud recovery becomes available.
 
+constexpr uint32_t wire_ms(uint32_t bytes, uint32_t baud) { return bytes * 10 * 1000 / baud; }
+
 class L76k : public ports::Gnss {
    public:
     explicit L76k(io::Uart& uart, io::UartRate& rate = io::kFixedUartRate)
@@ -28,12 +30,20 @@ class L76k : public ports::Gnss {
         Identifying,
         Sending,
         Verifying,
+        Confirming,
         Ready,
         Degraded
     };
 
     // INFO: gn 09jun25 t_echo_plus.dts:278 `current-speed` must equal this, nothing checks it
     static constexpr uint32_t kBaudRate = 9600;
+
+    // INFO: fc 19sep26 $PCAS01 takes 0..5 for 4800..115200, L76K protocol spec V1.1 SS2.3.1
+    static constexpr uint32_t kTargetBaudRate = 115200;
+    static constexpr const char* kBaudCommand = "$PCAS01,5*19\r\n";
+
+    // INFO: fc 19sep26 SoftRF measures this part talking 70 ms after the second (GNSS.cpp:83-91)
+    static constexpr uint32_t kBurstStartMs = 70;
 
     // INFO: fc 03aug26 A receiver that comes up at another rate (a returned unit
     // reflashed by someone else, a module whose backup domain kept a $PCAS01) is
@@ -53,11 +63,7 @@ class L76k : public ports::Gnss {
 
     // INFO: fc 13sep26 GGA + three GSA (one per constellation) + RMC, the widest burst we ask for
     static constexpr uint32_t kBurstBytes = 320;
-    static constexpr uint32_t kBurstMs = kBurstBytes * 10 * 1000 / kBaudRate;
-    static_assert(kBurstMs < kFixPeriodMs, "the burst must fit inside one solution period");
-
-    // INFO: gn 09jun25 SoftRF subtracts a per-chip latency the same way (.../driver/RF.cpp:236-260)
-    static constexpr uint16_t kPpsLatencyMs = static_cast<uint16_t>(kBurstMs);
+    static constexpr uint32_t kBurstMs = wire_ms(kBurstBytes, kTargetBaudRate);
 
     // INFO: fc 03aug26 The L76K wakes on UART activity, so a receiver that is
     // asleep when we start talking eats the first thing we say. SoftRF sends one
@@ -93,7 +99,9 @@ class L76k : public ports::Gnss {
     // INFO: fc 18sep26 four talkers, up to 32 satellites, four to a sentence and 72 bytes each
     static constexpr uint32_t kSatellitesInViewBytes = 648;
     static constexpr uint32_t kSearchingBurstBytes = kBurstBytes + kSatellitesInViewBytes;
-    static constexpr uint32_t kSearchingBurstMs = kSearchingBurstBytes * 10 * 1000 / kBaudRate;
+    static constexpr uint32_t kSearchingBurstMs = wire_ms(kSearchingBurstBytes, kTargetBaudRate);
+    static_assert(kSearchingBurstMs < kFixPeriodMs,
+                  "the burst must fit inside one solution period, satellites in view and all");
 
     // $PCAS10 reboots the receiver. It answers nothing for about a second after
     // it, so the sequence behind a factory reset waits before it starts talking.
@@ -141,6 +149,13 @@ class L76k : public ports::Gnss {
     // devicetree's rate until autobaud has had to move.
     uint32_t baud_rate() const { return kBaudCandidates[baud_index_]; }
 
+    // INFO: gn 09jun25 SoftRF subtracts a per-chip latency the same way (driver/RF.cpp:236-260)
+    uint16_t pps_latency_ms() const {
+        return static_cast<uint16_t>(wire_ms(kBurstBytes, baud_rate()));
+    }
+
+    uint32_t port_overruns() const { return uart_.overruns(); }
+
     // Did the part name itself, and as what. An unidentified receiver still gets
     // the $PCAS sequence, because the alternative is no configuration at all,
     // but the self-test says so and a support case has the firmware string.
@@ -172,6 +187,10 @@ class L76k : public ports::Gnss {
     void send(const char* sentence, uint32_t now_ms);
     void verify_failed(uint32_t now_ms);
     bool obeying() const;
+    void begin_verify(uint32_t now_ms);
+    bool raise_baud(uint32_t now_ms);
+    bool port_can_retune();
+    bool adopt_baud(uint32_t baud);
     bool next_baud();
 
     // INFO: fc 13sep26 RMC is last in the cycle, so it is the sentence that completes a solution
@@ -191,6 +210,7 @@ class L76k : public ports::Gnss {
     uint32_t verify_updates_{0};
     int next_command_{0};
     int baud_index_{0};
+    uint32_t baud_before_raise_{kBaudRate};
     uint8_t baud_tried_{1};
     uint8_t attempts_{0};
     uint8_t pending_restart_{kNoRestart};

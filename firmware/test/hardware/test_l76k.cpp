@@ -303,16 +303,73 @@ TEST_CASE("l76k: the fix carries the part's burst-to-PPS latency") {
     chip.tick(1000);
     REQUIRE(gnss.poll());
 
-    CHECK(gnss.solution().pps_latency_ms == parts::L76k::kPpsLatencyMs);
-    CHECK(gnss::solution_instant_ms(gnss.solution(), 1000) == 1000 - parts::L76k::kPpsLatencyMs);
+    CHECK(gnss.solution().pps_latency_ms == gnss.pps_latency_ms());
+    CHECK(gnss::solution_instant_ms(gnss.solution(), 1000) == 1000 - gnss.pps_latency_ms());
 }
 
 // Nothing in the build compares the driver's baud with the devicetree's, so the driver states it.
-TEST_CASE("l76k: the configured rate fits the baud the devicetree pins") {
+TEST_CASE("l76k: the rate the receiver is met at is the baud the devicetree pins") {
     CHECK(parts::L76k::kBaudRate == 9600);
-    CHECK(parts::L76k::kBurstMs < parts::L76k::kFixPeriodMs);
-    // GGA, three GSA and RMC at 9600 baud: a third of the second on the wire.
-    CHECK(parts::L76k::kBurstMs == doctest::Approx(333).epsilon(0.02));
+    CHECK(parts::L76k::kBaudCandidates[0] == parts::L76k::kBaudRate);
+}
+
+// The fix is refused as too old unless it is parsed before the radio's first transmit instant.
+TEST_CASE("l76k: the whole burst closes before the direct slot opens, satellites in view and all") {
+    // GGA, three GSA and RMC: 333 ms of 9600 baud line, 28 ms of 115200.
+    CHECK(parts::wire_ms(parts::L76k::kBurstBytes, parts::L76k::kBaudRate) ==
+          doctest::Approx(333).epsilon(0.02));
+    CHECK(parts::L76k::kBurstMs == doctest::Approx(28).epsilon(0.04));
+
+    CHECK(parts::L76k::kBurstStartMs + parts::L76k::kBurstMs < uint32_t(timing::kDirectStart));
+    CHECK(parts::L76k::kBurstStartMs + parts::L76k::kSearchingBurstMs <
+          uint32_t(timing::kDirectStart));
+    // The same burst at the rate the receiver boots at: past the slot, and past the second.
+    CHECK(parts::L76k::kBurstStartMs +
+              parts::wire_ms(parts::L76k::kSearchingBurstBytes, parts::L76k::kBaudRate) >
+          uint32_t(timing::kDirectStart));
+}
+
+// A receiver moved to a rate the port cannot follow is a GNSS-less device that looks fitted.
+TEST_CASE("l76k: bring-up raises the receiver and the port together") {
+    models::L76k chip;
+    parts::L76k gnss(chip, chip);
+    REQUIRE(gnss.baud_rate() == parts::L76k::kBaudRate);
+
+    run(gnss, chip, 0, kBringUpLeadMs + 2 * parts::L76k::kVerifyWindowMs);
+
+    CHECK(gnss.configured());
+    CHECK(gnss.baud_rate() == parts::L76k::kTargetBaudRate);
+    CHECK(chip.baud == parts::L76k::kTargetBaudRate);
+    CHECK(chip.port_baud() == parts::L76k::kTargetBaudRate);
+    CHECK(gnss.solution().is_fix);
+    CHECK(gnss.solution().pps_latency_ms == parts::L76k::kBurstMs);
+}
+
+// A clone that takes every other $PCAS sentence and ignores this one leaves us deaf at 115200.
+TEST_CASE("l76k: a receiver that ignores the rate command is followed back down to 9600") {
+    models::L76k chip;
+    chip.refuses_baud_command = true;
+    parts::L76k gnss(chip, chip);
+
+    run(gnss, chip, 0, kBringUpLeadMs + 3 * parts::L76k::kVerifyWindowMs);
+
+    CHECK(chip.baud == parts::L76k::kBaudRate);
+    CHECK(gnss.baud_rate() == parts::L76k::kBaudRate);
+    CHECK(chip.port_baud() == parts::L76k::kBaudRate);
+    CHECK(gnss.configured());
+    CHECK(gnss.solution().is_fix);
+}
+
+// Without a rate port the receiver must be left where it boots, not asked to move alone.
+TEST_CASE("l76k: a port that cannot retune never moves the receiver") {
+    models::L76k chip;
+    parts::L76k gnss(chip);  // no rate port: io::FixedUartRate
+
+    run(gnss, chip, 0, kBringUpLeadMs + 2 * parts::L76k::kVerifyWindowMs);
+
+    CHECK(chip.baud == parts::L76k::kBaudRate);
+    CHECK(gnss.baud_rate() == parts::L76k::kBaudRate);
+    CHECK(gnss.configured());
 }
 
 // The gyroscope and the barometer beside this part sample far faster than it reports.
@@ -461,14 +518,13 @@ TEST_CASE("l76k: a receiver at the wrong baud is found, not written off") {
 
     run(gnss, chip, 0, 30000);
 
-    CHECK(gnss.baud_rate() == 38400);
-    CHECK(chip.port_baud() == 38400);
     CHECK(gnss.configured());
     CHECK_FALSE(gnss.degraded());
     CHECK(gnss.solution().is_fix);
-    // 9600, then 115200, then 38400: the driver's own candidate order, and it
-    // stops on the one that answers.
-    CHECK(chip.baud_changes == 2);
+    // Found at 38400, then moved: 9600, 115200, 38400, and 115200 again for good.
+    CHECK(gnss.baud_rate() == parts::L76k::kTargetBaudRate);
+    CHECK(chip.port_baud() == parts::L76k::kTargetBaudRate);
+    CHECK(chip.baud_changes == 3);
 }
 
 // Absent hardware is a capability. A platform whose UART cannot be retuned hands
@@ -587,10 +643,11 @@ TEST_CASE("l76k: satellites in view are asked for, and given up again, one sente
     CHECK(chip.commands_seen == commands + 2);
 }
 
-// Every GSV set the L76K can send does not fit in the second a fix belongs to.
-TEST_CASE("l76k: the satellites-in-view burst does not fit in the second the fix rides") {
-    CHECK(parts::L76k::kSearchingBurstMs > parts::L76k::kSolutionPeriodMs);
-    CHECK(parts::L76k::kBurstMs < parts::L76k::kSolutionPeriodMs);
+// At the rate the receiver boots at, the widest GSV set did not fit in the second the fix rides.
+TEST_CASE("l76k: the satellites-in-view burst fits the second only at the raised rate") {
+    CHECK(parts::wire_ms(parts::L76k::kSearchingBurstBytes, parts::L76k::kBaudRate) >
+          parts::L76k::kSolutionPeriodMs);
+    CHECK(parts::L76k::kSearchingBurstMs < parts::L76k::kSolutionPeriodMs);
     CHECK(parts::L76k::kSolutionPeriodMs == parts::L76k::kFixPeriodMs);
 }
 

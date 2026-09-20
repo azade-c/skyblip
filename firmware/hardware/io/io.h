@@ -61,6 +61,7 @@ class Uart {
     virtual size_t write(const uint8_t* data, size_t len) = 0;
     virtual size_t read(uint8_t* data, size_t cap) = 0;
     virtual size_t available() = 0;
+    virtual uint32_t overruns() const { return 0; }
 };
 
 // Retuning the port, which the byte pipe above deliberately cannot do: the rate

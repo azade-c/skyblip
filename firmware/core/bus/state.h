@@ -61,6 +61,9 @@ struct GnssStatus {
     gnss::Stage stage{gnss::Stage::Silent};
     uint32_t stage_s{0};
     uint8_t fix_mode{0};
+    // INFO: fc 19sep26 how far into its own second a solution landed, what kFixLagMaxMs bounds
+    uint16_t solution_phase_ms{0};
+    bool solution_phase_valid{false};
     bool levels_wanted{false};
     // INFO: fc 18sep26 false once GSV is switched off, so no page draws a level nobody measured
     bool levels_live{false};

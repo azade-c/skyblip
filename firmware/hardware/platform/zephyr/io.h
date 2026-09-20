@@ -107,7 +107,7 @@ class Uart : public io::Uart, public io::UartRate {
         return Status::Ok;
     }
 
-    uint32_t overruns() const { return overruns_; }
+    uint32_t overruns() const override { return overruns_; }
 
     // Retuning the port, which is what makes the L76K's autobaud recovery more
     // than a table: a receiver that comes up at a rate the devicetree did not

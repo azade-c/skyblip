@@ -51,6 +51,9 @@ Diagnostics busy_device() {
     d.gnss_firmware = "URANUS5,V5.1.0.0";
     d.gnss_reject = gnss::FixReject::Stale;
     d.gnss_rejected = 6;
+    d.gnss_overruns = 0;
+    d.gnss_nav_ms = 98;
+    d.gnss_nav_valid = true;
     d.resid_m = 13;
     d.resid_valid = true;
 
@@ -98,6 +101,9 @@ Diagnostics widest_device() {
     d.gnss_firmware = "ABCDEFGHIJKLMNOPQRSTUVW";
     d.gnss_reject = gnss::FixReject::NoSolution;  // "NO SOLUTION"
     d.gnss_rejected = 0xFFFFFFFFu;
+    d.gnss_overruns = 0xFFFFFFFFu;
+    d.gnss_nav_ms = 999;
+    d.gnss_nav_valid = true;
     d.resid_m = 65535;
     d.resid_valid = true;
     d.battery.millivolts = 65535;
@@ -169,7 +175,7 @@ TEST_CASE("diagnostics: one line per subsystem, each carrying the counters that 
               "tx_span_us=5919 range_refused=5\n"));
     CHECK(has(text, "traffic tracked=4 alarm=2\n"));
     CHECK(has(text,
-              "gnss fixes=5210 valid=true baud=38400 identified=true "
+              "gnss fixes=5210 valid=true baud=38400 nav_ms=98 overruns=0 identified=true "
               "firmware=\"URANUS5,V5.1.0.0\" reject=\"STALE\" rejected=6 resid_m=13\n"));
     CHECK(has(text,
               "power mv=3812 percent=64 valid=true charging=false level=\"OK\" supply_warnings=1 "

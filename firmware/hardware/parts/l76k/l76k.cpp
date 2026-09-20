@@ -20,9 +20,34 @@ void L76k::send_next(uint32_t now_ms) {
     send(kCommands[next_command_++], now_ms);
     if (next_command_ < kCommandCount) return;
     state_ = Config::Verifying;
+    begin_verify(now_ms);
+}
+
+void L76k::begin_verify(uint32_t now_ms) {
     verify_start_ms_ = now_ms;
     verify_updates_ = parser_.solution().updates;
     verify_unrequested_ = parser_.unrequested();
+}
+
+// INFO: fc 19sep26 only a receiver that has just obeyed four $PCAS sentences is asked to move
+bool L76k::raise_baud(uint32_t now_ms) {
+    if (baud_rate() == kTargetBaudRate) return false;
+    if (!port_can_retune()) return false;
+    baud_before_raise_ = baud_rate();
+    send(kBaudCommand, now_ms);
+    return adopt_baud(kTargetBaudRate);
+}
+
+bool L76k::port_can_retune() { return rate_.set(baud_rate()); }
+
+bool L76k::adopt_baud(uint32_t baud) {
+    for (int i = 0; i < kBaudCandidateCount; i++) {
+        if (kBaudCandidates[i] != baud) continue;
+        if (!rate_.set(baud)) return false;
+        baud_index_ = i;
+        return true;
+    }
+    return false;
 }
 
 // One byte of nothing, then silence long enough for the receiver to have come
@@ -78,6 +103,7 @@ void L76k::service(uint32_t now_ms) {
         // orbit data, which is the whole point of asking for one.
         if (factory) {
             validity_.reset();
+            adopt_baud(kBaudRate);
             state_ = Config::Restarting;
         }
         return;
@@ -110,10 +136,22 @@ void L76k::service(uint32_t now_ms) {
             break;
         case Config::Verifying:
             if (now_ms - verify_start_ms_ < kVerifyWindowMs) break;
-            if (parser_.solution().updates - verify_updates_ >= kMinVerifyUpdates && obeying())
-                state_ = Config::Ready;
-            else
+            if (parser_.solution().updates - verify_updates_ < kMinVerifyUpdates || !obeying()) {
                 verify_failed(now_ms);
+                break;
+            }
+            state_ = raise_baud(now_ms) ? Config::Confirming : Config::Ready;
+            begin_verify(now_ms);
+            break;
+        // INFO: fc 19sep26 a sentence that checksums at the new rate is the ack $PCAS01 never sends
+        case Config::Confirming:
+            if (parser_.solution().updates != verify_updates_) {
+                state_ = Config::Ready;
+                break;
+            }
+            if (now_ms - verify_start_ms_ < kVerifyWindowMs) break;
+            adopt_baud(baud_before_raise_);
+            state_ = Config::Ready;
             break;
         case Config::Ready:
         case Config::Degraded: break;
@@ -150,7 +188,7 @@ bool L76k::poll(uint32_t now_ms) {
 
     solution_ = parser_.solution();
     solution_.is_fix = valid;
-    solution_.pps_latency_ms = kPpsLatencyMs;
+    solution_.pps_latency_ms = pps_latency_ms();
     return true;
 }
 

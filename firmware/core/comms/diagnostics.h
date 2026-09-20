@@ -55,6 +55,9 @@ struct Diagnostics {
     const char* gnss_firmware{""};
     gnss::FixReject gnss_reject{gnss::FixReject::None};
     uint32_t gnss_rejected{0};
+    uint32_t gnss_overruns{0};
+    uint16_t gnss_nav_ms{0};
+    bool gnss_nav_valid{false};
     // The extrapolation the transmitter applies, measured against the fix that
     // closed the interval (products/skyblip_go/services/ownship.cpp). It belongs
     // to the fix stream that feeds it, which is why it reads out with the
