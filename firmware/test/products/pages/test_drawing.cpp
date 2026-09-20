@@ -787,6 +787,15 @@ TEST_CASE("radar: a warned cell takes the ring, at the size the ring is read at"
 
     // A healthy cell writes nothing there at all.
     CHECK_FALSE(reads_in(radar(flying(47)), "BAT", 0, 0, 200, 199, 2));
+
+    // The stack is read every frame, never latched: a cable clears the level in
+    // core/power, the banner goes back to the state word and the stage returns.
+    RadarSnapshot cabled = blind;
+    cabled.battery_low = false;
+    const Glass charging = radar(cabled);
+    CHECK_FALSE(reads_in(charging, "BAT", 0, 0, 200, 199, 2));
+    CHECK(reads_in(charging, "NO FIX", 40, 120, 160, 160, 2));
+    CHECK(reads_in(charging, "BLIND", 40, 145, 160, 170));
 }
 
 // NO FIX says the plot is not being fed; the word under it says whether that is going anywhere.
