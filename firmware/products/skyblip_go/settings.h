@@ -68,6 +68,8 @@ struct Settings {
     // and its spectrum analyser - which is the instrument that had to be there
     // to know the number in the first place.
     int16_t freq_trim_e1_ppm{0};
+    // INFO: fc 20sep26 a trim a person set outranks the charger the device trims itself against
+    bool battery_offset_manual{false};
     uint8_t aircraft_type{kAircraftTypeLight};
     bool alarm_enabled{true};
     uint8_t alarm_volume{3};
@@ -79,7 +81,7 @@ struct Settings {
     static constexpr uint8_t kCurrentVersion = 1;
 };
 
-constexpr uint8_t kBlobVersion = 8;
+constexpr uint8_t kBlobVersion = 9;
 
 Settings defaults();
 

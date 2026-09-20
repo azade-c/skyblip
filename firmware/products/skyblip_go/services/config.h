@@ -68,6 +68,7 @@ class ConfigLinkService : public runtime::Service {
     void record_update();
 
    private:
+    void adopt_learned_trim();
     void spend_gnss_cold_start();
 
     static constexpr size_t kBlobCap = 64;

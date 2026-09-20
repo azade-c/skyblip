@@ -193,6 +193,13 @@ TEST_CASE("settings: the battery trim is bounded at the boundary, in both framin
     // A blob is the other way in, and it is validated on the way out of flash:
     // a unit whose stored trim is impossible falls back rather than reading its
     // cell through it.
+    // Setting it is what makes it a hand-set trim, so the charger stops proposing.
+    Settings by_hand = defaults();
+    REQUIRE(apply_json(by_hand, "{\"battery_offset_mv\":-47}", 25) == Status::Ok);
+    CHECK(by_hand.battery_offset_manual);
+    CHECK(int(by_hand.battery_offset_mv) == -47);
+    CHECK_FALSE(defaults().battery_offset_manual);
+
     s.battery_offset_mv = -47;
     uint8_t blob[128] = {0};
     to_blob(s, blob, sizeof(blob));
@@ -284,7 +291,53 @@ TEST_CASE("settings: a blob written by version-2 firmware comes back as itself, 
     uint8_t rewritten[128] = {0};
     to_blob(out, rewritten, sizeof(rewritten));
     CHECK(int(rewritten[0]) == int(kBlobVersion));
-    CHECK(int(kBlobVersion) == 8);
+    CHECK(int(kBlobVersion) == 9);
+}
+
+// Before version 9 the only way to hold a trim was for somebody to measure one.
+TEST_CASE("settings: a trim stored by version-8 firmware is a hand-set trim") {
+    struct V8 {
+        uint8_t version{1};
+        int16_t battery_offset_mv{0};
+        int16_t freq_trim_e1_ppm{0};
+        uint8_t aircraft_type{4};
+        bool alarm_enabled{true};
+        uint8_t alarm_volume{3};
+        Units units{Units::Metric};
+        char callsign[10]{0};
+    };
+
+    V8 old{};
+    old.battery_offset_mv = -120;
+    old.freq_trim_e1_ppm = -37;
+    old.aircraft_type = 9;
+    std::memcpy(old.callsign, "D-KXYZ", 7);
+
+    uint8_t blob[128] = {0};
+    blob[0] = 8;
+    std::memcpy(blob + 1, &old, sizeof(V8));
+    const uint32_t crc = fec::crc32(blob, 1 + sizeof(V8));
+    for (int i = 0; i < 4; i++) blob[1 + sizeof(V8) + i] = static_cast<uint8_t>(crc >> (8 * i));
+
+    Settings out;
+    REQUIRE(from_blob(blob, 1 + sizeof(V8) + 4, out) == Status::Ok);
+    CHECK(int(out.battery_offset_mv) == -120);
+    CHECK(out.battery_offset_manual);
+    CHECK(int(out.freq_trim_e1_ppm) == -37);
+    CHECK(std::string(out.callsign) == "D-KXYZ");
+
+    // A unit that stored no trim never had one measured, so the charger may set it.
+    V8 untrimmed{};
+    uint8_t plain[128] = {0};
+    plain[0] = 8;
+    std::memcpy(plain + 1, &untrimmed, sizeof(V8));
+    const uint32_t plain_crc = fec::crc32(plain, 1 + sizeof(V8));
+    for (int i = 0; i < 4; i++)
+        plain[1 + sizeof(V8) + i] = static_cast<uint8_t>(plain_crc >> (8 * i));
+
+    Settings fresh;
+    REQUIRE(from_blob(plain, 1 + sizeof(V8) + 4, fresh) == Status::Ok);
+    CHECK_FALSE(fresh.battery_offset_manual);
 }
 
 // M, the migration: the address and its table are the device's now, so they leave the blob.

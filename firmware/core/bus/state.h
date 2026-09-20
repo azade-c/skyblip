@@ -44,6 +44,7 @@ struct PowerState {
     // debounce, the charger and the sanity floor are decided once.
     power::PowerLevel level{power::PowerLevel::Unknown};
     power::ChargeCondition charge{power::ChargeCondition::Unknown};
+    bool caution{false};
     bool supply_warned{false};
     int16_t die_dc{0};
     bool die_valid{false};

@@ -9,8 +9,10 @@
 #include "core/events/sensor.h"
 #include "core/power/battery.h"
 #include "core/power/cutoff.h"
+#include "core/power/trim.h"
 #include "doctest/doctest.h"
 #include "products/skyblip_go/settings.h"
+#include "test/support/product_rig.h"
 
 using namespace skyblip;
 using namespace skyblip::power;
@@ -114,4 +116,40 @@ TEST_CASE("battery: a unit that reads high is corrected by one number from the l
     // Ten percentage points of gauge error, from a divider inside tolerance.
     CHECK(int(uncalibrated.state().percent) == 65);
     CHECK(int(trimmed.state().percent) == 55);
+}
+
+// The bench step, done by a charger: a unit that never saw a supply still gets a trim.
+TEST_CASE("product: a charge held at the float voltage trims the unit that watched it") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    REQUIRE(int(rig.settings().battery_offset_mv) == 0);
+    REQUIRE_FALSE(rig.settings().battery_offset_manual);
+
+    uint32_t t = 0;
+    rig.platform.battery().external_power = true;
+    rig.platform.battery().millivolts = 3960;
+    rig.run(t, t + 10000);
+    t += 10000;
+
+    // This unit reads 40 mV under the 4200 mV its charger is holding.
+    rig.platform.battery().millivolts = 4160;
+    rig.run(t, t + kPlateauHoldMs + 5000);
+    CHECK(int(rig.settings().battery_offset_mv) == 40);
+    CHECK_FALSE(rig.settings().battery_offset_manual);
+}
+
+TEST_CASE("product: a trim somebody measured outranks the one the charger offers") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.settings().battery_offset_mv = -15;
+    rig.settings().battery_offset_manual = true;
+
+    uint32_t t = 0;
+    rig.platform.battery().external_power = true;
+    rig.platform.battery().millivolts = 3960;
+    rig.run(t, t + 10000);
+    t += 10000;
+    rig.platform.battery().millivolts = 4160;
+    rig.run(t, t + kPlateauHoldMs + 5000);
+    CHECK(int(rig.settings().battery_offset_mv) == -15);
 }
