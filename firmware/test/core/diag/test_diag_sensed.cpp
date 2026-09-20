@@ -179,6 +179,7 @@ TEST_CASE("diag record: power keeps the cell, the verdict on it and the warnings
     in.implausible = 12;
     in.charge_warnings = 1;
     in.die_dc = -206;
+    in.trim_offset_mv = -40;
     in.percent = 64;
     in.level = power::PowerLevel::Low;
     in.charge = power::ChargeCondition::TooHot;
@@ -186,6 +187,8 @@ TEST_CASE("diag record: power keeps the cell, the verdict on it and the warnings
     in.external_power = true;
     in.valid = true;
     in.die_valid = true;
+    in.caution = true;
+    in.trim_learned = true;
 
     const diag::Power out = diag_round_trip(in);
     CHECK(out.cell_mv == in.cell_mv);
@@ -193,6 +196,7 @@ TEST_CASE("diag record: power keeps the cell, the verdict on it and the warnings
     CHECK(out.implausible == in.implausible);
     CHECK(out.charge_warnings == in.charge_warnings);
     CHECK(out.die_dc == in.die_dc);
+    CHECK(out.trim_offset_mv == in.trim_offset_mv);
     CHECK(out.percent == in.percent);
     CHECK(out.level == in.level);
     CHECK(out.charge == in.charge);
@@ -200,6 +204,19 @@ TEST_CASE("diag record: power keeps the cell, the verdict on it and the warnings
     CHECK(out.external_power);
     CHECK(out.valid);
     CHECK(out.die_valid);
+    CHECK(out.caution);
+    CHECK(out.trim_learned);
+}
+
+TEST_CASE("diag record: the knee rides beside the level rather than inside it") {
+    diag::Power in{};
+    in.cell_mv = 3550;
+    in.level = power::PowerLevel::Normal;
+    in.caution = true;
+
+    const diag::Power out = diag_round_trip(in);
+    CHECK(out.level == power::PowerLevel::Normal);
+    CHECK(out.caution);
 }
 
 TEST_CASE("diag record: a contact keeps the instant the level moved, not the poll that saw it") {

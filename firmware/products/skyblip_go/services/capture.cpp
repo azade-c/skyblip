@@ -68,6 +68,7 @@ void CaptureService::record_config(uint32_t now_ms) {
     value.settings_version = settings_.version;
     value.alarm_enabled = settings_.alarm_enabled;
     value.metric = settings_.units == Units::Metric;
+    value.battery_trim_manual = settings_.battery_offset_manual;
     context_.diag.record(value, context_.instant(now_ms));
 }
 

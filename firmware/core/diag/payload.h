@@ -34,6 +34,7 @@ struct Boot {
 
 constexpr uint8_t kConfigFlagAlarmEnabled = 1u << 2;
 constexpr uint8_t kConfigFlagMetric = 1u << 3;
+constexpr uint8_t kConfigFlagBatteryTrimManual = 1u << 4;
 
 struct Config {
     uint32_t addr{0};
@@ -45,6 +46,7 @@ struct Config {
     uint8_t settings_version{0};
     bool alarm_enabled{false};
     bool metric{false};
+    bool battery_trim_manual{false};
 };
 
 constexpr uint8_t kGnssFlagFixValid = 1u << 2;
@@ -137,6 +139,8 @@ constexpr uint8_t kPowerFlagCharging = 1u << 2;
 constexpr uint8_t kPowerFlagExternal = 1u << 3;
 constexpr uint8_t kPowerFlagValid = 1u << 4;
 constexpr uint8_t kPowerFlagDieValid = 1u << 5;
+constexpr uint8_t kPowerFlagCaution = 1u << 6;
+constexpr uint8_t kPowerFlagTrimLearned = 1u << 7;
 
 struct Power {
     uint16_t cell_mv{0};
@@ -144,6 +148,7 @@ struct Power {
     uint32_t implausible{0};
     uint32_t charge_warnings{0};
     int16_t die_dc{0};
+    int16_t trim_offset_mv{0};
     uint8_t percent{0};
     power::PowerLevel level{power::PowerLevel::Unknown};
     power::ChargeCondition charge{power::ChargeCondition::Unknown};
@@ -151,6 +156,8 @@ struct Power {
     bool external_power{false};
     bool valid{false};
     bool die_valid{false};
+    bool caution{false};
+    bool trim_learned{false};
 };
 
 constexpr uint8_t kBaroFlagActive = 1u << 2;

@@ -49,13 +49,13 @@ Every field below is read off `bus::State` or off an `events::` value as it stan
 | Type | Payload | The tuning question it answers |
 |---|---|---|
 | `Boot` 1 | capabilities, firmware version, reset reason, image state | which build and which parts produced the rest of the corpus, and whether the device came up from a fault |
-| `Config` 2 | address, address table, aircraft type, alarm volume, battery and frequency trims, units, alarm enabled | what the firmware was assuming while it decided everything else |
+| `Config` 2 | address, address table, aircraft type, alarm volume, battery and frequency trims, whose the battery trim is, units, alarm enabled | what the firmware was assuming while it decided everything else |
 | `Gnss` 3 | nav_ms, residual, HDOP, VDOP, stage and its age, sats used and in view, fix mode, reject reason | where in its own second a solution lands (`kFixLagMaxMs`, 500 ms of §G.1.16 nav age), and what the rejects cost |
 | `Pps` 4 | edge interval, signed error against a nominal second, samples, holdover events, ms since the edge, lock | whether `kPpsHoldoverMs` is the right patience, and what the slot map is really anchored to |
 | `Burst` 5 | the whole of `radio::Entry`: verdict, band, channel, address, length, RSSI, key offset, tx_keyed_us, tx_span_us, airborne | every one of the eleven verdicts against the second it happened in: two devices on one bench read one link twice |
 | `Dwell` 6 | slot state, band, frequency, start and end, the phase it was read at, duty, noise floor, refusal reason, tx_allowed | whether the dwell map spends the second where §C.5 says, and what refuses a burst when one is refused |
 | `Flight` 7 | speed, climb, altitude, HDOP, VDOP, declared state, latched state, rolling | how close the machine came to deciding the other way. Written on every evaluation, never only on transitions: a transition-only tape cannot say what the margin was, and the margin is the whole question when choosing 12.0 against 8.0 m/s |
-| `Power` 8 | cell millivolts, percent, level, charge condition, die temperature, supply warnings, implausible and charge counts | what a burst does to the rail, and whether `kLowWarnMv` and `kCutoffMv` fire where a real pack needs them to |
+| `Power` 8 | cell millivolts, percent, level, the caution knee, charge condition, die temperature, the trim the charger taught this unit, supply warnings, implausible and charge counts | what a burst does to the rail, and whether `kCautionMv`, `kLowWarnMv` and `kCutoffMv` fire where a real pack needs them to |
 | `Baro` 9 | pressure, derived altitude, the rate taken from it, temperature | the vertical speed window (`kBaroVsWindowMs` against `kGnssVsWindowMs`) measured rather than assumed |
 | `Motion` 10 | ball position, the three g-meter axes now, the normal axis at both extremes, hub error bytes | what the airframe pulled, and whether the filter lengths suit it. Absent on a unit with no hub, which the fitted flag says |
 | `Contact` 11 | contact, edge instant, how long the level had held, the gesture the product decided | `Controls::kLongTouchMs` and `kLongPressMs` against the presses a hand actually makes |
@@ -65,6 +65,14 @@ Every field below is read off `bus::State` or off an `events::` value as it stan
 | `Screen` 15 | page, mode, prompt, alarm level, how long it had been up, backlight, powered, thermal hold | `ScreenService::kPresentFloorMs` and the refresh cadence against what a pilot was shown |
 | `Gap` 16 | records dropped, the span they cover, the total since arming, the ring capacity | nothing. It is the hole itself, written where the hole is |
 | `End` 17 | records written in the session, records dropped | nothing. It is the one record that says the session stopped rather than was stopped |
+
+### The battery ladder, and what a replay works out for itself
+
+The `Power` record carries the steps of `core/power`'s ladder the device decided rather than the ones a decoder can re-derive. `caution` is a decision: three consecutive samples under `kCautionMv`, cleared by a cable and by a sample back above it, and it is nowhere in `level` because nothing acts on the knee (`../power/README.md`). `trim_offset_mv` and `trim_learned` are the other one: `power::FloatTrim` reads a charger's float plateau off the untrimmed samples, and the corpus only ever sees millivolts that have already been through a trim, so the number it learned cannot be recovered from any record. Whether the device would adopt it is `Config`'s `battery_trim_manual`, because a trim a person measured outranks a charger's for good.
+
+Both fit where the record already had room: `caution` and `trim_learned` are the last two bits of the flag byte, the offset is payload bytes 13 and 14, and byte 15 is still free.
+
+Four more things the ladder decides are left out on purpose, all of them a decoder's arithmetic rather than the device's: the lamp condition, which `indication::condition_for` computes from the alarm level, the power level, this caution flag and the fix, every one of them already in the corpus; the panel's `battery_low`, which is `level` in two comparisons; `may_write` and `may_refresh`, which are `level` and a supply warning count that is already a field; and the trim window's own workings, the session low and the plateau spread, which are the derivation and not the result. The parked low-cell frame is invisible for a different reason: the capture is closed before the glass is drawn.
 
 ### The end marker, and the tail a reader must drop
 

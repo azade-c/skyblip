@@ -110,7 +110,8 @@ DIAG_TYPES = {
     2: ("config", (
         ("addr", u32(0)), ("battery_offset_mv", i16(4)), ("freq_trim_e1_ppm", i16(6)),
         ("aircraft_type", u8(8)), ("addr_table", u8(9)), ("alarm_volume", u8(10)),
-        ("settings_version", u8(11)), ("alarm_enabled", flag(2)), ("metric", flag(3)))),
+        ("settings_version", u8(11)), ("alarm_enabled", flag(2)), ("metric", flag(3)),
+        ("battery_trim_manual", flag(4)))),
     3: ("gnss", (
         ("nav_ms", u16(0)), ("resid_m", u16(2)), ("hdop_e2", u16(4)), ("vdop_e2", u16(6)),
         ("stage_s", u16(8)), ("sats", u8(10)), ("sats_in_view", u8(11)), ("fix_mode", u8(12)),
@@ -141,8 +142,10 @@ DIAG_TYPES = {
     8: ("power", (
         ("cell_mv", u16(0)), ("supply_warnings", u16(2)), ("implausible", u16(4)),
         ("charge_warnings", u16(6)), ("die_dc", i16(8)), ("percent", u8(10)),
-        ("level", enum8(11, POWER_LEVEL)), ("charge", enum8(12, CHARGE)), ("charging", flag(2)),
-        ("external_power", flag(3)), ("valid", flag(4)), ("die_valid", flag(5)))),
+        ("level", enum8(11, POWER_LEVEL)), ("charge", enum8(12, CHARGE)),
+        ("trim_offset_mv", i16(13)), ("charging", flag(2)), ("external_power", flag(3)),
+        ("valid", flag(4)), ("die_valid", flag(5)), ("caution", flag(6)),
+        ("trim_learned", flag(7)))),
     9: ("baro", (
         ("pressure_mpa", u32(0)), ("alt_mm", i32(4)), ("climb_mm_s", i32(8)),
         ("temperature_dc", i16(12)), ("active", flag(2)), ("temperature_valid", flag(3)),

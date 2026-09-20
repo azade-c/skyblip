@@ -90,12 +90,12 @@ class DiagnosticsPayloads(unittest.TestCase):
             "boot", 0, capabilities=0x1FFF, fw_build=4242, fw_revision=7, fw_major=1, fw_minor=2,
             reset="WATCHDOG", image_state="probation"))
 
-    def test_config_reads_signed_trims_and_its_two_flag_bits(self):
+    def test_config_reads_signed_trims_and_its_three_flag_bits(self):
         payload = struct.pack("<I2h4B", 0xABCDEF, -120, -35, 9, 7, 3, 2)
-        self.assertEqual(decoded(2, payload, 0b1100), whole(
-            "config", 0b1100, addr=0xABCDEF, battery_offset_mv=-120, freq_trim_e1_ppm=-35,
+        self.assertEqual(decoded(2, payload, 0b1_1100), whole(
+            "config", 0b1_1100, addr=0xABCDEF, battery_offset_mv=-120, freq_trim_e1_ppm=-35,
             aircraft_type=9, addr_table=7, alarm_volume=3, settings_version=2,
-            alarm_enabled=True, metric=True))
+            alarm_enabled=True, metric=True, battery_trim_manual=True))
 
     def test_gnss_reads_its_five_words_two_enums_and_five_flags(self):
         payload = struct.pack("<5H5B", 350, 12, 120, 180, 900, 11, 17, 3, 4, 2)
@@ -132,11 +132,20 @@ class DiagnosticsPayloads(unittest.TestCase):
             climb_valid=True, tx_settled=True))
 
     def test_power_reads_the_cell_the_die_and_the_saturating_counts(self):
-        payload = struct.pack("<4Hh3B", 3987, 1, 4, 2, -53, 74, 2, 3)
+        payload = struct.pack("<4Hh3Bh", 3987, 1, 4, 2, -53, 74, 2, 3, 0)
         self.assertEqual(decoded(8, payload, 0b0011_0100), whole(
             "power", 0b0011_0100, cell_mv=3987, supply_warnings=1, implausible=4,
             charge_warnings=2, die_dc=-53, percent=74, level="low", charge="too_hot",
-            charging=True, external_power=False, valid=True, die_valid=True))
+            trim_offset_mv=0, charging=True, external_power=False, valid=True, die_valid=True,
+            caution=False, trim_learned=False))
+
+    def test_power_reads_the_caution_knee_and_the_trim_a_charger_taught_the_unit(self):
+        payload = struct.pack("<4Hh3Bh", 3550, 0, 0, 0, 210, 18, 1, 1, -40)
+        self.assertEqual(decoded(8, payload, 0b1101_0100), whole(
+            "power", 0b1101_0100, cell_mv=3550, supply_warnings=0, implausible=0,
+            charge_warnings=0, die_dc=210, percent=18, level="normal", charge="ok",
+            trim_offset_mv=-40, charging=True, external_power=False, valid=True, die_valid=False,
+            caution=True, trim_learned=True))
 
     def test_baro_altitude_and_climb_are_signed_millimetres(self):
         payload = struct.pack("<I2ih", 95_432_100, -1234, -2500, -104)

@@ -38,6 +38,7 @@ Record record_of(const Config& value, const Instant& at) {
     r.payload[11] = value.settings_version;
     set_flag(r.flags, kConfigFlagAlarmEnabled, value.alarm_enabled);
     set_flag(r.flags, kConfigFlagMetric, value.metric);
+    set_flag(r.flags, kConfigFlagBatteryTrimManual, value.battery_trim_manual);
     return r;
 }
 
@@ -53,6 +54,7 @@ bool read(const Record& record, Config& out) {
     out.settings_version = record.payload[11];
     out.alarm_enabled = record.flagged(kConfigFlagAlarmEnabled);
     out.metric = record.flagged(kConfigFlagMetric);
+    out.battery_trim_manual = record.flagged(kConfigFlagBatteryTrimManual);
     return true;
 }
 

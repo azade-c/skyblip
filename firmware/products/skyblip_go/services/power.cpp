@@ -72,6 +72,7 @@ void PowerService::record_power(uint32_t now_ms) {
     value.implausible = cutoff_.implausible();
     value.charge_warnings = charge_warnings_;
     value.die_dc = power.die_dc;
+    value.trim_offset_mv = trim_.offset_mv();
     value.percent = power.battery.percent;
     value.level = power.level;
     value.charge = power.charge;
@@ -79,6 +80,8 @@ void PowerService::record_power(uint32_t now_ms) {
     value.external_power = power.battery.external_power;
     value.valid = power.battery.valid;
     value.die_valid = power.die_valid;
+    value.caution = power.caution;
+    value.trim_learned = trim_.learned();
     context_.diag.record(value, context_.instant(now_ms));
 }
 

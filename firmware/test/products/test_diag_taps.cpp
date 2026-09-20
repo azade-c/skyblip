@@ -53,6 +53,15 @@ bool last_of(const std::vector<diag::Record>& records, T& out) {
     return found;
 }
 
+std::vector<diag::Power> every_power_record(const std::vector<diag::Record>& records) {
+    std::vector<diag::Power> out;
+    for (const diag::Record& record : records) {
+        diag::Power power{};
+        if (diag::read(record, power)) out.push_back(power);
+    }
+    return out;
+}
+
 bool link_action(const std::vector<diag::Record>& records, diag::LinkAction action,
                  diag::Link& out) {
     for (const diag::Record& record : records) {
@@ -121,6 +130,7 @@ TEST_CASE("diag config: arming names the settings every other record was decided
     rig.settings().aircraft_type = 9;
     rig.settings().alarm_volume = 4;
     rig.settings().battery_offset_mv = -30;
+    rig.settings().battery_offset_manual = true;
     rig.settings().units = go::Units::Metric;
     taxi(rig, t, 3);
     arm(rig, t);
@@ -136,6 +146,7 @@ TEST_CASE("diag config: arming names the settings every other record was decided
     CHECK(config.aircraft_type == 9);
     CHECK(config.alarm_volume == 4);
     CHECK(config.battery_offset_mv == -30);
+    CHECK(config.battery_trim_manual);
     CHECK(config.metric);
     CHECK(config.alarm_enabled);
     CHECK(config.settings_version == go::Settings::kCurrentVersion);
@@ -258,6 +269,51 @@ TEST_CASE("diag power: the cell is recorded on the cadence it is sampled at") {
     CHECK(power.valid);
     CHECK(power.cell_mv > 3000);
     CHECK(power.level == rig.state().power.level);
+}
+
+TEST_CASE("diag power: the knee is recorded on both sides of it, and the level never moves") {
+    Rig rig;
+    uint32_t t = 100;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.platform.battery().millivolts = 3800;
+    taxi(rig, t, 3);
+    arm(rig, t);
+    taxi(rig, t, 4);
+    rig.platform.battery().millivolts = 3550;
+    taxi(rig, t, 6);
+    stop(rig, t);
+
+    const std::vector<diag::Power> cell = every_power_record(captured(rig));
+    REQUIRE(cell.size() >= 8);
+    CHECK_FALSE(cell.front().caution);
+    CHECK(cell.front().cell_mv == 3800);
+    CHECK(cell.back().caution);
+    CHECK(cell.back().cell_mv == 3550);
+    CHECK(cell.back().caution == rig.state().power.caution);
+    for (const diag::Power& power : cell) CHECK(power.level == power::PowerLevel::Normal);
+}
+
+// Two minutes on a charger holding its float voltage, which is the only bench this unit gets.
+TEST_CASE("diag power: a trim the charger taught the unit reaches the corpus, not only settings") {
+    Rig rig;
+    uint32_t t = 100;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.platform.battery().external_power = true;
+    rig.platform.battery().millivolts = 3960;
+    taxi(rig, t, 3);
+    arm(rig, t);
+    rig.run(t, t + 10000);
+    t += 10000;
+    rig.platform.battery().millivolts = 4160;
+    rig.run(t, t + power::kPlateauHoldMs + 5000);
+    t += power::kPlateauHoldMs + 5000;
+    stop(rig, t);
+
+    const std::vector<diag::Power> cell = every_power_record(captured(rig));
+    REQUIRE_FALSE(cell.empty());
+    CHECK(cell.back().trim_learned);
+    CHECK(cell.back().trim_offset_mv == 40);
+    CHECK(cell.back().trim_offset_mv == rig.settings().battery_offset_mv);
 }
 
 TEST_CASE("diag baro: a sample carries the altitude and the rate taken from it") {
