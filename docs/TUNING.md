@@ -176,6 +176,12 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kDirectPreferredMaxAgeSec` | 5 | seconds | MaxAge | How long a first-hand reception keeps a target to itself before a ground relay of the same aircraft is allowed to refresh it. |
 | `kDefaultMaxAgeSec` | 12 | seconds | MaxAge | [README](../firmware/core/traffic/README.md) argues it |
 
+## [`firmware/products/skyblip_go`](../firmware/products/skyblip_go/README.md)
+
+| Constant | Value | Unit | Mechanism | Why |
+|---|---|---|---|---|
+| `kRefusalParkCeilingMs` | 6000 (6 s) | milliseconds | Ceiling | a full frame is 2.6 s of BUSY on this panel, and a refusal waits out two |
+
 ## [`firmware/products/skyblip_go/input`](../firmware/products/skyblip_go/input/README.md)
 
 | Constant | Value | Unit | Mechanism | Why |
@@ -224,4 +230,4 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kBaroPpsWindowMs` | `2 * kServiceStepMs` = 20 | milliseconds | Window | - |
 | `kBatteryPeriodMs` | 1000 (1 s) | milliseconds | Period | A cell moves over minutes. The gauge needs three readings before it can throw out a transient, so a second between them is the slowest cadence that still shows the state of charge on the first screen a pilot sees. |
 
-134 constants over 15 folders.
+135 constants over 16 folders.

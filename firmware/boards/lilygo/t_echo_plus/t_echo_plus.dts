@@ -640,6 +640,21 @@ zephyr_udc0: &usbd {
 };
 
 /*
+ * The second retention byte, and it is the application's alone: the factory
+ * bootloader reads GPREGRET and never this one. It survives SYSTEM OFF, which is
+ * the whole reason it is used - it carries what the e-paper is wearing while the
+ * rails are down, so a refused boot knows whether it owes the glass a frame
+ * (core/power/README.md).
+ */
+&gpregret2 {
+	glass_retention: retention@0 {
+		compatible = "zephyr,retention";
+		status = "okay";
+		reg = <0x0 0x1>;
+	};
+};
+
+/*
  * Internal 1 MB flash. The factory Adafruit UF2 bootloader owns both ends and
  * we never write either: MBR + SoftDevice below 0x26000, bootloader + MBR
  * params + settings from 0xF4000. MCUboot is chain-loaded as the "application"

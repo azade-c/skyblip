@@ -739,6 +739,32 @@ TEST_CASE("wake: a cell nobody read never refuses a boot") {
     CHECK(boot_path(ResetCause::PowerOn, false, healthy(kImplausibleFloorMv)) == BootPath::Run);
 }
 
+// A cell emptied on a shelf never ran a shutdown, so the refusal is where both roads meet.
+TEST_CASE("wake: the boot a flat cell refuses is what tells the glass the cell is flat") {
+    CHECK(refused_frame(healthy(power::kCutoffMv), /*flat_on_glass=*/false) ==
+          RefusedFrame::FlatCell);
+    CHECK(refused_frame(healthy(kBootLockoutMv - 1), false) == RefusedFrame::FlatCell);
+
+    // Pushing the frame it is already wearing is seconds of panel rail for no change.
+    CHECK(refused_frame(healthy(power::kCutoffMv), /*flat_on_glass=*/true) == RefusedFrame::Leave);
+}
+
+// The cable arms the button again (button_wake_after_refusal), so the mark is the instruction.
+TEST_CASE("wake: the charger that wakes a flat device takes the word back off the glass") {
+    BootCell on_charge = healthy(3000);
+    on_charge.external_power = true;
+    CHECK(refused_frame(on_charge, /*flat_on_glass=*/true) == RefusedFrame::Wordmark);
+    CHECK(refused_frame(on_charge, /*flat_on_glass=*/false) == RefusedFrame::Leave);
+
+    // A cell nobody read is not a flat one, here as everywhere else in this file.
+    CHECK(refused_frame(BootCell{}, true) == RefusedFrame::Wordmark);
+    CHECK(refused_frame(healthy(200), false) == RefusedFrame::Leave);
+
+    CHECK(std::string(to_string(RefusedFrame::FlatCell)) == "FLAT CELL");
+    CHECK(std::string(to_string(RefusedFrame::Wordmark)) == "WORDMARK");
+    CHECK(std::string(to_string(RefusedFrame::Leave)) == "LEAVE");
+}
+
 TEST_CASE("wake: a charger wake is named without hiding a fault that came with it") {
     // The diagnosis a pilot needs is still the fault: the charger only names the
     // boot when nothing worse did.

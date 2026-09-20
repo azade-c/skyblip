@@ -26,7 +26,9 @@ A feature bit with no reader does not exist. The list is exactly the claims a se
 
 ## The parts of a boot
 
-`setup()` probes the board, classifies the reset, and answers one question before anything else: is this boot a device at all. A charger plugged into a unit in a flight bag goes straight back to SYSTEM OFF with nothing painted and no service started (`core/power/wake.h`).
+`setup()` probes the board, classifies the reset, and answers one question before anything else: is this boot a device at all. A charger plugged into a unit in a flight bag goes straight back to SYSTEM OFF with no service started (`core/power/wake.h`).
+
+A refused boot is also the only place the flat cell is named, and `park_refusal()` is the shell's second loop: it settles the one frame `core/power`'s `refused_frame` owes the glass, then the rails go. `kRefusalParkCeilingMs` bounds it, because a panel that never reports ready must not hold a flat cell awake.
 
 What survives a failed self test is a device that still shows why: the page stays on the glass, the button still works, and the loop refuses to fly. That is `flyable_`, and it is false when a required capability is missing.
 
@@ -34,10 +36,10 @@ What survives a failed self test is a device that still shows why: the page stay
 
 E-paper holds its last image with the rails down, so the frame pushed immediately before the rails drop is what the device wears in a flight bag for as long as it sits there. There are four, and `product.h` picks between them by why the device is going down.
 
-The wordmark is the ordinary one: a long press, or the companion link asking. A stow, which is the long press with the pad held, leaves the glass blank instead, because months of one image is ghosting an e-paper never fully loses. An install says so, because the bootloader is about to take the device and a pilot watching a blank panel would think it had died.
+The wordmark is the ordinary one: a long press, the companion link asking, or the cell reaching its cutoff. A stow, which is the long press with the pad held, leaves the glass blank instead, because months of one image is ghosting an e-paper never fully loses. An install says so, because the bootloader is about to take the device and a pilot watching a blank panel would think it had died.
 
-The fourth is the cell, and it is the only one that says something happened rather than naming a state. `SWITCHED OFF`, `FLAT BATTERY`, `PLUG IN THEN PRESS`, stacked halfway between the mark and the bottom of the glass. All three lines earn their place: the device turned itself off, which a pilot who did not press anything has to be told; the reason, because the alternative guesses are a crash and a dead device; and the way back, which is two acts and not one.
+The fourth is the cell, `FLAT BATTERY` under the mark, and it is the only one that says something happened rather than naming a state. It is not pushed on the way down, and that is the decision worth reading twice: a cell that empties itself on a shelf over a winter takes the device through no shutdown at all, so a frame written at the cutoff would tell two identical units apart for no reason a pilot could use. It is pushed at the boot the flat cell refuses instead, where both units arrive (`core/power/README.md`).
 
-The last line is worded that way because a cable alone gives nobody a device. VBUS does wake this SoC out of SYSTEM OFF, and the reset cause carries the bit, but `core/power/wake.h` refuses that boot on purpose: a charger found in a flight bag must not switch a device on. What the cable does is charge the cell and, through the refusal, leave the button armed, so the press that follows is the pilot asking for a device and gets one even while the cell is still filling (`core/power/wake.h`, `button_wake_after_refusal`). A low-battery shutdown withholds the wake pin until then, so the press before the cable does nothing at all.
+The frame a refusal pushes answers the press it just received, which is why the wording stops at what is wrong. A cable alone gives nobody a device: VBUS does wake this SoC out of SYSTEM OFF and the reset cause carries the bit, but `core/power/wake.h` refuses that boot on purpose. What the cable does is charge the cell and, through the refusal, leave the button armed - so that refusal also takes `FLAT BATTERY` back off the glass and puts the wordmark there, the frame every armed, switched-off device wears. The press after it is the pilot asking for a device, and it gets one even while the cell is still filling.
 
-What this frame does not carry is the percentage. It would be the reading the device died at, frozen at zero, standing there unchanged through the whole charge that follows, and a figure that cannot update is a figure that lies the moment it matters.
+What the frame does not carry is the percentage. It would be the reading the device died at, frozen at zero, standing there unchanged through the whole charge that follows, and a figure that cannot update is a figure that lies the moment it matters.
