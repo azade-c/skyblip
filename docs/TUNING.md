@@ -84,7 +84,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kShortestFlashEyeCanCatchMs` | 20 | milliseconds | - | An LED reaches full brightness in microseconds, so core/annunciation's 90 ms floor - an ear figure, the shortest blip a pilot can place and count - does not apply. |
 | `kShortestPhaseMs` | `shortest_phase_ms()` | milliseconds | - | - |
 
-## `firmware/core/power`
+## [`firmware/core/power`](../firmware/core/power/README.md)
 
 | Constant | Value | Unit | Mechanism | Why |
 |---|---|---|---|---|
@@ -94,6 +94,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kLongPressMs` | 2000 (2 s) | milliseconds | - | Long enough that it cannot be the page press, short enough to do with gloves on. |
 | `kParkMs` | 3000 (3 s) | milliseconds | - | The panel is parked with a full refresh and the SSD1681 clocks one out in about 2.5 s. |
 | `kReleaseSettleMs` | 100 | milliseconds | Settle | nRF52 SENSE is a level detect, not an edge, so arming the wake pin while the button is still down wakes the device the instant SYSTEM OFF latches. |
+| `kPlateauHoldMs` | 120000 (2 min) | milliseconds | Hold | [README](../firmware/core/power/README.md) argues it |
 
 ## [`firmware/core/protocol`](../firmware/core/protocol/README.md)
 
@@ -229,4 +230,4 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kBaroPpsWindowMs` | `2 * kServiceStepMs` = 20 | milliseconds | Window | - |
 | `kBatteryPeriodMs` | 1000 (1 s) | milliseconds | Period | A cell moves over minutes. The gauge needs three readings before it can throw out a transient, so a second between them is the slowest cadence that still shows the state of charge on the first screen a pilot sees. |
 
-139 constants over 15 folders.
+140 constants over 15 folders.

@@ -283,6 +283,8 @@ class Product {
             screen_.park_for_install();
         else if (stowing())
             screen_.park_for_stow();
+        else if (shutdown_.reason() == power::ShutdownReason::LowBattery)
+            screen_.park_for_low_cell();
         else
             screen_.set_power(false);
     }

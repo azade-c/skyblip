@@ -47,6 +47,8 @@ struct RadarSnapshot {
     const RadarTarget* targets{nullptr};
     bool alarm_flash{false};
     int formation_members{0};
+    uint8_t battery_percent{0};
+    bool battery_low{false};
 };
 
 void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap);
