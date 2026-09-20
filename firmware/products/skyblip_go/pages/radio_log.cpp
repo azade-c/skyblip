@@ -38,7 +38,7 @@ bool own_burst(radio::Event event) {
 // What own-ship put on air, in the column a reception spends on its sender: the
 // schedule the burst went out on, or the name that is on neither schedule.
 const char* own_burst_word(const radio::Entry& entry) {
-    if (entry.callsign) return "CALL";
+    if (entry.callsign) return "CALLSIGN";
     return entry.airborne ? "AIR" : "GROUND";
 }
 
@@ -54,7 +54,7 @@ const char* verdict_of(const radio::Entry& entry) {
         case radio::Event::Undecoded: return "DEC";
         case radio::Event::Unsupported: return "TYPE";
         case radio::Event::Unattempted: return "WAIT";
-        case radio::Event::Named: return "CALL";
+        case radio::Event::Named: return "NAMED";
         case radio::Event::Transmitted:
         case radio::Event::Received:
         default: return nullptr;
