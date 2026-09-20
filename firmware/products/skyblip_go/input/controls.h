@@ -8,7 +8,7 @@
 
 namespace skyblip::go {
 
-enum class Gesture : uint8_t { None, Tap, LongTouch, Press };
+enum class Gesture : uint8_t { None = 0, Tap = 1, LongTouch = 2, Press = 3 };
 
 class Controls {
    public:

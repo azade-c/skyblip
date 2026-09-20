@@ -7,6 +7,7 @@
 #include "core/flight/ground.h"
 #include "core/gnss/acquisition.h"
 #include "core/gnss/sky.h"
+#include "core/gnss/validity.h"
 #include "core/model/ownship.h"
 #include "core/power/battery.h"
 #include "core/power/charging.h"
@@ -72,6 +73,8 @@ struct GnssStatus {
     bool levels_wanted{false};
     // INFO: fc 18sep26 false once GSV is switched off, so no page draws a level nobody measured
     bool levels_live{false};
+    gnss::FixReject reject{gnss::FixReject::None};
+    uint32_t rejected{0};
     gnss::SkyView sky{};
 };
 
@@ -110,6 +113,25 @@ struct ImuState {
     uint8_t errored_sensor{0};
 };
 
+enum class CaptureStop : uint8_t { None, Pilot, NoSectors, NoStorage };
+
+struct CaptureState {
+    uint32_t session_id{0};
+    uint32_t records{0};
+    uint32_t dropped{0};
+    uint32_t sectors{0};
+    uint32_t pool_sectors{0};
+    uint32_t price_sectors{0};
+    uint32_t price_flights{0};
+    // INFO: fc 20sep26 the ring rotates: what the partition keeps of a capture, not a deadline
+    uint32_t keeps_s{0};
+    uint32_t faults{0};
+    uint32_t unreadable_sectors{0};
+    CaptureStop stopped{CaptureStop::None};
+    bool armed{false};
+    bool available{false};
+};
+
 struct State {
     model::OwnState own{};
     timing::ClockState clock{};
@@ -125,6 +147,7 @@ struct State {
     GLoadState gload{};
     ImuState imu{};
     FormationState formation{};
+    CaptureState capture{};
 
     traffic::Level alarm_level{traffic::Level::None};
     traffic::Level alarm_live{traffic::Level::None};

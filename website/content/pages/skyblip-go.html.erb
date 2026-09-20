@@ -286,13 +286,14 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
       </p>
       <p>
         The rest opens by name, from the menu of the list, and hands you back
-        the page you were on. The four screens below are the bench&rsquo;s, the
+        the page you were on. The screens below are the bench&rsquo;s, the
         apron&rsquo;s and the bug report&rsquo;s: none of them is a picture to
-        land on with a thumb.
+        land on with a thumb. The last of them records a flight for that report,
+        and states what the recording costs the flash before you start it.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-nearby.png", alt: "The nearby menu: radio log, satellites, status and self test, the four pages opened by name" %>
+      <%= pages_image_tag "menu-nearby.png", alt: "The nearby menu: status, satellites, radio log, raw, capture and self test, the six pages opened by name" %>
       <figcaption>The list&rsquo;s menu</figcaption>
     </figure>
   </div>
@@ -313,6 +314,10 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
     <figure class="shot">
       <%= pages_image_tag "self-test.png", alt: "The self test page: one row per part of the board, each with the part that answered and its verdict" %>
       <figcaption>Self test</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "capture.png", alt: "The capture page with nothing recording: the state off, then the price of a capture, the sectors of flash it would take, the stored flights it would evict and the hours of recording it would keep, and PRESS TWICE TO ARM along the foot" %>
+      <figcaption>Capture</figcaption>
     </figure>
   </div>
 
@@ -339,7 +344,7 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
         </tr>
         <tr>
           <th>Two presses, under 0.6&nbsp;s apart</th>
-          <td colspan="2">allow the question on the glass, and mean nothing when none stands</td>
+          <td colspan="2">allow the question on the glass, start or stop a capture on the capture page, and mean nothing anywhere else</td>
         </tr>
         <tr>
           <th>Hold the button, 2&nbsp;s</th>

@@ -2,12 +2,14 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_SCREEN_H
 
 #include "core/comms/config.h"
+#include "core/diag/payload.h"
 #include "core/flight/state.h"
 #include "core/units/units.h"
 #include "products/skyblip_go/glass.h"
 #include "products/skyblip_go/input/controls.h"
 #include "products/skyblip_go/input/gesture.h"
 #include "products/skyblip_go/pages/boot.h"
+#include "products/skyblip_go/pages/capture.h"
 #include "products/skyblip_go/pages/confirm.h"
 #include "products/skyblip_go/pages/gmeter.h"
 #include "products/skyblip_go/pages/menu.h"
@@ -24,12 +26,15 @@
 
 namespace skyblip::go {
 
-enum class Mode : uint8_t { Page, Menu };
+enum class Mode : uint8_t { Page = 0, Menu = 1 };
 
 class ScreenService : public runtime::Service {
    public:
     static constexpr uint32_t kRenderPeriodMs = 1000;
     static constexpr uint32_t kPresentFloorMs = 1000;
+
+    // INFO: fc 20sep26 the render cadence: a capture says what was on the glass, not what was drawn
+    static constexpr uint32_t kRecordPeriodMs = kRenderPeriodMs;
 
     // INFO: fc 06sep26 Good Display rates the glass 0..50 C, read on a die above ambient
     static constexpr int16_t kHoldAboveDeciCelsius = 500;
@@ -80,6 +85,10 @@ class ScreenService : public runtime::Service {
    private:
     void render(uint32_t now_ms);
     RawSnapshot raw_snapshot(uint32_t now_ms) const;
+    CaptureSnapshot capture_snapshot(uint32_t now_ms) const;
+    bool on_capture_page() const { return mode_ == Mode::Page && page_ == Page::Capture; }
+    void sync_arming(uint32_t now_ms);
+    void toggle_capture();
     void change_screen();
     void draw_prompt();
     void draw_menu_page();
@@ -89,6 +98,8 @@ class ScreenService : public runtime::Service {
     void show_radar();
     void show_page(Page page);
     void handle_input(uint32_t now_ms);
+    void record_contact(const events::ContactEvent& event, Gesture gesture, uint32_t now_ms);
+    void record_screen(uint32_t now_ms);
     void obey(Gesture gesture, uint32_t now_ms);
     void tap(uint32_t now_ms);
     void long_touch();
@@ -167,6 +178,7 @@ class ScreenService : public runtime::Service {
     comms::Pending prompt_{comms::Pending::None};
     Controls controls_{};
     ConfirmGesture confirm_{};
+    ConfirmGesture arming_{};
     MenuEditor editor_{};
 
     // INFO: cf 02aug26 a prompt is answered once read and once the thumb has stopped, never sooner
@@ -174,6 +186,7 @@ class ScreenService : public runtime::Service {
     uint32_t prompt_since_ms_{0};
     bool pressed_once_{false};
     bool prompt_on_glass_{false};
+    bool capture_on_glass_{false};
 
     Glass fb_{};
     Glass presented_{};
@@ -183,6 +196,9 @@ class ScreenService : public runtime::Service {
     Mode mode_{Mode::Page};
     int range_step_{kDefaultRangeStep};
     uint32_t last_tick_ms_{0};
+    uint32_t screen_since_ms_{0};
+    uint32_t recorded_ms_{0};
+    uint32_t contact_edge_ms_[2]{};
     uint32_t last_render_ms_{0};
     uint32_t last_present_ms_{0};
     traffic::Level last_live_{traffic::Level::None};

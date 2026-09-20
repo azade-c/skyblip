@@ -40,10 +40,16 @@ class OwnshipService : public runtime::Service {
 
    private:
     void apply_solution(const gnss::GnssSolution& solution, uint32_t now_ms);
+    void record_gnss(const gnss::GnssSolution& solution, uint32_t now_ms);
+    void record_flight(uint32_t now_ms);
+    void record_pps(uint32_t now_ms);
+    void record_baro(const events::BaroSample& sample, int32_t alt_mm, int32_t climb_mm_s,
+                     bool adopted, uint32_t now_ms);
+    void record_motion(uint32_t now_ms);
     uint32_t solution_instant(const gnss::GnssSolution& solution, uint32_t now_ms) const;
     void publish_solution_phase(uint32_t now_ms);
     void anchor_utc(const gnss::GnssSolution& solution);
-    void apply_baro(const events::BaroSample& sample);
+    void apply_baro(const events::BaroSample& sample, uint32_t now_ms);
     void apply_accel(const events::AccelSample& sample);
     void publish_inertial(uint32_t now_ms);
     void update_turn_rate(uint32_t now_ms);
@@ -67,9 +73,16 @@ class OwnshipService : public runtime::Service {
     uint32_t baro_ref_ms_{0};
     uint32_t turn_ref_ms_{0};
     int32_t turn_ref_track_cdeg_{0};
+    uint64_t pps_edge_us_{0};
+    uint32_t pps_recorded_ms_{0};
+    uint32_t motion_recorded_ms_{0};
 
     static constexpr uint32_t kBaroVsWindowMs = flight::kMinWindowMs;
     static constexpr uint32_t kGnssVsWindowMs = 2000;
+    // INFO: fc 20sep26 an edge is a record, and a second that brought none is the record saying so
+    static constexpr uint32_t kPpsRecordPeriodMs = 1000;
+    // INFO: fc 20sep26 the hub reports faster than the filters behind it move, in whole seconds
+    static constexpr uint32_t kMotionRecordPeriodMs = 1000;
     const Settings& settings_;
 };
 

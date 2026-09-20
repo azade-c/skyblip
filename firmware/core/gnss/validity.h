@@ -31,13 +31,13 @@ constexpr int32_t kMaxLongitudeJump1e7 = 2500000;
 // of the reference projects, which is why they are named and counted rather than
 // folded into a bool.
 enum class FixReject : uint8_t {
-    None,
-    NoSolution,  // RMC said V, or GGA reported no usable quality
-    MissingRmc,  // never seen one: position and date come from it
-    MissingGga,  // never seen one: altitude, quality and HDOP come from it
-    Stale,       // one of them stopped arriving
-    NoDate,      // the MTK 1980 lie, or a receiver with no almanac yet
-    Jump,        // a position no aircraft could have flown to
+    None = 0,
+    NoSolution = 1,  // RMC said V, or GGA reported no usable quality
+    MissingRmc = 2,  // never seen one: position and date come from it
+    MissingGga = 3,  // never seen one: altitude, quality and HDOP come from it
+    Stale = 4,       // one of them stopped arriving
+    NoDate = 5,      // the MTK 1980 lie, or a receiver with no almanac yet
+    Jump = 6,        // a position no aircraft could have flown to
 };
 
 const char* reject_name(FixReject reason);

@@ -591,7 +591,8 @@ struct FeatureRig {
         null.gnss};
     bus::Bus bus{};
     bus::State state{};
-    runtime::Context context{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context context{roles, bus, state, recorder};
     go::Settings settings{};
     go::SettingsStore store{settings, roles.device_addr};
     comms::ConfigService config{link, store};

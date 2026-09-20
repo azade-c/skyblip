@@ -5,7 +5,7 @@
 
 namespace skyblip::power {
 
-enum class ChargeCondition : uint8_t { Unknown, Ok, TooCold, TooHot };
+enum class ChargeCondition : uint8_t { Unknown = 0, Ok = 1, TooCold = 2, TooHot = 3 };
 
 const char* to_string(ChargeCondition condition);
 

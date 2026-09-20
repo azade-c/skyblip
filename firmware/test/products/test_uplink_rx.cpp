@@ -156,7 +156,8 @@ struct FeatureRig {
         null.gnss};
     bus::Bus bus{};
     bus::State state{};
-    runtime::Context context{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context context{roles, bus, state, recorder};
     go::TrafficService traffic;
 
     explicit FeatureRig(go::Feature declared) : traffic(context, declared) {

@@ -68,7 +68,8 @@ TEST_CASE("runtime: the loop sets up every service and ticks them in order") {
                        0};
     bus::Bus bus;
     bus::State state;
-    runtime::Context ctx{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context ctx{roles, bus, state, recorder};
 
     int order[8]{0};
     Spy a(ctx, 1, order, Status::Ok);
@@ -110,7 +111,8 @@ TEST_CASE("runtime: setup reports the first failure but still sets up the rest")
                        0};
     bus::Bus bus;
     bus::State state;
-    runtime::Context ctx{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context ctx{roles, bus, state, recorder};
 
     int order[8]{0};
     Spy failing(ctx, 1, order, Status::Down);
@@ -220,7 +222,8 @@ TEST_CASE("watchdog: the loop refuses to feed for a service that is not progress
                        0};
     bus::Bus bus;
     bus::State state;
-    runtime::Context ctx{roles, bus, state};
+    diag::Recorder recorder{};
+    runtime::Context ctx{roles, bus, state, recorder};
 
     int order[8]{0};
     Spy healthy(ctx, 1, order, Status::Ok);

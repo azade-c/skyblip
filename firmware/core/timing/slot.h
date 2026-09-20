@@ -65,12 +65,12 @@ constexpr uint32_t kPpsHoldoverMs = 60000;
 using Band = model::Band;
 
 enum class SlotState : uint8_t {
-    UplinkRxO,
-    SwitchOtoM,
-    Slot0,
-    Hop,
-    Slot1,
-    SwitchMtoO,
+    UplinkRxO = 0,
+    SwitchOtoM = 1,
+    Slot0 = 2,
+    Hop = 3,
+    Slot1 = 4,
+    SwitchMtoO = 5,
 };
 
 struct ClockState {

@@ -2,9 +2,11 @@
 #define SKYBLIP_PRODUCTS_SKYBLIP_GO_SERVICES_ALARM_H
 
 #include "core/annunciation/pattern.h"
+#include "core/diag/payload.h"
 #include "core/indication/lamp.h"
 #include "core/traffic/alarm.h"
 #include "core/traffic/formation.h"
+#include "core/traffic/table.h"
 #include "ports/indicator.h"
 #include "products/skyblip_go/settings.h"
 #include "runtime/service.h"
@@ -53,6 +55,8 @@ class AlarmService : public runtime::Service {
    private:
     bool silenced(traffic::Target& target, formation::State state,
                   const traffic::AlarmAssessment& assessment, uint32_t now_ms);
+    void record_traffic(int slot, const traffic::Target& target,
+                        const traffic::AlarmTracker::Decision& decision, uint32_t now_ms);
     formation::State watch_formation(traffic::Target& target, uint32_t now_ms);
     void drive(const annunciation::Situation& situation, uint32_t now_ms);
     void drive_lamp(uint32_t now_ms, bool running);
@@ -76,6 +80,7 @@ class AlarmService : public runtime::Service {
 
     traffic::AlarmTracker tracker_{};
     formation::Tracker formation_{};
+    uint32_t recorded_obs_ms_[traffic::TrafficTable::kCapacity]{};
     annunciation::Policy policy_{};
     indication::Policy lamp_{};
     bool dirty_{false};

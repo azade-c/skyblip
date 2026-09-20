@@ -3,14 +3,11 @@
 // service - if any of this needs a board to be checked, it is in the wrong layer.
 #include <cstring>
 
-#include "core/comms/config.h"
-#include "core/comms/log_link.h"
-#include "core/events/link.h"
 #include "core/flight/log_record.h"
 #include "core/flight/log_session.h"
 #include "core/model/ownship.h"
+#include "core/store/sector.h"
 #include "doctest/doctest.h"
-#include "ports/link.h"
 
 using namespace skyblip;
 
@@ -92,7 +89,7 @@ TEST_CASE("log record: twenty-four bytes carry the instant own-ship publishes") 
 TEST_CASE("log record: the budget the partition was sized on") {
     // 170 records and a 16-byte label in a 4 KB sector, to the byte.
     CHECK(flight::kLogSlotsPerSector == 170);
-    CHECK(flight::kLogSectorHeaderBytes + flight::kLogSlotsPerSector * flight::kLogRecordBytes ==
+    CHECK(store::kSectorHeaderBytes + flight::kLogSlotsPerSector * flight::kLogRecordBytes ==
           flight::kLogSectorBytes);
     // A four-second record period puts 11 minutes 20 seconds in a sector, so the
     // 330 sectors of log_partition hold 62 hours and a mebibyte holds 48.
@@ -137,27 +134,6 @@ TEST_CASE("log record: a session longer than the offset can count saturates rath
     CHECK(out.utc == kBaseUtc + 0xFFFF);
 }
 
-TEST_CASE("log record: a sector label survives, and a half-written one is refused") {
-    flight::LogSectorHeader in{};
-    in.sequence = 4242;
-    in.session_id = kBaseUtc;
-    uint8_t raw[flight::kLogSectorHeaderBytes];
-    flight::encode_log_sector_header(in, raw);
-
-    flight::LogSectorHeader out{};
-    REQUIRE(flight::decode_log_sector_header(raw, out) == Status::Ok);
-    CHECK(out.sequence == 4242);
-    CHECK(out.session_id == kBaseUtc);
-    CHECK(out.record_bytes == flight::kLogRecordBytes);
-
-    uint8_t erased[flight::kLogSectorHeaderBytes];
-    std::memset(erased, 0xFF, sizeof(erased));
-    CHECK(flight::decode_log_sector_header(erased, out) == Status::Empty);
-
-    raw[6] ^= 0x40;
-    CHECK(flight::decode_log_sector_header(raw, out) == Status::Crc);
-}
-
 TEST_CASE("log session: a device parked on a trailer writes nothing") {
     flight::LogSession session;
     for (uint32_t i = 0; i < 100; i++) {
@@ -176,15 +152,14 @@ TEST_CASE("log session: on the ground the ring is a holding pen and not a queue"
     // Nothing may be written out: this is the whole difference between a device
     // that keeps the last thirty seconds against a takeoff and a device that
     // fills its partition sitting in a trailer.
-    CHECK_FALSE(session.take(out));
+    CHECK_FALSE(session.peek(out));
 }
 
 TEST_CASE("log session: a record every four seconds and no more") {
     flight::LogSession session;
     session.update(flying(kBaseUtc, 50000), 0);
     flight::LogRecord drained{};
-    while (session.take(drained)) {
-    }
+    while (session.peek(drained)) session.commit();
 
     CHECK(session.update(flying(kBaseUtc + 1, 50000), 1000) == flight::LogAction::Idle);
     CHECK(session.update(flying(kBaseUtc + 3, 50000), 3999) == flight::LogAction::Idle);
@@ -201,8 +176,7 @@ TEST_CASE("log session: the four-second cadence spans the 49.7-day wrap") {
     const uint32_t before = 0xFFFFFF00u;  // 256 ms short of the wrap
     session.update(flying(kBaseUtc, 50000), before);
     flight::LogRecord drained{};
-    while (session.take(drained)) {
-    }
+    while (session.peek(drained)) session.commit();
 
     CHECK(session.update(flying(kBaseUtc + 1, 50000), before + 1000u) == flight::LogAction::Idle);
     CHECK(session.update(flying(kBaseUtc + 3, 50000), before + 3999u) == flight::LogAction::Idle);
@@ -232,7 +206,8 @@ TEST_CASE("log session: the file opens before the criterion agreed, so the roll 
     CHECK(session.queued() == flight::kLogPreTakeoffRecords);
 
     flight::LogRecord first{};
-    REQUIRE(session.take(first));
+    REQUIRE(session.peek(first));
+    session.commit();
     CHECK(first.utc == kBaseUtc + 4);
     CHECK(first.flight_state == static_cast<uint8_t>(flight::FlightState::OnGround));
 }
@@ -242,13 +217,13 @@ TEST_CASE("log session: a landing closes the session with a record that says so"
     uint32_t now_ms = 0;
     REQUIRE(session.update(flying(kBaseUtc, 50000), now_ms) == flight::LogAction::OpenSession);
     flight::LogRecord drained{};
-    while (session.take(drained)) {
-    }
+    while (session.peek(drained)) session.commit();
 
     now_ms += 4000;
     CHECK(session.update(parked(kBaseUtc + 4), now_ms) == flight::LogAction::CloseSession);
     CHECK_FALSE(session.open());
-    REQUIRE(session.take(drained));
+    REQUIRE(session.peek(drained));
+    session.commit();
     CHECK(drained.session_end);
     CHECK(drained.utc == kBaseUtc + 4);
 }
@@ -261,20 +236,21 @@ TEST_CASE("log session: the landing record stays the last one while the writer i
     uint32_t now_ms = 0;
     REQUIRE(session.update(flying(kBaseUtc, 50000), now_ms) == flight::LogAction::OpenSession);
     flight::LogRecord drained{};
-    while (session.take(drained)) {
-    }
+    while (session.peek(drained)) session.commit();
 
     now_ms += 4000;
     REQUIRE(session.update(parked(kBaseUtc + 4), now_ms) == flight::LogAction::CloseSession);
+    CHECK(session.closing());
     // Half a minute of taxiing to the hangar, with nothing draining the ring.
     for (uint32_t i = 2; i < 10; i++)
         CHECK(session.update(parked(kBaseUtc + i * 4), now_ms + i * 4000) ==
               flight::LogAction::Idle);
     CHECK(session.queued() == 1);
 
-    REQUIRE(session.take(drained));
+    REQUIRE(session.peek(drained));
+    session.commit();
     CHECK(drained.session_end);
-    CHECK_FALSE(session.take(drained));
+    CHECK_FALSE(session.peek(drained));
     CHECK_FALSE(session.closing());
 }
 
@@ -299,148 +275,40 @@ TEST_CASE("log session: a writer that never drains loses the oldest, and says ho
     CHECK(session.dropped() == 20 - flight::kLogPreTakeoffRecords);
 }
 
-TEST_CASE("log ring: the first sector of a virgin partition is sector zero") {
-    flight::LogRing ring;
-    ring.configure(4, 170);
-    CHECK_FALSE(ring.claimed());
+// The writer takes the record only once flash has it: a refused write must lose nothing.
+TEST_CASE("log session: a record peeked and not committed is still in the ring") {
+    flight::LogSession session;
+    REQUIRE(session.update(flying(kBaseUtc, 50000), 0) == flight::LogAction::OpenSession);
+    flight::LogRecord out{};
+    REQUIRE(session.peek(out));
+    CHECK(session.queued() == 1);
+    REQUIRE(session.peek(out));
+    CHECK(out.utc == kBaseUtc);
 
-    ring.claim_next_sector();
-    CHECK(ring.claimed());
-    CHECK(ring.sector() == 0);
-    CHECK(ring.sequence() == 1);
-    CHECK(ring.slot() == 0);
-    CHECK_FALSE(ring.sector_exhausted());
+    session.commit();
+    CHECK(session.queued() == 0);
+    CHECK_FALSE(session.peek(out));
 }
 
-TEST_CASE("log ring: the partition wraps and the sequence does not") {
+// A landing closes the file: what the aircraft did afterwards belongs to no flight.
+TEST_CASE("log ring: the cursor walks the slots of a sector and stops at the last one") {
     flight::LogRing ring;
     ring.configure(3, 2);
-    for (int i = 0; i < 3; i++) ring.claim_next_sector();
-    CHECK(ring.sector() == 2);
-    CHECK(ring.sequence() == 3);
-
-    // The oldest sector is reused, but its label is newer than everything else,
-    // which is exactly how a boot finds the frontier again.
-    ring.claim_next_sector();
-    CHECK(ring.sector() == 0);
-    CHECK(ring.sequence() == 4);
+    ring.restore(1, 0);
+    CHECK(ring.sector() == 1);
+    CHECK(ring.slot() == 0);
+    CHECK_FALSE(ring.sector_exhausted());
 
     ring.took_slot();
     CHECK_FALSE(ring.sector_exhausted());
     ring.took_slot();
     CHECK(ring.sector_exhausted());
-}
 
-TEST_CASE("log ring: recovery puts it back where the power cut left it") {
-    flight::LogRing ring;
-    ring.configure(330, 170);
-    ring.restore(41, 170, 4242);
+    // What recovery hands it: a frontier sector with no room left in it.
+    ring.restore(2, ring.slots_per_sector());
     CHECK(ring.sector_exhausted());
-    ring.claim_next_sector();
-    CHECK(ring.sector() == 42);
-    CHECK(ring.sequence() == 4243);
 
     ring.rewind();
-    CHECK(ring.sequence() == 0);
-    ring.claim_next_sector();
     CHECK(ring.sector() == 0);
-}
-
-TEST_CASE("log link: the three commands, and nothing else") {
-    auto framed = [](const char* json) {
-        events::RxFrame frame{};
-        frame.endpoint = events::Endpoint::Log;
-        frame.len = static_cast<uint16_t>(std::strlen(json));
-        std::memcpy(frame.data.data(), json, frame.len);
-        return frame;
-    };
-
-    CHECK(comms::parse_log_request(framed("{\"cmd\":\"list\"}")).command ==
-          comms::LogCommand::List);
-    CHECK(comms::parse_log_request(framed("{\"cmd\":\"erase\"}")).command ==
-          comms::LogCommand::Erase);
-
-    const comms::LogRequest read =
-        comms::parse_log_request(framed("{\"cmd\":\"read\",\"session\":1785628800,\"from\":170}"));
-    CHECK(read.command == comms::LogCommand::Read);
-    CHECK(read.session == 1785628800u);
-    CHECK(read.from == 170u);
-
-    // A read with no session names nothing, so it is not a read.
-    CHECK_FALSE(comms::parse_log_request(framed("{\"cmd\":\"read\"}")).understood);
-    CHECK_FALSE(comms::parse_log_request(framed("{\"cmd\":\"format\"}")).understood);
-
-    // Config frames belong to the config service even if they reach this parser.
-    events::RxFrame wrong = framed("{\"cmd\":\"list\"}");
-    wrong.endpoint = events::Endpoint::Config;
-    CHECK_FALSE(comms::parse_log_request(wrong).understood);
-}
-
-TEST_CASE("log link: base64 carries the raw record, padding and all") {
-    char out[16];
-    CHECK(comms::base64_encode(reinterpret_cast<const uint8_t*>("Man"), 3, out, sizeof(out)) == 4);
-    CHECK(std::strcmp(out, "TWFu") == 0);
-    CHECK(comms::base64_encode(reinterpret_cast<const uint8_t*>("Ma"), 2, out, sizeof(out)) == 4);
-    CHECK(std::strcmp(out, "TWE=") == 0);
-    CHECK(comms::base64_encode(reinterpret_cast<const uint8_t*>("M"), 1, out, sizeof(out)) == 4);
-    CHECK(std::strcmp(out, "TQ==") == 0);
-    // It refuses rather than truncates: a half-encoded chunk decodes to garbage.
-    uint8_t big[64] = {0};
-    CHECK(comms::base64_encode(big, sizeof(big), out, sizeof(out)) == -1);
-}
-
-TEST_CASE("log link: how many records ride in a chunk follows the payload, not a guess") {
-    // 24 raw bytes are exactly 32 base64 characters and the envelope at its
-    // widest is 83, so this arithmetic is exact rather than an estimate.
-    // Nothing fits in what BLE merely guarantees; an iPhone carries three; the
-    // 247-byte MTU the old fixed five was aimed at still carries five; and a
-    // phone that negotiates the whole L2CAP MTU is not short-changed.
-    CHECK(comms::log_records_per_chunk(ports::kMinimumLinkPayload) == 0);
-    CHECK(comms::log_records_per_chunk(comms::kSmallestSupportedPayload) == 3);
-    CHECK(comms::log_records_per_chunk(244) == 5);
-    CHECK(comms::log_records_per_chunk(495) == comms::kLogRecordsPerChunkMax);
-
-    // And a chunk really does fit the frame it was sized for, at the widest
-    // session id and record index the partition can produce.
-    uint8_t raw[comms::kLogChunkRawBytes];
-    for (size_t i = 0; i < sizeof(raw); i++) raw[i] = static_cast<uint8_t>(0xA0 + i);
-    const int payloads[3] = {comms::kSmallestSupportedPayload, 244, 495};
-    for (int payload : payloads) {
-        const int records = comms::log_records_per_chunk(payload);
-        char buf[comms::kLogReplyCap];
-        const int len =
-            comms::format_log_chunk(buf, payload + 1, 4294967295u, 4294967295u, raw, records, true);
-        CHECK(len > 0);
-        CHECK(len <= payload);
-        CHECK(std::strstr(buf, "\"cmd\":\"chunk\"") != nullptr);
-        CHECK(std::strstr(buf, "\"eof\":true") != nullptr);
-    }
-}
-
-TEST_CASE("log link: a reply that will not fit the frame is refused, never shortened") {
-    // The writer leaves out a field that will not fit whole, so a cap too small
-    // yields a short but perfectly valid object - a chunk with no "data" key, or
-    // a session line with no record count. A tablet must not be handed either.
-    uint8_t raw[comms::kLogChunkRawBytes] = {0};
-    char buf[comms::kLogReplyCap];
-    const int tiny = ports::kMinimumLinkPayload + 1;
-    CHECK(comms::format_log_chunk(buf, tiny, 1785628800u, 0, raw, 1, false) == 0);
-    CHECK(comms::format_log_session(buf, tiny, 0, 3, 1785628800u, 1700, false) == 0);
-    CHECK(comms::format_log_count(buf, tiny, 3, false) == 0);
-}
-
-TEST_CASE("log link: the count comes first and says whether it is the whole truth") {
-    char buf[comms::kLogReplyCap];
-    CHECK(comms::format_log_count(buf, sizeof(buf), 3, false) > 0);
-    CHECK(std::strstr(buf, "\"sessions\":3") != nullptr);
-    CHECK(std::strstr(buf, "\"truncated\":false") != nullptr);
-}
-
-TEST_CASE("log link: a session line says how many records and whether the flight ended") {
-    char buf[comms::kLogReplyCap];
-    const int len = comms::format_log_session(buf, sizeof(buf), 0, 3, 1785628800u, 1700, false);
-    CHECK(len > 0);
-    CHECK(std::strstr(buf, "\"records\":1700") != nullptr);
-    // The one thing a tablet must not hide: this flight stops where the power did.
-    CHECK(std::strstr(buf, "\"closed\":false") != nullptr);
+    CHECK(ring.slot() == 0);
 }

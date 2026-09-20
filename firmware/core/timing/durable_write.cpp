@@ -50,6 +50,11 @@ void DurableWriteWindow::request(uint32_t now_ms) {
 }
 
 bool DurableWriteWindow::placeable(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms) {
+    return free_now(plan, dwell, now_ms, kWorstWriteMs);
+}
+
+bool DurableWriteWindow::free_now(const SlotPlan& plan, const DwellPhase& dwell, uint32_t now_ms,
+                                  uint32_t cost_ms) {
     // Nothing is armed: a product with no radio fitted, or one before the first
     // dwell. There is no second to respect.
     if (!dwell.armed) return true;
@@ -58,7 +63,7 @@ bool DurableWriteWindow::placeable(const SlotPlan& plan, const DwellPhase& dwell
     if (dwell.burst_armed) return false;
     const uint32_t stale_ms = now_ms - dwell.at_ms;
     if (stale_ms > kViewStaleMs) return false;
-    return free_at(plan, dwell.phase_ms + static_cast<int>(stale_ms), kWorstWriteMs);
+    return free_at(plan, dwell.phase_ms + static_cast<int>(stale_ms), cost_ms);
 }
 
 DurableWriteVerdict DurableWriteWindow::decide(const SlotPlan& plan, const DwellPhase& dwell,

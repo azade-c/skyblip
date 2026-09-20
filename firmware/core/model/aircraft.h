@@ -6,7 +6,7 @@
 #include "core/events/stamp.h"
 
 namespace skyblip::model {
-enum class Source : uint8_t { AdslDirect, AdslUplink, Alptas, Own };
+enum class Source : uint8_t { AdslDirect = 0, AdslUplink = 1, Alptas = 2, Own = 3 };
 
 // What the station log calls a system where it has a column six characters wide,
 // and what nearby abbreviates to one where it has a glyph.

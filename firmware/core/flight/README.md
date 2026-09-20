@@ -164,6 +164,10 @@ A device switched on in the air is timed from the first solution rather than fro
 
 The count is a difference of unsigned milliseconds, so the 49.7-day wrap of `ports::Clock::millis()` is one ordinary second of flight.
 
+## log_record
+
+A record is 24 bytes and a sector holds 170 of them behind a 16-byte label. The label is not this module's: the log partition is a pool shared with the diagnostics ring, and which sector either ring is handed next is [`core/store`](../store/README.md)'s decision. What lives here is the record and where in a sector it sits.
+
 ## log_session
 
 `kLogPreTakeoffRecords` is eight records of slack, 32 seconds at the four-second cadence, held in RAM and handed to the file the moment it opens. A takeoff is declared at 12 m/s over the ground, so the session opens partway down the runway and the roll that produced it is already history; the ring is what puts it back. It is the same trick the moshe-braner SoftRF fork plays with its pre-position ring (`oss/SoftRF-moshe-braner .../src/protocol/data/IGC.cpp:1105-1125`).

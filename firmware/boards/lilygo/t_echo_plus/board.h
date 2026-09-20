@@ -195,6 +195,8 @@ class TEchoPlus {
             if (gnss_.poll()) {
                 bus_.gnss.push(gnss_.solution());
                 state.gnss.sky = gnss_.sky();
+                state.gnss.reject = gnss_.reject_reason();
+                state.gnss.rejected = gnss_.rejected();
             }
             state.gnss.levels_live = gnss_.satellites_in_view_live();
         }

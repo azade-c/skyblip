@@ -23,13 +23,15 @@ The groups are subjects, not owners. A reader wants every barometric fact in one
 | `air` | `traffic` |
 | `power` | `power` |
 | `flight` | `ownship` |
+| `gnss` | `ownship` for the acquisition stage, the fix mode and the phase a solution landed at, `screen` for `levels_wanted`, the board for what only the receiver knows: the sky view, whether levels are live, and the `reject` verdict and `rejected` count behind the solution it just pushed |
 | `baro` | `ownship` |
 | `slip` | `ownship` |
 | `imu` | the board, which owns the sensor hub the ball comes from and is the only code that can see where its bring-up stopped |
+| `capture` | `capture`, the diagnostics writer, read by the page that arms it |
 | `alarm_level` | `alarm` |
 | `panel_presented` | `screen` |
 | `started` | the product |
 
-Three entries have two writers and all three are deliberate. `clock` and `rf.timing_stats` are split between the board, which knows when the PPS edge arrived, and a service, which knows what was done with the second that followed. `radio_log` is one ring with two ends of the same conversation in it.
+Four entries have more than one writer and all four are deliberate. `clock`, `gnss` and `rf.timing_stats` are split between the board, which is the only code holding the part and therefore the only code that can say when the PPS edge arrived or why the receiver refused a solution, and the services that decide what to do with either. `radio_log` is one ring with two ends of the same conversation in it.
 
 `air.last_tx_done_at_us` looks misfiled and is not: `traffic` is the single reader of `bus.rf`, so it is the only code that sees the executor's `TxDone`, and `radio` reads the instant from here rather than opening a second drain of the same queue.

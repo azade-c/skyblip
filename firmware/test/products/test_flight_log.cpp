@@ -5,6 +5,7 @@
 
 #include "core/events/link.h"
 #include "core/flight/log_record.h"
+#include "core/store/sector.h"
 #include "doctest/doctest.h"
 #include "ports/link.h"
 #include "test/support/product_rig.h"
@@ -98,6 +99,38 @@ struct Offload {
     bool ordered{true};
     bool decoded{true};
 };
+
+// A partition composed by hand: the only way to stand a flight next to a capture.
+void label_sector(Rig& rig, uint32_t sector, store::SectorOwner owner, uint32_t sequence,
+                  uint32_t session) {
+    store::SectorHeader header{};
+    header.owner = owner;
+    header.sequence = sequence;
+    header.session_id = session;
+    header.record_bytes = static_cast<uint8_t>(flight::kLogRecordBytes);
+    uint8_t raw[store::kSectorHeaderBytes];
+    store::encode_sector_header(header, raw);
+    REQUIRE(is_ok(rig.platform.log_flash().write(sector * platform::host::FlashRegion::kSectorBytes,
+                                                 raw, sizeof(raw))));
+}
+
+void write_records(Rig& rig, uint32_t sector, uint32_t session, uint32_t first_utc, uint32_t count,
+                   bool closes) {
+    for (uint32_t i = 0; i < count; i++) {
+        flight::LogRecord record{};
+        record.utc = first_utc + i * 4;
+        record.lat_1e7 = 485000000;
+        record.lon_1e7 = 85000000;
+        record.fix_valid = true;
+        record.utc_valid = true;
+        record.session_end = closes && i + 1 == count;
+        uint8_t raw[flight::kLogRecordBytes];
+        flight::encode_log_record(record, session, raw);
+        REQUIRE(is_ok(rig.platform.log_flash().write(
+            sector * platform::host::FlashRegion::kSectorBytes + flight::log_record_offset(i), raw,
+            sizeof(raw))));
+    }
+}
 
 // The transfer as a tablet performs it: ask for the index you want next, verify
 // every record against the checksum the flash wrote, stop at eof.
@@ -196,6 +229,26 @@ TEST_CASE("flight log: a takeoff opens a session, a landing closes it, the groun
     CHECK(rig.product.flight_log().sessions_on_flash() == 1);
 }
 
+TEST_CASE("flight log: the sector behind the one being filled is erased before it is needed") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    const uint32_t erases_at_boot = rig.platform.log_flash().erases;
+    uint32_t t = 0;
+
+    taxi(rig, t, 20);
+    fly(rig, t, 60);
+    REQUIRE(rig.product.flight_log().recording());
+
+    // One erase for the sector the records go into, one for the spare behind it.
+    CHECK(rig.platform.log_flash().erases == erases_at_boot + 2);
+    const uint32_t spare = rig.product.flight_log().ring().sector() + 1;
+    uint8_t label[store::kSectorHeaderBytes];
+    REQUIRE(is_ok(rig.platform.log_flash().read(spare * platform::host::FlashRegion::kSectorBytes,
+                                                label, sizeof(label))));
+    // Erased and unlabelled, so a power cut leaves it a free sector.
+    CHECK(store::erased(label, sizeof(label)));
+}
+
 TEST_CASE("flight log: a committed record survives the cell dying, and the torn one is not a fix") {
     Rig flight;
     REQUIRE(flight.setup() == Status::Ok);
@@ -284,7 +337,7 @@ TEST_CASE("flight log: the write frontier is found from the labels, not by readi
     // the difference between a boot that is instant and a boot that is a
     // quarter of a second of SPI.
     CHECK(rebooted.product.flight_log().recovery_bytes_read() ==
-          flight::kLogSectorHeaderBytes * platform::host::FlashRegion::kSectorCount);
+          store::kSectorHeaderBytes * platform::host::FlashRegion::kSectorCount);
     CHECK(rebooted.product.flight_log().recovery_bytes_read() * 200 < partition);
 }
 
@@ -380,6 +433,37 @@ TEST_CASE(
     CHECK(rig.platform.link().refused_oversize == 0);
 }
 
+// The flights ring stops being contiguous the moment the other ring takes a sector out of it.
+TEST_CASE("flight log: a session whose middle sector went to diagnostics still reads back whole") {
+    Rig rig;
+    const uint32_t session = Rig::kUtcBase - 7200;
+    const uint32_t slots = flight::kLogSlotsPerSector;
+    const uint32_t tail = 5;
+
+    // Written across the end of the partition; the capture took the middle one.
+    label_sector(rig, 328, store::SectorOwner::Flights, 1, session);
+    write_records(rig, 328, session, session, slots, false);
+    label_sector(rig, 0, store::SectorOwner::Flights, 3, session);
+    write_records(rig, 0, session, session + 2 * slots * 4, tail, true);
+    label_sector(rig, 329, store::SectorOwner::Diagnostics, 4, 77);
+    REQUIRE(rig.setup() == Status::Ok);
+
+    uint32_t t = 0;
+    taxi(rig, t, 20);
+    CHECK(field(list_count(rig, t), "sessions") == "1");
+    const std::string listed = list_session(rig, t, 0);
+    CHECK(field(listed, "session") == std::to_string(session));
+    CHECK(field(listed, "records") == std::to_string(slots + tail));
+    CHECK(field(listed, "closed") == "true");
+
+    const Offload walk = offload(rig, t, session);
+    CHECK(walk.eof);
+    CHECK(walk.decoded);
+    CHECK(walk.ordered);
+    CHECK(walk.records == slots + tail);
+    CHECK(rig.product.flight_log().link_drops() == 0);
+}
+
 TEST_CASE("flight log: an offload is refused in the air, on the same gate a settings change is") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
@@ -445,11 +529,10 @@ TEST_CASE("flight log: erasing every flight takes the button, not just the phone
     t += 100;
     CHECK(rig.product.flight_log().erasing());
 
-    // One sector a pass: 330 erases must not be one tick that stops reporting
-    // progress for the better part of a minute.
+    // 330 sectors at the rate one durable-write window a second allows: about 45 s.
     rig.platform.link().clear();
-    rig.run(t, t + 40000, 50);
-    t += 40000;
+    rig.run(t, t + 60000, 50);
+    t += 60000;
     CHECK_FALSE(rig.product.flight_log().erasing());
     CHECK(rig.product.flight_log().records_written() == 0);
 

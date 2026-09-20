@@ -9,6 +9,7 @@
 #include "products/skyblip_go/features.h"
 #include "products/skyblip_go/pages/boot.h"
 #include "products/skyblip_go/services/alarm.h"
+#include "products/skyblip_go/services/capture.h"
 #include "products/skyblip_go/services/config.h"
 #include "products/skyblip_go/services/flight_log.h"
 #include "products/skyblip_go/services/nmea.h"
@@ -203,6 +204,8 @@ class Product {
     ScreenService& screen() { return screen_; }
     ConfigLinkService& config() { return config_; }
     FlightLogService& flight_log() { return flight_log_; }
+    CaptureService& capture() { return capture_; }
+    diag::Recorder& diag() { return diag_; }
 
    private:
     // Which part answered, for the three footprints LilyGO ships more than one
@@ -295,11 +298,13 @@ class Product {
         // alive right through the seconds the panel takes to park.
         roles_.rf.abort();
         roles_.rf.sleep();
+        publish_radio_asleep();
         // And now that nothing is armed, the second is nobody's: a settings change
         // still waiting for a free phase (core/timing/durable_write.h) goes to
         // flash here rather than dying with the rails. From this point the service
         // loop no longer runs, so this is the last chance there is.
         config_.flush_settings(now_ms);
+        capture_.park(now_ms);
         // Every peripheral that can be left driven is switched off by the owner
         // that drives it, because from here the service loop no longer runs: a
         // buzzer mid-pattern would sound until the rails drop.
@@ -319,15 +324,24 @@ class Product {
             screen_.set_power(false);
     }
 
+    void publish_radio_asleep() {
+        state_.rf.plan = timing::SlotPlan{};
+        state_.rf.dwell = timing::DwellPhase{};
+    }
+
     bus::Bus bus_{};
     bus::State state_{};
+    diag::Recorder diag_{};
     Settings settings_{};
     Glass boot_fb_{};
     BootSnapshot boot_snapshot_{};
     P& platform_;
     Board board_;
     ports::Roles roles_{board_.roles()};
-    runtime::Context ctx_{roles_, bus_, state_};
+    runtime::Context ctx_{roles_, bus_, state_, diag_};
+    RecordPool pool_{ctx_};
+    RecordStore flights_store_{pool_, store::SectorOwner::Flights};
+    RecordStore capture_store_{pool_, store::SectorOwner::Diagnostics};
 
     // Declared before the config service, which is handed it: the settings writer
     // asks core/power whether the cell will survive a write before it makes one.
@@ -338,7 +352,8 @@ class Product {
     TrafficService traffic_{ctx_, kFeatures};
     AlarmService alarm_{ctx_, settings_};
     NmeaService nmea_{ctx_, kFeatures, config_.config()};
-    FlightLogService flight_log_{ctx_, config_.config()};
+    FlightLogService flight_log_{ctx_, flights_store_, &capture_store_, config_.config()};
+    CaptureService capture_{ctx_, capture_store_, flights_store_, settings_, config_.config()};
     ScreenService screen_{ctx_, settings_, config_.config(), alarm_, boot_snapshot_};
 
     // The log ticks after own-ship has published the fix and after the radio has
@@ -347,11 +362,13 @@ class Product {
     // The tablet is told after the table and the levels for this pass are
     // settled and after the config service has drained the connection, and
     // before the two services that may spend a pass on flash or on pixels.
-    static constexpr int kServiceCount = 9;
-    runtime::Service* services_[kServiceCount]{
-        &config_, &ownship_, &power_, &radio_, &traffic_, &alarm_, &nmea_, &flight_log_, &screen_};
+    static constexpr int kServiceCount = 10;
+    runtime::Service* services_[kServiceCount]{&config_,  &ownship_, &power_, &radio_,
+                                               &traffic_, &alarm_,   &nmea_,  &flight_log_,
+                                               &capture_, &screen_};
     static constexpr const char* kServiceNames[kServiceCount] = {
-        "config", "ownship", "power", "radio", "traffic", "alarm", "nmea", "flight_log", "screen"};
+        "config", "ownship", "power",      "radio",   "traffic",
+        "alarm",  "nmea",    "flight_log", "capture", "screen"};
     runtime::Loop loop_{services_, kServiceCount, kServiceNames};
 
     BootPart boot_parts_[kBootPartCount]{};

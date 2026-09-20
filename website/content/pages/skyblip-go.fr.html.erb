@@ -259,13 +259,15 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
       </p>
       <p>
         Le reste s&rsquo;ouvre par son nom depuis le menu de la liste, et vous
-        rend la page où vous étiez. Les quatre écrans ci-dessous sont ceux de
+        rend la page où vous étiez. Les écrans ci-dessous sont ceux de
         l&rsquo;établi, du parking et du rapport de bug&nbsp;: aucun n&rsquo;est
-        une image sur laquelle tomber avec le pouce.
+        une image sur laquelle tomber avec le pouce. Le dernier enregistre un
+        vol pour ce rapport, et annonce ce que l&rsquo;enregistrement coûte à la
+        mémoire flash avant qu&rsquo;on le lance.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "menu-nearby.png", alt: "Le menu de la liste : journal radio, satellites, état et autotest, les quatre pages qu’on ouvre par leur nom" %>
+      <%= pages_image_tag "menu-nearby.png", alt: "Le menu de la liste : état, satellites, journal radio, raw, capture et autotest, les six pages qu’on ouvre par leur nom" %>
       <figcaption>Le menu de la liste</figcaption>
     </figure>
   </div>
@@ -286,6 +288,10 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
     <figure class="shot">
       <%= pages_image_tag "self-test.png", alt: "La page autotest : une ligne par pièce de la carte, avec la pièce qui a répondu et son verdict" %>
       <figcaption>Autotest</figcaption>
+    </figure>
+    <figure class="shot">
+      <%= pages_image_tag "capture.png", alt: "La page capture, rien en cours d’enregistrement : l’état à l’arrêt, puis le prix d’un enregistrement, les secteurs de flash qu’il prendrait, les vols enregistrés qu’il effacerait et les heures d’enregistrement qu’il garderait, et PRESS TWICE TO ARM en bas" %>
+      <figcaption>Capture</figcaption>
     </figure>
   </div>
 
@@ -312,7 +318,7 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
         </tr>
         <tr>
           <th>Deux pressions, à moins de 0,6&nbsp;s</th>
-          <td colspan="2">autorisent la question à l&rsquo;écran, et ne veulent rien dire quand il n&rsquo;y en a pas</td>
+          <td colspan="2">autorisent la question à l&rsquo;écran, lancent ou arrêtent un enregistrement sur la page capture, et ne veulent rien dire ailleurs</td>
         </tr>
         <tr>
           <th>Appui de 2&nbsp;s sur le bouton</th>

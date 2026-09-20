@@ -2,6 +2,7 @@
 
 #include "core/fec/crc.h"
 #include "core/model/ownship.h"
+#include "core/store/sector.h"
 #include "core/units/units.h"
 
 namespace skyblip::flight {
@@ -97,11 +98,7 @@ void encode_log_record(const LogRecord& record, uint32_t base_utc, uint8_t* out)
     put_u16(out + 22, fec::crc16_ccitt(out, kLogRecordBytes - 2));
 }
 
-bool log_slot_erased(const uint8_t* raw, uint32_t len) {
-    for (uint32_t i = 0; i < len; i++)
-        if (raw[i] != 0xFF) return false;
-    return true;
-}
+bool log_slot_erased(const uint8_t* raw, uint32_t len) { return store::erased(raw, len); }
 
 Status decode_log_record(const uint8_t* raw, uint32_t base_utc, LogRecord& out) {
     if (log_slot_erased(raw, kLogRecordBytes)) return Status::Empty;
@@ -128,32 +125,6 @@ Status decode_log_record(const uint8_t* raw, uint32_t base_utc, LogRecord& out) 
     out.session_end = (flags & kLogFlagSessionEnd) != 0;
     out.flight_state =
         static_cast<uint8_t>((flags >> kLogFlagFlightStateShift) & kLogFlagFlightStateMask);
-    return Status::Ok;
-}
-
-void encode_log_sector_header(const LogSectorHeader& header, uint8_t* out) {
-    put_u16(out + 0, kLogMagic);
-    out[2] = header.version;
-    // Written down rather than assumed: a later codec can grow the record and a
-    // reader still knows how to walk the sectors this one left behind.
-    out[3] = header.record_bytes;
-    put_u32(out + 4, header.sequence);
-    put_u32(out + 8, header.session_id);
-    put_u16(out + 12, fec::crc16_ccitt(out, 12));
-    put_u16(out + 14, 0xFFFF);
-}
-
-Status decode_log_sector_header(const uint8_t* raw, LogSectorHeader& out) {
-    if (log_slot_erased(raw, kLogSectorHeaderBytes)) return Status::Empty;
-    if (get_u16(raw + 0) != kLogMagic) return Status::Invalid;
-    if (fec::crc16_ccitt(raw, 12) != get_u16(raw + 12)) return Status::Crc;
-    out = LogSectorHeader{};
-    out.version = raw[2];
-    out.record_bytes = raw[3];
-    out.sequence = get_u32(raw + 4);
-    out.session_id = get_u32(raw + 8);
-    if (out.version != kLogVersion || out.record_bytes != kLogRecordBytes)
-        return Status::Unsupported;
     return Status::Ok;
 }
 

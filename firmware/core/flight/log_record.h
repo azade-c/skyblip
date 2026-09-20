@@ -1,5 +1,5 @@
 // core/flight/log_record.h: what one logged instant looks like on flash, and
-// how a sector of them is labelled. Framework-free and byte-exact: the tablet
+// where it sits in the sector core/store labelled. Byte-exact: the tablet
 // and the host script that turn these records into an IGC file read the same
 // layout, so it is written out field by field rather than memcpy'd off a packed
 // struct whose padding nobody can see.
@@ -16,32 +16,28 @@
 #include <cstdint>
 
 #include "core/model/ownship.h"
+#include "core/store/sector.h"
 #include "core/util/result.h"
 
 namespace skyblip::flight {
 
-// "SB", so a hex dump of the partition says whose bytes these are.
-constexpr uint16_t kLogMagic = 0x5342;
-constexpr uint8_t kLogVersion = 1;
-
 constexpr uint32_t kLogRecordBytes = 24;
-constexpr uint32_t kLogSectorHeaderBytes = 16;
 
 // Both candidate external parts (MX25R1635F and ZD25WQ16B) erase in 4 KB
 // sectors, which is also the erase unit the devicetree log_partition is cut on.
 constexpr uint32_t kLogSectorBytes = 4096;
 
 constexpr uint32_t log_slots_per_sector(uint32_t sector_bytes) {
-    return sector_bytes <= kLogSectorHeaderBytes
+    return sector_bytes <= store::kSectorHeaderBytes
                ? 0
-               : (sector_bytes - kLogSectorHeaderBytes) / kLogRecordBytes;
+               : (sector_bytes - store::kSectorHeaderBytes) / kLogRecordBytes;
 }
 
 // 170 records in a 4 KB sector, and 16 bytes of label: 0.4% overhead.
 constexpr uint32_t kLogSlotsPerSector = log_slots_per_sector(kLogSectorBytes);
 
 constexpr uint32_t log_record_offset(uint32_t slot) {
-    return kLogSectorHeaderBytes + slot * kLogRecordBytes;
+    return store::kSectorHeaderBytes + slot * kLogRecordBytes;
 }
 
 // Bit 5 and 6 carry the ADS-L 4 SRD860 issue 2 G.1.2 flight state code as it
@@ -96,19 +92,6 @@ Status decode_log_record(const uint8_t* raw, uint32_t base_utc, LogRecord& out);
 // True when every byte is 0xFF, which on NOR means nothing has been programmed
 // here. Checked before the CRC, so an erased slot is never a checksum question.
 bool log_slot_erased(const uint8_t* raw, uint32_t len);
-
-// What labels a sector: which session owns it and where it sits in the write
-// order. Recovery reads only these - one 16-byte read per sector instead of the
-// whole partition.
-struct LogSectorHeader {
-    uint32_t sequence{0};
-    uint32_t session_id{0};
-    uint8_t version{kLogVersion};
-    uint8_t record_bytes{static_cast<uint8_t>(kLogRecordBytes)};
-};
-
-void encode_log_sector_header(const LogSectorHeader& header, uint8_t* out);
-Status decode_log_sector_header(const uint8_t* raw, LogSectorHeader& out);
 
 }  // namespace skyblip::flight
 

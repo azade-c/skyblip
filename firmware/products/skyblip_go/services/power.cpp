@@ -1,5 +1,6 @@
 #include "products/skyblip_go/services/power.h"
 
+#include "core/diag/payload.h"
 #include "core/events/sensor.h"
 
 namespace skyblip::go {
@@ -56,6 +57,32 @@ void PowerService::tick(uint32_t now_ms) {
     context_.state.power.die_dc = die_dc_;
     context_.state.power.die_valid = die_reading_fresh(now_ms);
     watch_charge();
+    record_power(now_ms);
+}
+
+void PowerService::record_power(uint32_t now_ms) {
+    if (now_ms - recorded_ms_ < kRecordPeriodMs) return;
+    recorded_ms_ = now_ms;
+    if (!context_.diag.armed()) return;
+
+    const bus::PowerState& power = context_.state.power;
+    diag::Power value{};
+    value.cell_mv = power.battery.millivolts;
+    value.supply_warnings = cutoff_.supply_warnings();
+    value.implausible = cutoff_.implausible();
+    value.charge_warnings = charge_warnings_;
+    value.die_dc = power.die_dc;
+    value.trim_offset_mv = trim_.offset_mv();
+    value.percent = power.battery.percent;
+    value.level = power.level;
+    value.charge = power.charge;
+    value.charging = power.battery.charging;
+    value.external_power = power.battery.external_power;
+    value.valid = power.battery.valid;
+    value.die_valid = power.die_valid;
+    value.caution = power.caution;
+    value.trim_learned = trim_.learned();
+    context_.diag.record(value, context_.instant(now_ms));
 }
 
 }  // namespace skyblip::go

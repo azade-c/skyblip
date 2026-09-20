@@ -18,7 +18,6 @@ const blips = join(shots, "blips");
 const INK = [0x14, 0x14, 0x14];
 const PAPER = [0xc9, 0xc9, 0xc4];
 const STEP_MS = 5;
-const WALKED_PAGES = 4;
 const CONTACT_MS = 120;
 // Two presses inside the gesture's 600 ms window are one double press, not two steps.
 const PRESS_GAP_MS = 800;
@@ -238,31 +237,56 @@ function flying(device) {
   return neighbours(device.fly(CRUISE).run(LEG_MS)).run(HEARD_MS);
 }
 
-// products/skyblip_go/pages/page.h, in its order: a page inserted there moves these.
-const PAGE = {
-  radar: 0,
-  nearby: 1,
-  sixpack: 2,
-  gmeter: 3,
-  status: 4,
-  sats: 5,
-  log: 6,
-  raw: 7,
-  boot: 8
-};
+function firmwareSource(...parts) {
+  return readFileSync(join(firmware, ...parts), "utf8");
+}
+
+function inside(source, pattern, what) {
+  const found = source.match(pattern);
+  if (!found) throw new Error(`${what} is not where this tool reads it in the firmware`);
+  return found[1];
+}
+
+function pagesOf(source) {
+  const body = inside(source, /enum class Page : uint8_t \{([^}]*)\}/, "the Page enum");
+  const pages = {};
+  let id = 0;
+  for (const entry of body.split(",")) {
+    const named = entry.match(/(\w+)\s*(?:=\s*(\d+))?\s*$/);
+    if (!named) continue;
+    if (named[2] !== undefined) id = Number(named[2]);
+    pages[named[1]] = id++;
+  }
+  delete pages.kCount;
+  return pages;
+}
+
+function menuRowsOf(source, array) {
+  const body = inside(source, new RegExp(`${array}\\[\\] = \\{([^}]*)\\}`), array);
+  const rows = {};
+  for (const [, row] of body.matchAll(/MenuRow::(\w+)/g)) rows[row] = Object.keys(rows).length;
+  return rows;
+}
+
+const pageHeader = firmwareSource("products", "skyblip_go", "pages", "page.h");
+const menuSource = firmwareSource("products", "skyblip_go", "pages", "menu.cpp");
+const PAGE = pagesOf(pageHeader);
+const RADAR_MENU = menuRowsOf(menuSource, "kRadarMenuRows");
+const NEARBY_MENU = menuRowsOf(menuSource, "kNearbyMenuRows");
+const WALKED_PAGES = Number(
+  inside(pageHeader, /constexpr int kWalkedPages = (\d+);/, "kWalkedPages")
+);
 const ADVISORY = 1;
-// products/skyblip_go/pages/menu.cpp's radar rows: TYPE, CALLSIGN, UNITS, RANGE, ALARM, VOLUME.
-const CALLSIGN_ROW = 1;
 
 const scenes = [
   {
     name: "radar",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     shot: device => flying(device)
   },
   {
     name: "alarm",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     alarm: ADVISORY,
     shot(device) {
       flying(device).traffic({
@@ -279,7 +303,7 @@ const scenes = [
   },
   {
     name: "nearby",
-    page: PAGE.nearby,
+    page: PAGE.Nearby,
     shot(device) {
       namedAndFlying(device)
         .traffic({ bearing: 20, range: 6100, ft: 1700, kt: 95, track: 30, addr: 0x4dd903, alptas: 1 })
@@ -288,53 +312,53 @@ const scenes = [
           addr: 0x3ab1e4, callsign: "F-CBAY"
         })
         .run(HEARD_MS)
-        .walkTo(PAGE.nearby);
+        .walkTo(PAGE.Nearby);
     }
   },
   {
     name: "sixpack",
-    page: PAGE.sixpack,
+    page: PAGE.SixPack,
     shot: device =>
       device
         .fly({ ...CRUISE, ft: 3500, track: 121, fpm: 490 })
         .run(40_000)
         .fly({ dps: 3 })
         .run(6000)
-        .walkTo(PAGE.sixpack)
+        .walkTo(PAGE.SixPack)
   },
   {
     name: "gmeter",
-    page: PAGE.gmeter,
+    page: PAGE.GMeter,
     shot(device) {
-      device.fly(CRUISE).run(20_000).walkTo(PAGE.gmeter);
+      device.fly(CRUISE).run(20_000).walkTo(PAGE.GMeter);
       for (const slip of [400, -300, 0]) device.fly({ slip }).run(4000);
     }
   },
   {
     name: "menu-radar",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     menu: true,
     shot: device =>
-      setCallsign(device, OWN_CALLSIGN).fly(CRUISE).run(20_000).openMenu(PAGE.radar)
+      setCallsign(device, OWN_CALLSIGN).fly(CRUISE).run(20_000).openMenu(PAGE.Radar)
   },
   {
     name: "menu-callsign",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     menu: true,
     shot(device) {
       setCallsign(device, OWN_CALLSIGN);
-      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      device.openMenu(PAGE.Radar, RADAR_MENU.Callsign).press();
       // Two characters in, so the bar is under a character and not at either end.
       return device.press().press();
     }
   },
   {
     name: "menu-callsign-blank",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     menu: true,
     shot(device) {
       setCallsign(device, OWN_CALLSIGN);
-      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      device.openMenu(PAGE.Radar, RADAR_MENU.Callsign).press();
       // S through the letters and the digits, round to the blank the clear is armed on.
       for (let roll = 0; roll < 18; roll++) device.tap();
       return device;
@@ -342,56 +366,63 @@ const scenes = [
   },
   {
     name: "menu-callsign-none",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     menu: true,
     shot(device) {
       setCallsign(device, OWN_CALLSIGN);
-      device.openMenu(PAGE.radar, CALLSIGN_ROW).press();
+      device.openMenu(PAGE.Radar, RADAR_MENU.Callsign).press();
       for (let roll = 0; roll < 18; roll++) device.tap();
       return device.press();
     }
   },
   {
     name: "menu-nearby",
-    page: PAGE.nearby,
+    page: PAGE.Nearby,
     menu: true,
-    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.nearby)
+    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.Nearby)
   },
   {
     name: "confirm",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     prompt: true,
     shot: device => asks(device, OWN_CALLSIGN)
   },
   {
     name: "status",
-    page: PAGE.status,
-    shot: device => namedAndFlying(device).openMenu(PAGE.nearby, 0).press()
+    page: PAGE.Status,
+    shot: device => namedAndFlying(device).openMenu(PAGE.Nearby, NEARBY_MENU.Status).press()
   },
   {
     name: "satellites",
-    page: PAGE.sats,
+    page: PAGE.Sats,
     shot(device) {
       device.sim.setFix(0);
-      device.run(20_000).openMenu(PAGE.nearby, 1).press().run(6000);
+      device.run(20_000).openMenu(PAGE.Nearby, NEARBY_MENU.Sats).press().run(6000);
     }
   },
   {
     name: "radio-log",
-    page: PAGE.log,
+    page: PAGE.RadioLog,
     shot(device) {
-      namedAndFlying(device).openMenu(PAGE.nearby, 2).press().run(2000);
+      namedAndFlying(device).openMenu(PAGE.Nearby, NEARBY_MENU.RadioLog).press().run(2000);
       return tapeWithANameOnIt(device);
     }
   },
   {
     name: "self-test",
-    page: PAGE.boot,
-    shot: device => device.fly(CRUISE).run(20_000).openMenu(PAGE.nearby, 4).press()
+    page: PAGE.SelfTest,
+    shot: device =>
+      device.fly(CRUISE).run(20_000).openMenu(PAGE.Nearby, NEARBY_MENU.SelfTest).press()
+  },
+  // INFO: fc 21sep26 disarmed is the shot: armed reads as a counter mid-run, the price is the page
+  {
+    name: "capture",
+    page: PAGE.Capture,
+    shot: device => flying(device).openMenu(PAGE.Nearby, NEARBY_MENU.Capture).press()
   },
   {
     name: "no-fix",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     shot(device) {
       device.sim.setFix(0);
       device.run(25_000);
@@ -400,7 +431,7 @@ const scenes = [
   // Under the warning and above the cutoff: the cell a pilot can still land on.
   {
     name: "low-battery",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     shot(device) {
       flying(device);
       device.sim.setBatteryMv(3400);
@@ -410,7 +441,7 @@ const scenes = [
   // The stack: the cell takes the banner and the state word it displaced reads under it.
   {
     name: "low-battery-taxi",
-    page: PAGE.radar,
+    page: PAGE.Radar,
     shot(device) {
       device.fly({ kt: 6, ft: 340, track: 90, fpm: 0, dps: 0 }).run(30_000);
       device.sim.setBatteryMv(3400);
@@ -478,6 +509,8 @@ function verify(scene, device) {
     prompt: sim.prompt() === 1
   };
   const want = { menu: false, alarm: 0, powered: true, prompt: false, ...scene };
+  if (want.powered && want.page === undefined)
+    throw new Error(`${scene.name}: the scene names no page, so nothing here reads the glass`);
   for (const key of Object.keys(got))
     if (want[key] !== undefined && want[key] !== got[key])
       throw new Error(`${scene.name}: ${key} is ${got[key]}, the page wants ${want[key]}`);

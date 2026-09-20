@@ -5,7 +5,7 @@
 
 namespace skyblip::events {
 
-enum class Contact : uint8_t { Button, Pad };
+enum class Contact : uint8_t { Button = 0, Pad = 1 };
 
 struct ContactEvent {
     Contact contact{Contact::Button};

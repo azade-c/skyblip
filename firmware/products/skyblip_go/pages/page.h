@@ -9,16 +9,17 @@
 namespace skyblip::go {
 
 enum class Page : uint8_t {
-    Radar,
-    Nearby,
-    SixPack,
-    GMeter,
-    Status,
-    Sats,
-    RadioLog,
-    Raw,
-    SelfTest,
-    kCount
+    Radar = 0,
+    Nearby = 1,
+    SixPack = 2,
+    GMeter = 3,
+    Status = 4,
+    Sats = 5,
+    RadioLog = 6,
+    Raw = 7,
+    Capture = 8,
+    SelfTest = 9,
+    kCount = 10
 };
 
 constexpr int kPageCount = static_cast<int>(Page::kCount);
@@ -67,6 +68,7 @@ constexpr const char* page_title(Page page) {
         case Page::Sats: return "SATELLITES";
         case Page::RadioLog: return "RADIO LOG";
         case Page::Raw: return "RAW";
+        case Page::Capture: return "CAPTURE";
         case Page::SelfTest: return "SELF TEST";
         case Page::GMeter: return "G METER";
         default: return "";

@@ -72,6 +72,10 @@ jobs:
       # factory bootloader. Stdlib only, so it runs here and not on the slow job.
       - name: mkuf2 range guards
         run: python3 scripts/test_mkuf2.py
+      # The host decoder and the firmware's record layout are one layout written
+      # twice, and a corpus decoded wrong is worse than one that failed to decode.
+      - name: blip decoders, NMEA reassembly and resume
+        run: python3 scripts/test_blip.py
       # docs/BEHAVIOR.md is generated from the test names: a rename that does not
       # land with the doc leaves the repo claiming behavior the suite dropped.
       - name: behavior index matches the suite

@@ -46,7 +46,8 @@ class LogSession {
     // Yields records only while a session is running, plus the one last record a
     // landing leaves behind. On the ground the same ring is a holding pen, not a
     // queue: what it holds is overwritten, never written out.
-    bool take(LogRecord& out);
+    bool peek(LogRecord& out);
+    void commit();
 
     // Records the ring had to overwrite because nothing drained it. Not silent:
     // the same accounting the bus queues get.
@@ -61,6 +62,7 @@ class LogSession {
     LogRecord ring_[kLogPreTakeoffRecords]{};
     int head_{0};
     int count_{0};
+    int to_flush_{0};
     uint32_t dropped_{0};
     uint32_t session_id_{0};
     uint32_t last_sample_ms_{0};
@@ -69,35 +71,23 @@ class LogSession {
     bool closing_{false};
 };
 
-// The write frontier. The partition is a ring of sectors: when the last one
-// fills, the oldest is erased and reused, so a device nobody ever offloads keeps
-// the most recent hours instead of quietly stopping at the first landing that
-// filled it. The sequence number never repeats, which is what lets a boot find
-// the frontier from the sector labels alone.
+// Where the next record goes: which sector the log is filling and how far into
+// it. Which sector that is, and the sequence it was labelled with, is
+// core/store's decision - this is the cursor inside it.
 class LogRing {
    public:
     void configure(uint32_t sector_count, uint32_t slots_per_sector);
 
-    // What recovery found: the sector holding the highest sequence, the first
-    // free slot in it, and that sequence.
-    void restore(uint32_t sector, uint32_t slot, uint32_t sequence);
+    void restore(uint32_t sector, uint32_t slot);
     void rewind();
 
     uint32_t sector() const { return sector_; }
     uint32_t slot() const { return slot_; }
-    uint32_t sequence() const { return sequence_; }
     uint32_t sector_count() const { return sector_count_; }
     uint32_t slots_per_sector() const { return slots_per_sector_; }
 
     bool configured() const { return sector_count_ > 0 && slots_per_sector_ > 0; }
-    // Whether any sector has been claimed at all. A virgin partition has not,
-    // which is why the first claim takes sector zero rather than sector one.
-    bool claimed() const { return claimed_; }
     bool sector_exhausted() const { return slot_ >= slots_per_sector_; }
-
-    // Move to the next sector, wrapping, and take the next sequence number. The
-    // caller erases it and writes its header before any record lands in it.
-    void claim_next_sector();
     void took_slot() { slot_++; }
 
    private:
@@ -105,8 +95,6 @@ class LogRing {
     uint32_t slots_per_sector_{0};
     uint32_t sector_{0};
     uint32_t slot_{0};
-    uint32_t sequence_{0};
-    bool claimed_{false};
 };
 
 // How long the reserved partition holds, for the arithmetic nobody should have
