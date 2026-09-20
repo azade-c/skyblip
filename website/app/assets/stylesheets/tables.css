@@ -54,7 +54,7 @@
   .blips td img {
     inline-size: 38px;
     image-rendering: pixelated;
-    vertical-align: middle;
+    margin-inline: auto;
   }
 
   .blips .blips-none {
