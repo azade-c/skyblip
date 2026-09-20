@@ -110,7 +110,7 @@ TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withh
 
     for (const Tile& t : kTiles)
         if (&t != &kTiles[1]) CHECK(value_matches(fb, t, "---"));
-    CHECK(value_matches(fb, kTiles[1], "-- %"));
+    CHECK(value_matches(fb, kTiles[1], "--%"));
 }
 
 // The barometer measures a climb of its own, so the vario is not a GNSS instrument.
@@ -141,7 +141,7 @@ TEST_CASE("sixpack: a fix lost in flight withholds the dials and leaves the cell
     lost.data_valid = false;
     Glass fb;
     draw_sixpack(fb, lost);
-    CHECK(value_matches(fb, kTiles[1], "64 %"));
+    CHECK(value_matches(fb, kTiles[1], "64%"));
     CHECK(value_matches(fb, kTiles[0], "---"));
 }
 
@@ -240,13 +240,13 @@ TEST_CASE("sixpack: the middle number is the state of charge, with the unit on t
     SixPackSnapshot s = flying();
     Glass fb;
     draw_sixpack(fb, s);
-    CHECK(value_matches(fb, kTiles[1], "64 %"));
+    CHECK(value_matches(fb, kTiles[1], "64%"));
 
     SixPackSnapshot full = s;
     full.battery_percent = 100;
     Glass ff;
     draw_sixpack(ff, full);
-    CHECK(value_matches(ff, kTiles[1], "100 %"));
+    CHECK(value_matches(ff, kTiles[1], "100%"));
 }
 
 // A unit with no divider fitted draws the shape of the reading, never a zero that reads as flat.
@@ -255,7 +255,7 @@ TEST_CASE("sixpack: a cell nobody measured withholds the figure and keeps the si
     s.battery_valid = false;
     Glass fb;
     draw_sixpack(fb, s);
-    CHECK(value_matches(fb, kTiles[1], "-- %"));
+    CHECK(value_matches(fb, kTiles[1], "--%"));
 }
 
 // Two dashes and a hub read as a needle: what leans here is an aeroplane seen from behind.
@@ -427,7 +427,7 @@ TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
     Glass f3;
     draw_sixpack(f3, later);
     CHECK(black_in(f3, att, 28) == black_in(f0, att, 28));
-    CHECK(value_matches(f3, att, "12 %"));
+    CHECK(value_matches(f3, att, "12%"));
 }
 
 TEST_CASE("sixpack: the speed dial rests at the bottom and stands 100 kt straight up") {

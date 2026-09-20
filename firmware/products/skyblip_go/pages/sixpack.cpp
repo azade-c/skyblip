@@ -269,7 +269,7 @@ int32_t inferred_bank_deg(int32_t turn_dps, int32_t speed_kt) {
 void battery_value(ui::Canvas& fb, int cx, int row, const SixPackSnapshot& s) {
     char buf[8];
     int n = s.battery_valid ? fmt_uint(buf, s.battery_percent) : fmt_string(buf, "--");
-    n += fmt_string(buf + n, " %");
+    n += fmt_string(buf + n, "%");
     buf[n] = 0;
     value_text(fb, cx, row, buf);
 }
