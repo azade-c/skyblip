@@ -42,6 +42,7 @@ class Tracker {
    private:
     struct Slot {
         bool used{false};
+        bool anchored{false};
         uint8_t addr_table{0};
         uint32_t addr{0};
         uint32_t seen_ms{0};
@@ -54,6 +55,7 @@ class Tracker {
         State state{State::None};
     };
 
+    static void anchor(Slot& slot, const Report& station, uint32_t now_ms);
     Slot* slot_for(const model::AircraftObs& target, uint32_t now_ms);
     const Slot* find(uint8_t addr_table, uint32_t addr) const;
     Slot* find(uint8_t addr_table, uint32_t addr);

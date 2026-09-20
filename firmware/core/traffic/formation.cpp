@@ -25,6 +25,15 @@ void heading_up(int32_t north_m, int32_t east_m, int32_t track_cdeg, int32_t& ah
 
 }  // namespace
 
+void Tracker::anchor(Slot& slot, const Report& station, uint32_t now_ms) {
+    slot.ref_ahead_m = station.ahead_m;
+    slot.ref_right_m = station.right_m;
+    slot.ref_up_m = station.up_m;
+    slot.steady_since_ms = now_ms;
+    slot.drift_fixes = 0;
+    slot.anchored = true;
+}
+
 Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs& reported,
                         uint32_t now_ms) {
     Report out{};
@@ -49,6 +58,11 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
         return out;
     }
 
+    if (!slot->anchored) {
+        anchor(*slot, out, now_ms);
+        return out;
+    }
+
     const int32_t drift_m = static_cast<int32_t>(
         idistance(out.ahead_m - slot->ref_ahead_m, out.right_m - slot->ref_right_m));
     const bool station_kept =
@@ -63,14 +77,9 @@ Report Tracker::observe(const model::OwnState& own_fix, const model::AircraftObs
     }
 
     slot->drift_fixes++;
-    slot->ref_ahead_m = out.ahead_m;
-    slot->ref_right_m = out.right_m;
-    slot->ref_up_m = out.up_m;
-    slot->steady_since_ms = now_ms;
-    if (slot->state == State::Together && slot->drift_fixes >= kBreakFixes) {
-        slot->state = State::Parting;
-        slot->drift_fixes = 0;
-    }
+    const bool breaking = slot->state == State::Together && slot->drift_fixes >= kBreakFixes;
+    if (slot->state != State::Together || breaking) anchor(*slot, out, now_ms);
+    if (breaking) slot->state = State::Parting;
     out.state = slot->state;
     return out;
 }
@@ -119,7 +128,6 @@ Tracker::Slot* Tracker::slot_for(const model::AircraftObs& target, uint32_t now_
     slot->addr = target.addr;
     slot->addr_table = target.addr_table;
     slot->seen_ms = now_ms;
-    slot->steady_since_ms = now_ms;
     return slot;
 }
 

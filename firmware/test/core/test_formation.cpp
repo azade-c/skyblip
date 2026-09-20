@@ -98,6 +98,30 @@ TEST_CASE("formation: a member drifting away is parting, and it takes two fixes"
           State::Parting);
 }
 
+// The break re-anchored on every drifting fix, so it asked for 60 m twice in a row: 60 m/s.
+TEST_CASE("formation: a member peeling off slowly parts without waiting for the band") {
+    Tracker tracker;
+    uint32_t t = 1000;
+    for (; t <= 1000 + kTogetherHoldMs + 1000; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        tracker.observe(own, neighbour(own, -60, -120, 10, 40, 90, t), t);
+    }
+    REQUIRE(tracker.together(6, 0x424242));
+
+    // 10 m/s of separation: 60 m of drift after six fixes, and two fixes past it to break.
+    Report r{};
+    int away_m = 0;
+    for (int fix = 1; fix <= 9; fix++) {
+        t += 1000;
+        away_m = 10 * fix;
+        const model::OwnState own = flying(40, 90, t);
+        r = tracker.observe(own, neighbour(own, -60 - away_m, -120, 10, 40, 90, t), t);
+    }
+    CHECK(r.state == State::Parting);
+    CHECK(away_m < kRangeM);
+    CHECK(tracker.members() == 0);
+}
+
 TEST_CASE("formation: a pair that parts is two aircraft again once it leaves the band") {
     Tracker tracker;
     for (uint32_t t = 1000; t <= 1000 + kTogetherHoldMs + 1000; t += 1000) {
@@ -176,6 +200,18 @@ TEST_CASE("formation: a contact nobody has heard from is forgotten, membership a
     tracker.forget_stale(1000 + kTogetherHoldMs + 1000 + lease_ms + 1);
     CHECK(tracker.members() == 0);
     CHECK_FALSE(tracker.together(6, 0x424242));
+}
+
+// The anchor was own-ship until the first drifting fix, so a contact inside the box never moved.
+TEST_CASE("formation: a contact that appears alongside is anchored where it was first seen") {
+    Tracker tracker;
+    Report r{};
+    for (uint32_t t = 1000; t <= 1000 + kTogetherHoldMs + 1000; t += 1000) {
+        const model::OwnState own = flying(40, 90, t);
+        const int right_m = (t / 1000) % 2 == 0 ? 40 : -40;
+        r = tracker.observe(own, neighbour(own, -right_m, 0, 0, 40, 90, t), t);
+    }
+    CHECK(r.state == State::None);
 }
 
 // A tug and its glider hold station on the apron as well as they do on tow.

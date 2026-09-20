@@ -67,6 +67,8 @@ ADS-L carries position, speed, track and climb, and no turn rate (G.1.8, G.1.10)
 
 Aircraft fly together on purpose: a patrol, a tug and its glider, two friends on a task, a gaggle in one thermal. The device cannot see intent, so `formation` names the observable: a contact within `kRangeM` and `kVertM` whose position in own-ship's own heading-up frame has not moved more than `kDriftM` for `kTogetherHoldMs`. That covers all four cases without naming any of them, and a circling pair matches it for the same reason a patrol does.
 
+The station is where the contact was first seen, not where own-ship is. A slot anchors on its first fix inside the band and the box is measured from there, so a contact that appears 40 m off the wing and swings to 40 m off the other one has moved 80 m and holds no station. The anchor used to start at own-ship's own position, which made everything inside 60 m a wingman on arrival - and 60 m is a glider on tow.
+
 Nothing is asked and nothing is announced. The device says it in the picture it was already drawing: the square closes around own-ship as the formation forms, the count moves between quadrants, the square opens again when the last member leaves. A pilot who wanted a word for it is a pilot reading words instead of a plot, and the aircraft it is about is out of the window.
 
 Three rules keep it honest:
@@ -76,6 +78,8 @@ A member is silenced on the annunciator and never on the plot. It stops being dr
 **Closure takes the silence back.** A member closing at `kClosingMps` or more is released on that fix and graded like any other traffic. Holding station is the whole claim the detector makes, and an aircraft coming at us is not holding station, so the silence ends before the drift test has had two fixes to notice. The figure is 3 m/s because the wire cannot say anything smaller and mean it: ADS-L quantises ground speed at 0.25 m/s and track at 512 steps of a turn, which is half a metre a second of phantom closure at 40 m/s (G.1.8, G.1.10). What it costs is named below.
 
 **A split is not a conflict.** When station keeping breaks, the contact becomes `State::Parting` rather than traffic again, and stays quiet while it goes. Two aircraft leaving each other are the least surprising thing in the sky, and the geometry of a break reads like a closure to an alarm that grades distance. Parting ends the way it must: the moment they close again by `kClosingMps`, or when they are out of the band entirely and are two aircraft that have nothing to do with each other.
+
+The break is measured from the station, and `kBreakFixes` is what one bad solution cannot fake. While a member holds station the anchor does not move, so a departure accumulates against it: 60 m of drift and two fixes past it, whatever the rate it leaves at. The anchor used to be re-set on every fix that missed the box, which asked for 60 m twice in a row - 60 m/s of separation - and anything slower stayed inside the square until it crossed `kRangeM`. A wingman peeling off at 10 m/s is drawn as its own symbol eight seconds in, where it took a hundred before.
 
 The lease ends by itself: a contact nobody has heard for its own lease (`lease.h`) is forgotten with its membership, and a neighbour that settles back on station for `kTogetherHoldMs` rejoins. Addresses rotate only between flights, so a slot reallocated to another aircraft starts at `State::None`.
 

@@ -166,7 +166,7 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kDriftM` | 60 | metres | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kVertDriftM` | 30 | metres | - | - |
 | `kTogetherHoldMs` | 6000 (6 s) | milliseconds | Hold | [README](../firmware/core/traffic/README.md) argues it |
-| `kBreakFixes` | 2 | fixes | Fixes | - |
+| `kBreakFixes` | 2 | fixes | Fixes | [README](../firmware/core/traffic/README.md) argues it |
 | `kClosingMps` | 3 | metres per second | - | [README](../firmware/core/traffic/README.md) argues it |
 | `kTargetForgetReports` | 6 | reports of the aircraft's own | Forget | [README](../firmware/core/traffic/README.md) argues it |
 | `kAirborneTargetForgetS` | `kTargetForgetReports * flight::kAirborneReportPeriodS` = 6 | seconds | Forget | [README](../firmware/core/traffic/README.md) argues it |
