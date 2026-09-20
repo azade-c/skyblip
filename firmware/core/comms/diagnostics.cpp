@@ -83,6 +83,7 @@ void DiagnosticsReport::build(const Diagnostics& d, const Group* only) {
         add_int(Group::Radio, "rx_named", counter(d.rx_named));
         add_int(Group::Radio, "tx_ok", counter(d.tx_ok));
         add_int(Group::Radio, "tx_lost", counter(d.tx_lost));
+        add_int(Group::Radio, "tx_named", counter(d.tx_named));
         add_int(Group::Radio, "tx_keyed_us", d.tx_keyed_us);
         add_int(Group::Radio, "tx_span_us", d.tx_span_us);
         // The range gate's refusals read out with the radio and not with the

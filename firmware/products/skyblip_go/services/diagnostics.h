@@ -63,6 +63,7 @@ class DiagnosticsDump {
         d.rx_named = state.air.rx_named;
         d.tx_ok = state.air.tx_ok;
         d.tx_lost = state.air.tx_lost;
+        d.tx_named = state.air.tx_named;
         d.tx_keyed_us = state.rf.last_tx_keyed_us;
         d.tx_span_us = state.rf.last_tx_span_us;
 

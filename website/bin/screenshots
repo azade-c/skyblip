@@ -178,11 +178,10 @@ function panel(device) {
   return { w: W, h: H, stride: STRIDE, bits: device.frame() };
 }
 
+const OWN_CALLSIGN = "F-GJPT";
 const CRUISE = { kt: 95, ft: 3911, track: 0, fpm: 0, dps: 0 };
 const LEG_MS = 47 * 60_000;
 const HEARD_MS = 20_000;
-// A callsign goes out once in ten seconds, so a scene that shows one listens longer.
-const NAMED_MS = 25_000;
 
 // One above, one below, one level and climbing, all outside the 3 km an advisory starts at.
 function neighbours(device) {
@@ -298,7 +297,10 @@ const scenes = [
   {
     name: "radio-log",
     page: PAGE.log,
-    shot: device => flying(device).openMenu(PAGE.nearby, 2).press().run(2000)
+    shot(device) {
+      flying(device).openMenu(PAGE.nearby, 2).press().run(2000);
+      return tapeWithANameOnIt(device);
+    }
   },
   {
     name: "self-test",
@@ -319,6 +321,17 @@ const scenes = [
     shot: device => device.fly(CRUISE).run(20_000).holdButton(HOLD_OFF_MS).run(6000)
   }
 ];
+
+// Sixteen rows hold about two seconds of a busy sky, and a name goes out once in
+// ten, so the tape is caught on the pass one lands rather than wherever it was.
+function tapeWithANameOnIt(device) {
+  const before = device.sim.txNamed();
+  for (let second = 0; second < 12; second++) {
+    device.run(1000);
+    if (device.sim.txNamed() > before) return png(panel(device.run(150)));
+  }
+  throw new Error("twelve seconds of tape and own-ship never named itself");
+}
 
 // The wedge flashes at a flip a second, and the inverted phase is the most ink it puts up.
 function brightestFlip(device) {
@@ -375,6 +388,7 @@ function* drawnBlips() {
 mkdirSync(shots, { recursive: true });
 for (const scene of scenes) {
   const device = await Device.boot();
+  device.sim.setCallsign(OWN_CALLSIGN);
   device.run(STEP_MS);
   const captured = scene.shot(device);
   const shot = captured instanceof Buffer ? captured : png(panel(device.run(SETTLE_MS)));

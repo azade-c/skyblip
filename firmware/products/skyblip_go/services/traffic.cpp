@@ -78,6 +78,8 @@ void TrafficService::log(const events::RfEvent& event, const events::Stamp& stam
     entry.rssi_dbm = event.rssi_dbm;
     entry.rssi_valid = event.rssi_valid;
     if (event.type == events::RfEventType::RxDone) entry.len = event.len;
+    if (event.type == events::RfEventType::TxDone || event.type == events::RfEventType::Missed)
+        entry.callsign = state.rf.tx_callsign;
     if (outcome == radio::Event::Transmitted && state.rf.tx_deadline_us != 0) {
         entry.tx_keyed_us = radio::tx_span_of(event.keyed_at_us, state.rf.tx_deadline_us);
         entry.tx_span_us = radio::tx_span_of(event.at_us, state.rf.tx_deadline_us);

@@ -213,6 +213,7 @@ void draw_tx(ui::Canvas& fb, int y, const RawRadio& r) {
     n += fmt_keyed(buf + n, "LOST", r.tx_lost);
     n += fmt_keyed(buf + n, "MISS", r.missed);
     n += fmt_keyed(buf + n, "HELD", r.refused);
+    n += fmt_keyed(buf + n, "CALL", r.tx_named);
     row(fb, y, buf, n);
 }
 

@@ -420,6 +420,7 @@ RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
     snap.radio.uplink_targets = state.air.uplink_targets;
     snap.radio.tx_ok = state.air.tx_ok;
     snap.radio.tx_lost = state.air.tx_lost;
+    snap.radio.tx_named = state.air.tx_named;
     snap.radio.missed = stats.missed();
     snap.radio.refused = stats.refused();
     snap.radio.duty_permille = state.rf.duty_permille;

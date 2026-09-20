@@ -84,6 +84,21 @@ KEEPALIVE void simulator_add_aircraft_at(int north_m, int east_m, int up_m, int 
 KEEPALIVE void simulator_add_threat(int alptas) {
     g_simulator.world().add_threat(system_of(alptas));
 }
+KEEPALIVE int simulator_tx_named() {
+    return static_cast<int>(g_simulator.product().state().air.tx_named);
+}
+KEEPALIVE int simulator_rx_named() {
+    return static_cast<int>(g_simulator.product().state().air.rx_named);
+}
+KEEPALIVE void simulator_set_callsign(const char* callsign) {
+    char* out = g_simulator.product().settings().callsign;
+    size_t n = 0;
+    while (n + 1 < go::kCallsignCap && callsign[n] != 0) {
+        out[n] = callsign[n];
+        n++;
+    }
+    out[n] = 0;
+}
 KEEPALIVE void simulator_name_aircraft(int index, const char* callsign) {
     g_simulator.world().name_aircraft(index, callsign);
 }

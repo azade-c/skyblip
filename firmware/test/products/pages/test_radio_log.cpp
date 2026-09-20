@@ -154,7 +154,23 @@ TEST_CASE("radio log page: a sent burst names the schedule it went out on") {
     Glass fb;
     draw_radio_log(fb, with(log));
     CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "AIR"));
-    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY + kLineH, "GND"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY + kLineH, "GROUND"));
+}
+
+// A name is on neither schedule, so it says which burst it was where the rate would be.
+TEST_CASE("radio log page: own-ship's callsign burst says so where its schedule is printed") {
+    radio::Log log;
+    radio::Entry named = entry_of(radio::Event::Transmitted);
+    named.airborne = true;
+    named.callsign = true;
+    log.record(named);
+
+    Glass fb;
+    draw_radio_log(fb, with(log));
+    CHECK(shows(fb, 4 + 10 * 6, kFirstRowY, "TX"));
+    CHECK(shows(fb, 4 + 22 * 6, kFirstRowY, "CALL"));
+    CHECK_FALSE(shows(fb, 4 + 22 * 6, kFirstRowY, "AIR"));
+    CHECK_FALSE(shows(fb, 4 + 16 * 6, kFirstRowY, "CALL"));
 }
 
 // The one row that separates an empty sky from a receiver that frames nothing.

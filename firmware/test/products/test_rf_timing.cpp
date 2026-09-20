@@ -10,6 +10,7 @@
 #include "core/model/aircraft.h"
 #include "core/model/band.h"
 #include "core/protocol/air.h"
+#include "core/radio/log.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
 #include "core/timing/transmit.h"
@@ -345,6 +346,13 @@ TEST_CASE("rf: the callsign goes out in slot 1's tail, once every ten seconds, o
     // Twenty-one seconds of flight: twenty-one positions and two names.
     CHECK(positions >= 19);
     CHECK(named == 2);
+
+    // And the tape says which burst was which, where a position prints its rate.
+    const radio::Log& log = h.product().state().radio_log;
+    int rows = 0;
+    for (int i = 0; i < log.count(); i++)
+        if (log.newest(i).event == radio::Event::Transmitted && log.newest(i).callsign) rows++;
+    CHECK(rows > 0);
 }
 
 // The default is a device nobody has named, and a nameless burst would say nothing.

@@ -226,6 +226,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         tx_utc_ = slot_utc(now_ms);
         tx_end_us_ = plan.end_us;
         context_.state.rf.tx_deadline_us = tx_at_us;
+        context_.state.rf.tx_callsign = a.payload == timing::Transmitter::Payload::Callsign;
     }
 }
 
@@ -252,6 +253,7 @@ void RadioService::collect_outcome(uint32_t now_ms) {
         seen_tx_ok_ = context_.state.air.tx_ok;
         held_logged_ = false;
         transmitter_.sent(tx_utc_, now_ms, tx_payload_);
+        if (tx_payload_ == timing::Transmitter::Payload::Callsign) context_.state.air.tx_named++;
         // The executor's own report against the deadline this dwell was armed
         // for: both absolute instants on the same clock, so slot 1's wrap
         // costs this nothing.

@@ -35,6 +35,13 @@ bool own_burst(radio::Event event) {
            event == radio::Event::Held || event == radio::Event::Unarmed;
 }
 
+// What own-ship put on air, in the column a reception spends on its sender: the
+// schedule the burst went out on, or the name that is on neither schedule.
+const char* own_burst_word(const radio::Entry& entry) {
+    if (entry.callsign) return "CALL";
+    return entry.airborne ? "AIR" : "GROUND";
+}
+
 // INFO: fc 17sep26 a transmission that worked prints no verdict, as a reception does not
 const char* verdict_of(const radio::Entry& entry) {
     switch (entry.event) {
@@ -154,7 +161,7 @@ void draw_row(ui::Canvas& fb, int y, const radio::Entry& entry) {
     }
 
     if (ours) {
-        fb.draw_text(kAddrX, y, entry.airborne ? "AIR" : "GND", true, 1);
+        fb.draw_text(kAddrX, y, own_burst_word(entry), true, 1);
         return;
     }
 

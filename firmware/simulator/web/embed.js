@@ -46,6 +46,9 @@ export async function load(options = {}) {
 
     addAircraft: call('simulator_add_aircraft', null, Array(9).fill('number')),
     addAircraftAt: call('simulator_add_aircraft_at', null, Array(8).fill('number')),
+    setCallsign: call('simulator_set_callsign', null, ['string']),
+    txNamed: call('simulator_tx_named', 'number', n),
+    rxNamed: call('simulator_rx_named', 'number', n),
     nameAircraft: call('simulator_name_aircraft', null, ['number', 'string']),
     addThreat: call('simulator_add_threat', null, num),
     clearTraffic: call('simulator_clear_traffic', null, n),
