@@ -37,9 +37,10 @@ const { load } = await import(join(dist, "embed.js"));
 const wasm = readFileSync(join(dist, "skyblip_simulator.wasm"));
 
 class Device {
-  static async boot() {
+  static async boot(boot = undefined) {
     let memory = null;
     const sim = await load({
+      boot,
       instantiateWasm(imports, done) {
         const instance = new WebAssembly.Instance(new WebAssembly.Module(wasm), imports);
         memory = instance.exports.memory;
@@ -58,6 +59,11 @@ class Device {
 
   run(ms) {
     this.now = this.sim.advance(this.now + ms);
+    return this;
+  }
+
+  sleepAgain() {
+    this.now = this.sim.sleepAgain();
     return this;
   }
 
@@ -388,12 +394,18 @@ const scenes = [
       device.run(20_000);
     }
   },
-  // The cutoff parks this same mark: a flat cell is named at the boot it refuses,
-  // and no shot here is taken through a wake.
+  // The cutoff parks this same mark, because a cell emptied on a shelf parks nothing at all.
   {
     name: "off",
     powered: false,
     shot: device => device.fly(CRUISE).run(20_000).holdButton(HOLD_OFF_MS).run(6000)
+  },
+  // The press a flat cell gets answered on: the boot is refused, and this is the answer.
+  {
+    name: "off-flat-battery",
+    powered: false,
+    boot: { batteryMv: 3300 },
+    shot: device => png(panel(device.sleepAgain()))
   }
 ];
 
@@ -463,8 +475,8 @@ function* drawnBlips() {
 
 mkdirSync(shots, { recursive: true });
 for (const scene of scenes) {
-  const device = await Device.boot();
-  device.run(STEP_MS);
+  const device = await Device.boot(scene.boot);
+  if (!scene.boot) device.run(STEP_MS);
   const captured = scene.shot(device);
   const shot = captured instanceof Buffer ? captured : png(panel(device.run(SETTLE_MS)));
   verify(scene, device);

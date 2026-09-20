@@ -378,17 +378,33 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
         never loses again, and a device going into a cupboard should carry
         nothing.
       </p>
-      <p>
-        A cell that ran out writes nothing on the way down, because the other
-        way a cell arrives empty is a winter on a shelf and that unit never ran
-        a shutdown at all. The press is what gets answered:
-        <span class="mono">FLAT BATTERY</span> under the mark, written by the
-        boot the flat cell refuses. Plugging the charger in takes it off again.
-      </p>
     </div>
     <figure class="shot">
       <%= pages_image_tag "off.png", alt: "The parked screen of a device that has been switched off: the skyBlip wordmark, held by the e-paper with no power" %>
       <figcaption>Off</figcaption>
+    </figure>
+  </div>
+
+  <div class="feature">
+    <div>
+      <h3>A cell that ran out <span class="highlight">says so when you ask</span>.</h3>
+      <p>
+        Nothing is written on the way down, because the other way a cell arrives
+        empty is a winter on a shelf, and that unit never ran a shutdown at all.
+        Two devices with the same empty cell should not be two different devices
+        to look at.
+      </p>
+      <p>
+        The press is what gets answered. A cell under 3.4&nbsp;V is refused a
+        boot, and the refusal writes <span class="mono">FLAT BATTERY</span>
+        under the mark before the rails go. Plug the charger in and the wordmark
+        comes back, because the device is an ordinary switched-off one again:
+        the next press starts it, still charging.
+      </p>
+    </div>
+    <figure class="shot">
+      <%= pages_image_tag "off-flat-battery.png", alt: "The screen of a device whose cell is too flat to start: the skyBlip wordmark with the words FLAT BATTERY under it" %>
+      <figcaption>Too flat to start</figcaption>
     </figure>
   </div>
 
