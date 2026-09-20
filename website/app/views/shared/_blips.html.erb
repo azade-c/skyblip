@@ -1,0 +1,50 @@
+<%
+  bands = [
+    { key: "above",     name: above,     apart: above_when,     alarms: true },
+    { key: "level",     name: level,     apart: level_when,     alarms: true },
+    { key: "below",     name: below,     apart: below_when,     alarms: true },
+    { key: "far-above", name: far_above, apart: far_above_when, alarms: false },
+    { key: "far-below", name: far_below, apart: far_below_when, alarms: false }
+  ]
+  motions = [ [ "climbing", climbing ], [ "steady", steady ], [ "sinking", sinking ] ]
+%>
+
+<div class="table-scroll">
+  <table class="blips">
+    <thead>
+      <tr>
+        <td></td>
+        <th colspan="3" scope="colgroup"><%= plain %></th>
+        <th colspan="3" scope="colgroup"><%= alarm %></th>
+      </tr>
+      <tr>
+        <td></td>
+        <% 2.times do %>
+          <% motions.each { |_, label| %><th scope="col"><%= label %></th><% } %>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% bands.each do |band| %>
+        <tr>
+          <th scope="row">
+            <%= band[:name] %>
+            <span><%= band[:apart] %></span>
+          </th>
+          <% motions.each do |key, label| %>
+            <td><%= pages_image_tag "blips/#{band[:key]}-#{key}.png",
+                      alt: "#{band[:name]}, #{label}" %></td>
+          <% end %>
+          <% if band[:alarms] %>
+            <% motions.each do |key, label| %>
+              <td><%= pages_image_tag "blips/#{band[:key]}-#{key}-alarm.png",
+                        alt: "#{band[:name]}, #{label}, #{alarm.downcase}" %></td>
+            <% end %>
+          <% else %>
+            <td colspan="3" class="blips-none"><%= out_of_window %></td>
+          <% end %>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

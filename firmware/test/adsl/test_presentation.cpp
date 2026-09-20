@@ -90,8 +90,9 @@ TEST_CASE("ADS-L.4.SRD860.F.2.2: the sender address is a 6-bit table and 24 bits
     CHECK((p.address() & 0xFFFFu) == 0x1234u);
     CHECK(p.address_and_type() == ((9u << 24) | 0xAB1234u));
 
-    CHECK(int(settings::kAddrTableOgn) == 7);
-    CHECK(traffic_packet(0x123456u, settings::kAddrTableOgn).addr_table() == 7);
+    CHECK(int(settings::kAddrTableSkyblip) == 58);
+    CHECK(traffic_packet(0x123456u, settings::kAddrTableSkyblip).addr_table() == 58);
+    CHECK(traffic_packet(0x123456u, settings::kAddrTableSkyblip).address() == 0x123456u);
 }
 
 // TODO: fc 19sep26 no ICAO entry: the identity is the chip's, and no patch moves it
@@ -119,7 +120,7 @@ TEST_CASE("ADS-L.4.SRD860.F.2.3: a table the configured address does not belong 
     CHECK(r.get_int("addr", v));
     CHECK(v == 0x123456);
     CHECK(r.get_int("addr_table", v));
-    CHECK(v == 7);
+    CHECK(v == 58);
 }
 
 // Every ADS-L data block has to be scramblable, and XXTEA works on whole 32-bit words.

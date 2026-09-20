@@ -260,8 +260,8 @@ RadarSnapshot one_target(RadarTarget* t) {
     return snap;
 }
 
-// One stone cut three ways: diamond at your level, crown above you, pavilion below.
-TEST_CASE("radar: traffic is a cut stone, and the advisory fills it") {
+// One blip, three ways up: a diamond at your level, pointing up above you, down below.
+TEST_CASE("radar: traffic is a blip, and the advisory fills it") {
     RadarTarget level[1] = {{2 * kMetresPerNm, 0, 0, Level::None}};
     const Glass diamond = radar(one_target(level));
     CHECK_FALSE(diamond.get_pixel(kPlotX, kPlotY));
@@ -271,18 +271,18 @@ TEST_CASE("radar: traffic is a cut stone, and the advisory fills it") {
     CHECK(diamond.get_pixel(kPlotX, kPlotY + 7));
 
     RadarTarget above[1] = {{2 * kMetresPerNm, 0, 300, Level::None}};
-    const Glass crown = radar(one_target(above));
-    CHECK(crown.get_pixel(kPlotX, kPlotY - 7));
-    CHECK(crown.get_pixel(kPlotX - 8, kPlotY + 1));
-    CHECK_FALSE(crown.get_pixel(kPlotX, kPlotY + 3));
+    const Glass points_up = radar(one_target(above));
+    CHECK(points_up.get_pixel(kPlotX, kPlotY - 7));
+    CHECK(points_up.get_pixel(kPlotX - 8, kPlotY + 1));
+    CHECK_FALSE(points_up.get_pixel(kPlotX, kPlotY + 3));
 
-    // Below you is that same crown, flipped about the point it is plotted on.
+    // Below you is that same blip, flipped about the point it is plotted on.
     RadarTarget below[1] = {{2 * kMetresPerNm, 0, -300, Level::None}};
-    const Glass pavilion = radar(one_target(below));
+    const Glass points_down = radar(one_target(below));
     for (int dy = -11; dy <= 11; dy++)
         for (int dx = -9; dx <= 9; dx++)
-            CHECK(crown.get_pixel(kPlotX + dx, kPlotY + dy) ==
-                  pavilion.get_pixel(kPlotX + dx, kPlotY - dy));
+            CHECK(points_up.get_pixel(kPlotX + dx, kPlotY + dy) ==
+                  points_down.get_pixel(kPlotX + dx, kPlotY - dy));
 
     RadarTarget advisory[1] = {{2 * kMetresPerNm, 0, 0, Level::Advisory}};
     const Glass filled = radar(one_target(advisory));
@@ -293,7 +293,7 @@ TEST_CASE("radar: traffic is a cut stone, and the advisory fills it") {
 }
 
 // Near-size covers exactly the separation that can alarm, so size is a fact and not a flourish.
-TEST_CASE("radar: past the advisory's own altitude window the stone is the small cut") {
+TEST_CASE("radar: past the advisory's own altitude window the blip is the small one") {
     RadarTarget inside[1] = {{2 * kMetresPerNm, 0, skyblip::traffic::kAdvisoryAltM, Level::None}};
     const Glass near = radar(one_target(inside));
     CHECK(near.get_pixel(kPlotX, kPlotY - 7));
@@ -534,9 +534,9 @@ TEST_CASE("radar: own ship's vector keeps off a plot with nothing on it") {
     CHECK_FALSE(radar(beyond).get_pixel(100, 78));
 }
 
-// The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your
+// The caret rides the blip, not the tag: a crowded glass drops tags, and a climb through your
 // level is not droppable.
-TEST_CASE("radar: a caret on the stone says climbing or sinking, past 500 fpm") {
+TEST_CASE("radar: a caret on the blip says climbing or sinking, past 500 fpm") {
     RadarTarget steady[1] = {{2 * kMetresPerNm, 0, 300, Level::Advisory, 0, true}};
     const Glass flat = radar(one_target(steady));
     CHECK_FALSE(flat.get_pixel(kPlotX, kPlotY - 11));
@@ -766,7 +766,7 @@ TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
     CHECK_FALSE(reads_in(plotted, "BLIND", 0, 0, 200, 199));
 }
 
-TEST_CASE("radar: a stone lands off the state word rather than erasing it") {
+TEST_CASE("radar: a blip lands off the state word rather than erasing it") {
     // 4428 m behind is 54 px on the 4 NM ring, which is where the word stands.
     RadarTarget behind[1] = {{-4428, 0, 100, Level::None}};
     RadarSnapshot parked = flying(0);

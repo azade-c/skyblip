@@ -31,4 +31,35 @@
   .table-scroll td { font-family: var(--font-mono); }
 
   .table-scroll table.modules td:first-of-type { font-family: var(--font-sans); }
+
+  .blips td { text-align: center; vertical-align: middle; }
+
+  .blips thead th { text-align: center; }
+  .blips thead tr:first-child th { color: var(--ink); letter-spacing: 0.14em; }
+
+  .blips thead tr:first-child th:nth-child(3),
+  .blips thead tr:nth-child(2) th:nth-child(5),
+  .blips tbody td:nth-child(5) {
+    border-inline-start: 1px solid var(--card-border);
+  }
+
+  .blips tbody th { white-space: normal; min-inline-size: 9rem; }
+  .blips tbody th span {
+    display: block;
+    font-weight: 400;
+    font-size: var(--text-xs);
+    color: var(--quiet);
+  }
+
+  .blips td img {
+    inline-size: 38px;
+    image-rendering: pixelated;
+    margin-inline: auto;
+  }
+
+  .blips .blips-none {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--quiet);
+  }
 }

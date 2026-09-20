@@ -22,6 +22,7 @@ const ADSL = 0
 
 const FEET_PER_METRE = 3.28084
 const FPM_PER_MPS = 196.85
+const MM_PER_METRE = 1000
 const signed = value => (Number(value) > 0 ? `+${value}` : `${value}`)
 const clamp = (value, limit) => Math.min(Math.max(value, -limit), limit)
 const degrees = radians => (radians * 180) / Math.PI
@@ -103,7 +104,7 @@ const AXES = {
     )
   },
   climb: {
-    flown: (sim, fpm) => sim.setClimb(Math.round((fpm * 10) / FPM_PER_MPS)),
+    flown: (sim, fpm) => sim.setClimb(Math.round((fpm * MM_PER_METRE) / FPM_PER_MPS)),
     read: fpm => `${signed(fpm)} fpm`,
     paint: (gauge, fpm) => turned(gauge, ".gauge-needle", vsiAngle(fpm))
   }

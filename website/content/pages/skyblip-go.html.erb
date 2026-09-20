@@ -1,12 +1,12 @@
 ---
 title: skyBlip Go
 nav_title: skyBlip Go
-description: The pocket tracker, screen by screen · the traffic plot, the alarm that says where to look, the four pages, the menus, and what the e-paper and the battery are protected from.
+description: The pocket tracker, screen by screen · traffic drawn the way you see it, an alarm that gives you the angle, the four pages, the two contacts, and what the device does on the apron.
 ---
 
 <section id="simulator">
   <h2 class="kicker">skyBlip Go</h2>
-  <h3>Switch one on. It runs the firmware a real one runs.</h3>
+  <h3>Switch one on. It is a real one&rsquo;s firmware running.</h3>
 
   <%= render "shared/simulator",
         wake: "Hold the lower key to switch it back on.",
@@ -23,36 +23,37 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         missing: "The simulator is not part of this build of the site." %>
 
   <p class="note">
-    Nothing is flying out there until you ask for one, and each aircraft the
-    button adds broadcasts real ADS-L frames that the firmware receives, decodes
-    and plots. The lamp on the left of the glass is the firmware&rsquo;s, lit
-    while a contact is worth an alarm. The one on the right belongs to the
-    charger, so on this page it stays dark. Every screen below is a capture of
-    this same firmware.
+    The sky is empty until you ask for something. Every aircraft you add
+    transmits real ADS-L frames, which the firmware receives, decodes and plots
+    exactly as it would in flight. The lamp on the left is the firmware&rsquo;s:
+    it lights when a contact is worth an alarm. The one on the right belongs to
+    the charger, so it stays dark here. Every capture below comes off this same
+    firmware.
   </p>
 </section>
 
 <section>
-  <h2 class="kicker">What it shows you</h2>
+  <h2 class="kicker">What you see in flight</h2>
 
   <div class="feature">
     <div>
-      <h3>A plot you read <span class="highlight">like a window</span>.</h3>
+      <h3>Traffic drawn <span class="highlight">the way you see it</span>.</h3>
       <p>
-        Your aircraft is in the middle, nose up, and it never turns: the sky
-        turns around it. A target drawn to the upper right is a target to look
-        for off the right of the nose, and nothing at all is written across the
-        top of the glass, because that is the half you are flying into.
+        You are in the middle, nose up, and the picture never turns: the sky
+        turns around you. Traffic drawn to the upper right is traffic to look
+        for off the right of the nose, with nothing to convert. Nothing at all
+        is written across the top of the glass, because that is the half you are
+        flying into.
       </p>
       <p>
-        Each aircraft is a cut stone. A diamond is traffic at your level, the top
-        half on its own is one above you, the bottom half one below, so the mark
-        says where to look before it is read. A caret rides a target that is climbing
-        or sinking, and the line out of it is where it will be in a minute.
+        Each aircraft is a shape, and the shape already says where to raise your
+        eyes: point up, it is above you; point down, below; a diamond, at your
+        level. A caret joins it if it is climbing or sinking, and the line out
+        of it leads where it will be in a minute.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "radar.png", alt: "The radar page: three aircraft drawn as cut stones, one above, one below and one level and climbing, each with its one-minute leader line, own ship's dashed run with a ball at each of the next two minutes, the four-mile ring, the flight time and the count of aircraft in the ring" %>
+      <%= pages_image_tag "radar.png", alt: "The radar page: three aircraft drawn as diamonds, one above, one below and one level and climbing, each with its one-minute leader line, own ship's dashed run with a ball at each of the next two minutes, the four-mile ring, the flight time and the count of aircraft in the ring" %>
       <figcaption>Radar</figcaption>
     </figure>
   </div>
@@ -60,57 +61,94 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
   <ul class="points">
     <li>Heading up, never north up</li>
     <li>Ring of 1, 2, 4 or 8&nbsp;NM</li>
-    <li>A stone cut to say above, level or below</li>
+    <li>The shape says above, level or below</li>
     <li>A minute of track ahead of each target</li>
-    <li>Aircraft counted inside the ring</li>
-    <li>Time since takeoff, for the logbook</li>
+    <li>The count of aircraft inside the ring</li>
+    <li>Flight time, for the logbook</li>
   </ul>
 
   <div class="feature feature--reverse">
     <div>
-      <h3>One alarm, and what it says is <span class="highlight">where to look</span>.</h3>
+      <h3>One alarm, and it says <span class="highlight">where to look</span>.</h3>
       <p>
-        An aircraft inside 3&nbsp;km and 300&nbsp;m of you fills its stone, and
-        the quadrant it sits in flashes once a second. A quarter of the screen
-        going black and white is seen without being looked at, which is the
-        whole instruction: turn your head that way.
+        An aircraft inside 3&nbsp;km and 300&nbsp;m of you has its symbol filled
+        in, and a quarter of the screen centred on it goes black, once a second. You
+        have nothing to read: a corner of the glass flashing is caught out of
+        the corner of your eye, and that is the whole instruction, turn your
+        head that way. Whatever page you are on, the radar takes over.
       </p>
       <p>
-        There is nothing above it and there never will be. An instruction to
-        climb or descend has to be coordinated with the other aircraft, and this
-        device has no link to coordinate over. The loudest thing it can say is
-        look.
+        The black sector catches the eye, the symbol gives you the angle.
+        Traffic 38° off the nose is not rounded up to &ldquo;ahead and
+        right&rdquo;: the sector leans on its 38°, and you look there rather
+        than through a quarter of the sky.
+      </p>
+      <p>
+        There is nothing above it, and there never will be. Climbing or
+        descending has to be coordinated with the other aircraft, and this
+        device has no link to do it over. The loudest thing it can say is look.
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "alarm.png", alt: "The radar page during a traffic advisory: one quadrant of the screen inverted to black, with the filled stone of the converging aircraft and its leader line reversed out of it" %>
+      <%= pages_image_tag "alarm.png", alt: "The radar page during a traffic advisory: a 90-degree sector leaning on the bearing of the traffic, turned black, with the filled diamond of the converging aircraft and its leader line reversed out of it" %>
       <figcaption>Traffic advisory</figcaption>
     </figure>
   </div>
 
   <ul class="points">
     <li>3&nbsp;km around you, 300&nbsp;m above and below</li>
-    <li>The sector flashes at one flip a second</li>
-    <li>Buzzer, vibration and lamp together</li>
-    <li>Any page you are on gives way to the radar</li>
+    <li>A quarter of the screen, centred on the traffic</li>
+    <li>One flash a second</li>
+    <li>The buzzer, the vibration and the lamp with it</li>
     <li>One touch of the pad silences it</li>
     <li>A caution, never an instruction</li>
   </ul>
+
+  <h3>Five shapes, and <span class="highlight">you read them without learning them</span>.</h3>
+  <p class="lede">
+    Point up is traffic above you; point down is traffic below; the diamond is
+    someone inside your 60&nbsp;m. A full-size symbol sits within the 300&nbsp;m
+    the alarm cares about; a reduced one is further away vertically, and it
+    stays on the picture without ever asking for it. The caret joins from
+    2.5&nbsp;m/s of climb or descent, on the side the traffic is going.
+  </p>
+  <p class="lede">
+    Filled black belongs to the alarm. While no symbol is filled, nothing is
+    urgent: it is the one contrast the screen keeps in reserve.
+  </p>
+
+  <%= render "shared/blips",
+        plain: "Plain",
+        alarm: "Alarm",
+        climbing: "climbing",
+        steady: "steady",
+        sinking: "sinking",
+        above: "Point up",
+        above_when: "above you, to 300 m",
+        level: "Diamond",
+        level_when: "within 60 m of your level",
+        below: "Point down",
+        below_when: "below you, to 300 m",
+        far_above: "Point up, reduced",
+        far_above_when: "above you, beyond 300 m",
+        far_below: "Point down, reduced",
+        far_below_when: "below you, beyond 300 m",
+        out_of_window: "outside the alarm’s altitude window" %>
 
   <div class="feature">
     <div>
       <h3>Who is out there, <span class="highlight">nearest first</span>.</h3>
       <p>
-        The radar answers where to look. This page answers who that is: one row
-        per aircraft the device can place, the ground distance to it, and how far
-        above or below you it is. Your own address and the count of everything
-        heard stand on the top line.
+        The radar says where to look, this page says who that is. One row per
+        aircraft the device can place: its address, the ground distance between
+        you, and how far above or below you it is. On the top line, your own
+        address and the count of everything heard.
       </p>
       <p>
-        The letter is where the report came from. <span class="mono">A</span> is
-        a direct ADS-L frame, <span class="mono">F</span> is FLARM-compatible
-        traffic, <span class="mono">U</span> is an aircraft relayed by a ground
-        station.
+        The letter at the head of the row says where the report came from.
+        <span class="mono">A</span> for a direct ADS-L frame,
+        <span class="mono">F</span> for FLARM-compatible traffic,
+        <span class="mono">U</span> for an aircraft relayed by a ground station.
       </p>
     </div>
     <figure class="shot">
@@ -121,18 +159,17 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Six dials, and <span class="highlight">the clock you copy</span>.</h3>
+      <h3>Six dials, and <span class="highlight">the clock you copy out</span>.</h3>
       <p>
         Ground speed, horizon, altimeter, turn and slip, track, vertical speed.
-        The figure over the middle is the time since takeoff, which is the one
-        number on this device that ends up in a logbook.
+        Over the middle dial, the time since takeoff: the one number on this
+        device that ends up in a logbook.
       </p>
       <p>
-        The horizon pitches with the flight path and rolls with the bank a
-        coordinated turn at that speed would need, because nothing on the board
-        measures a bank. The ball is measured, and it answers the rudder. Nothing
-        here is certified, and none of it is an attitude indicator to fly in
-        cloud.
+        The horizon rolls with the bank a coordinated turn would need at that
+        speed, because nothing on the board measures a bank. The ball is
+        measured, and it answers the rudder. Nothing here is certified, and it
+        is not an attitude indicator to fly in cloud.
       </p>
     </div>
     <figure class="shot">
@@ -143,17 +180,17 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <div class="feature">
     <div>
-      <h3>What the airframe <span class="highlight">has pulled</span>.</h3>
+      <h3>What the airframe <span class="highlight">has taken</span>.</h3>
       <p>
-        The fourth page is the accelerometer read as an accelerometer, with
-        nothing inferred from it. The marker is where the wing is now, the box
-        around it is where it has been: the most and least it has pulled, and how
-        far it has been thrown to each hand.
+        The fourth page reads the accelerometer and infers nothing from it. The
+        marker says where the wing is now, the box around it says where it has
+        been: the most and the least it has pulled, and how far it has been
+        thrown to each hand.
       </p>
       <p>
-        The peaks belong to this flight, and they reset when the clock starts.
-        Fore and aft has a strip of its own, because braking and a rough landing
-        are not a wing load.
+        The peaks belong to this flight and go back to zero when the clock
+        starts. Fore and aft has a strip of its own, because braking and a rough
+        landing are not a wing load.
       </p>
     </div>
     <figure class="shot">
@@ -164,22 +201,21 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 </section>
 
 <section>
-  <h2 class="kicker">How you work it</h2>
+  <h2 class="kicker">Working it</h2>
 
   <div class="feature">
     <div>
       <h3>The pad moves, <span class="highlight">the button acts</span>.</h3>
       <p>
-        Two contacts, and that split is the whole vocabulary. The capacitive pad
-        on the top edge walks the four pages and can change nothing. The button
-        on the side opens the menu of the page you are standing on, and every
-        further press steps the row you are on.
+        Two contacts, and the split between them is all there is to remember.
+        The capacitive pad on the top edge walks the four pages, and can change
+        nothing. The button on the side opens the menu of the page you are on,
+        and every further press steps the row.
       </p>
       <p>
-        Two pages have one. Every setting a thumb can change is under the radar,
-        the first screen a device is set up on, and the list&rsquo;s menu opens
-        the pages that are off the walk. Nothing is a draft, each press is one
-        finished change.
+        Two pages have a menu. Everything a thumb can set sits under the radar,
+        the first screen a device is set up on. Nothing is a draft to confirm:
+        each press is one finished change.
       </p>
     </div>
     <figure class="shot">
@@ -190,27 +226,27 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <ul class="points">
     <li>A tap of the pad: the next page</li>
-    <li>A touch of a second: back to the radar</li>
+    <li>A touch of a second: the radar</li>
     <li>A press: the menu, where the page has one</li>
-    <li>Presses after that: step the row</li>
+    <li>Presses after that: the row steps</li>
     <li>Past the last row: back to the picture</li>
-    <li>A minute untouched: back on its own</li>
+    <li>A minute untouched: it comes back on its own</li>
   </ul>
 
   <div class="feature feature--reverse">
     <div>
       <h3>Four pages on the walk, <span class="highlight">the rest by name</span>.</h3>
       <p>
-        A tap moves between the radar, the list, the instruments and the g-meter,
-        and that is all it moves between: a pilot cycling the glass in flight
-        should never land on the satellite bars. A board with no inertial sensor
-        has no g-meter to draw, so the tap steps over it rather than offering a
-        picture of <span class="mono">NO SENSOR</span> every fourth time.
+        A tap moves from the radar to the list, the instruments, then the
+        g-meter, and to nothing else: a pilot cycling the glass in flight should
+        not land on the satellite bars. A board with no inertial sensor has no
+        g-meter to draw, so the tap steps over it rather than showing
+        <span class="mono">NO SENSOR</span> every fourth time.
       </p>
       <p>
-        Everything else is opened from the menu of the list, by name, and hands
-        you back where you were: the four pages below are the bench&rsquo;s, the
-        apron&rsquo;s and the bug report&rsquo;s, and none of them is a picture to
+        The rest opens by name, from the menu of the list, and hands you back
+        the page you were on. The four screens below are the bench&rsquo;s, the
+        apron&rsquo;s and the bug report&rsquo;s: none of them is a picture to
         land on with a thumb.
       </p>
     </div>
@@ -248,11 +284,11 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         <tr>
           <th>Tap the pad</th>
           <td>the next page</td>
-          <td>the next row, and off the last row the page it belongs to</td>
+          <td>the next row, and off the last row the page the menu belongs to</td>
         </tr>
         <tr>
           <th>Touch the pad, 1&nbsp;s</th>
-          <td>silences a standing alarm, and with none standing, the radar</td>
+          <td>silences a standing alarm, and with none standing, brings back the radar</td>
           <td>the radar</td>
         </tr>
         <tr>
@@ -262,7 +298,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
         </tr>
         <tr>
           <th>Two presses, under 0.6&nbsp;s apart</th>
-          <td colspan="2">allows the question on the glass, and means nothing when none stands</td>
+          <td colspan="2">allow the question on the glass, and mean nothing when none stands</td>
         </tr>
         <tr>
           <th>Hold the button, 2&nbsp;s</th>
@@ -284,10 +320,10 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <div>
       <h3>It says <span class="highlight">what it is waiting for</span>.</h3>
       <p>
-        One press and it is on, straight to the traffic picture. With no
-        position yet the ring says so, and the word under it is how far the
-        receiver has got: a receiver that has gone quiet, solutions arriving with
-        no date on them yet, or a date read off a satellite.
+        One press and it is on, straight to the traffic picture. Until it has a
+        position the ring tells you so, and the word under it gives you how far
+        the receiver has got: gone quiet, solutions arriving with no date on
+        them yet, or a date read off a satellite.
       </p>
       <p>
         That is the difference between a device to wait for and a device to
@@ -305,15 +341,15 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <div>
       <h3>The wordmark on the glass <span class="highlight">means off</span>.</h3>
       <p>
-        A hold of two seconds switches it off: the radio is parked, the panel is
-        given three seconds to draw the wordmark, and the rails drop once your
-        thumb is off the button. E-paper keeps its image with no power at all,
-        so that is what an off device wears.
+        A hold of two seconds switches it off: the radio is parked, the panel
+        gets three seconds to draw the wordmark, and the rails drop when you let
+        go. E-paper keeps its image with no power at all, so that is what an off
+        device wears.
       </p>
       <p>
-        The same hold with a finger on the pad leaves the glass blank instead.
-        One image left on an e-paper for a winter leaves a shadow the panel
-        never fully loses, and a device going into a cupboard should carry
+        The same hold, a finger resting on the pad, leaves the glass blank
+        instead. An image left on e-paper for a winter leaves a shadow the panel
+        never loses again, and a device going into a cupboard should carry
         nothing.
       </p>
     </div>
@@ -353,7 +389,7 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
       </p>
       <p>
         The tablet on the yoke, the phone in a pocket and the passenger&rsquo;s
-        iPad all read the same traffic. Configuration is the one thing that is
+        iPad all see the same traffic. Configuration is the one thing that is
         not shared: the first app to write keeps that right until it
         disconnects, and the second is told who holds it.
       </p>
@@ -372,20 +408,20 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     <li>Collected over the same link on the ground</li>
   </ul>
 
-  <h3>Two presses allow, one press refuses.</h3>
+  <h3>Two presses allow, <span class="highlight">one press refuses</span>.</h3>
   <p class="lede">
-    When an app asks for something that could change the aircraft you are flying,
-    new firmware, a settings write, erasing your flights, switching the device
-    off, the device does not act on the phone&rsquo;s word. It puts the question
-    on its own glass, names it, and waits thirty seconds:
+    When an app asks for something that touches the device you have on board,
+    new firmware, a settings write, erasing your flights, switching it off, the
+    device does not take the phone at its word. It puts the question on its own
+    glass, names it, and waits thirty seconds:
     <span class="mono">PRESS TWICE TO ALLOW</span>,
-    <span class="mono">ONE PRESS REFUSES</span>. No answer inside the window is a
-    refusal too.
+    <span class="mono">ONE PRESS REFUSES</span>. No answer inside the window
+    counts as a refusal.
   </p>
   <p class="lede">
-    Presses only count once the question has reached the glass and your thumb has
-    stopped, so a run of presses that was stepping a value cannot be spent on an
-    authorisation. The pad is inert while a question stands.
+    Presses only count once the question has reached the glass and your thumb
+    has stopped: a run of presses that was stepping a setting cannot be spent on
+    an authorisation. The pad is inert while a question stands.
   </p>
 </section>
 
@@ -394,10 +430,10 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <h3>Where the second goes.</h3>
   <p class="lede">
-    There is one radio in the device and one antenna, so the second is cut into
+    There is one radio and one antenna in the device, so the second is cut into
     dwells and each dwell gets one frequency. GPS gives the top of the second to
-    the microsecond, and every skyBlip, every skyPost and every FLARM-generation
-    device in range is cutting the same second the same way.
+    the microsecond, and every skyBlip, every skyPost and every
+    FLARM-generation device in range cuts the same second the same way.
   </p>
 
   <div class="table-scroll">
@@ -428,18 +464,18 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
     the chips they share, and the software names the system from the chips that
     follow. The few milliseconds either side of the 869.525&nbsp;MHz dwell are
     the margin a band change needs, because the two bands are two modulations
-    and not two frequencies: 100&nbsp;kbit/s Manchester FSK below, 200&nbsp;kbit/s
-    GMSK above.
+    and not two frequencies: 100&nbsp;kbit/s Manchester FSK below,
+    200&nbsp;kbit/s GMSK above.
   </p>
   <p class="lede">
     Transmission is the narrow part. The device speaks on the 868 channels only,
     between 450 and 1000&nbsp;ms, in whichever of the two channels this second
-    belongs to, and what goes out is always ADS-L: the FLARM-generation format is
-    received, never transmitted. 869.525&nbsp;MHz is the ground station&rsquo;s to
-    talk on and ours to listen to, so nothing this device does ever keys there.
-    The instant of the burst inside the slot is drawn from the device address and
-    the current second, redrawn every second, which is what keeps two aircraft
-    that collided once from colliding again.
+    belongs to, and what goes out is always ADS-L: the FLARM-generation format
+    is received, never transmitted. 869.525&nbsp;MHz is the ground
+    station&rsquo;s to talk on and ours to listen to, so nothing this device
+    does ever keys there. The instant of the burst inside the slot is drawn from
+    the device address and the current second, redrawn every second, which is
+    what keeps two aircraft that collided once from colliding again.
   </p>
 
   <ul class="points">
@@ -453,18 +489,18 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <h3>Why the screen behaves the way it does.</h3>
   <p class="lede">
-    The panel is a 1.54&Prime; e-paper, 200&times;200 pixels. It holds its last
+    The panel is a 1.54&Prime; e-paper, 200&times;200 pixels. It keeps its last
     image with the rails down and draws nothing to keep it there, which is what
     makes the parked wordmark an indicator and a blank screen the right thing to
     store.
   </p>
   <p class="lede">
-    Every frame in flight is a partial refresh. The full waveform, the one that
+    In flight, every frame is a partial refresh. The full waveform, the one that
     flashes the panel black and white for a second and a half, is spent twice in
     a session: at power on, and at power off. A page change goes through a
-    single black wipe instead, and the alarm&rsquo;s one flip a second is the
-    panel&rsquo;s own floor rather than a rate we picked. Faster is possible, and
-    a large black region toggled that hard is ghosting the glass never loses.
+    single black wipe instead, and the alarm&rsquo;s one flash a second is the
+    panel&rsquo;s own floor rather than a rate we picked. Faster is possible,
+    and a large black region toggled that hard marks the glass for good.
   </p>
 
   <ul class="points">
@@ -478,11 +514,11 @@ description: The pocket tracker, screen by screen · the traffic plot, the alarm
 
   <h3>Why the cell lasts the day.</h3>
   <p class="lede">
-    Switching off is a sequence, not a rail drop, and the order is the content of
-    it. The external flash is told to sleep while it still has a supply to hear
-    the command: after the rail that command does nothing, and the part draws its
-    full standby current for the whole night the device spends in a bag looking
-    switched off.
+    Switching off is a sequence, not a rail drop, and the order is the content
+    of it. The external flash is told to sleep while it still has a supply to
+    hear the command: after the rail that command does nothing, and the part
+    draws its full standby current for the whole night the device spends in a
+    bag looking switched off.
   </p>
   <p class="lede">
     The rest is the radio and the sensors. Airborne the device speaks once a
