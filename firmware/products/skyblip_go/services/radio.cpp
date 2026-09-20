@@ -208,6 +208,7 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         // truncated on air", read out on the bench.
         context_.state.rf.timing_stats.record_missed();
         if (carries_tx) log_refusal(radio::Event::Unarmed, slot, now_ms);
+        record_dwell(slot, a, phase, /*armed=*/false, /*carries_tx=*/false, now_ms);
         return;
     }
     armed_ = plan.mode;
@@ -219,6 +220,42 @@ void RadioService::arm_dwell(const timing::SlotPlan& slot, uint32_t now_ms) {
         tx_end_us_ = plan.end_us;
         context_.state.rf.tx_deadline_us = tx_at_us;
     }
+    record_dwell(slot, a, phase, /*armed=*/true, carries_tx, now_ms);
+}
+
+void RadioService::record_dwell(const timing::SlotPlan& slot,
+                                const timing::Transmitter::Attempt& attempt, int phase, bool armed,
+                                bool carries_tx, uint32_t now_ms) {
+    if (!context_.diag.armed()) return;
+    diag::Dwell value{};
+    value.freq_hz = slot.freq_hz;
+    value.start_ms = static_cast<uint16_t>(slot.start_ms);
+    value.end_ms = static_cast<uint16_t>(slot.end_ms);
+    value.phase_ms = static_cast<uint16_t>(phase);
+    value.duty_permille = static_cast<uint16_t>(duty_permille(now_ms));
+    value.state = slot.state;
+    value.band = slot.band;
+    value.refusal = refusal_of(slot, attempt, armed, carries_tx);
+    value.noise_dbm = noise_.dbm();
+    value.tx_allowed = slot.tx_allowed;
+    value.own_tx_dwell = slot.own_tx_dwell;
+    value.listen_only = slot.listen_only;
+    value.armed = armed;
+    value.burst_armed = carries_tx;
+    context_.diag.record(value, context_.instant(now_ms));
+}
+
+// INFO: fc 20sep26 a dwell the slot map never offered own-ship refuses nothing, so it names nothing
+diag::Refusal RadioService::refusal_of(const timing::SlotPlan& slot,
+                                       const timing::Transmitter::Attempt& attempt, bool armed,
+                                       bool carries_tx) const {
+    if (!slot.tx_allowed) return diag::Refusal::None;
+    if (!armed) return diag::Refusal::Unarmed;
+    if (carries_tx) return diag::Refusal::None;
+    if (attempt.over_budget) return diag::Refusal::OverBudget;
+    if (!timing::own_ship_transmits(context_.state.own, context_.state.clock))
+        return diag::Refusal::Unsettled;
+    return diag::Refusal::OffSchedule;
 }
 
 void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slot,
@@ -234,9 +271,10 @@ void RadioService::log_refusal(radio::Event outcome, const timing::SlotPlan& slo
     entry.at_s = stamp.at_s;
     entry.into_ms = stamp.into_ms;
     entry.phase_valid = stamp.phase_valid;
-    entry.utc = state.own.utc_valid;
+    entry.utc = context_.instant(now_ms).utc_dated;
     entry.airborne = flight::airborne(state.own.flight_state);
     context_.state.radio_log.record(entry);
+    context_.diag.record(entry);
 }
 
 void RadioService::collect_outcome(uint32_t now_ms) {
