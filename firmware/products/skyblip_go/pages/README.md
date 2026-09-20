@@ -347,7 +347,9 @@ The two gestures swap over, and they say so at the foot: `PAD ROLLS      BUTTON 
 
 Blank first, because a name is shorter than the field and the character a pilot leaves alone should be the one that costs nothing. Dash next, because every registration this device is for carries one in its second position: `F-JABC`, `D-KXYZ`, `G-ABCD`. Then the letters, then the digits, which is the order the characters are used in.
 
-Nine characters is what the settings blob has always held, and the stored form drops the blanks at the end: `F-JABC   ` is stored as `F-JABC`, nine blanks as no callsign at all, which is how a name is removed. A blank in the middle is kept, because a pilot who typed it meant it.
+Nine characters is what the settings blob has always held, and the stored form drops the blanks at the end: `F-JABC   ` is stored as `F-JABC`. A blank in the middle is kept, because a pilot who typed it meant it.
+
+Rolling the first character to blank and pressing is how a name is removed, and the foot says `PAD ROLLS    BUTTON CLEARS` for as long as that is what the button does. The ring only rolls forward, so the way out before this one was blanking six characters one at a time, sixty taps of the pad to retire a registration: a way out nobody takes is not one. It is the button's gesture because every other contact is spoken for - a held button is the device going off, a held pad is the field left unfinished, a double press belongs to the authorisation prompt - and because the character a name is cleared from is the one the field opens on. What it costs is a leading blank, which no registration has.
 
 The field is drawn at triple height, which is the largest type on any page: it is read once on the ground, character by character, against a registration painted on a fuselage. The bar under the cursor is three pixels of ink the width of a glyph, so the character being rolled is the one a thumb is watching. Leaving without finishing - the pad's long touch, or `kIdleReturnMs` of nobody pressing - stores nothing, which makes the field its own undo.
 

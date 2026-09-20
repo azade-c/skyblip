@@ -98,6 +98,10 @@ char next_callsign_char(char c) {
     return kCallsignBlank;
 }
 
+bool callsign_press_clears(const char* text, int cursor) {
+    return cursor == 0 && text[0] == kCallsignBlank;
+}
+
 int callsign_stored(char* out, const char* edited) {
     int n = 0;
     while (n < kCallsignChars && edited[n] != 0) {
@@ -179,7 +183,10 @@ void draw_callsign(ui::Canvas& fb, const CallsignSnapshot& s) {
     const int at = kCallsignTextX + s.cursor * kCallsignCellW;
     fb.rect(at, kCallsignCursorY, 5 * kCallsignScale, kCallsignCursorH, true, /*fill=*/true);
 
-    fb.draw_text(kCallsignHintX, kMenuHintY, kCallsignHintText, true, 1);
+    if (s.clears)
+        fb.draw_text(kCallsignClearHintX, kMenuHintY, kCallsignClearHintText, true, 1);
+    else
+        fb.draw_text(kCallsignHintX, kMenuHintY, kCallsignHintText, true, 1);
 }
 
 void MenuEditor::enter(Page page, uint32_t now_ms) {
@@ -262,6 +269,7 @@ MenuAction MenuEditor::roll() {
 // The last character's button press is what stores the name: a field a pilot
 // walks off the end of is a field they have finished with.
 MenuAction MenuEditor::step(const MenuValues& current, MenuValues& next) {
+    if (callsign_press_clears(text_, cursor_)) return clear(current, next);
     if (cursor_ + 1 < kCallsignChars) {
         cursor_++;
         return MenuAction::Moved;
@@ -274,6 +282,15 @@ MenuAction MenuEditor::step(const MenuValues& current, MenuValues& next) {
         next = current;
         return MenuAction::Moved;
     }
+    return MenuAction::Changed;
+}
+
+MenuAction MenuEditor::clear(const MenuValues& current, MenuValues& next) {
+    editing_ = false;
+    cursor_ = 0;
+    if (current.settings.callsign[0] == 0) return MenuAction::Moved;
+    next = current;
+    next.settings.callsign[0] = 0;
     return MenuAction::Changed;
 }
 

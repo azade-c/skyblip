@@ -271,6 +271,25 @@ TEST_CASE("callsign page: the characters stand at a size a thumb can check, with
     CHECK(reads_at(fb, kCallsignHintX, kMenuHintY, kCallsignHintText, true));
 }
 
+// A gesture nothing says is a gesture nobody finds, and this one throws the name away.
+TEST_CASE("callsign page: the foot says the button clears when the bar is on a blank first one") {
+    CallsignSnapshot field;
+    field.text = "  JABC   ";
+    field.cursor = 0;
+    field.clears = callsign_press_clears(field.text, field.cursor);
+    REQUIRE(field.clears);
+
+    Glass fb;
+    draw_callsign(fb, field);
+    CHECK(reads_at(fb, kCallsignClearHintX, kMenuHintY, kCallsignClearHintText, true));
+
+    field.cursor = 1;
+    field.clears = callsign_press_clears(field.text, field.cursor);
+    CHECK_FALSE(field.clears);
+    draw_callsign(fb, field);
+    CHECK(reads_at(fb, kCallsignHintX, kMenuHintY, kCallsignHintText, true));
+}
+
 // The ring a pad rolls: blank, dash, letters, digits, and round again.
 TEST_CASE("menu: the callsign ring is blank, dash, A to Z, 0 to 9, and back") {
     CHECK(next_callsign_char(' ') == '-');
@@ -336,6 +355,35 @@ TEST_CASE("menu editor: the callsign field opens on what is stored") {
     for (int i = 1; i < kCallsignChars; i++) bench.change();
     CHECK(bench.change() == MenuAction::Changed);
     CHECK(std::string(bench.values.settings.callsign) == "F-JABC");
+}
+
+// The ring only rolls forward, so blanking nine characters is sixty taps nobody will spend.
+TEST_CASE("menu editor: a press on a blank first character removes the stored name") {
+    Bench bench;
+    std::memcpy(bench.values.settings.callsign, "F-JABC", 7);
+    bench.focus_on(MenuRow::Callsign);
+    REQUIRE(bench.change() == MenuAction::Moved);
+
+    for (int i = 0; i < 40 && bench.editor.text()[0] != ' '; i++) bench.move();
+    REQUIRE(bench.editor.text()[0] == ' ');
+    REQUIRE(bench.editor.cursor() == 0);
+
+    CHECK(bench.change() == MenuAction::Changed);
+    CHECK_FALSE(bench.editor.editing());
+    CHECK(bench.values.settings.callsign[0] == 0);
+    CHECK(bench.editor.focus() == MenuRow::Callsign);
+}
+
+// The same press on a device nobody has named: the field it opens blank is the field it closes.
+TEST_CASE("menu editor: a blank first character on an unnamed device stores nothing") {
+    Bench bench;
+    bench.focus_on(MenuRow::Callsign);
+    REQUIRE(bench.change() == MenuAction::Moved);
+    REQUIRE(bench.editor.text()[0] == ' ');
+
+    CHECK(bench.change() == MenuAction::Moved);
+    CHECK_FALSE(bench.editor.editing());
+    CHECK(bench.values.settings.callsign[0] == 0);
 }
 
 // The pad's long touch and the idle timer both leave, and neither stores.

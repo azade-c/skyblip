@@ -406,6 +406,7 @@ void ScreenService::draw_menu_page() {
         CallsignSnapshot field;
         field.text = editor_.text();
         field.cursor = editor_.cursor();
+        field.clears = callsign_press_clears(field.text, field.cursor);
         draw_callsign(fb_, field);
         return;
     }
