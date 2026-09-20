@@ -166,11 +166,13 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
 
   <div class="feature feature--reverse">
     <div>
-      <h3>Six cadrans, et <span class="highlight">l&rsquo;heure que vous recopiez</span>.</h3>
+      <h3>Six cadrans, et <span class="highlight">ce qu&rsquo;il reste dans la batterie</span>.</h3>
       <p>
         Vitesse sol, horizon, altimètre, bille et aiguille, route, vario.
-        Au-dessus du cadran central, le temps depuis le décollage&nbsp;: le seul
-        chiffre de cet appareil qui finisse dans un carnet de vol.
+        Au-dessus du cadran central, la batterie en pourcentage&nbsp;: combien de
+        vol il reste dans l&rsquo;appareil est la seule chose que les cinq autres
+        ne peuvent pas dire. Le temps depuis le décollage, pour le carnet, est
+        sur le radar.
       </p>
       <p>
         L&rsquo;horizon s&rsquo;incline de ce qu&rsquo;un virage symétrique
@@ -181,7 +183,7 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
       </p>
     </div>
     <figure class="shot">
-      <%= pages_image_tag "sixpack.png", alt: "La page six-pack : vitesse sol, horizon artificiel avec le temps de vol au-dessus, altimètre, coordinateur de virage avec sa bille, cap et vario" %>
+      <%= pages_image_tag "sixpack.png", alt: "La page six-pack : vitesse sol, horizon artificiel avec le niveau de batterie au-dessus, altimètre, coordinateur de virage avec sa bille, cap et vario" %>
       <figcaption>Six-pack</figcaption>
     </figure>
   </div>
@@ -269,7 +271,7 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
 
   <div class="shots">
     <figure class="shot">
-      <%= pages_image_tag "status.png", alt: "La page état : point et satellites, position, route, trafic, émission, la centrale inertielle, pression, les deux altitudes, vitesse, vario et tension de la batterie" %>
+      <%= pages_image_tag "status.png", alt: "La page état : point et satellites, position, route, trafic, émission, la centrale inertielle, pression, les deux altitudes, vitesse, vario et la batterie en volts et en pourcentage" %>
       <figcaption>État</figcaption>
     </figure>
     <figure class="shot">

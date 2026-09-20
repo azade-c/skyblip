@@ -212,6 +212,49 @@ TEST_CASE("cutoff: the warning comes before the cutoff, never instead of it") {
     CHECK(monitor.cutoff());
 }
 
+// The knee a pilot plans on, three samples deep like every other step of the ladder.
+TEST_CASE("cutoff: the caution comes before the warning, and acts on nothing") {
+    CutoffMonitor monitor;
+    for (int i = 0; i < 2; i++) monitor.apply(sample(kCautionMv - 1));
+    CHECK_FALSE(monitor.caution());
+
+    monitor.apply(sample(kCautionMv - 1));
+    CHECK(monitor.caution());
+    CHECK(monitor.level() == PowerLevel::Normal);
+    CHECK(monitor.may_write(DurableWrite::Settings));
+    CHECK(monitor.may_refresh(PanelRefresh::Routine));
+
+    // Exactly at it is not under it, and a cell that comes back up clears it.
+    CutoffMonitor at_caution;
+    for (int i = 0; i < 4; i++) at_caution.apply(sample(kCautionMv));
+    CHECK_FALSE(at_caution.caution());
+
+    for (int i = 0; i < 4; i++) monitor.apply(sample(kCautionMv + 100));
+    CHECK_FALSE(monitor.caution());
+}
+
+TEST_CASE("cutoff: a cell on the cable is never in caution either") {
+    CutoffMonitor monitor;
+    for (int i = 0; i < 4; i++) monitor.apply(sample(3400));
+    REQUIRE(monitor.caution());
+    monitor.apply(sample(3400, /*external_power=*/true));
+    CHECK_FALSE(monitor.caution());
+}
+
+// Every step of the ladder is read against the one under it, so a pilot meets them in order.
+TEST_CASE("cutoff: the ladder is caution, warning, boot lockout, cutoff") {
+    CHECK(kCautionMv > kLowWarnMv);
+    CHECK(kLowWarnMv > kBootLockoutMv);
+    CHECK(kBootLockoutMv > kCutoffMv);
+    CHECK(kCutoffMv > kImplausibleFloorMv);
+
+    // And the gauge reads zero where the device stops, not before it.
+    CHECK(kEmptyMv == kCutoffMv);
+    CHECK(percent_from_mv(kCutoffMv, false) == 0);
+    CHECK(percent_from_mv(kLowWarnMv, false) > 0);
+    CHECK(percent_from_mv(kBootLockoutMv, false) > 0);
+}
+
 TEST_CASE("cutoff: a floating ADC cannot power the device off") {
     CutoffMonitor monitor;
     for (int i = 0; i < 20; i++) monitor.apply(sample(kImplausibleFloorMv));

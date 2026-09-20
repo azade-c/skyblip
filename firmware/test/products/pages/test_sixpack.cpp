@@ -77,9 +77,8 @@ SixPackSnapshot flying() {
     s.vs_valid = true;
     s.track_deg = 270;
     s.turn_cdps = 300;
-    s.flight_seconds = 7 * 60;
-    s.flight_time_valid = true;
-    s.airborne = true;
+    s.battery_percent = 64;
+    s.battery_valid = true;
     return s;
 }
 }  // namespace
@@ -111,10 +110,7 @@ TEST_CASE("sixpack: without a fix the needles park at zero and the numbers withh
 
     for (const Tile& t : kTiles)
         if (&t != &kTiles[1]) CHECK(value_matches(fb, t, "---"));
-    CHECK(value_matches(fb, kTiles[1], "-:--"));
-
-    // A device that cannot see satellites is not a device on the ground.
-    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
+    CHECK(value_matches(fb, kTiles[1], "--%"));
 }
 
 // The barometer measures a climb of its own, so the vario is not a GNSS instrument.
@@ -127,7 +123,6 @@ TEST_CASE("sixpack: a baro vertical speed reads on without a fix") {
 
     CHECK(value_matches(fb, kTiles[5], "-1000"));
     CHECK(fb.get_pixel(kTiles[5].cx, kTiles[5].cy + kFaceR));
-    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
     CHECK(value_matches(fb, kTiles[0], "---"));
     CHECK(value_matches(fb, kTiles[2], "---"));
 
@@ -140,14 +135,14 @@ TEST_CASE("sixpack: a baro vertical speed reads on without a fix") {
     CHECK(none.get_pixel(kTiles[5].cx - kFaceR, kTiles[5].cy));
 }
 
-// A frozen clock under a state that no longer holds is the one reading worth naming as stale.
-TEST_CASE("sixpack: a fix lost in flight says so, and keeps the time already flown") {
+// Five dials read the receiver and one reads the cell, and a lost fix is the receiver's.
+TEST_CASE("sixpack: a fix lost in flight withholds the dials and leaves the cell alone") {
     SixPackSnapshot lost = flying();
     lost.data_valid = false;
     Glass fb;
     draw_sixpack(fb, lost);
-    CHECK(title_matches(fb, kTiles[1], "NO FIX"));
-    CHECK(value_matches(fb, kTiles[1], "0:07"));
+    CHECK(value_matches(fb, kTiles[1], "64%"));
+    CHECK(value_matches(fb, kTiles[0], "---"));
 }
 
 TEST_CASE("sixpack: needles move with the data they show") {
@@ -241,24 +236,26 @@ TEST_CASE("sixpack: the unit setting decides the speed dial, and only the speed 
     for (int i = 1; i < 6; i++) CHECK(black_in(fm, kTiles[i], 30) == black_in(fi, kTiles[i], 30));
 }
 
-TEST_CASE("sixpack: the middle number is the time since takeoff, in hours and minutes") {
+TEST_CASE("sixpack: the middle number is the state of charge, with the unit on the figure") {
     SixPackSnapshot s = flying();
     Glass fb;
     draw_sixpack(fb, s);
-    CHECK(value_matches(fb, kTiles[1], "0:07"));
+    CHECK(value_matches(fb, kTiles[1], "64%"));
 
-    // Seconds are not shown, so the figure steps at the minute and nowhere else.
-    SixPackSnapshot later = s;
-    later.flight_seconds = 7 * 60 + 59;
-    Glass fl;
-    draw_sixpack(fl, later);
-    CHECK(value_matches(fl, kTiles[1], "0:07"));
+    SixPackSnapshot full = s;
+    full.battery_percent = 100;
+    Glass ff;
+    draw_sixpack(ff, full);
+    CHECK(value_matches(ff, kTiles[1], "100%"));
+}
 
-    SixPackSnapshot long_trip = s;
-    long_trip.flight_seconds = 10 * 3600 + 5 * 60;
-    Glass flong;
-    draw_sixpack(flong, long_trip);
-    CHECK(value_matches(flong, kTiles[1], "10:05"));
+// A unit with no divider fitted draws the shape of the reading, never a zero that reads as flat.
+TEST_CASE("sixpack: a cell nobody measured withholds the figure and keeps the sign") {
+    SixPackSnapshot s = flying();
+    s.battery_valid = false;
+    Glass fb;
+    draw_sixpack(fb, s);
+    CHECK(value_matches(fb, kTiles[1], "--%"));
 }
 
 // Two dashes and a hub read as a needle: what leans here is an aeroplane seen from behind.
@@ -368,35 +365,25 @@ TEST_CASE("sixpack: the horizon carries two wing bars and a dot, clear of each o
     CHECK_FALSE(fb.get_pixel(att.cx + 21, att.cy));
 }
 
-// The title says which state the figure belongs to, so the figure itself needs no unit.
-TEST_CASE("sixpack: the middle dial is titled for the state the aircraft is in") {
+// The label names the quantity and the figure carries its unit: the radar keeps the clock.
+TEST_CASE("sixpack: the middle dial is titled BATTERY whatever the cell reads") {
     SixPackSnapshot s = flying();
     Glass fb;
     draw_sixpack(fb, s);
-    CHECK(title_matches(fb, kTiles[1], "FLIGHT"));
+    CHECK(title_matches(fb, kTiles[1], "BATTERY"));
 
-    // Landed, the figure stays: it is read on the ground, under the state it was flown in.
-    SixPackSnapshot landed = s;
-    landed.airborne = false;
-    Glass fl;
-    draw_sixpack(fl, landed);
-    CHECK(title_matches(fl, kTiles[1], "GROUND"));
-    CHECK(value_matches(fl, kTiles[1], "0:07"));
+    SixPackSnapshot flat = s;
+    flat.battery_percent = 4;
+    Glass ff;
+    draw_sixpack(ff, flat);
+    CHECK(title_matches(ff, kTiles[1], "BATTERY"));
 
-    SixPackSnapshot rolling = landed;
-    rolling.taxiing = true;
-    Glass fr;
-    draw_sixpack(fr, rolling);
-    CHECK(title_matches(fr, kTiles[1], "TAXI"));
-    CHECK(value_matches(fr, kTiles[1], "0:07"));
-
-    SixPackSnapshot parked = landed;
-    parked.flight_time_valid = false;
-    Glass fp;
-    draw_sixpack(fp, parked);
-    CHECK(title_matches(fp, kTiles[1], "GROUND"));
-    CHECK(value_matches(fp, kTiles[1], "-:--"));
-    CHECK(black_in(fp, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
+    SixPackSnapshot unmeasured = s;
+    unmeasured.battery_valid = false;
+    Glass fu;
+    draw_sixpack(fu, unmeasured);
+    CHECK(title_matches(fu, kTiles[1], "BATTERY"));
+    CHECK(black_in(fu, kTiles[1], 28) == black_in(fb, kTiles[1], 28));
 }
 
 // North is three-six-zero on every other instrument a pilot reads, and 000 is nobody's heading.
@@ -434,14 +421,13 @@ TEST_CASE("sixpack: the horizon banks with the turn and pitches with climb") {
     // Climbing shows more sky: the ground area shrinks.
     CHECK(black_in(f2, att, 28) < black_in(f0, att, 28));
 
-    // The clock the pilot reads above it is none of the horizon's business.
+    // The figure the pilot reads above it is none of the horizon's business.
     SixPackSnapshot later = level;
-    later.flight_seconds = 95 * 60;
-    later.flight_time_valid = true;
+    later.battery_percent = 12;
     Glass f3;
     draw_sixpack(f3, later);
     CHECK(black_in(f3, att, 28) == black_in(f0, att, 28));
-    CHECK(value_matches(f3, att, "1:35"));
+    CHECK(value_matches(f3, att, "12%"));
 }
 
 TEST_CASE("sixpack: the speed dial rests at the bottom and stands 100 kt straight up") {

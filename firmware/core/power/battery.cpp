@@ -13,24 +13,20 @@ struct Point {
     uint8_t percent;
 };
 
-// INFO: fc 09mar26 both curves are the textbook shape for a single Li-ion cell,
-// not this pack measured on this board. They are right to a few percent in the
-// middle and worst at the ends, which is where a pilot cares. Replace them with a
-// discharge log from a unit when there is one, the shape of the table does not
-// change.
-//
-// A single Li-ion cell off charge, under the load this device draws. The middle
-// is flat and the ends are steep, which is why a straight line from 3.3 to 4.2 V
-// reads half full for most of a flight and then falls off a cliff.
+// INFO: fc 09mar26 both curves are textbook, not this pack on this board | 20sep26 README.md
 constexpr Point kDischargeCurve[] = {
-    {3300, 0},  {3500, 5},  {3600, 12}, {3700, 25}, {3750, 40}, {3800, 55},
+    {3200, 0},  {3300, 2},  {3500, 5},  {3600, 12}, {3700, 25}, {3750, 40},  {3800, 55},
     {3850, 65}, {3900, 75}, {3950, 83}, {4000, 89}, {4100, 95}, {4200, 100},
 };
 
-// The same cell on charge reads higher for the same state of charge: the
-// constant-current phase lifts the terminal by the drop across the cell's
-// internal resistance, and the 4.15..4.20 V constant-voltage taper is where the
-// last fifth of the capacity goes in, at a voltage that barely moves.
+static_assert(kDischargeCurve[0].millivolts == kEmptyMv,
+              "the gauge reads zero where the device stops, or a pilot flies on a percentage "
+              "that ran out before the cell did");
+static_assert(kDischargeCurve[0].percent == 0 &&
+                  kDischargeCurve[sizeof(kDischargeCurve) / sizeof(Point) - 1].millivolts ==
+                      kFullMv,
+              "a curve that does not span empty to full is read past its ends");
+
 constexpr Point kChargeCurve[] = {
     {3400, 0},  {3600, 5},  {3700, 12}, {3800, 25}, {3900, 40}, {4000, 55},
     {4050, 65}, {4100, 75}, {4150, 82}, {4180, 90}, {4190, 95}, {4200, 100},

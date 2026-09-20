@@ -55,6 +55,7 @@ class ScreenService : public runtime::Service {
     void settle_park(uint32_t now_ms);
     void park_for_install();
     void park_for_stow();
+    void park_for_low_cell();
     void set_range_step(int step) {
         range_step_ = clamped_range_step(step);
         dirty_ = true;
@@ -98,10 +99,17 @@ class ScreenService : public runtime::Service {
     bool refresh_allowed() const;
     void wipe_glass(uint32_t now_ms);
     bool may_present_park_frame() const;
-    enum class ParkFrame : uint8_t { Wordmark, Installing, Blank };
+    enum class ParkFrame : uint8_t { Wordmark, Installing, Blank, LowCell };
     enum class ParkStep : uint8_t { None, Frame, Sleep };
     void park(ParkFrame frame);
     void draw_park_frame(ParkFrame frame);
+    void draw_parked_low_cell();
+    void centred_text(int y, const char* text, int scale);
+    static constexpr int kParkedSaidScale = 2;
+    static constexpr int kParkedActionScale = 1;
+    static constexpr int kParkedStackGap = 6;
+    static constexpr int kGlyphCols = 6;
+    static constexpr int kGlyphRows = 7;
     void note_presented(uint32_t now_ms);
 
     int32_t climb_fpm() const {
@@ -144,6 +152,12 @@ class ScreenService : public runtime::Service {
     bool taxiing() const {
         return context_.state.own.fix_valid && !context_.state.flight.running &&
                context_.state.flight.rolling;
+    }
+
+    // INFO: fc 20sep26 core/power debounced it, dropped a charged cell and a floating sense
+    bool battery_low() const {
+        return context_.state.power.level == power::PowerLevel::Low ||
+               context_.state.power.level == power::PowerLevel::Cutoff;
     }
 
     Settings& settings_;

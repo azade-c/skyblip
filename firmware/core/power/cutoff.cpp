@@ -43,6 +43,7 @@ PowerLevel CutoffMonitor::apply(const events::BatterySample& sample) {
         implausible_++;
         below_cutoff_ = 0;
         below_warn_ = 0;
+        below_caution_ = 0;
         return level_;
     }
 
@@ -51,12 +52,20 @@ PowerLevel CutoffMonitor::apply(const events::BatterySample& sample) {
     if (sample.external_power) {
         below_cutoff_ = 0;
         below_warn_ = 0;
+        below_caution_ = 0;
+        caution_ = false;
         level_ = PowerLevel::Normal;
         return level_;
     }
 
     below_cutoff_ = sample.millivolts < kCutoffMv ? static_cast<uint8_t>(below_cutoff_ + 1) : 0;
     below_warn_ = sample.millivolts < kLowWarnMv ? static_cast<uint8_t>(below_warn_ + 1) : 0;
+    below_caution_ = sample.millivolts < kCautionMv ? static_cast<uint8_t>(below_caution_ + 1) : 0;
+
+    if (below_caution_ >= kCutoffSamples)
+        caution_ = true;
+    else if (below_caution_ == 0)
+        caution_ = false;
 
     if (below_cutoff_ >= kCutoffSamples)
         level_ = PowerLevel::Cutoff;

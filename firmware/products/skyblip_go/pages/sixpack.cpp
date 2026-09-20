@@ -266,10 +266,12 @@ int32_t inferred_bank_deg(int32_t turn_dps, int32_t speed_kt) {
     return (static_cast<int32_t>(iatan2(turn_dps * speed_kt, 1093)) * 360) / kTurn;
 }
 
-const char* flight_word(const SixPackSnapshot& s) {
-    if (!s.data_valid) return "NO FIX";
-    if (s.airborne) return "FLIGHT";
-    return s.taxiing ? "TAXI" : "GROUND";
+void battery_value(ui::Canvas& fb, int cx, int row, const SixPackSnapshot& s) {
+    char buf[8];
+    int n = s.battery_valid ? fmt_uint(buf, s.battery_percent) : fmt_string(buf, "--");
+    n += fmt_string(buf + n, "%");
+    buf[n] = 0;
+    value_text(fb, cx, row, buf);
 }
 
 }  // namespace
@@ -297,11 +299,9 @@ void draw_sixpack(ui::Canvas& fb, const SixPackSnapshot& s) {
            /*thick=*/false, /*cleared=*/true);
     value_center(fb, kCx[0], 0, s.data_valid, speed, true);
 
-    dial(fb, kCx[1], 0, flight_word(s), 0);
+    dial(fb, kCx[1], 0, "BATTERY", 0);
     horizon(fb, kCx[1], kCy[0], pitch, bank);
-    char clock[8];
-    fmt_flight_clock(clock, s.flight_seconds, s.flight_time_valid);
-    value_text(fb, kCx[1], 0, clock);
+    battery_value(fb, kCx[1], 0, s);
 
     dial(fb, kCx[2], 0, "ALT FT", kAltTicks);
     const int32_t on_scale = alt_ft < 0 ? 0 : alt_ft;

@@ -10,11 +10,13 @@
 
 namespace skyblip::power {
 
-// A single Li-ion cell. The warning is where a pilot still has time to land, the
-// cutoff is where the pack is close enough to its protection circuit that a
-// 22 dBm burst can trip it and take the log and the settings write with it.
+// INFO: fc 20sep26 the ladder a 4.2 V LiPo pouch is read on, step by step: README.md
+constexpr uint16_t kCautionMv = 3600;
 constexpr uint16_t kLowWarnMv = 3500;
 constexpr uint16_t kCutoffMv = 3200;
+
+static_assert(kCutoffMv < kLowWarnMv && kLowWarnMv < kCautionMv,
+              "the ladder is read downwards: a step out of order is a step nobody reaches");
 
 // INFO: hk 02aug26 an unpopulated or unconnected divider reads as a slow drift
 // near zero, not as a flat cell. SoftRF calls the same floor
@@ -74,6 +76,8 @@ class CutoffMonitor {
     PowerLevel apply(const events::BatterySample& sample);
 
     PowerLevel level() const { return level_; }
+    // INFO: fc 20sep26 the knee, and not a PowerLevel because no action takes it: README.md
+    bool caution() const { return caution_; }
     bool warned() const { return level_ == PowerLevel::Low || level_ == PowerLevel::Cutoff; }
     bool cutoff() const { return level_ == PowerLevel::Cutoff; }
 
@@ -113,6 +117,8 @@ class CutoffMonitor {
     PowerLevel level_{PowerLevel::Unknown};
     uint8_t below_cutoff_{0};
     uint8_t below_warn_{0};
+    uint8_t below_caution_{0};
+    bool caution_{false};
     uint32_t implausible_{0};
     uint32_t supply_warnings_{0};
     bool supply_warned_{false};
