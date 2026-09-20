@@ -12,6 +12,7 @@
 #include "core/protocol/nmea_out.h"
 #include "core/timing/transmit.h"
 #include "core/units/units.h"
+#include "core/util/format.h"
 #include "core/util/intmath.h"
 #include "products/skyblip_go/pages/installing.h"
 #include "ui/widgets/wordmark.h"
@@ -344,12 +345,39 @@ void ScreenService::draw_park_frame(ParkFrame frame) {
         case ParkFrame::Installing: draw_installing(fb_); return;
         // INFO: fc 12sep26 months of one image is the ghosting an e-paper never fully loses
         case ParkFrame::Blank: fb_.clear(/*white=*/true); return;
+        case ParkFrame::LowCell:
+            fb_.clear(/*white=*/true);
+            ui::draw_wordmark(fb_, kGlassW / 2, kGlassH / 2);
+            draw_parked_low_cell();
+            return;
         case ParkFrame::Wordmark:
         default:
             fb_.clear(/*white=*/true);
             ui::draw_wordmark(fb_, kGlassW / 2, kGlassH / 2);
             return;
     }
+}
+
+// INFO: fc 20sep26 a low-cell shutdown withholds the wake pin, so the cable is the only way back
+void ScreenService::draw_parked_low_cell() {
+    const int said_h = kGlyphRows * kParkedSaidScale;
+    const int action_h = kGlyphRows * kParkedActionScale;
+    const int stack = 2 * said_h + action_h + 2 * kParkedStackGap;
+    const int wordmark_bottom = kGlassH / 2 + ui::wordmark_height() / 2;
+    int y = (wordmark_bottom + kGlassH) / 2 - stack / 2;
+
+    centred_text(y, "SWITCHED OFF", kParkedSaidScale);
+    y += said_h + kParkedStackGap;
+    centred_text(y, "FLAT BATTERY", kParkedSaidScale);
+    y += said_h + kParkedStackGap;
+    centred_text(y, "PLUG IN TO WAKE", kParkedActionScale);
+}
+
+void ScreenService::centred_text(int y, const char* text, int scale) {
+    int n = 0;
+    while (text[n] != 0) n++;
+    const int width = n * kGlyphCols * scale;
+    fb_.draw_text((kGlassW - width) / 2, y, text, true, scale);
 }
 
 bool ScreenService::may_present_park_frame() const {
@@ -362,6 +390,8 @@ bool ScreenService::may_present_park_frame() const {
 void ScreenService::park_for_install() { park(ParkFrame::Installing); }
 
 void ScreenService::park_for_stow() { park(ParkFrame::Blank); }
+
+void ScreenService::park_for_low_cell() { park(ParkFrame::LowCell); }
 
 void ScreenService::draw_prompt() {
     ConfirmSnapshot snapshot;
@@ -468,6 +498,8 @@ void ScreenService::render(uint32_t now_ms) {
             snap.receiver_listening = receiver_listening();
             snap.alarm_flash = alarm_flash_;
             snap.formation_members = context_.state.formation.members;
+            snap.battery_percent = context_.state.power.battery.percent;
+            snap.battery_low = battery_low();
             int n = 0;
             if (own.fix_valid) {
                 const model::OwnState own_now = flight::carried_to(own, now_ms);
@@ -612,12 +644,7 @@ void ScreenService::render(uint32_t now_ms) {
             snap.battery_percent = context_.state.power.battery.percent;
             snap.charging = context_.state.power.battery.charging;
             snap.charge = context_.state.power.charge;
-            // The decision belongs to core/power's CutoffMonitor, which has
-            // already debounced it, ignored a cell on the cable and thrown out a
-            // floating sense. The page reports what it decided.
-            const power::PowerLevel level = context_.state.power.level;
-            snap.battery_low =
-                level == power::PowerLevel::Low || level == power::PowerLevel::Cutoff;
+            snap.battery_low = battery_low();
             snap.pressure_mpa = context_.state.baro.pressure_mpa;
             if (context_.state.baro.active) {
                 const uint32_t pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);

@@ -85,6 +85,58 @@ TEST_CASE("product: a long touch comes back to the radar from wherever the pilot
     CHECK_FALSE(rig.product.screen().editor().active());
 }
 
+// One decision, in core/power: a cable is not a low cell, so the ring has nothing to say.
+TEST_CASE("product: a cable takes the cell's word off the radar, and no charge climbs there") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    rig.run(t, t + 2000);
+    t += 2000;
+
+    rig.platform.battery().millivolts = power::kLowWarnMv - 100;
+    rig.run(t, t + 8000);
+    t += 8000;
+    REQUIRE(rig.state().power.level == power::PowerLevel::Low);
+    CHECK(reads_in(rig.platform.chips().epd.framebuffer(), "BAT", 40, 120, 160, 160, 2));
+
+    rig.platform.battery().external_power = true;
+    rig.run(t, t + 8000);
+    CHECK(rig.state().power.level == power::PowerLevel::Normal);
+    CHECK_FALSE(reads_in(rig.platform.chips().epd.framebuffer(), "BAT", 0, 0, 200, 199, 2));
+    CHECK_FALSE(reads_in(rig.platform.chips().epd.framebuffer(), "%", 0, 0, 200, 199, 2));
+}
+
+// A dark device says nothing about why it is dark, and the two answers are a charger and a button.
+TEST_CASE("product: a device that went down on its cell wears the charge under the mark") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.run(0, 2000);
+
+    rig.platform.battery().millivolts = 3100;
+    rig.run(2000, 20000);
+    REQUIRE(rig.product.shutdown().reason() == power::ShutdownReason::LowBattery);
+    REQUIRE(rig.product.ready_to_power_off());
+
+    const go::Glass& parked = rig.platform.chips().epd.framebuffer();
+    // Halfway between the mark and the bottom: what happened, why, and the way back.
+    CHECK(reads_in(parked, "SWITCHED OFF", 10, 130, 190, 170, 2));
+    CHECK(reads_in(parked, "FLAT BATTERY", 10, 145, 190, 185, 2));
+    CHECK(reads_in(parked, "PLUG IN TO WAKE", 10, 165, 190, 197));
+
+    // Never a percentage: it would be the reading the device died at, standing unchanged
+    // through the whole charge that follows.
+    CHECK_FALSE(reads_in(parked, "%", 0, 0, 200, 199, 2));
+
+    // An ordinary power-off says nothing about the cell, because nothing is wrong with it.
+    Rig healthy;
+    REQUIRE(healthy.setup() == Status::Ok);
+    healthy.run(0, 1000);
+    healthy.product.screen().set_power(false);
+    healthy.run(1000, 7000);
+    CHECK_FALSE(
+        reads_in(healthy.platform.chips().epd.framebuffer(), "SWITCHED OFF", 0, 0, 200, 199, 2));
+}
+
 TEST_CASE("product: powering the panel down leaves the wordmark on it") {
     // An e-paper holds its last image with the rails down, so what is written
     // immediately before power_off is what the device wears while it is off.

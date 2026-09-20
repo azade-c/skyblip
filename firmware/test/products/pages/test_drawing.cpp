@@ -753,6 +753,35 @@ TEST_CASE("radar: anything but a flight is said in the ring, and a flight over t
     CHECK_FALSE(reads_in(airborne, "FLIGHT", 20, 20, 180, 160, 2));
 }
 
+// The one thing on this page a pilot can act on from the cockpit: land, or plug it in.
+TEST_CASE("radar: a warned cell takes the ring, at the size the ring is read at") {
+    RadarSnapshot low = flying(47);
+    low.battery_low = true;
+    low.battery_percent = 4;
+    const Glass warned = radar(low);
+    CHECK(reads_in(warned, "BAT 4%", 40, 120, 160, 160, 2));
+    // The clock keeps its corner, and the flight keeps its word over it.
+    CHECK(reads_in(warned, "0:42", 0, 176, 60, 198, 2));
+    CHECK(reads_in(warned, "FLIGHT", 0, 168, 50, 182));
+
+    // On the ground the state word gives way: a cell this flat outranks GROUND and TAXI.
+    RadarSnapshot parked = low;
+    parked.airborne = false;
+    const Glass ground = radar(parked);
+    CHECK(reads_in(ground, "BAT 4%", 40, 120, 160, 160, 2));
+    CHECK_FALSE(reads_in(ground, "GROUND", 0, 0, 200, 199, 2));
+
+    // A blind receiver still says so, in the small font under the charge.
+    RadarSnapshot blind = low;
+    blind.fix_valid = false;
+    const Glass searching = radar(blind);
+    CHECK(reads_in(searching, "BAT 4%", 40, 120, 160, 160, 2));
+    CHECK(reads_in(searching, "NO FIX", 40, 145, 160, 170));
+
+    // A healthy cell writes nothing there at all.
+    CHECK_FALSE(reads_in(radar(flying(47)), "BAT", 0, 0, 200, 199, 2));
+}
+
 // NO FIX says the plot is not being fed; the word under it says whether that is going anywhere.
 TEST_CASE("radar: under NO FIX stands how far the receiver has got") {
     RadarSnapshot searching;

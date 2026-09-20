@@ -210,7 +210,14 @@ void flight_word(ui::Canvas& fb, const RadarSnapshot& snap) {
     fb.draw_text(kMargin, kStateY, state, true, kStateScale);
 }
 
-const char* ring_word(const RadarSnapshot& snap) {
+const char* ring_word(const RadarSnapshot& snap, char* buf) {
+    if (snap.battery_low) {
+        int n = fmt_string(buf, "BAT ");
+        n += fmt_uint(buf + n, snap.battery_percent);
+        n += fmt_string(buf + n, "%");
+        buf[n] = 0;
+        return buf;
+    }
     if (!snap.fix_valid) return "NO FIX";
     if (snap.airborne) return nullptr;
     return snap.taxiing ? "TAXI" : "GROUND";
@@ -218,6 +225,7 @@ const char* ring_word(const RadarSnapshot& snap) {
 
 // INFO: fc 18sep26 how far the receiver has got, under the word that says it has not got there
 const char* ring_note(const RadarSnapshot& snap) {
+    if (snap.battery_low) return snap.fix_valid ? nullptr : "NO FIX";
     return snap.fix_valid ? nullptr : gnss::stage_name(snap.stage);
 }
 
@@ -617,7 +625,8 @@ void draw_radar(ui::Canvas& fb, const RadarSnapshot& snap) {
         formation_counts(fb, snap, track);
     }
 
-    if (const char* word = ring_word(snap)) state_banner(fb, word);
+    char ring[12];
+    if (const char* word = ring_word(snap, ring)) state_banner(fb, word);
     if (const char* note = ring_note(snap)) state_note(fb, note);
 }
 

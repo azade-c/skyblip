@@ -303,10 +303,30 @@ const scenes = [
       device.run(25_000);
     }
   },
+  // Under the warning and above the cutoff: the cell a pilot can still land on.
+  {
+    name: "low-battery",
+    page: PAGE.radar,
+    shot(device) {
+      flying(device);
+      device.sim.setBatteryMv(3400);
+      device.run(20_000);
+    }
+  },
   {
     name: "off",
     powered: false,
     shot: device => device.fly(CRUISE).run(20_000).holdButton(HOLD_OFF_MS).run(6000)
+  },
+  // The cutoff takes the device down on its own, and the glass wears why.
+  {
+    name: "off-low-battery",
+    powered: false,
+    shot(device) {
+      device.fly(CRUISE).run(20_000);
+      device.sim.setBatteryMv(3100);
+      device.run(25_000);
+    }
   }
 ];
 
