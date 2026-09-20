@@ -117,23 +117,23 @@ description: The pocket tracker, screen by screen · traffic drawn the way you s
     urgent: it is the one contrast the screen keeps in reserve.
   </p>
 
-  <%= render "shared/stones",
+  <%= render "shared/blips",
         plain: "Plain",
         alarm: "Alarm",
         climbing: "climbing",
-        level: "level",
+        steady: "steady",
         sinking: "sinking",
-        crown_near: "Point up",
-        crown_near_when: "above you, to 300 m",
-        diamond: "Diamond",
-        diamond_when: "within 60 m of your level",
-        pavilion_near: "Point down",
-        pavilion_near_when: "below you, to 300 m",
-        crown_far: "Point up, reduced",
-        crown_far_when: "above you, beyond 300 m",
-        pavilion_far: "Point down, reduced",
-        pavilion_far_when: "below you, beyond 300 m",
-        out_of_window: "outside the alarm\u2019s altitude window" %>
+        above: "Point up",
+        above_when: "above you, to 300 m",
+        level: "Diamond",
+        level_when: "within 60 m of your level",
+        below: "Point down",
+        below_when: "below you, to 300 m",
+        far_above: "Point up, reduced",
+        far_above_when: "above you, beyond 300 m",
+        far_below: "Point down, reduced",
+        far_below_when: "below you, beyond 300 m",
+        out_of_window: "outside the alarm’s altitude window" %>
 
   <div class="feature">
     <div>

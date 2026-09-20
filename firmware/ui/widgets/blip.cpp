@@ -1,4 +1,4 @@
-#include "ui/widgets/stone.h"
+#include "ui/widgets/blip.h"
 
 #include <algorithm>
 
@@ -14,7 +14,7 @@ struct Sprite {
     int dy;
 };
 
-constexpr uint32_t kNearCrownRows[] = {
+constexpr uint32_t kNearPointRows[] = {
     0x00000100,  // ........#........
     0x00000380,  // .......###.......
     0x000007c0,  // ......#####......
@@ -26,7 +26,7 @@ constexpr uint32_t kNearCrownRows[] = {
     0x0001ffff,  // #################
 };
 
-constexpr uint32_t kNearDiamondRows[] = {
+constexpr uint32_t kDiamondRows[] = {
     0x00000080,  // .......#.......
     0x000001c0,  // ......###......
     0x000003e0,  // .....#####.....
@@ -55,7 +55,7 @@ constexpr uint32_t kNearCaretRows[] = {
     0x00006003,  // ##...........##
 };
 
-constexpr uint32_t kFarCrownRows[] = {
+constexpr uint32_t kFarPointRows[] = {
     0x00000040,  // ......#......
     0x000000e0,  // .....###.....
     0x000001b0,  // ....##.##....
@@ -74,20 +74,28 @@ constexpr uint32_t kFarCaretRows[] = {
     0x00000603,  // ##.......##
 };
 
-constexpr Sprite kNearCrown{kNearCrownRows, 17, 9, -8, -7};
-constexpr Sprite kNearDiamond{kNearDiamondRows, 15, 15, -7, -7};
+constexpr Sprite kNearPoint{kNearPointRows, 17, 9, -8, -7};
+constexpr Sprite kDiamond{kDiamondRows, 15, 15, -7, -7};
 constexpr Sprite kNearCaret{kNearCaretRows, 15, 8, -7, -11};
-constexpr Sprite kFarCrown{kFarCrownRows, 13, 7, -6, -5};
+constexpr Sprite kFarPoint{kFarPointRows, 13, 7, -6, -5};
 constexpr Sprite kFarCaret{kFarCaretRows, 11, 6, -5, -9};
 
-const Sprite& stone_of(Cut cut, Band band) {
-    if (cut == Cut::Diamond) return kNearDiamond;
-    return band == Band::Near ? kNearCrown : kFarCrown;
+bool beyond_the_window(Vertical vertical) {
+    return vertical == Vertical::FarAbove || vertical == Vertical::FarBelow;
 }
 
-const Sprite& caret_of(Band band) { return band == Band::Near ? kNearCaret : kFarCaret; }
+bool points_down(Vertical vertical) {
+    return vertical == Vertical::Below || vertical == Vertical::FarBelow;
+}
 
-bool upside_down(Cut cut) { return cut == Cut::Pavilion; }
+const Sprite& body_of(Vertical vertical) {
+    if (vertical == Vertical::Level) return kDiamond;
+    return beyond_the_window(vertical) ? kFarPoint : kNearPoint;
+}
+
+const Sprite& caret_of(Vertical vertical) {
+    return beyond_the_window(vertical) ? kFarCaret : kNearCaret;
+}
 
 int top_row(const Sprite& s, bool flip) { return flip ? -(s.dy + s.h - 1) : s.dy; }
 
@@ -110,27 +118,27 @@ bool caret_above(Trend trend) { return trend == Trend::Climbing; }
 
 }  // namespace
 
-void draw_stone(Canvas& fb, int x, int y, Cut cut, Band band, Trend trend, bool alarm) {
-    const bool flip = upside_down(cut);
-    blit(fb, x, y, stone_of(cut, band), flip, alarm);
-    if (trend == Trend::Level) return;
-    blit(fb, x, y, caret_of(band), !caret_above(trend), false);
+void draw_blip(Canvas& fb, int x, int y, Vertical vertical, Trend trend, bool alarm) {
+    const bool flip = points_down(vertical);
+    blit(fb, x, y, body_of(vertical), flip, alarm);
+    if (trend == Trend::Steady) return;
+    blit(fb, x, y, caret_of(vertical), !caret_above(trend), false);
 }
 
-int stone_above(Cut cut, Band band, Trend trend) {
-    const bool flip = upside_down(cut);
-    int above = -top_row(stone_of(cut, band), flip);
-    if (caret_above(trend)) above = std::max(above, -top_row(caret_of(band), false));
+int blip_above(Vertical vertical, Trend trend) {
+    const bool flip = points_down(vertical);
+    int above = -top_row(body_of(vertical), flip);
+    if (caret_above(trend)) above = std::max(above, -top_row(caret_of(vertical), false));
     return above;
 }
 
-int stone_below(Cut cut, Band band, Trend trend) {
-    const bool flip = upside_down(cut);
-    int below = bottom_row(stone_of(cut, band), flip);
-    if (trend == Trend::Sinking) below = std::max(below, bottom_row(caret_of(band), true));
+int blip_below(Vertical vertical, Trend trend) {
+    const bool flip = points_down(vertical);
+    int below = bottom_row(body_of(vertical), flip);
+    if (trend == Trend::Sinking) below = std::max(below, bottom_row(caret_of(vertical), true));
     return below;
 }
 
-int stone_beside(Band band) { return stone_of(Cut::Crown, band).w / 2 + 1; }
+int blip_beside(Vertical vertical) { return body_of(vertical).w / 2 + 1; }
 
 }  // namespace skyblip::ui

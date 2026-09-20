@@ -122,22 +122,22 @@ description: Le traceur de poche, écran par écran · le trafic tracé comme vo
     contraste que l&rsquo;écran garde en réserve.
   </p>
 
-  <%= render "shared/stones",
+  <%= render "shared/blips",
         plain: "Normal",
         alarm: "Alarme",
         climbing: "monte",
-        level: "stable",
+        steady: "stable",
         sinking: "descend",
-        crown_near: "Pointe en haut",
-        crown_near_when: "au-dessus de vous, jusqu’à 300 m",
-        diamond: "Losange",
-        diamond_when: "à 60 m près de votre niveau",
-        pavilion_near: "Pointe en bas",
-        pavilion_near_when: "en dessous de vous, jusqu’à 300 m",
-        crown_far: "Pointe en haut, réduite",
-        crown_far_when: "au-dessus de vous, au-delà de 300 m",
-        pavilion_far: "Pointe en bas, réduite",
-        pavilion_far_when: "en dessous de vous, au-delà de 300 m",
+        above: "Pointe en haut",
+        above_when: "au-dessus de vous, jusqu’à 300 m",
+        level: "Losange",
+        level_when: "à 60 m près de votre niveau",
+        below: "Pointe en bas",
+        below_when: "en dessous de vous, jusqu’à 300 m",
+        far_above: "Pointe en haut, réduite",
+        far_above_when: "au-dessus de vous, au-delà de 300 m",
+        far_below: "Pointe en bas, réduite",
+        far_below_when: "en dessous de vous, au-delà de 300 m",
         out_of_window: "hors de la tranche d’altitude de l’alarme" %>
 
   <div class="feature">

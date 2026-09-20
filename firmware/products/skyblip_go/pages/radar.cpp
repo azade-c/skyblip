@@ -4,8 +4,8 @@
 #include "core/units/units.h"
 #include "core/util/format.h"
 #include "core/util/intmath.h"
+#include "ui/widgets/blip.h"
 #include "ui/widgets/skyship.h"
-#include "ui/widgets/stone.h"
 
 namespace skyblip::go {
 
@@ -262,27 +262,23 @@ struct Plotted {
     int x;
     int y;
     bool in_ring;
-    ui::Cut cut;
-    ui::Band band;
+    ui::Vertical vertical;
     ui::Trend trend;
 };
 
-ui::Cut cut_of(int32_t up_m) {
-    if (up_m > kLevelM) return ui::Cut::Crown;
-    if (up_m < -kLevelM) return ui::Cut::Pavilion;
-    return ui::Cut::Diamond;
-}
-
-ui::Band band_of(int32_t up_m) {
+ui::Vertical vertical_of(int32_t up_m) {
     const int32_t apart = up_m < 0 ? -up_m : up_m;
-    return apart <= traffic::kAdvisoryAltM ? ui::Band::Near : ui::Band::Far;
+    if (apart <= kLevelM) return ui::Vertical::Level;
+    const bool beyond = apart > traffic::kAdvisoryAltM;
+    if (up_m > 0) return beyond ? ui::Vertical::FarAbove : ui::Vertical::Above;
+    return beyond ? ui::Vertical::FarBelow : ui::Vertical::Below;
 }
 
 ui::Trend trend_of(const RadarTarget& t) {
-    if (!t.climb_valid) return ui::Trend::Level;
+    if (!t.climb_valid) return ui::Trend::Steady;
     if (t.climb_e8 >= kCaretClimbE8) return ui::Trend::Climbing;
     if (t.climb_e8 <= -kCaretClimbE8) return ui::Trend::Sinking;
-    return ui::Trend::Level;
+    return ui::Trend::Steady;
 }
 
 int64_t ring_metres(const RadarSnapshot& snap) {
@@ -305,11 +301,10 @@ bool plot_point(const RadarSnapshot& snap, const RadarTarget& t, int16_t track, 
     const int32_t dx = to_px(at.right, range), dy = to_px(at.ahead, range);
     const int x = px_of(dx), y = py_of(dy);
     if (!on_glass(x, y)) return false;
-    const ui::Cut cut = cut_of(t.up_m);
-    const ui::Band band = band_of(t.up_m);
+    const ui::Vertical vertical = vertical_of(t.up_m);
     const ui::Trend trend = trend_of(t);
-    if (!inside_ring(dx, dy) && y + ui::stone_below(cut, band, trend) >= kFooterTop) return false;
-    out = {dx, dy, x, y, inside_ring(dx, dy), cut, band, trend};
+    if (!inside_ring(dx, dy) && y + ui::blip_below(vertical, trend) >= kFooterTop) return false;
+    out = {dx, dy, x, y, inside_ring(dx, dy), vertical, trend};
     return true;
 }
 
@@ -486,8 +481,8 @@ void draw_leader(ui::Canvas& fb, const RadarSnapshot& snap, const RadarTarget& t
     }
 }
 
-void traffic_symbol(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
-    ui::draw_stone(fb, p.x, p.y, p.cut, p.band, p.trend, alarm_level >= traffic::Level::Advisory);
+void plot_blip(ui::Canvas& fb, const Plotted& p, traffic::Level alarm_level) {
+    ui::draw_blip(fb, p.x, p.y, p.vertical, p.trend, alarm_level >= traffic::Level::Advisory);
 }
 
 int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
@@ -516,7 +511,7 @@ int plot(ui::Canvas& fb, const RadarSnapshot& snap, int16_t track) {
         draw_leader(fb, snap, *in_view[i], track, shown[i], leader_of(snap, *in_view[i], track));
     if (in_ring > 0) own_vector(fb, snap, track);
 
-    for (int i = 0; i < n; i++) traffic_symbol(fb, shown[i], in_view[i]->alarm_level);
+    for (int i = 0; i < n; i++) plot_blip(fb, shown[i], in_view[i]->alarm_level);
     return in_ring;
 }
 

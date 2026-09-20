@@ -13,6 +13,6 @@ A page is a pure function from a snapshot to pixels and belongs to the product w
 | `canvas.h`, `canvas.cpp` | the surface, the primitives, the font |
 | `widgets/wordmark.*` | the skyBlip wordmark, the brand mark |
 | `widgets/skyship.*` | the ownship symbol, hot spot on the point given |
-| `widgets/stone.*` | the traffic symbol: a diamond cut into crown and pavilion, at two sizes, with its caret |
+| `widgets/blip.*` | the traffic blip: a diamond, or the same mark pointing up or down, at two sizes, with its caret |
 
 Nothing here includes a framework header, which is what buys the host suite and the WASM simulator.

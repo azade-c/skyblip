@@ -13,7 +13,7 @@ const website = dirname(dirname(fileURLToPath(import.meta.url)));
 const firmware = join(website, "..", "firmware");
 const dist = join(firmware, "build", "browser");
 const shots = join(website, "content_images", "pages", "skyblip-go");
-const stones = join(shots, "stones");
+const blips = join(shots, "blips");
 
 const INK = [0x14, 0x14, 0x14];
 const PAPER = [0xc9, 0xc9, 0xc4];
@@ -335,16 +335,16 @@ function verify(scene, device) {
       throw new Error(`${scene.name}: ${key} is ${got[key]}, the page wants ${want[key]}`);
 }
 
-// The traffic symbols of the legend, drawn by the firmware's own widget rather than redrawn here.
-function* drawnStones() {
-  const exe = join(tmpdir(), "skyblip-stones");
+// The blips of the legend, drawn by the firmware's own widget rather than redrawn here.
+function* drawnBlips() {
+  const exe = join(tmpdir(), "skyblip-blips");
   execFileSync(
     "c++",
     [
       "-std=c++17", "-O1", `-I${firmware}`, "-fno-exceptions", "-fno-rtti",
-      join(website, "bin", "stones.cpp"),
+      join(website, "bin", "blips.cpp"),
       join(firmware, "ui", "canvas.cpp"),
-      join(firmware, "ui", "widgets", "stone.cpp"),
+      join(firmware, "ui", "widgets", "blip.cpp"),
       "-o", exe
     ],
     { stdio: "inherit" }
@@ -373,9 +373,9 @@ for (const scene of scenes) {
   console.log(`${scene.name}.png  ${shot.length} bytes`);
 }
 
-mkdirSync(stones, { recursive: true });
-for (const [name, canvas] of drawnStones()) {
+mkdirSync(blips, { recursive: true });
+for (const [name, canvas] of drawnBlips()) {
   const shot = png(canvas);
-  writeFileSync(join(stones, `${name}.png`), shot);
-  console.log(`stones/${name}.png  ${shot.length} bytes`);
+  writeFileSync(join(blips, `${name}.png`), shot);
+  console.log(`blips/${name}.png  ${shot.length} bytes`);
 }

@@ -1685,8 +1685,9 @@ The drawing stack end to end, from a pixel to what reaches the glass. The radar 
 
 **radar**
 
-- a caret on the stone says climbing or sinking, past 500 fpm
-  > The caret rides the stone, not the tag: a crowded glass drops tags, and a climb through your level is not droppable.
+- a blip lands off the state word rather than erasing it
+- a caret on the blip says climbing or sinking, past 500 fpm
+  > The caret rides the blip, not the tag: a crowded glass drops tags, and a climb through your level is not droppable.
 - a dismissed aircraft keeps its symbol and takes its sector with it
   > The silence is the whole mark: no word stands in for the sector that went out.
 - a finished flight carries its seconds, a running one does not
@@ -1698,7 +1699,6 @@ The drawing stack end to end, from a pixel to what reaches the glass. The radar 
 - a leader line runs the minute ahead of the target, out to the glass
 - a radio not yet listening counts no aircraft, it dashes
   > An empty sky and a radio that is not listening yet look the same on the plot.
-- a stone lands off the state word rather than erasing it
 - a threat astern flashes its wedge down to the ring, around the range
 - a turning target's leader is its arc
   > The leader is the arc the alarm grades, so a target in a turn does not draw a tangent.
@@ -1712,7 +1712,7 @@ The drawing stack end to end, from a pixel to what reaches the glass. The radar 
 - own ship's track is a line, with a ball on each of the next two minutes
 - own ship's vector keeps off a plot with nothing on it
   > An empty ring needs no scale: the vector is read against traffic or not at all.
-- past the advisory's own altitude window the stone is the small cut
+- past the advisory's own altitude window the blip is the small one
   > Near-size covers exactly the separation that can alarm, so size is a fact and not a flourish.
 - renders rings, own symbol and plots targets
 - the flight time reads in the bottom-left, and dashes before a flight
@@ -1733,8 +1733,8 @@ The drawing stack end to end, from a pixel to what reaches the glass. The radar 
   > The grade that fills the diamond is the grade that starts the search.
 - the wedge opens 45 degrees each side of the bearing
   > A quarter of the glass flipping is seen without looking. A narrow slice has to be read.
-- traffic is a cut stone, and the advisory fills it
-  > One stone cut three ways: diamond at your level, crown above you, pavilion below.
+- traffic is a blip, and the advisory fills it
+  > One blip, three ways up: a diamond at your level, pointing up above you, down below.
 - traffic past the ring still draws, and the count stays on the ring
   > The ring is the scale the footer reads in, and the glass around it is spare.
 - under NO FIX stands how far the receiver has got
@@ -2832,6 +2832,13 @@ What a skyPost ground station actually gets onto a skyBlip Go's screen.  The tre
 
 The ownship symbol's placement is a bearing-accuracy property, not decoration: bbox-centring it once dragged the wing 4 px forward, which put a target 20 px abeam 11 degrees off its true bearing. These pin the hot spot and the symmetry.
 
+**blip**
+
+- a blip below is the blip above, flipped about the plot point
+- past the advisory's window the blip is smaller, and carries no less meaning
+- the alarm fills the blip it was already drawing
+- the caret keeps its place whatever the body under it is
+
 **skyship**
 
 - it draws the same aircraft wherever it is asked to
@@ -2839,10 +2846,3 @@ The ownship symbol's placement is a bearing-accuracy property, not decoration: b
 - the sprite is symmetric about the centre pixel pair
 - the wing is elliptic, deepest at the root
   > The trailing taper was once deleted as ink aft of the hot spot, leaving a slab.
-
-**stone**
-
-- the alarm fills the stone it was already drawing
-- the caret keeps its place whatever the stone under it is
-- the far band is the smaller stone, and carries no less meaning
-- the pavilion is the crown, flipped about the plot point
