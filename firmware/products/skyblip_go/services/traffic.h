@@ -3,9 +3,11 @@
 
 #include "core/events/rf.h"
 #include "core/model/aircraft.h"
+#include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
 #include "core/radio/log.h"
+#include "core/traffic/callsigns.h"
 #include "products/skyblip_go/features.h"
 #include "runtime/service.h"
 
@@ -35,8 +37,10 @@ class TrafficService : public runtime::Service {
     static uint32_t keyed_utc(const events::Stamp& stamp, uint32_t now_s);
     void log(const events::RfEvent& event, const events::Stamp& stamp, radio::Event outcome,
              const model::AircraftObs* obs = nullptr, int8_t key_offset_s = 0);
-    static radio::Event decode_adsl(protocol::Frame& frame, uint32_t utc,
-                                    const events::Stamp& stamp, model::AircraftObs& obs);
+    radio::Event decode_adsl(protocol::Frame& frame, uint32_t utc, const events::Stamp& stamp,
+                             model::AircraftObs& obs);
+    radio::Event learn_callsign(const protocol::AdslPacket& p, uint32_t utc,
+                                model::AircraftObs& obs);
     radio::Event decode_alptas(protocol::Frame& frame, uint32_t utc, bool dated,
                                model::AircraftObs& obs, int8_t& key_offset_s) const;
     static bool names_its_sender(radio::Event outcome);

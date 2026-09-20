@@ -41,6 +41,7 @@ struct RawRadio {
     uint32_t rx_unframed{0};
     uint32_t rx_miskeyed{0};
     uint32_t rx_noise{0};
+    uint32_t rx_named{0};
     uint32_t uplink_frames{0};
     uint32_t uplink_bad{0};
     uint32_t uplink_targets{0};

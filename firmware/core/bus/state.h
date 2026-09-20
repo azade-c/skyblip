@@ -16,6 +16,7 @@
 #include "core/timing/durable_write.h"
 #include "core/timing/slot.h"
 #include "core/timing/timing_stats.h"
+#include "core/traffic/callsigns.h"
 #include "core/traffic/table.h"
 
 namespace skyblip::bus {
@@ -110,6 +111,7 @@ struct State {
     model::OwnState own{};
     timing::ClockState clock{};
     traffic::TrafficTable traffic{};
+    traffic::CallsignTable callsigns{};
     radio::Log radio_log{};
     RfState rf{};
     PowerState power{};
@@ -132,6 +134,7 @@ struct State {
         uint32_t rx_unframed{0};
         uint32_t rx_miskeyed{0};
         uint32_t rx_noise{0};
+        uint32_t rx_named{0};
         uint32_t tx_ok{0};
         uint32_t tx_lost{0};
         // INFO: fc 05aug26 The O-band uplink is its own path and is counted apart

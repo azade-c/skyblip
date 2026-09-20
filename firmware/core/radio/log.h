@@ -15,6 +15,7 @@ enum class Event : uint8_t {
     Held,
     Unarmed,
     Received,
+    Named,
     BadCrc,
     Unframed,
     Miskeyed,

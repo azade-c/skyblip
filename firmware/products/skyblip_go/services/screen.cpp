@@ -414,6 +414,7 @@ RawSnapshot ScreenService::raw_snapshot(uint32_t now_ms) const {
     snap.radio.rx_unframed = state.air.rx_unframed;
     snap.radio.rx_miskeyed = state.air.rx_miskeyed;
     snap.radio.rx_noise = state.air.rx_noise;
+    snap.radio.rx_named = state.air.rx_named;
     snap.radio.uplink_frames = state.air.uplink_frames;
     snap.radio.uplink_bad = state.air.uplink_bad;
     snap.radio.uplink_targets = state.air.uplink_targets;
@@ -541,8 +542,8 @@ void ScreenService::render(uint32_t now_ms) {
             snap.fix_valid = own.fix_valid;
             snap.units = settings.units;
             snap.n_heard = context_.state.traffic.count();
-            snap.n_rows =
-                traffic::rank_by_range(context_.state.traffic, own, nearby_rows_, kNearbyRows);
+            snap.n_rows = traffic::rank_by_range(context_.state.traffic, context_.state.callsigns,
+                                                 own, nearby_rows_, kNearbyRows);
             snap.rows = nearby_rows_;
             draw_nearby(fb_, snap);
             break;

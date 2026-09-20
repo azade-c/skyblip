@@ -60,6 +60,7 @@ class DiagnosticsDump {
         d.rx_unframed = state.air.rx_unframed;
         d.rx_miskeyed = state.air.rx_miskeyed;
         d.rx_noise = state.air.rx_noise;
+        d.rx_named = state.air.rx_named;
         d.tx_ok = state.air.tx_ok;
         d.tx_lost = state.air.tx_lost;
         d.tx_keyed_us = state.rf.last_tx_keyed_us;

@@ -228,9 +228,10 @@ void NmeaService::emit_targets(uint32_t now_ms) {
         const int slot = (from + step) % traffic::TrafficTable::kCapacity;
         const traffic::Target* target = context_.state.traffic.at(slot);
         if (target == nullptr || !target->used) continue;
-        const int len = protocol::format_pflaa(sentence_, sizeof(sentence_), own,
-                                               flight::carried_to(target->obs, now_ms),
-                                               traffic::to_number(target->alarm_level));
+        const int len = protocol::format_pflaa(
+            sentence_, sizeof(sentence_), own, flight::carried_to(target->obs, now_ms),
+            traffic::to_number(target->alarm_level),
+            context_.state.callsigns.find(target->obs.addr_table, target->obs.addr));
         if (len <= 0) continue;
         write(sentence_, len);
         sent++;

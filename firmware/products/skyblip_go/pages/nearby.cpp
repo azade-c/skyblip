@@ -71,12 +71,22 @@ int32_t rel_hundreds_of_feet(int32_t up_m) {
     return rounded;
 }
 
+int fmt_id(char* out, const traffic::RangeRow& row) {
+    out[0] = model::source_letter(row.source);
+    out[1] = ' ';
+    if (row.callsign == nullptr || row.callsign[0] == 0) return 2 + fmt_hex(out + 2, row.addr, 6);
+    int n = 2;
+    while (n < kNearbyIdChars && row.callsign[n - 2] != 0) {
+        out[n] = row.callsign[n - 2];
+        n++;
+    }
+    return n;
+}
+
 void draw_row(ui::Canvas& fb, int y, const traffic::RangeRow& row, bool metric) {
     char buf[16];
 
-    buf[0] = model::source_letter(row.source);
-    buf[1] = ' ';
-    const int n_id = 2 + fmt_hex(buf + 2, row.addr, 6);
+    const int n_id = fmt_id(buf, row);
     buf[n_id] = 0;
     fb.draw_text(kNearbyIdX, y, buf, true, kNearbyScale);
 

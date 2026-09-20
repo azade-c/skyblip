@@ -189,6 +189,7 @@ void draw_rx_verdicts(ui::Canvas& fb, int y, const RawRadio& r) {
     int n = fmt_keyed(buf, "DEC", r.rx_noise);
     n += fmt_keyed(buf + n, "TYPE", r.rx_type);
     n += fmt_keyed(buf + n, "WAIT", r.rx_wait);
+    n += fmt_keyed(buf + n, "CALL", r.rx_named);
     row(fb, y, buf, n);
 }
 
