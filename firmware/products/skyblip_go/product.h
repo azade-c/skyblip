@@ -177,6 +177,7 @@ class Product {
     }
     bool installing() const { return shutdown_.reason() == power::ShutdownReason::Install; }
     bool stowing() const { return shutdown_.reason() == power::ShutdownReason::Stow; }
+    bool cell_ran_out() const { return shutdown_.reason() == power::ShutdownReason::LowBattery; }
 
     // Feeding through a deliberate shutdown is correct: the device is doing what
     // it was told, and a held button must not turn a power-off into a reboot.
@@ -313,11 +314,12 @@ class Product {
         // enable pin has to be released before that rail goes
         // (core/power/shutdown.h kPowerDownOrder).
         board_.park();
-        // INFO: fc 21sep26 a flat cell parks like any other off: it is named at the next boot
         if (installing())
             screen_.park_for_install();
         else if (stowing())
             screen_.park_for_stow();
+        else if (cell_ran_out())
+            screen_.park_for_flat_cell();
         else
             screen_.set_power(false);
     }

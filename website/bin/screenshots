@@ -448,20 +448,34 @@ const scenes = [
       device.run(20_000);
     }
   },
-  // The cutoff parks this same mark, because a cell emptied on a shelf parks nothing at all.
   {
     name: "off",
     powered: false,
     shot: device => device.fly(CRUISE).run(20_000).holdButton(HOLD_OFF_MS).run(6000)
   },
-  // The press a flat cell gets answered on: the boot is refused, and this is the answer.
+  // Nobody asked for this power-off, so the cutoff writes its own reason on the way down.
   {
     name: "off-flat-battery",
     powered: false,
-    boot: { batteryMv: 3300 },
-    shot: device => png(panel(device.sleepAgain()))
+    shot(device) {
+      device.fly(CRUISE).run(20_000);
+      device.sim.setBatteryMv(3100);
+      device.run(20_000);
+      const frame = png(panel(device.run(SETTLE_MS)));
+      if (!frame.equals(REFUSED_ON_A_SHELF))
+        throw new Error("the cutoff and the refused boot do not write the same glass");
+      return frame;
+    }
   }
 ];
+
+// The other road: a cell emptied on a shelf ran no shutdown, so the refused press names it.
+async function refusedOnAShelf() {
+  const device = await Device.boot({ batteryMv: 3300 });
+  return png(panel(device.sleepAgain()));
+}
+
+const REFUSED_ON_A_SHELF = await refusedOnAShelf();
 
 // Sixteen rows hold about two seconds of a busy sky, and a name goes out once in
 // ten, so the tape is caught on the pass one lands rather than wherever it was.
@@ -531,8 +545,8 @@ function* drawnBlips() {
 
 mkdirSync(shots, { recursive: true });
 for (const scene of scenes) {
-  const device = await Device.boot(scene.boot);
-  if (!scene.boot) device.run(STEP_MS);
+  const device = await Device.boot();
+  device.run(STEP_MS);
   const captured = scene.shot(device);
   const shot = captured instanceof Buffer ? captured : png(panel(device.run(SETTLE_MS)));
   verify(scene, device);
