@@ -6,11 +6,12 @@ Host tooling. Everything here is Python 3 on the standard library, except `blip.
 |---|---|
 | [`blip.py`](blip.py) | the bench CLI: talk to a device over BLE, measure the link, offload a capture |
 | [`blip_records.py`](blip_records.py) | the record decoders `blip.py` uses, importable on their own |
+| [`power_budget.py`](power_budget.py) | turn a power run into a power budget: what the cell spent, and on what |
 | `mkuf2.py` | build the drag-and-drop install image, and refuse to build a dangerous one |
 | `build_local.sh` | build the device image off a committed ref |
 | `behavior_index.py`, `tuning_index.py`, `spec_to_md.py` | generate `docs/` out of the tree |
 | `check_*.py`, `size_check.py` | the structural gates CI runs |
-| `test_mkuf2.py`, `test_blip.py`, `test_blip_offload.py` | the Python self-checks, run by the `firmware` workflow |
+| `test_mkuf2.py`, `test_blip.py`, `test_blip_offload.py`, `test_power_budget.py` | the Python self-checks, run by the `firmware` workflow |
 
 ## blip.py
 
@@ -75,6 +76,41 @@ A diagnostics capture lives in RAM and is armed from the device's own diagnostic
 ### Reading what came back
 
 `decode` prints one line per record, `--type gnss` narrows it to one type, and `--summary` gives the caveats first, then the counts per type, the span, every index missing from the file and every `gap` record in full. A `gap` record is the ring saying it had to refuse records right there: a corpus with invisible holes teaches the wrong number with total confidence, which is why the holes are records and why the summary prints them. The session and `torn` lines survive `--type` for the same reason: a filter must not be able to hide what the corpus cannot vouch for.
+
+## power_budget.py
+
+A board that senses no current cannot report milliamps, and this one senses none: the only electrical quantity on it is the divider across the cell. So the budget is assembled from two halves that meet here. The `duty` records say how long each consumer was on, the table at the top of the script says what one costs, and the `power` records say how far the cell actually fell over the same span. The gap between the modelled draw and the measured one is the table's error, printed as the last line rather than hidden.
+
+### One run, end to end
+
+Charge the unit to full and unplug it. Arm `POWER RUN` on the CAPTURE page, which is the row that records `boot`, `config`, `power` and `duty` and nothing else, every 30 s: the page prints `KEEPS 188H25 ROLLING` against the full capture's `1H08`, and 188 hours is what makes an unattended run to cutoff survive in the ring. Then leave it alone in the posture you are measuring until it takes itself down.
+
+```
+./scripts/blip.py fetch --log diagnostics --all --out run.ndjson
+python3 scripts/power_budget.py run.ndjson --pack-mah 2400
+```
+
+The capacity comes from the command line because the device cannot know it: LilyGO fits 2400 mAh on the T-Echo Plus and 850 mAh on the plain T-Echo, on the same footprint, and no reading on the board can tell the two apart.
+
+### What it prints, and in which order
+
+Caveats first, the way `blip.py decode --summary` does, because a corpus with holes in it teaches the wrong number with total confidence. A session the device did not close, a run whose opening sector the ring recycled, every `gap` record in full, every interval dropped and why, and the count of rows in the table that are still estimates rather than measurements.
+
+Then the span, the posture split, and one row per consumer with its milliamp-hours, its average milliamps and its share. A row marked `(est)` is a number nobody has put a meter on.
+
+Two lines close it. `measured` is what the cell spent: the whole pack when the run went from the gauge's 100% to the cutoff, which needs no curve at all, and otherwise a fraction of the pack read off the two textbook curves in `core/power/battery.cpp`, which the script says out loud because that is the assumption the run was supposed to replace. `residual` is modelled minus measured, and the percentage beside it is how much of the discharge the table explains.
+
+### The table, and what retires an estimate
+
+Three rows carry a datasheet figure for the part as this firmware drives it: the L76K tracking current, the SX1262's boosted receive on its DC-DC, and the transmit current for +14 dBm through the PA configuration `sx1262.h` actually writes. Every other row is an estimate, and the honest ones to attack first are the ones with the largest share.
+
+What replaces an estimate is a meter in series with the cell, a Nordic PPK II or a Joulescope, with one consumer moving at a time. When a figure comes back, it changes in one place: the `CONSUMERS` tuple, with its source string rewritten from a datasheet reference to the bench that measured it.
+
+### Two things the reader has to know about the counters
+
+They wrap at 65536 rather than saturating, because a reader subtracts two records and unsigned subtraction crosses a wrap correctly. What makes that true is the emitting cadence being bounded at 60 s (`kDutyMaxPeriodMs`), asserted in the firmware against every period that emits the record, so one interval's movement cannot reach the wrap.
+
+Posture is read off the air the transmitter spent, because a power run records no flight record to ask. Parked is three position bursts and three callsign bursts in every 30 s, about 58 ms of air a minute; airborne is thirty and three, about 318. The threshold sits at 160 and nearer the top because the callsign burst is not gated on flight state, so a device with no callsign set keys less than the arithmetic above.
 
 ## The decoders
 
