@@ -55,6 +55,7 @@ class ConfigLinkService : public runtime::Service {
     // charger". Not a fault of the placement policy above - it means something
     // else entirely, which is why it is not one of its counters.
     uint32_t refused_writes() const { return refused_; }
+    uint32_t failed_writes() const { return failed_; }
     bool holding_for_power() const { return held_; }
 
     // The one caller that may skip the WINDOW - not the power rule above, which
@@ -83,7 +84,8 @@ class ConfigLinkService : public runtime::Service {
     void drain_link_events(uint32_t now_ms);
     void take_request(uint32_t now_ms);
     void drain_settings(uint32_t now_ms);
-    void persist();
+    void write_settings(uint32_t now_ms, bool forced);
+    bool persist();
     void load_image_state();
     void forget_update();
     void confirm_image_once_healthy();
@@ -106,6 +108,7 @@ class ConfigLinkService : public runtime::Service {
     bool recorded_claim_held_{false};
     uint32_t recorded_drops_{0};
     uint32_t refused_{0};
+    uint32_t failed_{0};
     bool held_{false};
     bool loaded_{false};
     // The blob as flash already holds it. A pilot who steps a value up and back

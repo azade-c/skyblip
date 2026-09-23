@@ -309,6 +309,31 @@ TEST_CASE("flash window: a hundred patches cost one write") {
     CHECK(stored.alarm_volume == 5);
 }
 
+// A refused write was counted as written, and the pilot's change was gone at the next boot.
+TEST_CASE("flash window: a write the store refused is retried until it lands") {
+    Rig rig;
+    REQUIRE(rig.setup() == Status::Ok);
+    uint32_t t = 0;
+    fly(rig, t);
+    rig.platform.kv().refuse_writes = true;
+    change_volume(rig, 5);
+    step_until(rig, t, t + 4 * timing::DurableWriteWindow::kMaxDeferMs);
+    CHECK(rig.product.config().failed_writes() > 0);
+    // Retried in the windows it is given, and forced at most once per bound.
+    CHECK(rig.product.config().durable_writes().forced() <= 4);
+    CHECK(rig.product.config().durable_writes().pending());
+
+    rig.platform.kv().refuse_writes = false;
+    step_until(rig, t, t + 2 * timing::DurableWriteWindow::kMaxDeferMs);
+    CHECK_FALSE(rig.product.config().durable_writes().pending());
+    uint8_t blob[64];
+    size_t n = 0;
+    REQUIRE(rig.platform.kv().read("settings", blob, sizeof(blob), n) == Status::Ok);
+    go::Settings stored{};
+    REQUIRE(go::from_blob(blob, n, stored) == Status::Ok);
+    CHECK(stored.alarm_volume == 5);
+}
+
 // E1 at product scale. The cell is below the warning, so the settings sector is
 // not touched at all - and the change is not thrown away either: it stays dirty,
 // which is what makes a charger arriving still save it.

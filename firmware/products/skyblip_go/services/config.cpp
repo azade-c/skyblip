@@ -153,8 +153,16 @@ void ConfigLinkService::drain_settings(uint32_t now_ms) {
     if (verdict != timing::DurableWriteVerdict::Place &&
         verdict != timing::DurableWriteVerdict::Forced)
         return;
-    persist();
-    writes_.placed(now_ms, verdict == timing::DurableWriteVerdict::Forced);
+    write_settings(now_ms, verdict == timing::DurableWriteVerdict::Forced);
+}
+
+// INFO: fc 23sep26 placed either way, so a store that keeps refusing is forced once per bound
+void ConfigLinkService::write_settings(uint32_t now_ms, bool forced) {
+    const bool stored = persist();
+    writes_.placed(now_ms, forced);
+    if (stored) return;
+    failed_++;
+    writes_.request(now_ms);
 }
 
 void ConfigLinkService::record_write(timing::DurableWriteVerdict verdict, uint32_t now_ms) {
@@ -180,8 +188,7 @@ void ConfigLinkService::flush_settings(uint32_t now_ms) {
     if (hold_for_power()) return;
     take_request(now_ms);
     if (!writes_.pending()) return;
-    persist();
-    writes_.placed(now_ms, /*forced=*/false);
+    write_settings(now_ms, /*forced=*/false);
 }
 
 void ConfigLinkService::load() {
@@ -205,15 +212,16 @@ void ConfigLinkService::load() {
     }
 }
 
-void ConfigLinkService::persist() {
-    if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) return;
+bool ConfigLinkService::persist() {
+    if (!ports::has(context_.roles.capabilities, ports::Capability::Storage)) return true;
     uint8_t blob[kBlobCap];
     go::to_blob(settings_, blob, sizeof(blob));
     const size_t len = go::blob_size();
-    if (stored_len_ == len && std::memcmp(stored_, blob, len) == 0) return;
-    if (!is_ok(context_.roles.kv.write("settings", blob, len))) return;
+    if (stored_len_ == len && std::memcmp(stored_, blob, len) == 0) return true;
+    if (!is_ok(context_.roles.kv.write("settings", blob, len))) return false;
     std::memcpy(stored_, blob, len);
     stored_len_ = len;
+    return true;
 }
 
 void ConfigLinkService::load_image_state() {

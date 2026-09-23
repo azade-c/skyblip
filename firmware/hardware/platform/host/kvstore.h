@@ -21,6 +21,7 @@ class KvStore : public ports::KvStore {
     }
 
     Status write(const char* key, const uint8_t* buf, size_t len) override {
+        if (refuse_writes) return Status::Full;
         Entry* slot = nullptr;
         for (auto& e : e_)
             if (e.used && e.key == key) slot = &e;
@@ -44,6 +45,7 @@ class KvStore : public ports::KvStore {
     // (core/timing/durable_write.h), so how MANY there are is the thing a test
     // about coalescing has to be able to read.
     uint32_t writes() const { return writes_; }
+    bool refuse_writes{false};
 
     Status erase(const char* key) override {
         for (auto& e : e_)
