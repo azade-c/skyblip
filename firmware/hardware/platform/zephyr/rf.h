@@ -51,13 +51,13 @@ class Rf : public ports::Rf {
             return Status::OutOfRange;
         // A dwell that cannot start before its own end is refused here rather
         // than truncated on air.
-        if (clock_.micros() >= plan.end_us) {
-            if (plan.tx != nullptr) emit(events::RfEventType::Missed, clock_.micros());
-            return Status::WouldBlock;
+        if (clock_.micros() >= plan.end_us) return Status::WouldBlock;
+        k_sched_lock();
+        if (!joins_flying_dwell(plan)) {
+            plan_ = plan;
+            k_sem_give(&armed_);
         }
-        if (joins_flying_dwell(plan)) return Status::Ok;
-        plan_ = plan;
-        k_sem_give(&armed_);
+        k_sched_unlock();
         return Status::Ok;
     }
 
@@ -85,16 +85,14 @@ class Rf : public ports::Rf {
    private:
     static void entry(void* self, void*, void*) { static_cast<Rf*>(self)->run(); }
 
-    // INFO: fc 15sep26 the dwell loop owns the burst fields, so the publish is ordered by the flag
+    // INFO: fc 23sep26 runs under arm()'s scheduler lock: no dwell ends between check and publish
     bool joins_flying_dwell(const ports::RfPlan& plan) {
         if (!flying_ || plan.tx == nullptr || burst_ != nullptr) return false;
         if (plan.mode != flying_mode_ || plan.freq_hz != flying_freq_) return false;
         if (plan.tx_at_us < clock_.micros() || plan.tx_at_us >= flying_end_us_) return false;
-        k_sched_lock();
         burst_at_us_ = plan.tx_at_us;
         burst_len_ = plan.tx_len;
         burst_ = plan.tx;
-        k_sched_unlock();
         return true;
     }
 
