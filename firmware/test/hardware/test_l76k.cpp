@@ -208,7 +208,7 @@ TEST_CASE("l76k: GSA is asked for, and the VDOP in it is the one the fix carries
     CHECK_FALSE(chip.vtg_enabled);
 }
 
-// A 2D solution reports no VDOP, and adsl.cpp falls back to HDOP under the larger coefficient.
+// A 2D solution reports no VDOP, and adsl.cpp then claims no vertical accuracy at all.
 TEST_CASE("l76k: a receiver reporting no VDOP leaves the fix without one") {
     models::L76k chip;
     chip.vdop_e2 = 0;
@@ -216,8 +216,6 @@ TEST_CASE("l76k: a receiver reporting no VDOP leaves the fix without one") {
     run(gnss, chip, 0, kBringUpLeadMs + 1000);
 
     CHECK(gnss.solution().vdop_e2 == 0);
-    CHECK(protocol::AdslPacket::kVerticalErrorPerDopCm >
-          protocol::AdslPacket::kHorizontalErrorPerDopCm);
 }
 
 // The rate rule refuses a MISSED solution, not the wait between the top of the second and the slot.

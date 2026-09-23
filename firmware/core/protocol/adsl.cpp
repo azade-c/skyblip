@@ -295,16 +295,6 @@ uint8_t AdslPacket::velocity_accuracy_code(uint8_t horizontal_code) {
     return horizontal_code >= 4 ? static_cast<uint8_t>(horizontal_code - 4) : 0;
 }
 
-// G.1.12, NIC: the containment radius Rc the position is claimed to lie within.
-// 12 = Rc < 7.5 m, 11 = < 25 m, 10 = < 75 m, 9 = < 0.1 NM, down to 1.
-uint8_t AdslPacket::navigation_integrity_code(uint32_t containment_cm) {
-    static constexpr uint32_t kLimitCm[] = {750,    2500,   7500,   18520,   37040,  111120,
-                                            185200, 370400, 740800, 1481600, 3704000};
-    for (int i = 0; i < 11; i++)
-        if (containment_cm < kLimitCm[i]) return static_cast<uint8_t>(12 - i);
-    return 1;
-}
-
 void AdslPacket::set_integrity_unknown() {
     SourceIntegrity = 0;
     DesignAssurance = 0;
@@ -316,21 +306,10 @@ void AdslPacket::set_integrity_unknown() {
 
 // INFO: fc 13sep26 no VDOP is a 2D solution, whose height is not a figure to claim accuracy for
 void AdslPacket::set_integrity_from_dop_e2(uint16_t hdop_e2, uint16_t vdop_e2) {
-    if (hdop_e2 == 0) {
-        set_integrity_unknown();
-        return;
-    }
-    const uint32_t hfom_cm = div_round<uint32_t>(hdop_e2 * kHorizontalErrorPerDopCm, 100);
-    const uint32_t vfom_cm = div_round<uint32_t>(vdop_e2 * kVerticalErrorPerDopCm, 100);
-
-    // No RAIM and no protection level from this receiver, so the containment
-    // radius we claim is the accuracy itself, and SourceIntegrity says how much
-    // that claim is worth: 1e-3 per flight hour, the honest figure for an
-    // unaugmented, unmonitored GNSS. DesignAssurance stays 0 because this
-    // firmware carries no design assurance credit.
-    SourceIntegrity = kSourceIntegrity1e3;
-    DesignAssurance = kDesignAssuranceNone;
-    NavigIntegrity = navigation_integrity_code(hfom_cm);
+    set_integrity_unknown();
+    if (hdop_e2 == 0) return;
+    const uint32_t hfom_cm = div_round<uint32_t>(hdop_e2 * kMeritPerDopCm, 100);
+    const uint32_t vfom_cm = div_round<uint32_t>(vdop_e2 * kMeritPerDopCm, 100);
     HorizAccuracy = horizontal_accuracy_code(hfom_cm);
     VertAccuracy = vdop_e2 == 0 ? 0 : vertical_accuracy_code(vfom_cm);
     VelAccuracy = velocity_accuracy_code(HorizAccuracy);
