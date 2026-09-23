@@ -73,7 +73,7 @@ uint16_t payload_from_mtu(uint16_t mtu) {
                                     : static_cast<uint16_t>(0);
 }
 
-void push_rx(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t len) {
+Status push_rx(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t len) {
     RxFrame f{};
     f.session_id = session_of(conn);
     f.endpoint = endpoint;
@@ -81,8 +81,9 @@ void push_rx(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t 
     const uint8_t* p = static_cast<const uint8_t*>(buf);
     for (uint16_t i = 0; i < f.len; i++) f.data[i] = p[i];
     k_spinlock_key_t key = k_spin_lock(&g_lock);
-    g_rx.push(f);
+    const Status queued = g_rx.push(f);
     k_spin_unlock(&g_lock, key);
+    return queued;
 }
 
 // INFO: fc 04aug26 The inbound half of the same rule. With an ATT_MTU of 498 a
@@ -93,18 +94,22 @@ void push_rx(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t 
 constexpr size_t kMaxInboundBytes = sizeof(RxFrame::data);
 bool too_long(uint16_t len) { return len > kMaxInboundBytes; }
 
+// INFO: fc 23sep26 a write with response learns the queue was full, one without is dropped unseen
+ssize_t accept_write(struct bt_conn* conn, Endpoint endpoint, const void* buf, uint16_t len) {
+    if (too_long(len)) return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    if (!is_ok(push_rx(conn, endpoint, buf, len)))
+        return BT_GATT_ERR(BT_ATT_ERR_INSUFFICIENT_RESOURCES);
+    return len;
+}
+
 ssize_t on_cfg_write(struct bt_conn* conn, const struct bt_gatt_attr*, const void* buf,
                      uint16_t len, uint16_t /*offset*/, uint8_t /*flags*/) {
-    if (too_long(len)) return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    push_rx(conn, Endpoint::Config, buf, len);
-    return len;
+    return accept_write(conn, Endpoint::Config, buf, len);
 }
 
 ssize_t on_log_write(struct bt_conn* conn, const struct bt_gatt_attr*, const void* buf,
                      uint16_t len, uint16_t /*offset*/, uint8_t /*flags*/) {
-    if (too_long(len)) return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    push_rx(conn, Endpoint::Log, buf, len);
-    return len;
+    return accept_write(conn, Endpoint::Log, buf, len);
 }
 
 // INFO: fc 18sep26 XCSoar refuses a UART service with no write characteristic, nothing reads this.
