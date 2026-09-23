@@ -206,6 +206,7 @@ TEST_CASE("adsl: the transmitted position is the position at the quarter second 
     own.track_cdeg = 9000;  // due east
     own.climb_mm_s = 2000;
     own.climb_valid = true;
+    own.vdop_e2 = 150;
     own.utc = 1000;  // 1000 % 15 == 10 s into the timestamp cycle
 
     AdslPacket at_fix{};

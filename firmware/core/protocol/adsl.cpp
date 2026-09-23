@@ -388,7 +388,10 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
     // altitude as if it were valid is worse than transmitting nothing: a receiver
     // would compute relative vertical separation against it.
     if (own.fix_valid) {
-        p.set_alt_m(to_metres(Millimetres(where.alt_mm)).v);
+        if (own.vdop_e2 != 0)
+            p.set_alt_m(to_metres(Millimetres(where.alt_mm)).v);
+        else
+            p.set_alt_invalid();
         p.set_speed_q(to_speed_q(MillimetresPerSec(own.speed_mm_s)).v);
         p.set_integrity_from_dop_e2(own.hdop_e2, own.vdop_e2);
     } else {

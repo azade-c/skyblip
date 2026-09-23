@@ -276,8 +276,9 @@ TEST_CASE("adsl: from_own marks what own-ship does not know") {
     CHECK_FALSE(p.has_speed());
     CHECK_FALSE(p.has_climb());  // climb_valid is false too
 
-    // Fix, but no vertical rate derived yet: only the climb stays unavailable.
+    // A 3D fix, but no vertical rate derived yet: only the climb stays unavailable.
     own.fix_valid = true;
+    own.vdop_e2 = 150;
     from_own(p, own, 0xABCDEF, 6, 4);
     CHECK_FALSE(p.alt_invalid());
     CHECK(p.alt_m() == 1500);

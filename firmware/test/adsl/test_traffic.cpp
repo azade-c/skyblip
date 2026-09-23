@@ -339,6 +339,17 @@ TEST_CASE("ADS-L.4.SRD860.G.1.7: an altitude marked invalid decodes as no altitu
     CHECK(obs.alt_valid);
 }
 
+// A 2D fix still reports a height, the last one the receiver solved, and it went out as valid.
+TEST_CASE("ADS-L.4.SRD860.G.1.7: a 2D fix sends its position, and its altitude as unavailable") {
+    model::OwnState own = flying();
+    own.vdop_e2 = 0;
+    protocol::AdslPacket p{};
+    protocol::from_own(p, own, 0x123456, 6, 4);
+    CHECK(p.has_position());
+    CHECK(p.alt_invalid());
+    CHECK(p.has_speed());
+}
+
 TEST_CASE("ADS-L.4.SRD860.G.1.8: the ground speed encodes the clause's worked examples") {
     protocol::AdslPacket p{};
     p.init();

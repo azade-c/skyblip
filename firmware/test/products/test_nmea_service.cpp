@@ -112,6 +112,7 @@ void hear(Rig& rig, uint32_t addr, int32_t north_m, int32_t east_m, int32_t up_m
     transmitter.alt_mm += up_m * 1000;
     transmitter.track_cdeg = to_centi_degrees(Cordic9(track_c9)).v;
     transmitter.speed_mm_s = 40000;
+    transmitter.vdop_e2 = 150;
 
     protocol::AdslPacket packet;
     protocol::from_own(packet, transmitter, addr, /*addr_table=*/6, /*aircraft_cat=*/4);
