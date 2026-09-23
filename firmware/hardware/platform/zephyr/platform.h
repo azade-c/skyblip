@@ -64,14 +64,14 @@ class Platform {
         // The gated rails are raised at board level so MCUboot sees them too;
         // what is still owed here is the SX1262 TCXO settling time.
         k_msleep(50);
-        kv_.begin();
+        (void)kv_.begin();
         // A log partition that refuses to open is a device that flies and logs
         // nothing, not a device that refuses to fly: the region reports its own
         // readiness and the flight log service reads it.
-        log_flash_.begin();
+        (void)log_flash_.begin();
         annunciator_.begin();
         indicator_.begin();
-        link_.begin(device_addr());
+        (void)link_.begin(device_addr());
         baro_ = baro76_.ready() ? &baro76_ : (baro77_.ready() ? &baro77_ : nullptr);
         gpio_pin_configure_dt(&button_, GPIO_INPUT);
         gpio_pin_configure_dt(&pad_, GPIO_INPUT);

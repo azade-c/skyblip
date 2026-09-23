@@ -172,7 +172,7 @@ struct FeatureRig {
         // relays, and every one of them is then correctly refused as a ghost.
         state.own.lat_1e7 = 485000000;
         state.own.lon_1e7 = 85000000;
-        traffic.setup();
+        REQUIRE(traffic.setup() == Status::Ok);
     }
 
     // Straight onto the bus, because what is under test here is the service and

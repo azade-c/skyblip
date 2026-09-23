@@ -607,7 +607,7 @@ struct FeatureRig {
         state.own.lat_1e7 = 485000000;
         state.own.lon_1e7 = 85000000;
         config.on_link_up(events::LinkUp{1, platform::host::Link::kDefaultPayloadBytes});
-        nmea.setup();
+        REQUIRE(nmea.setup() == Status::Ok);
     }
 
     int frames() { return link.count_on(events::Endpoint::Nmea); }

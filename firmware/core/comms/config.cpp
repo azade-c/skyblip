@@ -172,7 +172,7 @@ void ConfigService::refuse_unclaimed(uint16_t session_id) {
     w.kv_str("reason", "claimed");
     w.kv_int("by", static_cast<long>(claim_.holder()));
     const int len = w.finish();
-    reply_to(session_id, buf, len);
+    (void)reply_to(session_id, buf, len);
 }
 
 void ConfigService::stage(Pending pending, const char* reason) {
@@ -184,7 +184,7 @@ void ConfigService::stage(Pending pending, const char* reason) {
     w.kv_bool("pending", true);
     w.kv_str("reason", reason);
     w.finish();
-    reply(buf);
+    (void)reply(buf);
 }
 
 void ConfigService::ack(bool ok, const char* reason) {
@@ -193,7 +193,7 @@ void ConfigService::ack(bool ok, const char* reason) {
     w.kv_bool("ack", ok);
     if (reason) w.kv_str("reason", reason);
     w.finish();
-    reply(buf);
+    (void)reply(buf);
 }
 
 bool ConfigService::image_staged() const {
@@ -245,7 +245,7 @@ void ConfigService::on_rx(const events::RxFrame& frame) {
             diag_.link_drops++;
             return;
         }
-        reply(buf, reply_len);
+        (void)reply(buf, reply_len);
         return;
     }
 

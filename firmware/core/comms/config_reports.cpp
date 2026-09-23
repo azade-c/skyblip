@@ -106,7 +106,7 @@ void ConfigService::send_flash() {
     w.kv_int("budget_ms", static_cast<long>(timing::DurableWriteWindow::kWorstWriteMs));
     w.kv_int("bound_ms", static_cast<long>(timing::DurableWriteWindow::kMaxDeferMs));
     w.finish();
-    reply(buf);
+    (void)reply(buf);
 }
 
 // The radio's half of the same bench, still its own question rather than four
@@ -134,7 +134,7 @@ void ConfigService::send_update(uint16_t session_id) {
     }
     w.kv_bool("swap_powered", swap_powered());
     const int len = w.finish();
-    reply_to(session_id, buf, len);
+    (void)reply_to(session_id, buf, len);
 }
 
 // A whole dump nobody has collected is a dump of zeros, and zeros here read as a

@@ -56,7 +56,7 @@ struct Rig {
         state.clock.pps_locked = true;
         state.clock.pps_edge_us = kPpsEdgeUs;
         state.clock.utc_s = kUtc;
-        traffic.setup();
+        REQUIRE(traffic.setup() == Status::Ok);
     }
 
     void hear(uint32_t addr, uint64_t at_us, uint32_t now_ms) {

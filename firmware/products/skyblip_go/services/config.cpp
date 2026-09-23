@@ -274,7 +274,8 @@ void ConfigLinkService::record_update() {
 }
 
 void ConfigLinkService::forget_update() {
-    if (update_recorded_) context_.roles.kv.erase(kUpdateKey);
+    // INFO: fc 23sep26 a failed erase leaves the record for the next boot, which forgets it again
+    if (update_recorded_) (void)context_.roles.kv.erase(kUpdateKey);
     update_recorded_ = false;
     update_record_ = dfu::UpdateRecord{};
 }

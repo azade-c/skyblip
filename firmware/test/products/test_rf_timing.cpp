@@ -72,7 +72,7 @@ struct Peer {
     parts::Sx1262 radio{chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin};
 
     Peer() {
-        radio.begin();
+        REQUIRE(radio.begin() == Status::Ok);
         parts::RadioConfig cfg{};
         cfg.sync = protocol::kSharedSync;
         cfg.sync_bits = protocol::kSharedSyncBits;
@@ -81,7 +81,7 @@ struct Peer {
         cfg.fdev_hz = protocol::kMbandDeviationHz;
         cfg.bandwidth_hz = protocol::kMbandChannelBandwidthHz;
         REQUIRE(radio.configure_radio(cfg) == Status::Ok);
-        radio.start_receive();
+        REQUIRE(radio.start_receive() == Status::Ok);
     }
 
     bool frames(const simulator::AirRecord& burst, protocol::Frame& out) {
@@ -90,7 +90,7 @@ struct Peer {
             return false;
         uint8_t buf[events::kRfEventBytes];
         const parts::RadioEvent ev = radio.poll(buf, sizeof(buf));
-        radio.start_receive();
+        REQUIRE(radio.start_receive() == Status::Ok);
         if (ev.type != parts::RadioEventType::RxDone) return false;
         return protocol::receive_mband(buf, ev.len, out);
     }

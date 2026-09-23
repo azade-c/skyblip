@@ -171,7 +171,7 @@ TEST_CASE("rf: the SetTx timeout is the transmit watchdog, and the next dwell is
     cfg.sync_bits = protocol::kSharedSyncBits;
     cfg.payload_bytes = protocol::kRxChipBytes;
     REQUIRE(radio.configure_radio(cfg) == Status::Ok);
-    radio.start_receive();
+    REQUIRE(radio.start_receive() == Status::Ok);
 
     uint8_t frame[protocol::kAdslFrameBytes] = {0};
     REQUIRE(radio.transmit(frame, sizeof(frame)) == Status::Ok);
