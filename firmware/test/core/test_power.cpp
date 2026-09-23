@@ -703,12 +703,28 @@ TEST_CASE("wake: a flat cell refuses the boot, whoever asks and however they ask
     CHECK(boot_path(ResetCause::LowPowerWake, /*button_down=*/true, flat) == BootPath::SleepAgain);
     CHECK(boot_path(ResetCause::Pin, false, flat) == BootPath::SleepAgain);
     CHECK(boot_path(ResetCause::PowerOn, false, flat) == BootPath::SleepAgain);
-    CHECK(boot_path(ResetCause::Watchdog, false, flat) == BootPath::SleepAgain);
+    CHECK(boot_path(ResetCause::Watchdog, false, healthy(power::kCutoffMv - 1)) ==
+          BootPath::SleepAgain);
     CHECK(boot_path(ResetCause::Brownout, false, flat) == BootPath::SleepAgain);
 
     CHECK(boot_path(ResetCause::PowerOn, false, healthy(kBootLockoutMv - 1)) ==
           BootPath::SleepAgain);
     CHECK(boot_path(ResetCause::PowerOn, false, healthy(kBootLockoutMv)) == BootPath::Run);
+}
+
+// A fault reset in flight met the switch-on lockout and left the pilot dark until a cable.
+TEST_CASE("wake: a unit that reset itself runs on any cell the cutoff would have kept flying") {
+    const BootCell low = healthy((power::kCutoffMv + kBootLockoutMv) / 2);
+    for (const ResetCause fault :
+         {ResetCause::Watchdog, ResetCause::Lockup, ResetCause::Software}) {
+        CAPTURE(static_cast<uint32_t>(fault));
+        CHECK(boot_path(fault, false, low) == BootPath::Run);
+        CHECK(boot_path(fault, false, healthy(power::kCutoffMv)) == BootPath::Run);
+        CHECK(boot_path(fault, false, healthy(power::kCutoffMv - 1)) == BootPath::SleepAgain);
+    }
+    CHECK(boot_path(ResetCause::PowerOn, false, low) == BootPath::SleepAgain);
+    CHECK(boot_path(ResetCause::LowPowerWake, true, low) == BootPath::SleepAgain);
+    CHECK(boot_path(ResetCause::Pin, false, low) == BootPath::SleepAgain);
 }
 
 // SENSE is a level detect: a button held in a bag re-wakes what it just refused.
