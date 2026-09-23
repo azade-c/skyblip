@@ -58,7 +58,10 @@ class TrafficTable {
     // own-ship's position, and the alarm layer grades a head-on with the
     // aircraft it is bolted to. Zero means nothing is filtered, which is what a
     // table nobody told has to assume.
-    void set_own_address(uint32_t addr) { own_addr_ = addr & 0x00FFFFFF; }
+    void set_own_address(uint8_t addr_table, uint32_t addr) {
+        own_addr_table_ = addr_table;
+        own_addr_ = addr & 0x00FFFFFF;
+    }
 
     // Where own-ship is, for the range gate below. This is the table's door and
     // three paths come through it - a direct ADS-L frame, an ALP-TAS frame and up
@@ -89,6 +92,7 @@ class TrafficTable {
     std::array<Target, kCapacity> slots_{};
     model::OwnState own_{};
     uint32_t own_addr_{0};
+    uint8_t own_addr_table_{0};
     uint32_t implausible_{0};
 
     static bool prefer_new(const model::AircraftObs& incoming, const model::AircraftObs& existing);

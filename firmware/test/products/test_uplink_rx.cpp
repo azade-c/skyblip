@@ -21,6 +21,7 @@
 #include "core/protocol/adsl.h"
 #include "core/protocol/adsl_uplink.h"
 #include "core/protocol/air.h"
+#include "core/settings/address.h"
 #include "core/timing/slot.h"
 #include "core/units/units.h"
 #include "doctest/doctest.h"
@@ -324,6 +325,7 @@ TEST_CASE("uplink: own-ship relayed back by the ground station is not traffic") 
         relayed_aircraft(rig, own_addr, 0, 0, 0),
         relayed_aircraft(rig, 0x4D0001, 2000, 0, 0),
     };
+    echo[0].addr_table = settings::kAddrTableSkyblip;
     REQUIRE(relay(rig, t, echo, 2));
 
     CHECK(rig.state().air.uplink_frames == 1);

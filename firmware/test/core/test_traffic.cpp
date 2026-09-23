@@ -149,12 +149,15 @@ TEST_CASE("traffic: the direct hold is the alarm layer's patience with a contact
 // the radar is a permanent collision with the aircraft the device is bolted to.
 TEST_CASE("traffic: our own address is not traffic, whoever reports it") {
     TrafficTable tbl;
-    tbl.set_own_address(0xC5D804);
-    CHECK(tbl.update(obs(0xC5D804, 6, 100, model::Source::AdslUplink), 100) < 0);
-    CHECK(tbl.update(obs(0xC5D804, 6, 100, model::Source::AdslDirect), 100) < 0);
+    tbl.set_own_address(58, 0xC5D804);
+    CHECK(tbl.update(obs(0xC5D804, 58, 100, model::Source::AdslUplink), 100) < 0);
+    CHECK(tbl.update(obs(0xC5D804, 58, 100, model::Source::AdslDirect), 100) < 0);
     CHECK(tbl.count() == 0);
-    CHECK(tbl.update(obs(0xC5D805, 6, 100, model::Source::AdslUplink), 100) >= 0);
+    CHECK(tbl.update(obs(0xC5D805, 58, 100, model::Source::AdslUplink), 100) >= 0);
     CHECK(tbl.count() == 1);
+    // The same 24 bits under FLARM's table are another aircraft, and it is traffic.
+    CHECK(tbl.update(obs(0xC5D804, 6, 100, model::Source::AdslDirect), 100) >= 0);
+    CHECK(tbl.count() == 2);
 }
 
 TEST_CASE("traffic: age-out removes stale entries") {
