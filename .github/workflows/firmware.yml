@@ -76,6 +76,10 @@ jobs:
       # twice, and a corpus decoded wrong is worse than one that failed to decode.
       - name: blip decoders, NMEA reassembly and resume
         run: python3 scripts/test_blip.py
+      # The console page's line reassembly and checksum: ble.js has no other test.
+      - name: simulator transport
+        working-directory: simulator
+        run: node --test test_ble.mjs
       # docs/BEHAVIOR.md is generated from the test names: a rename that does not
       # land with the doc leaves the repo claiming behavior the suite dropped.
       - name: behavior index matches the suite
@@ -88,6 +92,23 @@ jobs:
         run: |
           python3 scripts/tuning_index.py
           git diff --exit-code docs/TUNING.md
+
+  # A memory error or undefined behaviour on any path the suite takes, which a
+  # plain build runs straight through. Leak checking is off: nothing allocates.
+  host-sanitizers:
+    name: host unit tests (ASan + UBSan)
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true'
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build & run host tests under ASan and UBSan
+        working-directory: firmware
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+        run: >-
+          make test BUILD=build-san
+          CXX="c++ -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
 
   lint:
     name: clang-format + clang-tidy
@@ -270,8 +291,8 @@ jobs:
 #           if-no-files-found: error
 
   platform-adapters:
-    # What the pure-host suite cannot link: NVS, SMP, the GATT plumbing. It is
-    # about the platform, not any one product, hence its own job.
+    # What the pure-host suite cannot build: the Zephyr adapters, run where
+    # native_sim can and compiled into the product image where it cannot.
     name: platform adapters (native_sim)
     needs: changes
     if: needs.changes.outputs.firmware == 'true'
@@ -306,3 +327,8 @@ jobs:
           # ZEPHYR_BASE is not in this step's env, so ask west for the workspace.
           python3 "$(west topdir)/zephyr/scripts/twister" \
             -T test/twister -p native_sim --inline-logs
+
+      # The one CI build of rf.h, link.cpp and main.cpp while product-image is off.
+      - name: compile the product image, unsigned
+        working-directory: firmware
+        run: west build -b t_echo_plus products/skyblip_go -d build/product
