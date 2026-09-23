@@ -262,6 +262,8 @@ bool callsign_is_printable(const char* s) {
     return false;
 }
 
+bool fits_u8(long v) { return v >= 0 && v <= UINT8_MAX; }
+
 }  // namespace
 
 Settings defaults() { return Settings{}; }
@@ -362,9 +364,15 @@ Status apply_json(Settings& s, const char* json, int len) {
     long v;
     bool b;
     Settings n = s;
-    if (r.get_int("aircraft_type", v)) n.aircraft_type = static_cast<uint8_t>(v);
+    if (r.get_int("aircraft_type", v)) {
+        if (!fits_u8(v)) return Status::OutOfRange;
+        n.aircraft_type = static_cast<uint8_t>(v);
+    }
     if (r.get_bool("alarm", b)) n.alarm_enabled = b;
-    if (r.get_int("alarm_volume", v)) n.alarm_volume = static_cast<uint8_t>(v);
+    if (r.get_int("alarm_volume", v)) {
+        if (!fits_u8(v)) return Status::OutOfRange;
+        n.alarm_volume = static_cast<uint8_t>(v);
+    }
     if (r.get_int("units", v)) n.units = v ? Units::Metric : Units::Nautical;
     // Narrowed before it is validated, not after: 65536 truncates to 0 in an
     // int16 and would pass a bound check that never saw the value sent.
@@ -378,7 +386,11 @@ Status apply_json(Settings& s, const char* json, int len) {
         if (v < -kFreqTrimLimitTenthsPpm || v > kFreqTrimLimitTenthsPpm) return Status::OutOfRange;
         n.freq_trim_e1_ppm = static_cast<int16_t>(v);
     }
-    r.get_str("callsign", n.callsign, sizeof(n.callsign));
+    char callsign[kCallsignCap + 1] = {0};
+    if (r.get_str("callsign", callsign, sizeof(callsign))) {
+        if (std::strlen(callsign) >= kCallsignCap) return Status::OutOfRange;
+        std::memcpy(n.callsign, callsign, kCallsignCap);
+    }
     Status st = validate(n);
     if (st != Status::Ok) return st;
     s = n;

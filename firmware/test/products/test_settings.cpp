@@ -683,6 +683,24 @@ TEST_CASE("settings: a callsign is what a panel can draw, and a patch that is no
     CHECK(std::string(s.callsign) == "123456789");
 }
 
+TEST_CASE("settings: a callsign longer than the field is refused, not cut to fit") {
+    Settings s = defaults();
+    const char* ten = "{\"callsign\":\"1234567890\"}";
+    CHECK(apply_json(s, ten, static_cast<int>(strlen(ten))) == Status::OutOfRange);
+    CHECK(std::string(s.callsign).empty());
+}
+
+TEST_CASE("settings: a type or a volume is refused before it is narrowed, never stored wrapped") {
+    for (const char* patch : {"{\"aircraft_type\":260}", "{\"aircraft_type\":-252}",
+                              "{\"alarm_volume\":256}", "{\"alarm_volume\":-253}"}) {
+        CAPTURE(patch);
+        Settings s = defaults();
+        CHECK(apply_json(s, patch, static_cast<int>(strlen(patch))) == Status::OutOfRange);
+        CHECK(int(s.aircraft_type) == int(defaults().aircraft_type));
+        CHECK(int(s.alarm_volume) == int(defaults().alarm_volume));
+    }
+}
+
 TEST_CASE("settings: a patch that names an identity changes nothing and refuses nothing") {
     Settings s = defaults();
     const char* icao = "{\"addr\":14488116,\"addr_table\":5,\"alarm_volume\":1}";  // 0xDD1234
