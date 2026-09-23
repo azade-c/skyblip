@@ -257,7 +257,8 @@ bool to_obs(const AdslPacket& p, const events::Stamp& received, int8_t rssi_dbm,
     out.emergency = p.Emergency;
     out.lat_1e7 = p.lat_1e7();
     out.lon_1e7 = p.lon_1e7();
-    out.alt_m = p.alt_m();
+    out.alt_valid = !p.alt_invalid();
+    out.alt_m = out.alt_valid ? p.alt_m() : 0;
     out.climb_valid = p.has_climb();
     out.climb_e8 = out.climb_valid ? p.climb_e8() : 0;
     out.speed_valid = p.has_speed();

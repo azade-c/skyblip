@@ -217,6 +217,17 @@ TEST_CASE("alarm: an aircraft inside three kilometres and three hundred metres i
     CHECK(assess(own, neighbour(own, 1500, 0, 350, 40, 180), 0).level == Level::None);
 }
 
+TEST_CASE("alarm: a neighbour that sends no altitude is ranged on the ground, at our level") {
+    const model::OwnState own = flying(30, 0);
+    model::AircraftObs no_altitude = neighbour(own, 55, 0, 0, 30, 180);
+    no_altitude.alt_valid = false;
+    no_altitude.alt_m = 61116;
+    int32_t slant_m = 0;
+    CHECK(range_check(own, no_altitude, slant_m) == Plausibility::Believable);
+    CHECK(slant_m == doctest::Approx(55).epsilon(0.05));
+    CHECK(assess(own, no_altitude, 0).level == Level::Advisory);
+}
+
 TEST_CASE("alarm: an aircraft leaving is as much an advisory as one arriving") {
     const model::OwnState own = flying(30, 0);
 

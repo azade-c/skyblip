@@ -317,6 +317,21 @@ TEST_CASE("ADS-L.4.SRD860.G.1.7: the altitude encodes the clause's worked exampl
     CHECK(protocol::AdslPacket::kAltOffsetM == 320);
 }
 
+// The invalid code decoded as 61116 m, and the range gate threw a 2D neighbour 60 km up.
+TEST_CASE("ADS-L.4.SRD860.G.1.7: an altitude marked invalid decodes as no altitude, not 61 km") {
+    protocol::AdslPacket p = traffic_packet();
+    p.set_alt_invalid();
+    model::AircraftObs obs{};
+    REQUIRE(protocol::to_obs(p, events::Stamp{}, -80, model::Source::AdslDirect, obs));
+    CHECK(obs.position_valid);
+    CHECK_FALSE(obs.alt_valid);
+    CHECK(obs.alt_m == 0);
+
+    REQUIRE(
+        protocol::to_obs(traffic_packet(), events::Stamp{}, -80, model::Source::AdslDirect, obs));
+    CHECK(obs.alt_valid);
+}
+
 TEST_CASE("ADS-L.4.SRD860.G.1.8: the ground speed encodes the clause's worked examples") {
     protocol::AdslPacket p{};
     p.init();
