@@ -602,7 +602,7 @@ TEST_CASE("comms: link down cancels a pending change") {
 // E1. A dying cell must not corrupt the settings. NVS survives an interrupted
 // write by design, but the sector it garbage-collects is the internal flash the
 // running image executes from, and the moment a write lands is the moment a
-// 22 dBm burst sags a 3.3 V cell. So below the low-battery warning the sector is
+// 14 dBm burst sags a 3.3 V cell. So below the low-battery warning the sector is
 // not touched - and a companion app that patches a value per keystroke is told
 // so, rather than being acknowledged for a write that will not happen.
 

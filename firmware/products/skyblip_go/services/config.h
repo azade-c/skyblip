@@ -25,7 +25,7 @@ namespace skyblip::go {
 // The other half is core/power's write rule. Below the low-battery warning the
 // settings sector is not touched: NVS survives an interrupted write by design,
 // but the sector it garbage-collects is the internal flash the running image
-// executes from, and the moment a write lands is the moment a 22 dBm burst sags a
+// executes from, and the moment a write lands is the moment a 14 dBm burst sags a
 // 3.3 V cell. So a change arriving from a phone is refused at the door, out loud,
 // with the reason on the link (core/comms/config.cpp), and a change already
 // pending when the cell falls through the warning is HELD rather than dropped: it

@@ -1,7 +1,7 @@
 // One terminal voltage, two meanings: on the cable the charger holds the cell
 // above its own resting voltage, so the same reading is a far emptier cell. These
 // pin down that the gauge says which curve it read, never walks the wrong way, and
-// ignores the sag of a 22 dBm burst. A percentage that jumps when the radio keys
+// ignores the sag of a 14 dBm burst. A percentage that jumps when the radio keys
 // is a gauge a pilot stops believing.
 #include <initializer_list>
 #include <string>
@@ -77,7 +77,7 @@ TEST_CASE("gauge: one transmit burst does not move the gauge") {
     settle(gauge, 3900);
     const uint8_t before = gauge.state().percent;
 
-    // A 22 dBm burst sags the rail for a single reading. The median throws it out
+    // A 14 dBm burst sags the rail for a single reading. The median throws it out
     // whole: 200 mV of transient must not read as a fifth of the pack gone.
     gauge.apply(sample(3700));
     CHECK(gauge.state().millivolts == 3900);
