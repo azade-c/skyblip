@@ -27,7 +27,7 @@
     font-size: var(--text-xs);
     letter-spacing: 0.23em;
     text-transform: uppercase;
-    color: var(--blip);
+    color: var(--blip-text);
     margin-block: 0 var(--space-m);
     font-weight: 700;
   }
