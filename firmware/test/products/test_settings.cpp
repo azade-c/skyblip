@@ -690,6 +690,32 @@ TEST_CASE("settings: a callsign longer than the field is refused, not cut to fit
     CHECK(std::string(s.callsign).empty());
 }
 
+TEST_CASE("settings: a callsign is only what the menu can type, so a comma or a star is refused") {
+    for (const char* patch :
+         {"{\"callsign\":\"D,KXYZ\"}", "{\"callsign\":\"D*KXYZ\"}", "{\"callsign\":\"$DKXYZ\"}",
+          "{\"callsign\":\"D!KXYZ\"}", "{\"callsign\":\"d-kxyz\"}"}) {
+        CAPTURE(patch);
+        Settings s = defaults();
+        CHECK(apply_json(s, patch, static_cast<int>(strlen(patch))) == Status::Invalid);
+        CHECK(std::string(s.callsign).empty());
+    }
+}
+
+// Older builds took any printable name over the link, and refusing the whole blob lost the trims.
+TEST_CASE("settings: a stored name the menu cannot type is dropped, and the trims beside it kept") {
+    Settings s = defaults();
+    s.battery_offset_mv = 120;
+    s.freq_trim_e1_ppm = -35;
+    std::strncpy(s.callsign, "d-kxyz", kCallsignCap - 1);
+    uint8_t blob[128];
+    to_blob(s, blob, sizeof(blob));
+    Settings out;
+    REQUIRE(from_blob(blob, blob_size(), out) == Status::Ok);
+    CHECK(std::string(out.callsign).empty());
+    CHECK(out.battery_offset_mv == 120);
+    CHECK(out.freq_trim_e1_ppm == -35);
+}
+
 TEST_CASE("settings: a type or a volume is refused before it is narrowed, never stored wrapped") {
     for (const char* patch : {"{\"aircraft_type\":260}", "{\"aircraft_type\":-252}",
                               "{\"alarm_volume\":256}", "{\"alarm_volume\":-253}"}) {

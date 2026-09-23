@@ -245,6 +245,8 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
 void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t addr_table,
               uint8_t aircraft_cat, const BurstInstant& at);
 
+// INFO: fc 23sep26 F.2.1 leaves payload 66 to OGN, so the set is the menu's: blank, dash, A-Z, 0-9
+bool is_callsign_char(char c);
 void from_own_callsign(AdslPacket& p, uint32_t addr, uint8_t addr_table, const char* callsign);
 int callsign_of(const AdslPacket& p, char* out, int cap);
 

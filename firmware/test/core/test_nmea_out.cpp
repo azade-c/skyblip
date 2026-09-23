@@ -12,6 +12,7 @@
 #include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
+#include "core/protocol/adsl.h"
 #include "core/protocol/nmea_out.h"
 #include "doctest/doctest.h"
 #include "ports/link.h"
@@ -131,6 +132,35 @@ TEST_CASE("nmea: PFLAA carries a known callsign behind the address, as OGN's doe
     std::string unnamed(buf, n);
     CHECK(unnamed.find(",2,C5D804,") != std::string::npos);
     CHECK(checksum_ok(unnamed));
+}
+
+TEST_CASE("nmea: PFLAA keeps its eleven fields whatever callsign a receiver accepts") {
+    auto own = own_at(481000000, 81000000, 1000);
+    model::AircraftObs t{};
+    t.position_valid = true;
+    t.addr = 0xC5D804;
+    t.addr_table = 0x06;
+    t.lat_1e7 = own.lat_1e7 + 100000;
+    t.lon_1e7 = own.lon_1e7;
+    t.alt_m = 1000;
+
+    for (int c = 1; c < 256; c++) {
+        AdslPacket p{};
+        from_own_callsign(p, 0x123456, 58, "D-KXYZ");
+        p.info_msg()[1] = static_cast<char>(c);
+        char name[AdslPacket::kInfoMsgBytes + 1] = {0};
+        if (callsign_of(p, name, sizeof(name)) == 0) continue;
+
+        CAPTURE(c);
+        char buf[128];
+        const int n = format_pflaa(buf, sizeof(buf), own, t, 0, name);
+        REQUIRE(n > 0);
+        const std::string s(buf, n);
+        CHECK(data_fields(s) == 11);
+        CHECK(s.find('$', 1) == std::string::npos);
+        CHECK(s.find('*') == s.rfind('*'));
+        CHECK(checksum_ok(s));
+    }
 }
 
 TEST_CASE("nmea: PFLAA returns 0 without own position") {

@@ -342,9 +342,9 @@ uint8_t timestamp_code(uint32_t utc, int32_t lead_ms) {
     return static_cast<uint8_t>(ms / kTimeStampQuarterMs);
 }
 
-namespace {
-bool printable(char c) { return c >= 0x20 && c <= 0x7E; }
-}  // namespace
+bool is_callsign_char(char c) {
+    return c == ' ' || c == '-' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+}
 
 void from_own_callsign(AdslPacket& p, uint32_t addr, uint8_t addr_table, const char* callsign) {
     p.init(AdslPacket::kTypeOgnDiagnostics);
@@ -354,7 +354,7 @@ void from_own_callsign(AdslPacket& p, uint32_t addr, uint8_t addr_table, const c
 
     char* msg = p.info_msg();
     int n = 0;
-    while (n < AdslPacket::kInfoMsgBytes && callsign[n] != 0 && printable(callsign[n])) {
+    while (n < AdslPacket::kInfoMsgBytes && callsign[n] != 0 && is_callsign_char(callsign[n])) {
         msg[n] = callsign[n];
         n++;
     }
@@ -367,7 +367,7 @@ int callsign_of(const AdslPacket& p, char* out, int cap) {
     const char* msg = p.info_msg();
     int n = 0;
     while (n < AdslPacket::kInfoMsgBytes && msg[n] != 0) {
-        if (!printable(msg[n])) return 0;
+        if (!is_callsign_char(msg[n])) return 0;
         n++;
     }
     if (n >= cap) n = cap - 1;

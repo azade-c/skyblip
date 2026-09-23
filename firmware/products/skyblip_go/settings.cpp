@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/power/battery.h"
+#include "core/protocol/adsl.h"
 #include "core/settings/address.h"
 #include "core/settings/blob.h"
 #include "core/util/json_min.h"
@@ -254,10 +255,10 @@ void migrate_v7(const SettingsV7& old, Settings& out) {
     out.callsign[kCallsignCap - 1] = 0;
 }
 
-bool callsign_is_printable(const char* s) {
+bool callsign_is_typeable(const char* s) {
     for (size_t i = 0; i < kCallsignCap; i++) {
         if (s[i] == 0) return true;
-        if (s[i] < 0x20 || s[i] > 0x7E) return false;
+        if (!protocol::is_callsign_char(s[i])) return false;
     }
     return false;
 }
@@ -278,7 +279,7 @@ Status validate(const Settings& s) {
     if (s.freq_trim_e1_ppm > kFreqTrimLimitTenthsPpm ||
         s.freq_trim_e1_ppm < -kFreqTrimLimitTenthsPpm)
         return Status::OutOfRange;
-    if (!callsign_is_printable(s.callsign)) return Status::Invalid;
+    if (!callsign_is_typeable(s.callsign)) return Status::Invalid;
     return Status::Ok;
 }
 
@@ -338,6 +339,8 @@ Status from_blob(const uint8_t* in, size_t len, Settings& out) {
     } else {
         return Status::Unsupported;
     }
+    // INFO: fc 23sep26 a name an older build took over the link is dropped, not the trims beside it
+    if (!callsign_is_typeable(out.callsign)) out.callsign[0] = 0;
     if (validate(out) != Status::Ok) return Status::Invalid;
     return Status::Ok;
 }
