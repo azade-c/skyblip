@@ -67,7 +67,7 @@ def main():
     blob = test_blob()
     missing = []
     for mod in REQUIRED_MODULES:
-        if (mod + "/") not in blob:
+        if f'#include "{mod}/' not in blob:
             missing.append(mod)
 
     for part in parts():
