@@ -723,6 +723,32 @@ TEST_CASE("json_min: the reader parses ints, bools and strings, the writer emits
     CHECK(std::string(out) == "{\"x\":5,\"y\":false}");
 }
 
+TEST_CASE("json_min: a frame that ends on a colon has no value, and nothing past it is read") {
+    const char frame[] = {'{', '"', 'c', 'm', 'd', '"', ':'};
+    json::Reader r(frame, static_cast<int>(sizeof(frame)));
+    long v = 0;
+    bool b = false;
+    char s[8];
+    CHECK_FALSE(r.get_int("cmd", v));
+    CHECK_FALSE(r.get_bool("cmd", b));
+    CHECK_FALSE(r.get_str("cmd", s, sizeof(s)));
+}
+
+TEST_CASE("json_min: an integer past 32 bits is refused, so the host reads what the device reads") {
+    const char* j =
+        "{\"max\":2147483647,\"min\":-2147483648,\"over\":2147483648,\"under\":-2147483649,"
+        "\"huge\":99999999999999999999999}";
+    json::Reader r(j, static_cast<int>(strlen(j)));
+    long v = 0;
+    CHECK(r.get_int("max", v));
+    CHECK(v == 2147483647L);
+    CHECK(r.get_int("min", v));
+    CHECK(v == -2147483647L - 1);
+    CHECK_FALSE(r.get_int("over", v));
+    CHECK_FALSE(r.get_int("under", v));
+    CHECK_FALSE(r.get_int("huge", v));
+}
+
 // core/comms's status reply is a fixed-size stack buffer with no heap behind
 // it: a key that overruns it must never come out half-written. A writer that
 // silently dropped the tail of its last key would still close the brace and

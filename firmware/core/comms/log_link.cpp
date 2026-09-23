@@ -106,9 +106,8 @@ LogRequest parse_log_request(const events::RxFrame& frame) {
         request.command = LogCommand::Erase;
     } else if (std::strcmp(command, "read") == 0) {
         request.command = LogCommand::Read;
+        if (!reader.get_uint("session", request.session)) return request;
         long value = 0;
-        if (!reader.get_int("session", value)) return request;
-        request.session = non_negative(value);
         request.from = reader.get_int("from", value) ? non_negative(value) : 0;
         request.count = reader.get_int("count", value) ? clamped_chunk_count(value) : 1;
     } else {
@@ -174,7 +173,7 @@ int format_log_session(char* buf, int cap, uint32_t index, uint32_t count, uint3
     writer.kv_int("of", static_cast<long>(count));
     // The session's opening UTC second: its name, and the base every one of its
     // records is timed against.
-    writer.kv_int("session", static_cast<long>(session_id));
+    writer.kv_int("session", session_id);
     writer.kv_int("records", static_cast<long>(records));
     // False means the log stops where the power did. The tablet says so instead
     // of presenting a truncated flight as a complete one.
@@ -194,7 +193,7 @@ int format_log_chunk(char* buf, int cap, uint32_t session_id, uint32_t from, con
     json::Writer writer(buf, cap);
     writer.kv_str("cmd", "chunk");
     if (!named_store(writer, store)) return 0;
-    writer.kv_int("session", static_cast<long>(session_id));
+    writer.kv_int("session", session_id);
     writer.kv_int("from", static_cast<long>(from));
     writer.kv_int("n", record_count);
     writer.kv_bool("eof", eof);
