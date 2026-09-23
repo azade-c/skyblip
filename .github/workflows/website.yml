@@ -34,8 +34,8 @@ jobs:
     outputs:
       website: ${{ steps.filter.outputs.website }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -53,13 +53,13 @@ jobs:
     runs-on: ubuntu-26.04-arm
     steps:
       # Full history: the sitemap's lastmod is each page's own `git log -1` date.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       # `working-directory` is what points bundler-cache at website/Gemfile.lock;
       # without it the cache key is computed from a lockfile that is not there.
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           bundler-cache: true
           working-directory: website
@@ -69,13 +69,13 @@ jobs:
         working-directory: website
         run: bin/ci
 
-      - uses: actions/configure-pages@v6
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
         id: pages
 
       # The buttons page embeds a WASM build of the firmware, so the site needs a
       # C++ toolchain. Pinned: an unpinned one changes the bytes we publish
       # without a commit saying so.
-      - uses: mymindstorm/setup-emsdk@v16
+      - uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: 6.0.9
           actions-cache-folder: emsdk-cache
@@ -92,7 +92,7 @@ jobs:
         run: bin/static-build --base "${{ steps.pages.outputs.base_url }}"
 
       - name: upload artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         if: github.ref == 'refs/heads/main'
         with:
           path: website/build
@@ -116,4 +116,4 @@ jobs:
     steps:
       - name: deploy
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
