@@ -210,6 +210,39 @@ TEST_CASE("rf: a burst own-ship put on air is one another skyBlip frames") {
     CHECK(framed > 0);
 }
 
+TEST_CASE("rf: a paraglider below the flight speed transmits every second, flight undefined") {
+    for (const uint8_t type : {uint8_t{7}, uint8_t{1}}) {
+        CAPTURE(int(type));
+        simulator::Simulator h;
+        REQUIRE(h.setup() == Status::Ok);
+        h.product().settings().aircraft_type = type;
+        h.world().set_fix(true);
+        h.world().set_speed_kt(15);
+        run_on(h, past_settling(h), 20000);
+
+        const simulator::Air& air = h.world().air();
+        Peer peer;
+        int positions = 0;
+        for (int i = 0; i < air.record_count(); i++) {
+            const simulator::AirRecord& mine = air.record(i);
+            if (mine.event != simulator::AirEvent::Tx) continue;
+            protocol::Frame heard{};
+            REQUIRE(peer.frames(mine, heard));
+            protocol::AdslPacket p{};
+            p.init();
+            std::memcpy(&p.Version, heard.data, protocol::kAdslFrameBytes);
+            p.descramble();
+            if (!p.is_position()) continue;
+            positions++;
+            CHECK(p.FlightState == (type == 7 ? 0 : 1));
+        }
+        if (type == 7)
+            CHECK(positions >= 19);
+        else
+            CHECK(positions <= 3);
+    }
+}
+
 TEST_CASE("rf: a burst is heard only inside the dwell that owns its channel") {
     struct Case {
         int phase_ms;

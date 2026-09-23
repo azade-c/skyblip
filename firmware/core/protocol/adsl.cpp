@@ -5,6 +5,7 @@
 #include "core/fec/crc.h"
 #include "core/fec/scramble.h"
 #include "core/flight/extrapolate.h"
+#include "core/flight/state.h"
 #include "core/model/aircraft.h"
 #include "core/model/ownship.h"
 #include "core/settings/address.h"
@@ -395,7 +396,7 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
     const flight::Prediction where = flight::extrapolate(own, at.since_fix_ms);
     p.TimeStamp =
         timestamp_code(at.utc, where.valid ? at.into_utc_ms : at.into_utc_ms - at.since_fix_ms);
-    p.FlightState = own.flight_state;
+    p.FlightState = flight::announced_state(own.flight_state, aircraft_cat);
     p.AcftCat = aircraft_cat;
     p.Emergency = 1;
     p.set_lat_1e7(where.lat_1e7);
