@@ -126,7 +126,7 @@ class NmeaParser {
 };
 
 bool nmea_checksum_ok(const char* line, int len);
-int32_t nmea_parse_coord(const char* dm, char hemi);
+bool nmea_parse_coord(const char* dm, char hemi, int32_t& out_1e7);
 
 inline uint32_t solution_instant_ms(const GnssSolution& solution, uint32_t arrival_ms) {
     return arrival_ms - solution.pps_latency_ms;
