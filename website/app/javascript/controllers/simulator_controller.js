@@ -130,11 +130,14 @@ export default class extends Controller {
                     ...Object.keys(AXES).flatMap(axis => [axis, `${axis}Readout`, `${axis}Gauge`])]
   static values = { src: String, on: String, off: String, menu: String }
 
+  #generation = 0
+
   connect() {
     this.bootTimer = setTimeout(() => this.start(), BOOT_DELAY_MS)
   }
 
   disconnect() {
+    this.#generation++
     this.#stop()
     clearTimeout(this.bootTimer)
     clearTimeout(this.wakeTimer)
@@ -143,11 +146,14 @@ export default class extends Controller {
   }
 
   async start() {
+    const generation = ++this.#generation
     const { load, PAGES } = await import(this.srcValue)
+    if (generation !== this.#generation) return
     this.pages = PAGES
-    this.sim = await load()
+    const sim = await load()
+    if (generation !== this.#generation) return
+    this.sim = sim
     this.element.classList.add("simulator--running")
-    this.padTarget.focus({ preventScroll: true })
     for (const axis in AXES) this.#apply(axis)
     this.#run()
     this.trafficTimer = setTimeout(() => this.addTraffic(), FIRST_TRAFFIC_MS)
@@ -158,8 +164,8 @@ export default class extends Controller {
   }
 
   fly(event) {
-    if (!this.sim || event.metaKey || event.ctrlKey || event.altKey) return
-    if (event.target.type === "range") return
+    if (!this.sim || event.target !== this.padTarget) return
+    if (event.metaKey || event.ctrlKey || event.altKey) return
     if (event.key.toLowerCase() === TRAFFIC_KEY) {
       if (event.repeat) return
       event.preventDefault()
@@ -282,6 +288,7 @@ export default class extends Controller {
   touch(event) {
     if (!this.#accepts(event)) return
     event.preventDefault()
+    this.padTarget.focus({ preventScroll: true })
     this.sim.holdPad(1)
   }
 
