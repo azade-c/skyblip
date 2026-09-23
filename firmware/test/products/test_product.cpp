@@ -154,6 +154,41 @@ TEST_CASE("product: once the barometer speaks, GNSS stops setting vertical speed
     CHECK(rig.state().own.climb_mm_s == from_baro);
 }
 
+// Once active the barometer stayed in charge for ever, and a dead one froze its last climb on air.
+TEST_CASE("product: a barometer that stops answering hands vertical speed back to GNSS") {
+    Rig rig{kBaroByHand};
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.push_baro(100000, 500);
+    rig.run(500, 500);
+    rig.push_baro(100200, 1500);  // +2 m in 1 s
+    rig.run(1500, 1500);
+    REQUIRE(rig.product.ownship().baro_active());
+
+    rig.push_fix(1000, 1);
+    rig.run(6000, 6000);
+    rig.push_fix(1010, 2);
+    rig.run(8000, 8000);
+
+    CHECK_FALSE(rig.product.ownship().baro_active());
+    CHECK(rig.state().own.climb_valid);
+    // +10 m in 2 s of GNSS
+    CHECK(rig.state().own.climb_mm_s == doctest::Approx(5000).epsilon(0.05));
+}
+
+TEST_CASE("product: with neither a fix nor a barometer the climb is not valid") {
+    Rig rig{kBaroByHand};
+    REQUIRE(rig.setup() == Status::Ok);
+    rig.push_fix(1000, 1);
+    rig.run(1000, 1000);
+    rig.push_fix(1010, 2);
+    rig.run(3000, 3000);
+    REQUIRE(rig.state().own.climb_valid);
+
+    rig.product.bus().gnss.push(gnss::GnssSolution{});
+    rig.run(4000, 4000);
+    CHECK_FALSE(rig.state().own.climb_valid);
+}
+
 TEST_CASE("product: the board reads the cell and the gauge publishes it") {
     Rig rig;
     REQUIRE(rig.setup() == Status::Ok);
