@@ -85,6 +85,21 @@ TEST_CASE("nmea: relative geometry, target due north is +north, ~0 east") {
     CHECK(u_m == 200);
 }
 
+// Longitude was differenced raw, so a neighbour one meridian over was 40,000 km east and refused.
+TEST_CASE("nmea: a target across the antimeridian is metres away, not the width of the earth") {
+    auto own = own_at(0, 1799999000, 1000);
+    model::AircraftObs t{};
+    t.position_valid = true;
+    t.lat_1e7 = own.lat_1e7;
+    t.lon_1e7 = -1799999000;
+    t.alt_m = 1000;
+    int32_t n_m, e_m, u_m;
+    REQUIRE(relative_ned(own, t, n_m, e_m, u_m));
+    CHECK(n_m == 0);
+    // 0.0002 deg of longitude at the equator
+    CHECK(e_m == doctest::Approx(22).epsilon(0.05));
+}
+
 TEST_CASE("nmea: PFLAA carries id, relative pos, checksum") {
     auto own = own_at(481000000, 81000000, 1000);
     model::AircraftObs t{};

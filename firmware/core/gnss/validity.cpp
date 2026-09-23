@@ -1,5 +1,7 @@
 #include "core/gnss/validity.h"
 
+#include "core/util/intmath.h"
+
 namespace skyblip::gnss {
 
 namespace {
@@ -54,9 +56,11 @@ void FixValidity::observe(const GnssSolution& solution, Sentence which, uint32_t
         return;
     }
 
+    const int32_t lon_step_1e7 =
+        wrapped_lon_1e7(static_cast<int64_t>(solution.lon_1e7) - prev_lon_1e7_);
     jumped_ =
         have_previous_ && (magnitude(solution.lat_1e7 - prev_lat_1e7_) > kMaxLatitudeJump1e7 ||
-                           magnitude(solution.lon_1e7 - prev_lon_1e7_) > kMaxLongitudeJump1e7);
+                           magnitude(lon_step_1e7) > kMaxLongitudeJump1e7);
     // The new position becomes the reference either way: one implausible step
     // costs one fix, not every fix after it. Two receivers disagreeing about
     // where we are is a stuck state; a single spike is a spike.

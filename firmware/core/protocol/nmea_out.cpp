@@ -35,7 +35,7 @@ bool relative_ned(const model::OwnState& own, const model::AircraftObs& t, int32
                   int32_t& east_m, int32_t& up_m) {
     if (!own.fix_valid || !t.position_valid) return false;
     int64_t dlat = static_cast<int64_t>(t.lat_1e7) - own.lat_1e7;
-    int64_t dlon = static_cast<int64_t>(t.lon_1e7) - own.lon_1e7;
+    int64_t dlon = wrapped_lon_1e7(static_cast<int64_t>(t.lon_1e7) - own.lon_1e7);
     north_m = static_cast<int32_t>(div_round<int64_t>(dlat * 11132, 1000000));
     int16_t ang = static_cast<int16_t>((static_cast<int64_t>(own.lat_1e7) * 65536) / 3600000000LL);
     int64_t coslat = icos(ang);

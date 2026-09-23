@@ -59,6 +59,15 @@ TEST_CASE("extrapolate: a straight leg moves the fix along its own track") {
     CHECK(extrapolate(own, 0).lat_1e7 == own.lat_1e7);
 }
 
+TEST_CASE("extrapolate: flying east across the antimeridian comes out at 180 west") {
+    const model::OwnState own = flying(10.0, 179.9999, 60.0, 90.0);
+    const Prediction at = extrapolate(own, 1000);
+    REQUIRE(at.valid);
+    CHECK(at.lon_1e7 < -1799990000);
+    CHECK(prediction_residual_m(at, own.lat_1e7, own.lon_1e7, own.alt_mm) ==
+          doctest::Approx(60).epsilon(0.05));
+}
+
 // A neighbour is carried by the three things its burst states: position, ground speed and track.
 TEST_CASE("extrapolate: a reported target moves along its reported track") {
     const model::OwnState own = flying(48.5, 8.5, 40.0, 90.0);
