@@ -334,7 +334,7 @@ Status Sx1262::start_receive() {
 // comes back is the radio that went to sleep and not a chip out of reset.
 // INFO: fc 05sep26 DS 13.1.1: SetSleep is accepted in STDBY only, and a dwell ends in RX
 void Sx1262::sleep() {
-    if (mode_ != RadioMode::Standby) enter_standby();
+    if (mode_ != RadioMode::Standby && enter_standby() != Status::Ok) return;
     uint8_t config = sx::kSleepWarmStartNoRtc;
     cmd(sx::kSetSleep, &config, 1);
     mode_ = RadioMode::Sleep;
@@ -425,8 +425,8 @@ RadioEvent Sx1262::poll(uint8_t* rx_buf, uint8_t cap) {
 // what notices; this is what puts the radio back where the dwell expects it.
 void Sx1262::recover_tx() {
     tx_recovery_count_++;
-    enter_standby();
-    start_receive();
+    if (enter_standby() != Status::Ok) return;
+    (void)start_receive();
 }
 
 Status Sx1262::reinit() {
@@ -438,15 +438,14 @@ Status Sx1262::reinit() {
     return start_receive();
 }
 
+// INFO: fc 23sep26 a reinit that failed leaves no Rx to wait in, so the rope runs on and it retries
 bool Sx1262::service(uint32_t elapsed_ms, uint32_t no_rx_reinit_ms) {
-    if (mode_ != RadioMode::Rx) return false;
+    if (mode_ != RadioMode::Rx && !reinit_owed_) return false;
     ms_since_rx_ += elapsed_ms;
-    if (ms_since_rx_ >= no_rx_reinit_ms) {
-        reinit();
-        ms_since_rx_ = 0;
-        return true;
-    }
-    return false;
+    if (ms_since_rx_ < no_rx_reinit_ms) return false;
+    ms_since_rx_ = 0;
+    reinit_owed_ = reinit() != Status::Ok;
+    return true;
 }
 
 }
