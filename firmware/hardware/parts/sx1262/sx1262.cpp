@@ -327,7 +327,6 @@ Status Sx1262::start_receive() {
     uint8_t cont[3] = {0xFF, 0xFF, 0xFF};
     cmd(sx::kSetRx, cont, 3);
     mode_ = RadioMode::Rx;
-    ms_since_rx_ = 0;
     return Status::Ok;
 }
 

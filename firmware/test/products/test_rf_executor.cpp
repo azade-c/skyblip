@@ -388,6 +388,31 @@ TEST_CASE("rf: a receiver that hears nothing is reinitialised by the executor th
     CHECK(radio.reinit_count() == 1);
 }
 
+// Every dwell restarts the receiver, and restarting it once zeroed the rope: no unit ever got here.
+TEST_CASE("rf: a receiver re-armed every dwell is still reinitialised when it hears nothing") {
+    models::Sx1262 chip;
+    parts::Sx1262 radio(chip, chip, chip.busy_pin, chip.reset_pin, chip.dio1_pin);
+    platform::host::Clock clock;
+    bus::Queue<events::RfEvent, 8> events;
+    platform::host::Rf rf(radio, clock, events);
+    REQUIRE(rf.begin() == Status::Ok);
+
+    for (uint32_t t = 0; t <= runtime::kRadioNoRxReinitMs + 1000; t += 10) {
+        if (t % 400 == 0) {
+            ports::RfPlan plan{};
+            plan.mode = ports::RfMode::RxMband;
+            plan.freq_hz = timing::kMband0Hz;
+            plan.start_us = static_cast<uint64_t>(t) * 1000;
+            plan.end_us = plan.start_us + 390000;
+            REQUIRE(rf.arm(plan) == Status::Ok);
+        }
+        clock.set_millis(t);
+        rf.service(t);
+    }
+    CHECK(radio.reinit_count() == 1);
+    CHECK(rf.armed_count() > runtime::kRadioNoRxReinitMs / 400);
+}
+
 // Slot 0's burst was added by a second arm at 450, read at 799, expired, and called the band busy.
 TEST_CASE("rf: a plan armed mid-dwell waits for it, and an expired one is missed, not busy") {
     models::Sx1262 chip;
