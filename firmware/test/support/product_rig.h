@@ -47,7 +47,7 @@ struct Rig {
 
     void push_fix(int32_t alt_m, uint32_t updates) {
         gnss::GnssSolution f{};
-        f.is_fix = true;
+        f.fix_valid = true;
         f.alt_mm = alt_m * 1000;
         f.updates = updates;
         product.bus().gnss.push(f);
@@ -61,7 +61,7 @@ struct Rig {
     // referenced to both datums. core/flight decides what it means.
     void push_timed_fix(int32_t speed_mm_s, int32_t alt_msl_m) {
         gnss::GnssSolution f{};
-        f.is_fix = true;
+        f.fix_valid = true;
         f.utc_valid = true;
         f.utc = kUtcBase + utc_offset_s;
         f.lat_1e7 = 485000000 + static_cast<int32_t>(utc_offset_s) * 3000;
@@ -88,7 +88,7 @@ struct Rig {
     // What the driver publishes once the receiver has gone quiet: not a fix.
     void blind_second(uint32_t& t) {
         gnss::GnssSolution f{};
-        f.is_fix = false;
+        f.fix_valid = false;
         f.updates = ++fix_updates;
         product.bus().gnss.push(f);
         run(t, t + 950);

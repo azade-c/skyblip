@@ -100,8 +100,8 @@ LogRequest parse_log_request(const events::RxFrame& frame) {
     if (std::strcmp(command, "list") == 0) {
         request.command = LogCommand::List;
         long value = 0;
-        request.has_index = reader.get_int("index", value);
-        request.index = request.has_index ? non_negative(value) : 0;
+        request.index_valid = reader.get_int("index", value);
+        request.index = request.index_valid ? non_negative(value) : 0;
     } else if (std::strcmp(command, "erase") == 0) {
         request.command = LogCommand::Erase;
     } else if (std::strcmp(command, "read") == 0) {

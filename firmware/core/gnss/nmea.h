@@ -52,7 +52,7 @@ constexpr uint8_t kFixMode2D = 2;
 constexpr uint8_t kFixMode3D = 3;
 
 struct GnssSolution {
-    bool is_fix{false};
+    bool fix_valid{false};
     bool utc_valid{false};
     int32_t lat_1e7{0};
     int32_t lon_1e7{0};

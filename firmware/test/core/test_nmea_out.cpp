@@ -389,8 +389,8 @@ TEST_CASE("nmea: the widest sentence these can produce still fits the narrowest 
     widest.vario_cm_s = -2000000;
     widest.temperature_c = -2000;
     widest.battery_percent = 255;
-    widest.has_pressure = widest.has_alt = widest.has_vario = true;
-    widest.has_temperature = widest.has_battery = true;
+    widest.pressure_valid = widest.alt_valid = widest.vario_valid = true;
+    widest.temperature_valid = widest.battery_valid = true;
     const int lk8 = format_lk8ex1(buf, sizeof(buf), widest);
     CHECK(lk8 > 0);
     CHECK(lk8 <= comms::kSmallestSupportedPayload);
@@ -406,15 +406,15 @@ TEST_CASE("nmea: LK8EX1 carries pressure, altitude, vario, temperature and the c
     char buf[128];
     Lk8Ex1 v{};
     v.pressure_pa = 90000;
-    v.has_pressure = true;
+    v.pressure_valid = true;
     v.alt_m = 988;
-    v.has_alt = true;
+    v.alt_valid = true;
     v.vario_cm_s = -125;
-    v.has_vario = true;
+    v.vario_valid = true;
     v.temperature_c = -7;
-    v.has_temperature = true;
+    v.temperature_valid = true;
     v.battery_percent = 38;
-    v.has_battery = true;
+    v.battery_valid = true;
 
     const int n = format_lk8ex1(buf, sizeof(buf), v);
     const std::string s(buf, static_cast<size_t>(n));
@@ -434,7 +434,7 @@ TEST_CASE("nmea: LK8EX1 carries pressure, altitude, vario, temperature and the c
 TEST_CASE("nmea: LK8EX1 battery is a percentage plus 1000, never a bare percentage") {
     char buf[128];
     Lk8Ex1 v{};
-    v.has_battery = true;
+    v.battery_valid = true;
 
     v.battery_percent = 0;
     format_lk8ex1(buf, sizeof(buf), v);
@@ -472,19 +472,19 @@ TEST_CASE("nmea: LK8EX1 says 'not available' with the sentinel the protocol defi
     // here rather than reading as a 999-metre climb on someone's vario.
     Lk8Ex1 v{};
     v.pressure_pa = 101325;
-    v.has_pressure = true;
+    v.pressure_valid = true;
     format_lk8ex1(buf, sizeof(buf), v);
     CHECK(std::string(buf).rfind("$LK8EX1,101325,99999,9999,99,999*", 0) == 0);
 
     v = Lk8Ex1{};
     v.alt_m = -300;
-    v.has_alt = true;
+    v.alt_valid = true;
     format_lk8ex1(buf, sizeof(buf), v);
     CHECK(std::string(buf).rfind("$LK8EX1,999999,-300,9999,99,999*", 0) == 0);
 
     v = Lk8Ex1{};
     v.vario_cm_s = 250;
-    v.has_vario = true;
+    v.vario_valid = true;
     format_lk8ex1(buf, sizeof(buf), v);
     CHECK(std::string(buf).rfind("$LK8EX1,999999,99999,250,99,999*", 0) == 0);
 
@@ -492,13 +492,13 @@ TEST_CASE("nmea: LK8EX1 says 'not available' with the sentinel the protocol defi
     // stops at 98 and this is the boundary that proves the two never collide.
     v = Lk8Ex1{};
     v.temperature_c = 21;
-    v.has_temperature = true;
+    v.temperature_valid = true;
     format_lk8ex1(buf, sizeof(buf), v);
     CHECK(std::string(buf).rfind("$LK8EX1,999999,99999,9999,21,999*", 0) == 0);
 
     v = Lk8Ex1{};
     v.battery_percent = 92;
-    v.has_battery = true;
+    v.battery_valid = true;
     format_lk8ex1(buf, sizeof(buf), v);
     CHECK(std::string(buf).rfind("$LK8EX1,999999,99999,9999,99,1092*", 0) == 0);
 }
@@ -510,7 +510,7 @@ TEST_CASE("nmea: LK8EX1 says 'not available' with the sentinel the protocol defi
 TEST_CASE("nmea: LK8EX1 clamps every field short of its own 'not available' value") {
     char buf[128];
     Lk8Ex1 v{};
-    v.has_pressure = v.has_alt = v.has_vario = v.has_temperature = true;
+    v.pressure_valid = v.alt_valid = v.vario_valid = v.temperature_valid = true;
     v.pressure_pa = 999999;
     v.alt_m = 99999;
     v.vario_cm_s = 9999;

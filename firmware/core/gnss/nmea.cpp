@@ -240,8 +240,8 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
     last_ = Sentence::Rmc;
     int32_t lat_1e7 = 0;
     int32_t lon_1e7 = 0;
-    solution_.is_fix = f[2][0] == 'A' && nmea_parse_coord(f[3], f[4][0], lat_1e7) &&
-                       nmea_parse_coord(f[5], f[6][0], lon_1e7);
+    solution_.fix_valid = f[2][0] == 'A' && nmea_parse_coord(f[3], f[4][0], lat_1e7) &&
+                          nmea_parse_coord(f[5], f[6][0], lon_1e7);
     solution_.utc_valid = false;
     if (f[1][0] && f[9][0] && strlen(f[1]) >= 6 && strlen(f[9]) >= 6) {
         int hh = d2(f[1]), mm = d2(f[1] + 2), ss = d2(f[1] + 4);
@@ -255,7 +255,7 @@ bool NmeaParser::apply_rmc(const char* f[], int nf) {
             solution_.utc_valid = true;
         }
     }
-    if (solution_.is_fix) {
+    if (solution_.fix_valid) {
         solution_.lat_1e7 = lat_1e7;
         solution_.lon_1e7 = lon_1e7;
         int64_t knots_e2 = 0;

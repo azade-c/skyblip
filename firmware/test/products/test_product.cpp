@@ -363,7 +363,7 @@ TEST_CASE("product: the first fix is announced once, then own-ship settles befor
     // A second acquisition is not a first one: no second chirp, and the shorter
     // wait applies.
     gnss::GnssSolution lost{};
-    lost.is_fix = false;
+    lost.fix_valid = false;
     rig.product.bus().gnss.push(lost);
     rig.run(3050, 3200);
     CHECK_FALSE(fix.settled(3200));

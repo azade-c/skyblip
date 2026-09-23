@@ -159,17 +159,17 @@ int32_t clamp_i32(int32_t v, int32_t low, int32_t high) {
 int format_lk8ex1(char* out, size_t cap, const Lk8Ex1& v) {
     (void)cap;
     const uint32_t pressure =
-        v.has_pressure ? (v.pressure_pa > kLk8MaxPressurePa ? kLk8MaxPressurePa : v.pressure_pa)
-                       : kLk8NoPressurePa;
+        v.pressure_valid ? (v.pressure_pa > kLk8MaxPressurePa ? kLk8MaxPressurePa : v.pressure_pa)
+                         : kLk8NoPressurePa;
     const int32_t alt =
-        v.has_alt ? clamp_i32(v.alt_m, kLk8MinAltitudeM, kLk8MaxAltitudeM) : kLk8NoAltitudeM;
+        v.alt_valid ? clamp_i32(v.alt_m, kLk8MinAltitudeM, kLk8MaxAltitudeM) : kLk8NoAltitudeM;
     const int32_t vario =
-        v.has_vario ? clamp_i32(v.vario_cm_s, kLk8MinVarioCmS, kLk8MaxVarioCmS) : kLk8NoVarioCmS;
+        v.vario_valid ? clamp_i32(v.vario_cm_s, kLk8MinVarioCmS, kLk8MaxVarioCmS) : kLk8NoVarioCmS;
     const int32_t temperature =
-        v.has_temperature ? clamp_i32(v.temperature_c, kLk8MinTemperatureC, kLk8MaxTemperatureC)
-                          : kLk8NoTemperatureC;
+        v.temperature_valid ? clamp_i32(v.temperature_c, kLk8MinTemperatureC, kLk8MaxTemperatureC)
+                            : kLk8NoTemperatureC;
     const uint32_t percent = v.battery_percent > 100 ? 100u : v.battery_percent;
-    const uint32_t battery = v.has_battery ? kLk8BatteryPercentBase + percent : kLk8NoBattery;
+    const uint32_t battery = v.battery_valid ? kLk8BatteryPercentBase + percent : kLk8NoBattery;
 
     int n = 0;
     n += fmt_string(out + n, "$LK8EX1,");

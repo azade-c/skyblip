@@ -50,7 +50,7 @@ TEST_CASE("gnss: RMC updates fix position, time, speed, track") {
     CHECK(p.parse_line(rmc, static_cast<int>(strlen(rmc))));
     CHECK(p.last_sentence() == Sentence::Rmc);
     const GnssSolution& f = p.solution();
-    CHECK(f.is_fix);
+    CHECK(f.fix_valid);
     CHECK(f.utc_valid);
     CHECK(f.lat_1e7 > 480000000);
     CHECK(f.lon_1e7 > 0);
@@ -65,13 +65,13 @@ TEST_CASE("gnss: RMC updates fix position, time, speed, track") {
 TEST_CASE("gnss: an RMC that claims a fix with no position is not a fix, whatever came before") {
     NmeaParser p;
     REQUIRE(parse(p, checksummed("GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230825,,")));
-    REQUIRE(p.solution().is_fix);
+    REQUIRE(p.solution().fix_valid);
 
     REQUIRE(parse(p, checksummed("GPRMC,123520,A,,,,,022.4,084.4,230825,,")));
-    CHECK_FALSE(p.solution().is_fix);
+    CHECK_FALSE(p.solution().fix_valid);
 
     REQUIRE(parse(p, checksummed("GPRMC,123521,A,4807.038,N,,,022.4,084.4,230825,,")));
-    CHECK_FALSE(p.solution().is_fix);
+    CHECK_FALSE(p.solution().fix_valid);
 }
 
 TEST_CASE("gnss: a latitude past 90, a longitude past 180 or a 60th minute is not a fix") {
@@ -83,12 +83,12 @@ TEST_CASE("gnss: a latitude past 90, a longitude past 180 or a 60th minute is no
         CAPTURE(body);
         NmeaParser p;
         REQUIRE(parse(p, checksummed(body)));
-        CHECK_FALSE(p.solution().is_fix);
+        CHECK_FALSE(p.solution().fix_valid);
     }
 
     NmeaParser p;
     REQUIRE(parse(p, checksummed("GPRMC,123519,A,9000.000,S,18000.000,W,022.4,084.4,230825,,")));
-    CHECK(p.solution().is_fix);
+    CHECK(p.solution().fix_valid);
     CHECK(p.solution().lat_1e7 == -900000000);
     CHECK(p.solution().lon_1e7 == -1800000000);
 }
@@ -128,7 +128,7 @@ TEST_CASE("gnss: the MTK year-1980 date is refused, and so is anything before 20
     NmeaParser p;
     const char* lie = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230380,003.1,W*6F";
     REQUIRE(p.parse_line(lie, static_cast<int>(strlen(lie))));
-    CHECK(p.solution().is_fix);  // the receiver still claims a solution
+    CHECK(p.solution().fix_valid);  // the receiver still claims a solution
     CHECK_FALSE(p.solution().utc_valid);
     CHECK(p.solution().utc == 0);
 

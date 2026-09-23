@@ -185,29 +185,29 @@ void NmeaService::emit_vario_and_battery() {
 
     if (context_.state.baro.active) {
         v.pressure_pa = div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000);
-        v.has_pressure = true;
+        v.pressure_valid = true;
         // Field 2 is the 1013.25 datum, the same datum-free figure $PGRMZ
         // carries and for the same reason: the consumer applies its own
         // subscale. A consumer that read field 1 recomputes this and ignores it.
         v.alt_m = div_round(
             flight::pressure_to_alt_cm(div_round<uint32_t>(context_.state.baro.pressure_mpa, 1000)),
             100);
-        v.has_alt = true;
+        v.alt_valid = true;
     }
 
     if (context_.state.baro.temperature_valid) {
         v.temperature_c = div_round<int32_t>(context_.state.baro.temperature_decicelsius, 10);
-        v.has_temperature = true;
+        v.temperature_valid = true;
     }
 
     if (own.climb_valid) {
         const int32_t mm_s = own.climb_mm_s;
         v.vario_cm_s = (mm_s >= 0 ? mm_s + 5 : mm_s - 5) / 10;
-        v.has_vario = true;
+        v.vario_valid = true;
     }
 
     v.battery_percent = context_.state.power.battery.percent;
-    v.has_battery = context_.state.power.battery.valid;
+    v.battery_valid = context_.state.power.battery.valid;
 
     write(sentence_, protocol::format_lk8ex1(sentence_, sizeof(sentence_), v));
 }

@@ -58,7 +58,7 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     acquisition_.observe(solution, now_ms);
     context_.state.gnss.fix_mode = solution.fix_mode;
 
-    own.fix_valid = solution.is_fix;
+    own.fix_valid = solution.fix_valid;
     own.utc_valid = solution.utc_valid;
     own.lat_1e7 = solution.lat_1e7;
     own.lon_1e7 = solution.lon_1e7;
@@ -79,12 +79,12 @@ void OwnshipService::apply_solution(const gnss::GnssSolution& solution, uint32_t
     publish_solution_phase(now_ms);
 
     int32_t mm_s = 0;
-    if (!solution.is_fix) vs_ref_ms_ = 0;
-    const bool have = solution.is_fix && vs_from_alt_mm(solution.alt_mm, now_ms, kGnssVsWindowMs,
-                                                        vs_ref_alt_mm_, vs_ref_ms_, mm_s);
+    if (!solution.fix_valid) vs_ref_ms_ = 0;
+    const bool have = solution.fix_valid && vs_from_alt_mm(solution.alt_mm, now_ms, kGnssVsWindowMs,
+                                                           vs_ref_alt_mm_, vs_ref_ms_, mm_s);
     if (!baro_live_) {
         if (have) adopt_climb(mm_s);
-        if (!solution.is_fix) own.climb_valid = false;
+        if (!solution.fix_valid) own.climb_valid = false;
     }
 
     const flight::FlightState declared = flight_state_from(own, now_ms);

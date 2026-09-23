@@ -381,7 +381,7 @@ void RecordStore::serve(const comms::LogRequest& request) {
 
 void RecordStore::answer_list(const comms::LogRequest& request) {
     const uint16_t to = request.link_session;
-    if (!request.has_index) {
+    if (!request.index_valid) {
         rebuild_index();
         reply(to, comms::format_log_count(pool_.reply_buffer(), pool_.reply_cap(to), session_count_,
                                           index_truncated_, selector()));

@@ -32,7 +32,7 @@ model::OwnState own_from_gnss(const char* rmc, const char* gga) {
     p.parse_line(gga, static_cast<int>(std::strlen(gga)));
     const gnss::GnssSolution& f = p.solution();
     model::OwnState o{};
-    o.fix_valid = f.is_fix;
+    o.fix_valid = f.fix_valid;
     o.utc_valid = f.utc_valid;
     o.pps_locked = true;
     o.lat_1e7 = f.lat_1e7;
