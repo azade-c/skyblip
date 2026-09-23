@@ -85,6 +85,23 @@ TEST_CASE("comms: set on the ground stages, needs confirmation, then applies") {
     CHECK(link.last().bytes.find("\"ack\":true") != std::string::npos);
 }
 
+TEST_CASE("comms: a set that fills the whole frame is staged to its last byte") {
+    platform::host::Link link;
+    link.raise_link(1);
+    go::Settings s = go::defaults();
+    go::SettingsStore store_cs(s, kTestAddr);
+    ConfigService cs(link, store_cs);
+    cs.set_flight_state(flight::FlightState::OnGround);
+
+    const std::string head = "{\"cmd\":\"set\",";
+    const std::string tail = "\"aircraft_type\":4}";
+    const std::string full =
+        head + std::string(events::RxFrame{}.data.size() - head.size() - tail.size(), ' ') + tail;
+    cs.on_rx(frame(full.c_str()));
+    REQUIRE(cs.pending() == Pending::Set);
+    CHECK(std::string(cs.pending_json()) == full);
+}
+
 TEST_CASE("comms: set is REFUSED in flight (fail closed), no staging") {
     platform::host::Link link;
     link.raise_link(1);

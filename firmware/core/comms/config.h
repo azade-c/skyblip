@@ -284,7 +284,7 @@ class ConfigService {
     uint32_t now_ms_{0};
     uint32_t window_opened_ms_{0};
     uint32_t pending_since_ms_{0};
-    char pending_buf_[256]{0};
+    char pending_buf_[sizeof(events::RxFrame::data) + 1]{0};
     int pending_len_{0};
     dfu::ImageState image_state_{dfu::ImageState::Confirmed};
     dfu::UpdateRecord update_record_{};
