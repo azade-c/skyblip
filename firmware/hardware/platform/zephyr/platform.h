@@ -75,7 +75,7 @@ class Platform {
         baro_ = baro76_.ready() ? &baro76_ : (baro77_.ready() ? &baro77_ : nullptr);
         gpio_pin_configure_dt(&button_, GPIO_INPUT);
         gpio_pin_configure_dt(&pad_, GPIO_INPUT);
-        pps_.begin();
+        pps_armed_ = pps_.begin() == Status::Ok;
         return Status::Ok;
     }
 
@@ -98,6 +98,7 @@ class Platform {
     zephyr::Indicator& indicator() { return indicator_; }
     zephyr::Dfu& dfu() { return dfu_; }
     zephyr::Pps& pps() { return pps_; }
+    bool pps_armed() const { return pps_armed_; }
     zephyr::Baro* baro() { return baro_; }
     zephyr::Battery& battery() { return battery_; }
     zephyr::DieTemperature& die_temperature() { return die_temperature_; }
@@ -219,6 +220,7 @@ class Platform {
     zephyr::Battery battery_{battery_dev_};
     zephyr::DieTemperature die_temperature_{};
     zephyr::Pps pps_{};
+    bool pps_armed_{false};
     zephyr::Watchdog watchdog_{};
     zephyr::SystemPower system_power_{button_};
 };
