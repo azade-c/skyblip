@@ -75,6 +75,9 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kRefixSettleMs` | 5000 (5 s) | milliseconds | Settle | [README](../firmware/core/gnss/README.md) argues it |
 | `kSettleResidualM` | `flight::kFlightSpeedMmS / 1000` = 12 | metres | Settle | the takeoff speed over the second a residual spans, so no smaller error invents a flight |
 | `kConvergedFixes` | 3 | fixes | Fixes | - |
+| `kSpeedCeilingMmS` | 514444 (514.444 m/s) | millimetres per second | Ceiling | no aircraft flies past COCOM's 1000 kn, the Karman line, or 1 km under the sea |
+| `kAltitudeCeilingM` | 100000 | metres | Ceiling | - |
+| `kAltitudeFloorM` | -1000 | metres | Floor | - |
 | `kSentenceMaxAgeMs` | 3500 (3.5 s) | milliseconds | MaxAge | SoftRF's NMEA_EXP_TIME: liveness, three missed bursts, not a freshness rule |
 
 ## [`firmware/core/indication`](../firmware/core/indication/README.md)
@@ -238,4 +241,4 @@ in `firmware/products/skyblip_go/settings.h`.
 | `kBaroPpsWindowMs` | `2 * kServiceStepMs` = 20 | milliseconds | Window | - |
 | `kBatteryPeriodMs` | 1000 (1 s) | milliseconds | Period | A cell moves over minutes. The gauge needs three readings before it can throw out a transient, so a second between them is the slowest cadence that still shows the state of charge on the first screen a pilot sees. |
 
-143 constants over 16 folders.
+146 constants over 16 folders.
