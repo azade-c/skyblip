@@ -372,9 +372,11 @@ void from_own(AdslPacket& p, const model::OwnState& own, uint32_t addr, uint8_t 
     // forward to the instant the timestamp names. Past the model's bound the
     // fix goes out as it stands, dated when it was solved: neither half of the
     // pair is allowed to describe an instant the other does not.
-    const flight::Prediction where = flight::extrapolate(own, at.since_fix_ms);
-    p.TimeStamp =
-        timestamp_code(at.utc, where.valid ? at.into_utc_ms : at.into_utc_ms - at.since_fix_ms);
+    const int32_t named_ms =
+        at.into_utc_ms - at.into_utc_ms % static_cast<int32_t>(kTimeStampQuarterMs);
+    const flight::Prediction where =
+        flight::extrapolate(own, at.since_fix_ms - (at.into_utc_ms - named_ms));
+    p.TimeStamp = timestamp_code(at.utc, where.valid ? named_ms : at.into_utc_ms - at.since_fix_ms);
     p.FlightState = flight::announced_state(own.flight_state, aircraft_cat);
     p.AcftCat = aircraft_cat;
     p.Emergency = 1;

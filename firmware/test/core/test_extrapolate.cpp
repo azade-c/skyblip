@@ -196,7 +196,7 @@ TEST_CASE("extrapolate: the residual is what the model missed, in metres") {
 }
 
 // F3. The burst leaves a second after its solution: as it stands, it is 50 m behind at 50 m/s.
-TEST_CASE("adsl: the transmitted position is the position at the instant transmitted") {
+TEST_CASE("adsl: the transmitted position is the position at the quarter second it names") {
     model::OwnState own{};
     own.fix_valid = true;
     own.lat_1e7 = 485000000;
@@ -212,21 +212,16 @@ TEST_CASE("adsl: the transmitted position is the position at the instant transmi
     from_own(at_fix, own, 0xABCDEF, 6, 4);
     CHECK(int(at_fix.TimeStamp) == 40);  // 10 s, quarter zero
 
-    // 600 ms later: the timestamp advances by two whole quarters and one that
-    // rounds down, and the position advances with it.
+    // A burst 600 ms later names the quarter at 500 ms, and the position goes to it.
     AdslPacket in_flight{};
     from_own(in_flight, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, 600, 600});
     CHECK(int(in_flight.TimeStamp) == 42);
     CHECK(in_flight.alt_m() == at_fix.alt_m() + 1);
     CHECK(in_flight.lat_1e7() == at_fix.lat_1e7());
 
-    // 30 m of easting at 50 m/s, inside the 2.4 m the longitude field quantises
-    // to at this latitude.
+    // 25 m of easting at 50 m/s over 500 ms, inside the 2.4 m the longitude field quantises to.
     const double east_m = (in_flight.lon_1e7() - at_fix.lon_1e7()) * 0.011132 * 0.6626;
-    CHECK(east_m == doctest::Approx(30.0).epsilon(0.1));
-    // Thirty metres is what the encoder used to put on air, every second, in
-    // the direction of travel, under a timestamp that claimed otherwise.
-    CHECK(east_m > 25.0);
+    CHECK(east_m == doctest::Approx(25.0).epsilon(0.1));
 }
 
 // The bound, and the side of it we chose: a gap the model cannot cover is not
@@ -251,8 +246,9 @@ TEST_CASE("adsl: past the extrapolation bound the fix goes out dated as the fix"
     CHECK(inside.lon_1e7() != at_fix.lon_1e7());
     CHECK(int(inside.TimeStamp) == timestamp_code(own.utc, bound));
 
+    const int32_t past = bound + static_cast<int32_t>(kTimeStampQuarterMs);
     AdslPacket beyond{};
-    from_own(beyond, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, bound + 1, bound + 1});
+    from_own(beyond, own, 0xABCDEF, 6, 4, BurstInstant{own.utc, past, past});
     CHECK(beyond.lon_1e7() == at_fix.lon_1e7());
     CHECK(beyond.lat_1e7() == at_fix.lat_1e7());
     CHECK(int(beyond.TimeStamp) == int(at_fix.TimeStamp));
