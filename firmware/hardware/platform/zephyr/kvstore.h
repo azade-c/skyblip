@@ -33,6 +33,8 @@ class KvStore : public ports::KvStore {
     Status read(const char* key, uint8_t* buf, size_t cap, size_t& out_len) override {
         ssize_t n = nvs_read(&fs_, id(key), buf, cap);
         if (n <= 0) return Status::NotFound;
+        // INFO: fc 23sep26 nvs_read answers the stored length, and copies only cap of it
+        if (static_cast<size_t>(n) > cap) return Status::OutOfRange;
         out_len = static_cast<size_t>(n);
         return Status::Ok;
     }
