@@ -1,5 +1,7 @@
 // Airborne or not, from the fix stream: it gates the DFU lockout and the transmit rate, never a
 // page.
+#include <initializer_list>
+
 #include "core/flight/ground.h"
 #include "core/flight/state.h"
 #include "doctest/doctest.h"

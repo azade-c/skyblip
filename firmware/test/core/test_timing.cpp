@@ -3,6 +3,8 @@
 // runs past its edge or a burst that starts too late to finish inside the direct
 // slot transmits into someone else's window, and a device that keeps transmitting
 // once UTC is gone does it blind. Without a clock the answer is listen only.
+#include <initializer_list>
+
 #include "core/model/ownship.h"
 #include "core/timing/channel.h"
 #include "core/timing/slot.h"
