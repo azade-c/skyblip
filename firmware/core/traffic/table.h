@@ -95,9 +95,17 @@ class TrafficTable {
     uint8_t own_addr_table_{0};
     uint32_t implausible_{0};
 
+    struct Weight {
+        int32_t slant_m;
+        int rank;
+        uint32_t age_s;
+    };
+
     static bool prefer_new(const model::AircraftObs& incoming, const model::AircraftObs& existing);
     static void sample_turn(TargetTurn& turn, const model::AircraftObs& obs);
-    int allocate_slot(uint32_t now);
+    static bool matters_less(const Weight& a, const Weight& b);
+    Weight weight_of(const model::AircraftObs& obs, uint32_t now) const;
+    int allocate_slot(const model::AircraftObs& incoming, uint32_t now);
 };
 
 }
