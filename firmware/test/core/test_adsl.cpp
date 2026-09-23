@@ -117,6 +117,20 @@ TEST_CASE("adsl: multi-bit errors within flagged (weak) bits are corrected") {
     CHECK(p.check_crc() == 0);
 }
 
+TEST_CASE("adsl: a flagged bit past the eighth is searched, not wrapped back onto the first") {
+    AdslPacket p = make_reference();
+    p.scramble();
+    p.set_crc();
+    const AdslPacket sent = p;
+    uint8_t err[AdslPacket::kDataBytes] = {0};
+    for (int byte = 2; byte < 12; byte++) err[byte] = 0x10;
+    for (int byte : {9, 10, 11}) p.Data[byte] ^= 0x10;
+    REQUIRE(p.check_crc() != 0);
+
+    CHECK(p.correct(err, 16) == 3);
+    CHECK(std::memcmp(p.Data, sent.Data, AdslPacket::kDataBytes) == 0);
+}
+
 TEST_CASE("adsl: Monte-Carlo BER, detected vs silent miscorrection accounting") {
     // Push random-ish bit errors, some flagged (weak) and some not, and count:
     //   good      = decoded to the exact original codeword

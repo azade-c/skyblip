@@ -227,10 +227,10 @@ int AdslPacket::correct(const uint8_t* err, int max_bad_bits) {
     if (bad > max_bad_bits) return -1;
 
     int loops = 1 << bad;
-    uint8_t prev_gray = 0;
+    uint16_t prev_gray = 0;
     for (int i = 1; i < loops; i++) {
-        uint8_t gray = static_cast<uint8_t>(i ^ (i >> 1));
-        uint8_t bit_exp = gray ^ prev_gray;
+        uint16_t gray = static_cast<uint16_t>(i ^ (i >> 1));
+        uint16_t bit_exp = gray ^ prev_gray;
         int bit = 0;
         while (bit_exp >>= 1) bit++;
         data[idx[bit]] ^= mask[bit];
