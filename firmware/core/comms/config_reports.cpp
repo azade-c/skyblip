@@ -63,13 +63,14 @@ void ConfigService::send_timing() {
         return;
     }
     TimingReport report(*timing_stats_);
-    if (!report.fits(payload())) {
+    const int payload = payload_to(claim_.holder());
+    if (!report.fits(payload)) {
         diag_.link_drops++;
         return;
     }
     char buf[kTimingFrameCap];
     while (!report.exhausted()) {
-        const int len = report.next_frame(payload(), buf, static_cast<int>(sizeof(buf)));
+        const int len = report.next_frame(payload, buf, static_cast<int>(sizeof(buf)));
         if (len <= 0) {
             diag_.link_drops++;
             return;
@@ -153,13 +154,14 @@ void ConfigService::send_diagnostics() {
 }
 
 void ConfigService::send_report(DiagnosticsReport& report) {
-    if (!report.fits(payload())) {
+    const int payload = payload_to(claim_.holder());
+    if (!report.fits(payload)) {
         diag_.link_drops++;
         return;
     }
     char buf[DiagnosticsReport::kFrameCap];
     while (!report.exhausted()) {
-        const int len = report.next_frame(payload(), buf, static_cast<int>(sizeof(buf)));
+        const int len = report.next_frame(payload, buf, static_cast<int>(sizeof(buf)));
         if (len <= 0) {
             diag_.link_drops++;
             return;

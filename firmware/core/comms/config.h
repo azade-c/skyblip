@@ -230,6 +230,7 @@ class ConfigService {
     void note_down(uint16_t session_id);
     bool up(uint16_t session_id) const;
     int payload() const;
+    int payload_to(uint16_t session_id) const;
     void stage(Pending pending, const char* reason);
     void ack(bool ok, const char* reason);
     void send_status();

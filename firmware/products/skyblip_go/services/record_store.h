@@ -55,8 +55,8 @@ class RecordPool {
     bool write_header(uint32_t sector, const store::SectorHeader& header);
     bool erase(uint32_t sector);
 
-    int payload_bytes() const;
-    int reply_cap() const;
+    int payload_bytes(uint16_t to) const;
+    int reply_cap(uint16_t to) const;
     char* reply_buffer() { return reply_; }
     uint8_t* chunk_buffer() { return chunk_; }
     void send(uint16_t to, int len);

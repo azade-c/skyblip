@@ -291,6 +291,14 @@ uint16_t Link::payload_bytes() const {
     return smallest < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : smallest;
 }
 
+uint16_t Link::payload_bytes_to(uint16_t session_id) const {
+    struct bt_conn* conn = conn_of(session_id);
+    if (conn == nullptr) return ports::kMinimumLinkPayload;
+    const uint16_t payload = payload_from_mtu(bt_gatt_get_mtu(conn));
+    bt_conn_unref(conn);
+    return payload < ports::kMinimumLinkPayload ? ports::kMinimumLinkPayload : payload;
+}
+
 Status Link::notify_one(struct bt_conn* conn, Endpoint ep, ConstByteSpan bytes) {
     const struct bt_gatt_attr* attrs[kMaxNotifyAttrs] = {};
     const int n = notify_attrs(ep, attrs);
@@ -333,7 +341,7 @@ Status Link::send(Endpoint ep, ConstByteSpan bytes) {
 }
 
 Status Link::send_to(uint16_t session_id, Endpoint ep, ConstByteSpan bytes) {
-    if (bytes.size() > payload_bytes()) return Status::OutOfRange;
+    if (bytes.size() > payload_bytes_to(session_id)) return Status::OutOfRange;
     struct bt_conn* conn = conn_of(session_id);
     if (conn == nullptr) return Status::Down;
     const Status sent = notify_one(conn, ep, bytes);

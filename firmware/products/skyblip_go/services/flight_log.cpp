@@ -51,8 +51,8 @@ bool FlightLogService::on_ground() const {
 
 void FlightLogService::ack(comms::LogStore store, bool ok, const char* reason) {
     RecordPool& pool = flights_.pool();
-    pool.send(reply_to_,
-              comms::format_log_ack(pool.reply_buffer(), pool.reply_cap(), ok, reason, store));
+    pool.send(reply_to_, comms::format_log_ack(pool.reply_buffer(), pool.reply_cap(reply_to_), ok,
+                                               reason, store));
 }
 
 RecordStore* FlightLogService::store_for(comms::LogStore store) {

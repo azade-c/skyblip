@@ -65,6 +65,9 @@ class Link : public ports::Link {
     }
 
     uint16_t payload_bytes() const override { return sessions_.payload_bytes(); }
+    uint16_t payload_bytes_to(uint16_t session_id) const override {
+        return sessions_.payload_bytes(session_id);
+    }
 
     Status send(events::Endpoint ep, ConstByteSpan bytes) override { return record(0, ep, bytes); }
 
@@ -101,7 +104,7 @@ class Link : public ports::Link {
     Status record(uint16_t session_id, events::Endpoint ep, ConstByteSpan bytes) {
         // The controller's refusal, modelled: an oversized notification is not
         // shortened, it fails, so no case can pass by sending one.
-        if (bytes.size() > payload_bytes()) {
+        if (bytes.size() > (session_id == 0 ? payload_bytes() : payload_bytes_to(session_id))) {
             refused_oversize++;
             return Status::OutOfRange;
         }

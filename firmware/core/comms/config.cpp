@@ -124,6 +124,10 @@ void ConfigService::set_battery_state(const power::BatteryState& battery, power:
 
 int ConfigService::payload() const { return static_cast<int>(link_.payload_bytes()); }
 
+int ConfigService::payload_to(uint16_t session_id) const {
+    return static_cast<int>(link_.payload_bytes_to(session_id));
+}
+
 // INFO: fc 04aug26 The only door to the link, and it refuses out loud. A frame
 // longer than the negotiated payload is not shortened by the controller, it
 // fails, so it is counted here and never handed down. Everything that comes
@@ -146,7 +150,7 @@ Status ConfigService::broadcast(const char* json, int len) {
 }
 
 Status ConfigService::reply_to(uint16_t session_id, const char* json, int len) {
-    if (len <= 0 || len > payload()) {
+    if (len <= 0 || len > payload_to(session_id)) {
         diag_.link_drops++;
         return Status::OutOfRange;
     }

@@ -30,6 +30,7 @@ class Link {
     //
     // INFO: fc 18sep26 With several centrals this is the smallest, one frame goes to all.
     virtual uint16_t payload_bytes() const { return kMinimumLinkPayload; }
+    virtual uint16_t payload_bytes_to(uint16_t /*session_id*/) const { return payload_bytes(); }
 
     // INFO: fc 04aug26 Longer than payload_bytes() is refused, never truncated:
     // a controller does not shorten an oversized notification, it fails it, and
