@@ -39,8 +39,8 @@ jobs:
     outputs:
       firmware: ${{ steps.filter.outputs.firmware }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -54,7 +54,7 @@ jobs:
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-26.04-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
       - name: build & run host tests
         working-directory: firmware
         run: make test
@@ -101,7 +101,7 @@ jobs:
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-26.04-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
       - name: build & run host tests under ASan and UBSan
         working-directory: firmware
         env:
@@ -116,7 +116,7 @@ jobs:
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-26.04-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
       # Pinned in .github/lint/requirements.txt, where Dependabot can see them:
       # the runner image ships clang-format 18, which reformats brace-init
       # differently, so an unpinned formatter is a gate that changes its mind.
@@ -150,10 +150,10 @@ jobs:
 #     # (FindZephyr-sdk.cmake:57 dies on an empty variable).
 #     runs-on: ubuntu-24.04
 #     steps:
-#       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+#       - uses: actions/checkout@v7
 #
 #       - name: set up Zephyr
-#         uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+#         uses: zephyrproject-rtos/action-zephyr-setup@v1
 #         with:
 #           app-path: firmware
 #           manifest-file-name: west.yml
@@ -284,7 +284,7 @@ jobs:
 #           cp "$zephyr/zephyr.signed.confirmed.bin" "$slug.signed.confirmed.bin"
 #
 #       - name: upload firmware artifacts
-#         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+#         uses: actions/upload-artifact@v7
 #         with:
 #           name: ${{ matrix.slug }}_firmware
 #           path: firmware/build/out/*
@@ -298,7 +298,7 @@ jobs:
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
 
       # Restored before the setup action runs its `west update`, which then finds
       # every pinned revision already checked out and fetches nothing. The action
@@ -306,7 +306,7 @@ jobs:
       # most of the minute it spends. Keyed on the manifest, the only thing that
       # can move them.
       - name: cache the west workspace
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@v6
         with:
           path: |
             zephyr
@@ -315,7 +315,7 @@ jobs:
           key: west-${{ hashFiles('firmware/west.yml') }}
 
       - name: set up Zephyr
-        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
         with:
           app-path: firmware
           manifest-file-name: west.yml
