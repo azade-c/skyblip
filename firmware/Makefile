@@ -1,6 +1,7 @@
 # Host unit-test + simulator build. Depends on nothing but a C++ compiler.
 #
 #   make test        build + run all host doctest suites
+#   make test-sanitize  the same suites under ASan + UBSan, in build/sanitize/
 #   make tidy        clang-tidy the sources the host build compiles
 #   make simulator   terminal simulator
 #   make browser     compile the WASM the browser page drives
@@ -27,12 +28,16 @@ CXXFLAGS := -std=c++17 -O1 -g -Wall -Wextra -Wshadow -Werror \
             -DDOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
 LDFLAGS  :=
 
-# Empty unless `make test-sanitize` sets it. A read one byte past a frame passes
-# a test by luck; under ASan it is the test that fails, at the line that read.
-SANITIZE ?=
-CXXFLAGS += $(SANITIZE)
+# GCC's undefined leaves out float-cast-overflow, clang's includes it.
+SANITIZE_FLAGS := -fsanitize=address,undefined,float-cast-overflow \
+                  -fno-sanitize-recover=all -fno-omit-frame-pointer
 
+# One switch for the flags and the tree, so instrumented objects never mix with plain ones.
 BUILD := build
+ifdef SANITIZE
+BUILD := build/sanitize
+CXXFLAGS += $(SANITIZE_FLAGS)
+endif
 
 # Every layer is globbed: a file that exists is a file that is compiled and
 # tested. Zephyr-only sources are inert on the host (guarded by __ZEPHYR__) and
@@ -73,16 +78,8 @@ all: test
 test: $(BIN)
 	$(BIN)
 
-# The same suite, rebuilt under AddressSanitizer and UndefinedBehaviorSanitizer
-# in its own tree, so the plain build's objects are never mixed with these.
-# -fno-sanitize-recover: a signed overflow in the bit-math is a failed run, not
-# a line in a log nobody reads.
-SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
-                  -fno-omit-frame-pointer
-
 test-sanitize:
-	@$(MAKE) --no-print-directory test BUILD=$(BUILD)/sanitize \
-	  SANITIZE="$(SANITIZE_FLAGS)"
+	@UBSAN_OPTIONS=print_stacktrace=1 $(MAKE) --no-print-directory test SANITIZE=1
 
 # Same $(SRC) the host build compiles, so no workflow ever restates the list, and
 # the same flags less the ones that write dependency files. clang-tidy cannot
