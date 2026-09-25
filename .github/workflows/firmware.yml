@@ -89,6 +89,21 @@ jobs:
           python3 scripts/tuning_index.py
           git diff --exit-code docs/TUNING.md
 
+  # The suite again under ASan and UBSan. A read past a frame or a shift of a
+  # negative value passes a test by luck, and -O2 on the target is not bound by
+  # what -O1 on the host happened to do. Its own job: it runs beside host-tests
+  # rather than after it, and a failure here names the sanitizer, not the gates.
+  host-tests-sanitized:
+    name: host unit tests (ASan + UBSan)
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true'
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - name: build & run host tests under sanitizers
+        working-directory: firmware
+        run: make test-sanitize
+
   lint:
     name: clang-format + clang-tidy
     needs: changes

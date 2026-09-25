@@ -27,6 +27,11 @@ CXXFLAGS := -std=c++17 -O1 -g -Wall -Wextra -Wshadow -Werror \
             -DDOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
 LDFLAGS  :=
 
+# Empty unless `make test-sanitize` sets it. A read one byte past a frame passes
+# a test by luck; under ASan it is the test that fails, at the line that read.
+SANITIZE ?=
+CXXFLAGS += $(SANITIZE)
+
 BUILD := build
 
 # Every layer is globbed: a file that exists is a file that is compiled and
@@ -62,11 +67,22 @@ WEB_BUILD := $(BUILD)/web
 WEB_OBJ := $(patsubst %.cpp,$(WEB_BUILD)/%.o,$(WEB_SRC))
 WEB_CXXFLAGS := -std=c++17 -O2 -I. -Ivendor -fno-exceptions -fno-rtti -MMD -MP
 
-.PHONY: test all clean simulator browser watch tidy
+.PHONY: test test-sanitize all clean simulator browser watch tidy
 all: test
 
 test: $(BIN)
 	$(BIN)
+
+# The same suite, rebuilt under AddressSanitizer and UndefinedBehaviorSanitizer
+# in its own tree, so the plain build's objects are never mixed with these.
+# -fno-sanitize-recover: a signed overflow in the bit-math is a failed run, not
+# a line in a log nobody reads.
+SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
+                  -fno-omit-frame-pointer
+
+test-sanitize:
+	@$(MAKE) --no-print-directory test BUILD=$(BUILD)/sanitize \
+	  SANITIZE="$(SANITIZE_FLAGS)"
 
 # Same $(SRC) the host build compiles, so no workflow ever restates the list, and
 # the same flags less the ones that write dependency files. clang-tidy cannot
